@@ -1,5 +1,7 @@
-export const navigate = (path: string) => {
+export const navigate = (path: string, event?: MouseEvent) => {
     if (typeof window === 'undefined') return
+
+    event?.preventDefault()
 
     const normalized = path.startsWith('/') ? path : `/${path}`
     if (window.location.pathname === normalized) return

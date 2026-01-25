@@ -55,16 +55,15 @@ const extractRateLimit = (response: Response, data: any): RateLimitInfo | undefi
     const remaining = Number(response.headers.get('x-ratelimit-remaining'))
     const resetSeconds = Number(response.headers.get('x-ratelimit-reset'))
 
-    if (Number.isFinite(limit) && Number.isFinite(remaining) && Number.isFinite(resetSeconds))
+    if (Number.isFinite(limit) && Number.isFinite(remaining) && Number.isFinite(resetSeconds)) {
         return { limit, remaining, reset_seconds: resetSeconds }
+    }
 
     return undefined
 }
 
 const buildHeaders = (withAuth: boolean, tokenOverride?: string) => {
-    const headers: Record<string, string> = {
-        Accept: 'application/json',
-    }
+    const headers: Record<string, string> = { Accept: 'application/json' }
 
     if (withAuth) {
         const token = tokenOverride ?? get(authStore).accessToken
@@ -138,7 +137,6 @@ const request = async <T>(
         try {
             const newToken = await refreshToken()
             const retryHeaders = buildHeaders(true, newToken)
-
             if (body !== undefined) retryHeaders['Content-Type'] = 'application/json'
 
             const retryResponse = await fetch(`${API_BASE}${path}`, {
@@ -149,9 +147,7 @@ const request = async <T>(
 
             if (retryResponse.ok) {
                 if (retryResponse.status === 204) return null as T
-                const data = await parseJson(retryResponse)
-
-                return data as T
+                return (await parseJson(retryResponse)) as T
             }
 
             const retryData = await parseJson(retryResponse)
@@ -164,7 +160,6 @@ const request = async <T>(
         } catch (error) {
             if (error instanceof ApiError) throw error
             clearAuth()
-
             throw new ApiError('invalid credentials', 401)
         }
     }
@@ -184,10 +179,7 @@ export const api = {
         return request<RegisterResponse>(`/api/auth/register`, { method: 'POST', body: payload })
     },
     login: async (payload: LoginPayload) => {
-        const data = await request<AuthResponse>(`/api/auth/login`, {
-            method: 'POST',
-            body: payload,
-        })
+        const data = await request<AuthResponse>(`/api/auth/login`, { method: 'POST', body: payload })
         setAuthTokens(data.access_token, data.refresh_token)
         setAuthUser(data.user)
         return data
@@ -201,15 +193,9 @@ export const api = {
         await request(`/api/auth/logout`, { method: 'POST', body: { refresh_token: refreshTokenValue } })
         clearAuth()
     },
-    me: () => {
-        return request<AuthUser>(`/api/me`, { auth: true })
-    },
-    solved: () => {
-        return request<SolvedChallenge[]>(`/api/me/solved`, { auth: true })
-    },
-    challenges: () => {
-        return request<Challenge[]>(`/api/challenges`)
-    },
+    me: () => request<AuthUser>(`/api/me`, { auth: true }),
+    solved: () => request<SolvedChallenge[]>(`/api/me/solved`, { auth: true }),
+    challenges: () => request<Challenge[]>(`/api/challenges`),
     submitFlag: (id: number, flag: string) => {
         return request<FlagSubmissionResult>(`/api/challenges/${id}/submit`, {
             method: 'POST',
@@ -217,15 +203,10 @@ export const api = {
             auth: true,
         })
     },
-    scoreboard: (limit = 50) => {
-        return request<ScoreEntry[]>(`/api/scoreboard?limit=${limit}`)
-    },
+    scoreboard: (limit = 50) => request<ScoreEntry[]>(`/api/scoreboard?limit=${limit}`),
     timeline: (interval = 10, limit = 50, windowMinutes?: number) => {
-        return request<TimelineResponse>(
-            `/api/scoreboard/timeline?interval=${interval}&limit=${limit}${
-                typeof windowMinutes === 'number' ? `&window=${windowMinutes}` : ''
-            }`,
-        )
+        const windowParam = typeof windowMinutes === 'number' ? `&window=${windowMinutes}` : ''
+        return request<TimelineResponse>(`/api/scoreboard/timeline?interval=${interval}&limit=${limit}${windowParam}`)
     },
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })

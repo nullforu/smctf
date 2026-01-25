@@ -1,7 +1,6 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte'
     import { get } from 'svelte/store'
-    import { authStore, type AuthState } from '../lib/stores'
+    import { authStore } from '../lib/stores'
     import { api } from '../lib/api'
     import { formatApiError, type FieldErrors } from '../lib/utils'
     import { navigate } from '../lib/router'
@@ -11,18 +10,14 @@
     let loading = $state(false)
     let errorMessage = $state('')
     let fieldErrors: FieldErrors = $state({})
-    let auth = $state<AuthState>(get(authStore))
+    let auth = $state(get(authStore))
 
-    onDestroy(
-        authStore.subscribe((value) => {
+    $effect(() => {
+        const unsubscribe = authStore.subscribe((value) => {
             auth = value
-        }),
-    )
-
-    const onNav = (event: MouseEvent, path: string) => {
-        event.preventDefault()
-        navigate(path)
-    }
+        })
+        return unsubscribe
+    })
 
     const submit = async () => {
         loading = true
@@ -50,7 +45,7 @@
             {#if auth.user}
                 <div class="mt-6 rounded-xl border border-teal-500/40 bg-teal-500/10 p-4 text-sm text-teal-200">
                     이미 {auth.user.username} 계정으로 로그인되어 있습니다.
-                    <a class="ml-2 underline" href="/challenges" onclick={(event) => onNav(event, '/challenges')}
+                    <a class="ml-2 underline" href="/challenges" onclick={(e) => navigate('/challenges', e)}
                         >바로 이동</a
                     >
                 </div>
@@ -115,7 +110,7 @@
                     아직 계정이 없다면 <a
                         class="text-teal-200 underline"
                         href="/register"
-                        onclick={(event) => onNav(event, '/register')}>가입</a
+                        onclick={(e) => navigate('/register', e)}>가입</a
                     >하세요.
                 </li>
             </ul>

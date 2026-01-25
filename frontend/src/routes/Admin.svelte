@@ -1,7 +1,6 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte'
     import { get } from 'svelte/store'
-    import { authStore, type AuthState } from '../lib/stores'
+    import { authStore } from '../lib/stores'
     import { api } from '../lib/api'
     import { formatApiError, type FieldErrors } from '../lib/utils'
 
@@ -15,13 +14,14 @@
     let errorMessage = $state('')
     let fieldErrors: FieldErrors = $state({})
     let successMessage = $state('')
-    let auth = $state<AuthState>(get(authStore))
+    let auth = $state(get(authStore))
 
-    onDestroy(
-        authStore.subscribe((value) => {
+    $effect(() => {
+        const unsubscribe = authStore.subscribe((value) => {
             auth = value
-        }),
-    )
+        })
+        return unsubscribe
+    })
 
     const submit = async () => {
         loading = true

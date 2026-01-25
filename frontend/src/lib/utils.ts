@@ -17,10 +17,7 @@ export const formatApiError = (error: unknown) => {
             return { message, fieldErrors }
         }
 
-        return {
-            message: error.message,
-            fieldErrors,
-        }
+        return { message: error.message, fieldErrors }
     }
     return { message: 'network error or unexpected error', fieldErrors: {} }
 }

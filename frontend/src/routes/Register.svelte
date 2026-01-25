@@ -11,11 +11,6 @@
     let fieldErrors: FieldErrors = $state({})
     let success = $state(false)
 
-    const onNav = (event: MouseEvent, path: string) => {
-        event.preventDefault()
-        navigate(path)
-    }
-
     const submit = async () => {
         loading = true
         success = false
@@ -108,7 +103,7 @@
                         계정이 생성되었습니다. 이제 <a
                             class="underline"
                             href="/login"
-                            onclick={(event) => onNav(event, '/login')}>로그인</a
+                            onclick={(e) => navigate('/login', e)}>로그인</a
                         > 하세요.
                     </p>
                 {/if}

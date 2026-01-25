@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { onDestroy, onMount } from 'svelte'
+    import { onMount } from 'svelte'
     import { get } from 'svelte/store'
-    import { authStore, type AuthState } from '../lib/stores'
+    import { authStore } from '../lib/stores'
     import { api } from '../lib/api'
     import type { SolvedChallenge } from '../lib/types'
     import { formatApiError, formatDateTime } from '../lib/utils'
@@ -10,20 +10,16 @@
     let solved: SolvedChallenge[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
-    let auth = $state<AuthState>(get(authStore))
+    let auth = $state(get(authStore))
 
-    const formatDateTimeSafe = formatDateTime
+    const formatDateTimeLocal = formatDateTime
 
-    onDestroy(
-        authStore.subscribe((value) => {
+    $effect(() => {
+        const unsubscribe = authStore.subscribe((value) => {
             auth = value
-        }),
-    )
-
-    const onNav = (event: MouseEvent, path: string) => {
-        event.preventDefault()
-        navigate(path)
-    }
+        })
+        return unsubscribe
+    })
 
     const loadSolved = async () => {
         if (!auth.user) return
@@ -52,8 +48,7 @@
 
     {#if !auth.user}
         <div class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-100">
-            <a class="underline" href="/login" onclick={(event) => onNav(event, '/login')}>로그인</a> 후 프로필을 확인할 수
-            있습니다.
+            <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>로그인</a> 후 프로필을 확인할 수 있습니다.
         </div>
     {:else}
         <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_1.3fr]">
@@ -97,7 +92,7 @@
                                     <span class="text-sm text-slate-100">{item.title}</span>
                                     <span class="text-xs text-teal-200">{item.points} pts</span>
                                 </div>
-                                <p class="mt-2 text-xs text-slate-400">{formatDateTimeSafe(item.solved_at)}</p>
+                                <p class="mt-2 text-xs text-slate-400">{formatDateTimeLocal(item.solved_at)}</p>
                             </div>
                         {/each}
                         {#if solved.length === 0}

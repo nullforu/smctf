@@ -88,46 +88,38 @@ export const buildChartModel = (
     const resolvedWidth = Math.max(chartLayout.width, baseWidth)
 
     const users = data.users.slice(0, Math.min(chartUserLimit, data.users.length))
+
     if (users.length === 0) return null
 
     const now = Date.now()
     const safeWindowMinutes = Number.isFinite(windowMinutesValue) && windowMinutesValue > 0 ? windowMinutesValue : 60
-
     const windowStart = now - safeWindowMinutes * 60 * 1000
     const windowEnd = now
-
     const span = Math.max(1, windowEnd - windowStart)
 
     const plotWidth = resolvedWidth - chartLayout.padding.left - chartLayout.padding.right
     const plotHeight = chartLayout.height - chartLayout.padding.top - chartLayout.padding.bottom
 
     const events = (data.events || [])
-        .map((event) => ({
-            event,
-            time: new Date(event.submitted_at).getTime(),
-        }))
-        .filter((entry) => !Number.isNaN(entry.time))
-        .filter((entry) => entry.time >= windowStart && entry.time <= windowEnd)
+        .map((event) => ({ event, time: new Date(event.submitted_at).getTime() }))
+        .filter((entry) => !Number.isNaN(entry.time) && entry.time >= windowStart && entry.time <= windowEnd)
         .sort((a, b) => a.time - b.time)
 
     const eventsByUser = new Map<number, TimelineEvent[]>()
-
     for (const user of users) {
         eventsByUser.set(user.user_id, [])
     }
-
     for (const entry of events) {
-        if (!eventsByUser.has(entry.event.user_id)) continue
-        eventsByUser.get(entry.event.user_id)?.push(entry.event)
+        if (eventsByUser.has(entry.event.user_id)) {
+            eventsByUser.get(entry.event.user_id)?.push(entry.event)
+        }
     }
 
     let maxValue = 0
-
     for (const userEvents of eventsByUser.values()) {
         const total = userEvents.reduce((sum, ev) => sum + ev.points, 0)
         if (total > maxValue) maxValue = total
     }
-
     const safeMax = Math.max(1, maxValue)
 
     const xScale = (time: number) => chartLayout.padding.left + ((time - windowStart) / span) * plotWidth
@@ -141,7 +133,6 @@ export const buildChartModel = (
         for (const event of userEvents) {
             const time = new Date(event.submitted_at).getTime()
             const clampedTime = Math.min(windowEnd, Math.max(windowStart, time))
-
             runningScore += event.points
             eventPoints.push({
                 event,
@@ -178,10 +169,7 @@ export const buildChartModel = (
     const timeTickCount = 4
     const timeTicks = Array.from({ length: timeTickCount + 1 }, (_, idx) => {
         const time = windowStart + (span / timeTickCount) * idx
-        return {
-            x: xScale(time),
-            label: formatTime(new Date(time).toISOString()),
-        }
+        return { x: xScale(time), label: formatTime(new Date(time).toISOString()) }
     })
 
     return {

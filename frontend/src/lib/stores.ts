@@ -9,36 +9,30 @@ export interface AuthState {
 
 const STORAGE_KEY = 'smctf.auth'
 
+const emptyAuth = (): AuthState => ({ accessToken: null, refreshToken: null, user: null })
+
 const loadAuth = (): AuthState => {
-    if (typeof localStorage === 'undefined') {
-        return { accessToken: null, refreshToken: null, user: null }
-    }
+    if (typeof localStorage === 'undefined') return emptyAuth()
 
     try {
         const raw = localStorage.getItem(STORAGE_KEY)
-        if (!raw) return { accessToken: null, refreshToken: null, user: null }
+        if (!raw) return emptyAuth()
 
-        const parsed = JSON.parse(raw) as AuthState
-        return {
-            accessToken: parsed.accessToken ?? null,
-            refreshToken: parsed.refreshToken ?? null,
-            user: parsed.user ?? null,
-        }
+        return JSON.parse(raw) as AuthState
     } catch {
-        return { accessToken: null, refreshToken: null, user: null }
+        return emptyAuth()
     }
 }
 
 const persistAuth = (state: AuthState) => {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    }
 }
 
 export const authStore = writable<AuthState>(loadAuth())
 
-authStore.subscribe((value) => {
-    persistAuth(value)
-})
+authStore.subscribe(persistAuth)
 
 export const setAuthTokens = (accessToken: string, refreshToken: string) => {
     authStore.update((state) => ({ ...state, accessToken, refreshToken }))
@@ -49,5 +43,5 @@ export const setAuthUser = (user: AuthUser | null) => {
 }
 
 export const clearAuth = () => {
-    authStore.set({ accessToken: null, refreshToken: null, user: null })
+    authStore.set(emptyAuth())
 }
