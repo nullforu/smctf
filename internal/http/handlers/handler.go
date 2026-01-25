@@ -33,8 +33,9 @@ func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, 
 }
 
 type errorResponse struct {
-	Error   string               `json:"error"`
-	Details []service.FieldError `json:"details,omitempty"`
+	Error     string                 `json:"error"`
+	Details   []service.FieldError   `json:"details,omitempty"`
+	RateLimit *service.RateLimitInfo `json:"rate_limit,omitempty"`
 }
 
 func writeError(c *gin.Context, err error) {
@@ -48,6 +49,17 @@ func writeError(c *gin.Context, err error) {
 		msg = ve.Error()
 		details = ve.Fields
 		c.JSON(status, errorResponse{Error: msg, Details: details})
+		return
+	}
+
+	var rl *service.RateLimitError
+	if errors.As(err, &rl) {
+		status = http.StatusTooManyRequests
+		msg = err.Error()
+		c.Header("X-RateLimit-Limit", strconv.Itoa(rl.Info.Limit))
+		c.Header("X-RateLimit-Remaining", strconv.Itoa(rl.Info.Remaining))
+		c.Header("X-RateLimit-Reset", strconv.Itoa(rl.Info.ResetSeconds))
+		c.JSON(status, errorResponse{Error: msg, RateLimit: &rl.Info})
 		return
 	}
 

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -110,13 +111,36 @@ func (s *CTFService) rateLimit(ctx context.Context, userID int64) error {
 	key := "submit:" + itoa(userID)
 	pipe := s.redis.TxPipeline()
 	cnt := pipe.Incr(ctx, key)
-	pipe.Expire(ctx, key, s.cfg.Security.SubmissionWindow)
+	ttl := pipe.TTL(ctx, key)
 	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return err
 	}
+
+	ttlVal := ttl.Val()
+	if ttlVal <= 0 {
+		if err := s.redis.Expire(ctx, key, s.cfg.Security.SubmissionWindow).Err(); err == nil {
+			ttlVal = s.cfg.Security.SubmissionWindow
+		} else {
+			ttlVal = s.cfg.Security.SubmissionWindow
+		}
+	}
+
+	remaining := s.cfg.Security.SubmissionMax - int(cnt.Val())
+	if remaining < 0 {
+		remaining = 0
+	}
+
 	if cnt.Val() > int64(s.cfg.Security.SubmissionMax) {
-		return ErrRateLimited
+		resetSeconds := int(math.Ceil(ttlVal.Seconds()))
+		if resetSeconds < 0 {
+			resetSeconds = int(s.cfg.Security.SubmissionWindow.Seconds())
+		}
+		return &RateLimitError{Info: RateLimitInfo{
+			Limit:        s.cfg.Security.SubmissionMax,
+			Remaining:    remaining,
+			ResetSeconds: resetSeconds,
+		}}
 	}
 	return nil
 }

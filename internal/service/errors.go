@@ -27,3 +27,17 @@ func (e *ValidationError) Error() string {
 func NewValidationError(fields ...FieldError) *ValidationError {
 	return &ValidationError{Fields: fields}
 }
+
+type RateLimitInfo struct {
+	Limit        int `json:"limit"`
+	Remaining    int `json:"remaining"`
+	ResetSeconds int `json:"reset_seconds"`
+}
+
+type RateLimitError struct {
+	Info RateLimitInfo
+}
+
+func (e *RateLimitError) Error() string {
+	return ErrRateLimited.Error()
+}

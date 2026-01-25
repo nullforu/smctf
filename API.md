@@ -388,6 +388,25 @@ Examples:
 { "error": "too many submissions" }
 ```
 
+With rate limit metadata:
+```json
+{
+  "error": "too many submissions",
+  "rate_limit": {
+    "limit": 10,
+    "remaining": 0,
+    "reset_seconds": 42
+  }
+}
+```
+
+Headers (when rate-limited):
+```
+X-RateLimit-Limit: <max requests per window>
+X-RateLimit-Remaining: <remaining requests>
+X-RateLimit-Reset: <seconds until reset>
+```
+
 ### Forbidden (403)
 Examples:
 ```json
