@@ -563,12 +563,14 @@ func TestListChallenges(t *testing.T) {
 	}
 	var resp []map[string]interface{}
 	decodeJSON(t, rec, &resp)
-	if len(resp) != 2 {
-		t.Fatalf("expected 2 challenges, got %d", len(resp))
+	if len(resp) != 3 {
+		t.Fatalf("expected 3 challenges, got %d", len(resp))
 	}
-	for _, row := range resp {
-		if active, ok := row["is_active"].(bool); ok && !active {
-			t.Fatalf("expected only active challenges, got %+v", row)
+
+	expectedTitles := []string{"Active 1", "Inactive", "Active 2"}
+	for i, row := range resp {
+		if row["title"] != expectedTitles[i] {
+			t.Fatalf("expected title %q, got %q", expectedTitles[i], row["title"])
 		}
 	}
 }
