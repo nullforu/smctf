@@ -25,7 +25,9 @@ Response 201
 }
 ```
 
-Errors: 400, 409
+Errors:
+- 400 `invalid input`
+- 409 `user already exists`
 
 ---
 
@@ -54,7 +56,9 @@ Response 200
 }
 ```
 
-Errors: 400, 401
+Errors:
+- 400 `invalid input`
+- 401 `invalid credentials`
 
 ---
 
@@ -76,7 +80,9 @@ Response 200
 }
 ```
 
-Errors: 400, 401
+Errors:
+- 400 `invalid input`
+- 401 `invalid credentials`
 
 ---
 
@@ -97,7 +103,9 @@ Response 200
 }
 ```
 
-Errors: 400, 401
+Errors:
+- 400 `invalid input`
+- 401 `invalid credentials`
 
 ---
 
@@ -121,7 +129,8 @@ Response 200
 }
 ```
 
-Errors: 401
+Errors:
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
 
 ---
 
@@ -145,7 +154,8 @@ Response 200
 ]
 ```
 
-Errors: 401
+Errors:
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
 
 ---
 
@@ -191,7 +201,12 @@ Response 200
 }
 ```
 
-Errors: 400, 401, 404, 409, 429
+Errors:
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 404 `challenge not found`
+- 409 `challenge already solved`
+- 429 `too many submissions`
 
 ---
 
@@ -234,7 +249,8 @@ Response 200
 }
 ```
 
-Errors: 400
+Errors:
+- 400 `invalid input`
 
 ---
 
@@ -270,14 +286,110 @@ Response 201
 }
 ```
 
-Errors: 400, 401, 403
+Errors:
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
 
 ---
 
 ## Error Format
 
+All error responses are JSON and may include structured details.
+
+### Common Response
 ```json
 {
-  "error": "message"
+  "error": "message",
+  "details": [
+    { "field": "field_name", "reason": "reason" }
+  ]
 }
+```
+
+`details` is omitted when not applicable.
+
+### Validation Errors (400)
+Examples:
+```json
+{
+  "error": "invalid input",
+  "details": [
+    { "field": "email", "reason": "required" },
+    { "field": "password", "reason": "required" }
+  ]
+}
+```
+
+```json
+{
+  "error": "invalid input",
+  "details": [
+    { "field": "email", "reason": "invalid format" }
+  ]
+}
+```
+
+```json
+{
+  "error": "invalid input",
+  "details": [
+    { "field": "body", "reason": "invalid json" }
+  ]
+}
+```
+
+```json
+{
+  "error": "invalid input",
+  "details": [
+    { "field": "flag", "reason": "required" }
+  ]
+}
+```
+
+### Auth Errors (401)
+Examples:
+```json
+{ "error": "missing authorization" }
+```
+
+```json
+{ "error": "invalid authorization" }
+```
+
+```json
+{ "error": "invalid token" }
+```
+
+```json
+{ "error": "invalid credentials" }
+```
+
+### Not Found (404)
+Examples:
+```json
+{ "error": "challenge not found" }
+```
+
+### Conflict (409)
+Examples:
+```json
+{ "error": "user already exists" }
+```
+
+```json
+{ "error": "challenge already solved" }
+```
+
+### Rate Limit (429)
+Examples:
+```json
+{ "error": "too many submissions" }
+```
+
+### Forbidden (403)
+Examples:
+```json
+{ "error": "forbidden" }
 ```
