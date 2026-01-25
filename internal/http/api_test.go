@@ -770,6 +770,7 @@ func TestScoreboardTimeline(t *testing.T) {
 		IntervalMinutes int                          `json:"interval_minutes"`
 		Users           []models.ScoreEntry          `json:"users"`
 		Buckets         []models.ScoreTimelineBucket `json:"buckets"`
+		Events          []models.ScoreTimelineEvent  `json:"events"`
 	}
 	decodeJSON(t, rec, &resp)
 	if resp.IntervalMinutes != 10 {
@@ -790,11 +791,81 @@ func TestScoreboardTimeline(t *testing.T) {
 	if resp.Buckets[1].Scores[0].Score != 300 || resp.Buckets[1].Scores[1].Score != 200 {
 		t.Fatalf("unexpected second bucket scores: %+v", resp.Buckets[1].Scores)
 	}
+	if len(resp.Events) != 3 {
+		t.Fatalf("expected 3 events, got %d", len(resp.Events))
+	}
+	if resp.Events[0].ChallengeTitle != "Ch1" || !resp.Events[0].SubmittedAt.Equal(base.Add(3*time.Minute)) {
+		t.Fatalf("unexpected first event: %+v", resp.Events[0])
+	}
+	if resp.Events[2].ChallengeTitle != "Ch2" || resp.Events[2].UserID != user1.ID {
+		t.Fatalf("unexpected last event: %+v", resp.Events[2])
+	}
+}
+
+func TestScoreboardTimelineWindow(t *testing.T) {
+	env := setupTest(t, testCfg)
+	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
+	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
+	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
+	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
+
+	now := time.Now().UTC()
+	createSubmission(t, env, user1.ID, challenge1.ID, true, now.Add(-2*time.Hour))
+	recent := now.Add(-20 * time.Minute)
+	createSubmission(t, env, user2.ID, challenge2.ID, true, recent)
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/scoreboard/timeline?interval=10&limit=50&window=60", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		IntervalMinutes int                          `json:"interval_minutes"`
+		Users           []models.ScoreEntry          `json:"users"`
+		Buckets         []models.ScoreTimelineBucket `json:"buckets"`
+		Events          []models.ScoreTimelineEvent  `json:"events"`
+	}
+	decodeJSON(t, rec, &resp)
+	if len(resp.Buckets) != 1 {
+		t.Fatalf("expected 1 bucket, got %d", len(resp.Buckets))
+	}
+	if len(resp.Events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(resp.Events))
+	}
+	windowStart := now.Add(-60 * time.Minute)
+	if resp.Buckets[0].Bucket.Before(windowStart) {
+		t.Fatalf("bucket outside window: %s", resp.Buckets[0].Bucket)
+	}
+	if len(resp.Buckets[0].Scores) != 2 {
+		t.Fatalf("unexpected scores: %+v", resp.Buckets[0].Scores)
+	}
+	scoreByUser := make(map[int64]int, len(resp.Buckets[0].Scores))
+	for _, score := range resp.Buckets[0].Scores {
+		scoreByUser[score.UserID] = score.Score
+	}
+	if scoreByUser[user1.ID] != 0 {
+		t.Fatalf("unexpected user1 score: %d", scoreByUser[user1.ID])
+	}
+	if scoreByUser[user2.ID] != 200 {
+		t.Fatalf("unexpected user2 score: %d", scoreByUser[user2.ID])
+	}
 }
 
 func TestScoreboardTimelineInvalidInterval(t *testing.T) {
 	env := setupTest(t, testCfg)
 	rec := doRequest(t, env.router, http.MethodGet, "/api/scoreboard/timeline?interval=0", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp errorResp
+	decodeJSON(t, rec, &resp)
+	if resp.Error != service.ErrInvalidInput.Error() {
+		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+}
+
+func TestScoreboardTimelineInvalidWindow(t *testing.T) {
+	env := setupTest(t, testCfg)
+	rec := doRequest(t, env.router, http.MethodGet, "/api/scoreboard/timeline?window=0", nil, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

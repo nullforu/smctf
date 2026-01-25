@@ -35,6 +35,18 @@ func parseIntervalQuery(ctx *gin.Context, def int) (int, error) {
 	return interval, nil
 }
 
+func parseWindowQuery(ctx *gin.Context) (int, error) {
+	value := strings.TrimSpace(ctx.Query("window"))
+	if value == "" {
+		return 0, nil
+	}
+	windowMinutes, err := strconv.Atoi(value)
+	if err != nil || windowMinutes <= 0 {
+		return 0, errors.New("invalid window")
+	}
+	return windowMinutes, nil
+}
+
 func parseIDParam(ctx *gin.Context, name string) (int64, bool) {
 	value := strings.TrimSpace(ctx.Param(name))
 	if value == "" {

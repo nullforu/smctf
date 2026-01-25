@@ -229,7 +229,12 @@ Response 200
 ---
 
 ### Scoreboard Timeline
-`GET /api/scoreboard/timeline?interval=10&limit=50`
+`GET /api/scoreboard/timeline?interval=10&limit=50&window=60`
+
+Query
+- `interval`: bucket size in minutes (default 10)
+- `limit`: number of top users (default 50, max 200)
+- `window`: lookback window in minutes (optional, when omitted returns all time)
 
 Response 200
 ```json
@@ -244,6 +249,16 @@ Response 200
       "scores": [
         { "user_id": 1, "username": "user1", "score": 100 }
       ]
+    }
+  ],
+  "events": [
+    {
+      "submitted_at": "2026-01-24T12:03:00Z",
+      "user_id": 1,
+      "username": "user1",
+      "challenge_id": 10,
+      "challenge_title": "Ch1",
+      "points": 100
     }
   ]
 }

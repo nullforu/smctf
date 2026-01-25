@@ -234,6 +234,14 @@ func (h *Handler) ScoreboardTimeline(ctx *gin.Context) {
 		})
 		return
 	}
+	windowMinutes, err := parseWindowQuery(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "window", Reason: "invalid"}},
+		})
+		return
+	}
 
 	users, err := h.users.Scoreboard(ctx.Request.Context(), limit)
 	if err != nil {
@@ -242,7 +250,17 @@ func (h *Handler) ScoreboardTimeline(ctx *gin.Context) {
 	}
 	userIDs, usernames := indexUsers(users)
 
-	rows, err := h.users.ScoreboardTimeline(ctx.Request.Context(), userIDs, time.Duration(intervalMinutes)*time.Minute)
+	var windowStart *time.Time
+	if windowMinutes > 0 {
+		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
+		windowStart = &start
+	}
+	rows, err := h.users.ScoreboardTimeline(ctx.Request.Context(), userIDs, time.Duration(intervalMinutes)*time.Minute, windowStart)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+	events, err := h.users.ScoreboardTimelineEvents(ctx.Request.Context(), userIDs, windowStart)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -252,5 +270,6 @@ func (h *Handler) ScoreboardTimeline(ctx *gin.Context) {
 		IntervalMinutes: intervalMinutes,
 		Users:           users,
 		Buckets:         buildScoreTimelineBuckets(rows, userIDs, usernames),
+		Events:          events,
 	})
 }
