@@ -1,16 +1,10 @@
 import { writable } from 'svelte/store'
+import type { AuthUser } from './types'
 
-export type User = {
-    id: number
-    email: string
-    username: string
-    role: string
-}
-
-export type AuthState = {
+export interface AuthState {
     accessToken: string | null
     refreshToken: string | null
-    user: User | null
+    user: AuthUser | null
 }
 
 const STORAGE_KEY = 'smctf.auth'
@@ -19,9 +13,11 @@ const loadAuth = (): AuthState => {
     if (typeof localStorage === 'undefined') {
         return { accessToken: null, refreshToken: null, user: null }
     }
+
     try {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) return { accessToken: null, refreshToken: null, user: null }
+
         const parsed = JSON.parse(raw) as AuthState
         return {
             accessToken: parsed.accessToken ?? null,
@@ -48,7 +44,7 @@ export const setAuthTokens = (accessToken: string, refreshToken: string) => {
     authStore.update((state) => ({ ...state, accessToken, refreshToken }))
 }
 
-export const setAuthUser = (user: User | null) => {
+export const setAuthUser = (user: AuthUser | null) => {
     authStore.update((state) => ({ ...state, user }))
 }
 

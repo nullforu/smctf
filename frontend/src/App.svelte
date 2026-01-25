@@ -82,11 +82,27 @@
         <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <a href="/" class="flex items-center gap-3" onclick={(event) => onNav(event, '/')}>
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-300">
-                    <span class="font-display text-lg">Σ</span>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <g transform="rotate(15 12 12)">
+                            <path d="M6 3v18" />
+                            <path d="M6 4h10l-2 3 2 3H6" />
+                        </g>
+                    </svg>
                 </div>
                 <div>
-                    <p class="font-display text-xl">SMCTF</p>
-                    <p class="text-xs text-slate-400">Secure Mission Control</p>
+                    <p class="font-display text-xl">CTF</p>
+                    <p class="text-xs text-slate-400">Capture The Flag</p>
                 </div>
             </a>
             <nav class="hidden items-center gap-6 text-sm text-slate-300 md:flex">
@@ -147,6 +163,6 @@
     </main>
 
     <footer class="border-t border-slate-800/70 py-6 text-center text-xs text-slate-500">
-        <p>smctf · Built for rapid CTF operations · API: {import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'}</p>
+        <p>Copyright &copy; 2026 Semyeong Computer High School, All rights reserved.</p>
     </footer>
 </div>

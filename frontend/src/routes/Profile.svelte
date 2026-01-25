@@ -3,18 +3,23 @@
     import { get } from 'svelte/store'
     import { authStore, type AuthState } from '../lib/stores'
     import { api } from '../lib/api'
+    import type { SolvedChallenge } from '../lib/types'
     import { formatApiError, formatDateTime } from '../lib/utils'
     import { navigate } from '../lib/router'
 
-    let solved: Array<{ challenge_id: number; title: string; points: number; solved_at: string }> = $state([])
+    let solved: SolvedChallenge[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
     let auth = $state<AuthState>(get(authStore))
-    const unsubscribe = authStore.subscribe((value) => {
-        auth = value
-    })
-    onDestroy(unsubscribe)
+
     const formatDateTimeSafe = formatDateTime
+
+    onDestroy(
+        authStore.subscribe((value) => {
+            auth = value
+        }),
+    )
+
     const onNav = (event: MouseEvent, path: string) => {
         event.preventDefault()
         navigate(path)
@@ -22,8 +27,10 @@
 
     const loadSolved = async () => {
         if (!auth.user) return
+
         loading = true
         errorMessage = ''
+
         try {
             solved = await api.solved()
         } catch (error) {
@@ -40,17 +47,13 @@
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
             <h2 class="text-3xl text-slate-100">Profile</h2>
-            <p class="mt-2 text-sm text-slate-400">내 계정 정보와 해결한 문제 목록입니다.</p>
         </div>
     </div>
 
     {#if !auth.user}
         <div class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-100">
-            로그인 후 프로필을 확인할 수 있습니다. <a
-                class="underline"
-                href="/login"
-                onclick={(event) => onNav(event, '/login')}>로그인</a
-            >
+            <a class="underline" href="/login" onclick={(event) => onNav(event, '/login')}>로그인</a> 후 프로필을 확인할 수
+            있습니다.
         </div>
     {:else}
         <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_1.3fr]">

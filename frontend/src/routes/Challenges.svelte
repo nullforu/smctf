@@ -3,18 +3,11 @@
     import { get } from 'svelte/store'
     import { authStore, type AuthState } from '../lib/stores'
     import { api, ApiError } from '../lib/api'
+    import type { Challenge } from '../lib/types'
     import { formatApiError } from '../lib/utils'
     import { navigate } from '../lib/router'
 
-    type Challenge = {
-        id: number
-        title: string
-        description: string
-        points: number
-        is_active: boolean
-    }
-
-    type SubmissionState = {
+    interface SubmissionState {
         status: 'idle' | 'loading' | 'success' | 'error'
         message?: string
     }
@@ -27,10 +20,13 @@
     let flagInputs: Record<number, string> = $state({})
     let submissions: Record<number, SubmissionState> = $state({})
     let auth = $state<AuthState>(get(authStore))
-    const unsubscribe = authStore.subscribe((value) => {
-        auth = value
-    })
-    onDestroy(unsubscribe)
+
+    onDestroy(
+        authStore.subscribe((value) => {
+            auth = value
+        }),
+    )
+
     const onNav = (event: MouseEvent, path: string) => {
         event.preventDefault()
         navigate(path)
@@ -39,6 +35,7 @@
     const loadChallenges = async () => {
         loading = true
         errorMessage = ''
+
         try {
             challenges = await api.challenges()
         } catch (error) {
@@ -50,6 +47,7 @@
 
     const loadSolved = async () => {
         if (!auth.user) return
+
         try {
             const solved = await api.solved()
             solvedIds = new Set(solved.map((item) => item.challenge_id))
@@ -71,11 +69,15 @@
             setSubmission(id, { status: 'success', message: '이미 해결한 문제입니다.' })
             return
         }
+
         if (submissions[id]?.status === 'loading') return
         setSubmission(id, { status: 'loading' })
+
         const flag = flagInputs[id]
+
         try {
             const result = await api.submitFlag(id, flag)
+
             if (result.correct) {
                 setSubmission(id, { status: 'success', message: '정답입니다!' })
                 solvedIds = new Set([...solvedIds, id])
@@ -83,14 +85,17 @@
             } else {
                 setSubmission(id, { status: 'error', message: '오답입니다. 다시 시도해 주세요.' })
             }
+
             await loadSolved()
         } catch (error) {
             if (error instanceof ApiError && error.status === 409) {
                 setSubmission(id, { status: 'success', message: '정답입니다! (이미 해결됨)' })
                 solvedIds = new Set([...solvedIds, id])
                 setFlagInput(id, '')
+
                 return
             }
+
             const formatted = formatApiError(error)
             setSubmission(id, { status: 'error', message: formatted.message })
         }
@@ -108,7 +113,10 @@
             <h2 class="text-3xl text-slate-100">Challenges</h2>
         </div>
         <div class="rounded-full border border-slate-800/70 bg-slate-900/40 px-4 py-2 text-xs text-slate-300">
-            활성 문제 {challenges.filter((c) => c.is_active).length} / 전체 {challenges.length}
+            푼 문제 {solvedIds.size} / 전체 {challenges.filter((c) => c.is_active).length}
+            {challenges.filter((c) => !c.is_active).length > 0
+                ? `(비활성 문제 ${challenges.filter((c) => !c.is_active).length}개)`
+                : ''}
         </div>
     </div>
 

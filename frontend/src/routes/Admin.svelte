@@ -16,16 +16,19 @@
     let fieldErrors: FieldErrors = $state({})
     let successMessage = $state('')
     let auth = $state<AuthState>(get(authStore))
-    const unsubscribe = authStore.subscribe((value) => {
-        auth = value
-    })
-    onDestroy(unsubscribe)
+
+    onDestroy(
+        authStore.subscribe((value) => {
+            auth = value
+        }),
+    )
 
     const submit = async () => {
         loading = true
         errorMessage = ''
         successMessage = ''
         fieldErrors = {}
+
         try {
             const created = await api.createChallenge({
                 title,
@@ -34,6 +37,7 @@
                 flag,
                 is_active: isActive,
             })
+
             successMessage = `문제 "${created.title}" (ID ${created.id}) 생성 완료`
             title = ''
             description = ''
@@ -42,6 +46,7 @@
             isActive = true
         } catch (error) {
             const formatted = formatApiError(error)
+
             errorMessage = formatted.message
             fieldErrors = formatted.fieldErrors
         } finally {
@@ -53,7 +58,6 @@
 <section class="fade-in">
     <div>
         <h2 class="text-3xl text-slate-100">Admin</h2>
-        <p class="mt-2 text-sm text-slate-400">새로운 문제를 생성하고 활성화합니다.</p>
     </div>
 
     {#if !auth.user}

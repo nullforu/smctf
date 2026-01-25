@@ -12,10 +12,13 @@
     let errorMessage = $state('')
     let fieldErrors: FieldErrors = $state({})
     let auth = $state<AuthState>(get(authStore))
-    const unsubscribe = authStore.subscribe((value) => {
-        auth = value
-    })
-    onDestroy(unsubscribe)
+
+    onDestroy(
+        authStore.subscribe((value) => {
+            auth = value
+        }),
+    )
+
     const onNav = (event: MouseEvent, path: string) => {
         event.preventDefault()
         navigate(path)
@@ -25,6 +28,7 @@
         loading = true
         errorMessage = ''
         fieldErrors = {}
+
         try {
             await api.login({ email, password })
             navigate('/challenges')
@@ -41,8 +45,7 @@
 <section class="fade-in">
     <div class="grid gap-8 md:grid-cols-[1.1fr_1fr]">
         <div class="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-10">
-            <h2 class="text-3xl text-slate-100">로그인</h2>
-            <p class="mt-2 text-sm text-slate-400">세션을 이어서 문제를 해결하세요.</p>
+            <h2 class="text-3xl text-slate-100">Login</h2>
 
             {#if auth.user}
                 <div class="mt-6 rounded-xl border border-teal-500/40 bg-teal-500/10 p-4 text-sm text-teal-200">
@@ -108,14 +111,12 @@
         <div class="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-10">
             <h3 class="text-lg text-slate-100">도움이 필요하신가요?</h3>
             <ul class="mt-4 space-y-3 text-sm text-slate-400">
-                <li>로그인이 실패한다면 이메일/비밀번호 입력을 다시 확인하세요.</li>
-                <li>관리자가 계정을 승인한 경우 즉시 로그인 가능합니다.</li>
                 <li>
                     아직 계정이 없다면 <a
                         class="text-teal-200 underline"
                         href="/register"
                         onclick={(event) => onNav(event, '/register')}>가입</a
-                    >으로 이동하세요.
+                    >하세요.
                 </li>
             </ul>
         </div>

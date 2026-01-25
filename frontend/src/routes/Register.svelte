@@ -10,6 +10,7 @@
     let errorMessage = $state('')
     let fieldErrors: FieldErrors = $state({})
     let success = $state(false)
+
     const onNav = (event: MouseEvent, path: string) => {
         event.preventDefault()
         navigate(path)
@@ -20,8 +21,10 @@
         success = false
         errorMessage = ''
         fieldErrors = {}
+
         try {
             await api.register({ email, username, password })
+
             success = true
             email = ''
             username = ''
@@ -39,8 +42,7 @@
 <section class="fade-in">
     <div class="grid gap-8 md:grid-cols-[1.1fr_1fr]">
         <div class="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-10">
-            <h2 class="text-3xl text-slate-100">계정 생성</h2>
-            <p class="mt-2 text-sm text-slate-400">당신의 해킹 스토리를 시작하세요.</p>
+            <h2 class="text-3xl text-slate-100">Register</h2>
 
             <form
                 class="mt-6 space-y-5"
@@ -122,11 +124,10 @@
         </div>
 
         <div class="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-10">
-            <h3 class="text-lg text-slate-100">가입 전 체크리스트</h3>
+            <h3 class="text-lg text-slate-100">안내사항</h3>
             <ul class="mt-4 space-y-3 text-sm text-slate-400">
-                <li>이메일은 로그인과 알림에 사용됩니다.</li>
-                <li>사용자명은 스코어보드에 표시됩니다.</li>
-                <li>비밀번호는 최소 8자 이상을 권장합니다.</li>
+                <li>대회 규정을 반드시 숙지하시기 바랍니다.</li>
+                <li>대회 규정에 따라 필요 시 참가 자격이 제한되거나 박탈될 수 있습니다.</li>
             </ul>
         </div>
     </div>
