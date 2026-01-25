@@ -21,6 +21,7 @@
     let errorMessage = $state('')
     let timelineError = $state('')
 
+    const formatDateTimeSafe = formatDateTime
     const loadScoreboard = async () => {
         loading = true
         errorMessage = ''
@@ -125,7 +126,7 @@
                 <div class="mt-4 space-y-4">
                     {#each timeline.buckets as bucket}
                         <div class="rounded-xl border border-slate-800/70 bg-slate-950/40 p-4">
-                            <p class="text-xs text-slate-400">{formatDateTime(bucket.bucket)}</p>
+                            <p class="text-xs text-slate-400">{formatDateTimeSafe(bucket.bucket)}</p>
                             <div class="mt-3 space-y-2">
                                 {#each bucket.scores as score}
                                     <div class="flex items-center justify-between text-sm">

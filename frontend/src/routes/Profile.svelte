@@ -14,6 +14,7 @@
         auth = value
     })
     onDestroy(unsubscribe)
+    const formatDateTimeSafe = formatDateTime
     const onNav = (event: MouseEvent, path: string) => {
         event.preventDefault()
         navigate(path)
@@ -93,7 +94,7 @@
                                     <span class="text-sm text-slate-100">{item.title}</span>
                                     <span class="text-xs text-teal-200">{item.points} pts</span>
                                 </div>
-                                <p class="mt-2 text-xs text-slate-400">{formatDateTime(item.solved_at)}</p>
+                                <p class="mt-2 text-xs text-slate-400">{formatDateTimeSafe(item.solved_at)}</p>
                             </div>
                         {/each}
                         {#if solved.length === 0}

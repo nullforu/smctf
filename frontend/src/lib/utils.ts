@@ -19,7 +19,7 @@ export const formatApiError = (error: unknown) => {
             fieldErrors,
         }
     }
-    return { message: 'unexpected error', fieldErrors: {} }
+    return { message: 'network error or unexpected error', fieldErrors: {} }
 }
 
 const buildFieldErrors = (details?: ApiErrorDetail[]) => {
