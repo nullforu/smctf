@@ -1,6 +1,7 @@
 <script lang="ts">
-    import { onMount } from 'svelte'
-    import { authStore } from '../lib/stores'
+    import { onDestroy, onMount } from 'svelte'
+    import { get } from 'svelte/store'
+    import { authStore, type AuthState } from '../lib/stores'
     import { api, ApiError } from '../lib/api'
     import { formatApiError } from '../lib/utils'
     import { navigate } from '../lib/router'
@@ -18,13 +19,22 @@
         message?: string
     }
 
-    let challenges: Challenge[] = []
-    let loading = true
-    let errorMessage = ''
-    let solvedIds = new Set<number>()
-    let openId: number | null = null
-    let flagInputs: Record<number, string> = {}
-    let submissions: Record<number, SubmissionState> = {}
+    let challenges: Challenge[] = $state([])
+    let loading = $state(true)
+    let errorMessage = $state('')
+    let solvedIds = $state(new Set<number>())
+    let openId: number | null = $state(null)
+    let flagInputs: Record<number, string> = $state({})
+    let submissions: Record<number, SubmissionState> = $state({})
+    let auth = $state<AuthState>(get(authStore))
+    const unsubscribe = authStore.subscribe((value) => {
+        auth = value
+    })
+    onDestroy(unsubscribe)
+    const onNav = (event: MouseEvent, path: string) => {
+        event.preventDefault()
+        navigate(path)
+    }
 
     const loadChallenges = async () => {
         loading = true
@@ -39,7 +49,7 @@
     }
 
     const loadSolved = async () => {
-        if (!$authStore.user) return
+        if (!auth.user) return
         try {
             const solved = await api.solved()
             solvedIds = new Set(solved.map((item) => item.challenge_id))
@@ -96,7 +106,6 @@
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
             <h2 class="text-3xl text-slate-100">Challenges</h2>
-            <p class="mt-2 text-sm text-slate-400">문제를 선택하고 플래그를 제출하세요.</p>
         </div>
         <div class="rounded-full border border-slate-800/70 bg-slate-900/40 px-4 py-2 text-xs text-slate-300">
             활성 문제 {challenges.filter((c) => c.is_active).length} / 전체 {challenges.length}
@@ -139,7 +148,7 @@
                     <div class="mt-6 flex flex-wrap items-center gap-3">
                         <button
                             class="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-200 transition hover:border-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
-                            on:click={() => (openId = openId === challenge.id ? null : challenge.id)}
+                            onclick={() => (openId = openId === challenge.id ? null : challenge.id)}
                             disabled={!challenge.is_active || solvedIds.has(challenge.id)}
                         >
                             {solvedIds.has(challenge.id)
@@ -151,15 +160,13 @@
                     </div>
 
                     {#if openId === challenge.id}
-                        {#if !$authStore.user}
+                        {#if !auth.user}
                             <div
                                 class="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-100"
                             >
                                 플래그 제출은 로그인 후 가능합니다.
-                                <a
-                                    class="ml-1 underline"
-                                    href="/login"
-                                    on:click|preventDefault={() => navigate('/login')}>로그인</a
+                                <a class="ml-1 underline" href="/login" onclick={(event) => onNav(event, '/login')}
+                                    >로그인</a
                                 >
                             </div>
                         {:else if submissions[challenge.id]?.status === 'success'}
@@ -175,7 +182,13 @@
                                 이미 해결한 문제입니다.
                             </div>
                         {:else}
-                            <form class="mt-4 space-y-3" on:submit|preventDefault={() => submitFlag(challenge.id)}>
+                            <form
+                                class="mt-4 space-y-3"
+                                onsubmit={(event) => {
+                                    event.preventDefault()
+                                    submitFlag(challenge.id)
+                                }}
+                            >
                                 <input
                                     class="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
                                     type="text"

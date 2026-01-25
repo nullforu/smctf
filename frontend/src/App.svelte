@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte'
     import { get } from 'svelte/store'
-    import { authStore, clearAuth, setAuthUser } from './lib/stores'
+    import { authStore, clearAuth, setAuthUser, type AuthState } from './lib/stores'
     import { api } from './lib/api'
     import { navigate } from './lib/router'
     import Home from './routes/Home.svelte'
@@ -23,9 +23,13 @@
         '/admin': Admin,
     }
 
-    let currentPath = '/'
-    let component = Home
-    let booting = true
+    let currentPath = $state('/')
+    let Component = $state(Home)
+    let booting = $state(true)
+    let auth = $state<AuthState>(get(authStore))
+    const unsubscribe = authStore.subscribe((value) => {
+        auth = value
+    })
 
     const normalizePath = (path: string) => {
         if (path.length > 1 && path.endsWith('/')) {
@@ -38,7 +42,12 @@
 
     const updateRoute = () => {
         currentPath = resolvePath()
-        component = routes[currentPath] ?? NotFound
+        Component = routes[currentPath] ?? NotFound
+    }
+
+    const onNav = (event: MouseEvent, path: string) => {
+        event.preventDefault()
+        navigate(path)
     }
 
     const loadSession = async () => {
@@ -65,13 +74,13 @@
         return () => window.removeEventListener('popstate', handler)
     })
 
-    onDestroy(() => {})
+    onDestroy(unsubscribe)
 </script>
 
 <div class="min-h-screen grid-overlay">
     <header class="border-b border-slate-800/70 bg-slate-950/70 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <a href="/" class="flex items-center gap-3" on:click|preventDefault={() => navigate('/')}>
+            <a href="/" class="flex items-center gap-3" onclick={(event) => onNav(event, '/')}>
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-300">
                     <span class="font-display text-lg">Σ</span>
                 </div>
@@ -81,34 +90,26 @@
                 </div>
             </a>
             <nav class="hidden items-center gap-6 text-sm text-slate-300 md:flex">
-                <a
-                    class="hover:text-teal-200"
-                    href="/challenges"
-                    on:click|preventDefault={() => navigate('/challenges')}>Challenges</a
+                <a class="hover:text-teal-200" href="/challenges" onclick={(event) => onNav(event, '/challenges')}
+                    >Challenges</a
                 >
-                <a
-                    class="hover:text-teal-200"
-                    href="/scoreboard"
-                    on:click|preventDefault={() => navigate('/scoreboard')}>Scoreboard</a
+                <a class="hover:text-teal-200" href="/scoreboard" onclick={(event) => onNav(event, '/scoreboard')}
+                    >Scoreboard</a
                 >
-                <a class="hover:text-teal-200" href="/profile" on:click|preventDefault={() => navigate('/profile')}
-                    >Profile</a
-                >
-                {#if $authStore.user?.role === 'admin'}
-                    <a class="hover:text-teal-200" href="/admin" on:click|preventDefault={() => navigate('/admin')}
-                        >Admin</a
-                    >
+                <a class="hover:text-teal-200" href="/profile" onclick={(event) => onNav(event, '/profile')}>Profile</a>
+                {#if auth.user?.role === 'admin'}
+                    <a class="hover:text-teal-200" href="/admin" onclick={(event) => onNav(event, '/admin')}>Admin</a>
                 {/if}
             </nav>
             <div class="flex items-center gap-3">
-                {#if $authStore.user}
+                {#if auth.user}
                     <div class="hidden text-right text-xs text-slate-400 sm:block">
-                        <p class="text-slate-200">{$authStore.user.username}</p>
-                        <p>{$authStore.user.email}</p>
+                        <p class="text-slate-200">{auth.user.username}</p>
+                        <p>{auth.user.email}</p>
                     </div>
                     <button
                         class="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-200 transition hover:border-teal-400 hover:text-teal-200"
-                        on:click={async () => {
+                        onclick={async () => {
                             try {
                                 await api.logout()
                             } catch {
@@ -123,12 +124,12 @@
                     <a
                         href="/login"
                         class="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-200 transition hover:border-teal-400 hover:text-teal-200"
-                        on:click|preventDefault={() => navigate('/login')}>Login</a
+                        onclick={(event) => onNav(event, '/login')}>Login</a
                     >
                     <a
                         href="/register"
                         class="rounded-full bg-teal-500/20 px-4 py-2 text-xs text-teal-200 transition hover:bg-teal-500/30"
-                        on:click|preventDefault={() => navigate('/register')}>Register</a
+                        onclick={(event) => onNav(event, '/register')}>Register</a
                     >
                 {/if}
             </div>
@@ -141,7 +142,7 @@
                 세션 확인 중...
             </div>
         {:else}
-            <svelte:component this={component} />
+            <Component />
         {/if}
     </main>
 

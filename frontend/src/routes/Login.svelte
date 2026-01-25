@@ -1,14 +1,25 @@
 <script lang="ts">
-    import { authStore } from '../lib/stores'
+    import { onDestroy } from 'svelte'
+    import { get } from 'svelte/store'
+    import { authStore, type AuthState } from '../lib/stores'
     import { api } from '../lib/api'
     import { formatApiError, type FieldErrors } from '../lib/utils'
     import { navigate } from '../lib/router'
 
-    let email = ''
-    let password = ''
-    let loading = false
-    let errorMessage = ''
-    let fieldErrors: FieldErrors = {}
+    let email = $state('')
+    let password = $state('')
+    let loading = $state(false)
+    let errorMessage = $state('')
+    let fieldErrors: FieldErrors = $state({})
+    let auth = $state<AuthState>(get(authStore))
+    const unsubscribe = authStore.subscribe((value) => {
+        auth = value
+    })
+    onDestroy(unsubscribe)
+    const onNav = (event: MouseEvent, path: string) => {
+        event.preventDefault()
+        navigate(path)
+    }
 
     const submit = async () => {
         loading = true
@@ -33,16 +44,22 @@
             <h2 class="text-3xl text-slate-100">로그인</h2>
             <p class="mt-2 text-sm text-slate-400">세션을 이어서 문제를 해결하세요.</p>
 
-            {#if $authStore.user}
+            {#if auth.user}
                 <div class="mt-6 rounded-xl border border-teal-500/40 bg-teal-500/10 p-4 text-sm text-teal-200">
-                    이미 {$authStore.user.username} 계정으로 로그인되어 있습니다.
-                    <a class="ml-2 underline" href="/challenges" on:click|preventDefault={() => navigate('/challenges')}
+                    이미 {auth.user.username} 계정으로 로그인되어 있습니다.
+                    <a class="ml-2 underline" href="/challenges" onclick={(event) => onNav(event, '/challenges')}
                         >바로 이동</a
                     >
                 </div>
             {/if}
 
-            <form class="mt-6 space-y-5" on:submit|preventDefault={submit}>
+            <form
+                class="mt-6 space-y-5"
+                onsubmit={(event) => {
+                    event.preventDefault()
+                    submit()
+                }}
+            >
                 <div>
                     <label class="text-xs uppercase tracking-wide text-slate-400" for="login-email">Email</label>
                     <input
@@ -97,7 +114,7 @@
                     아직 계정이 없다면 <a
                         class="text-teal-200 underline"
                         href="/register"
-                        on:click|preventDefault={() => navigate('/register')}>가입</a
+                        onclick={(event) => onNav(event, '/register')}>가입</a
                     >으로 이동하세요.
                 </li>
             </ul>

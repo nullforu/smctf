@@ -1,6 +1,17 @@
 <script lang="ts">
-    import { authStore } from '../lib/stores'
+    import { onDestroy } from 'svelte'
+    import { get } from 'svelte/store'
+    import { authStore, type AuthState } from '../lib/stores'
     import { navigate } from '../lib/router'
+    let auth = $state<AuthState>(get(authStore))
+    const unsubscribe = authStore.subscribe((value) => {
+        auth = value
+    })
+    onDestroy(unsubscribe)
+    const onNav = (event: MouseEvent, path: string) => {
+        event.preventDefault()
+        navigate(path)
+    }
 </script>
 
 <section class="fade-in">
@@ -23,13 +34,13 @@
                 <a
                     href="/challenges"
                     class="rounded-full bg-teal-500/30 px-6 py-3 text-sm text-teal-100 transition hover:bg-teal-500/40"
-                    on:click|preventDefault={() => navigate('/challenges')}>문제 풀기</a
+                    onclick={(event) => onNav(event, '/challenges')}>문제 풀기</a
                 >
-                {#if !$authStore.user}
+                {#if !auth.user}
                     <a
                         href="/register"
                         class="rounded-full border border-slate-700 px-6 py-3 text-sm text-slate-200 transition hover:border-teal-400"
-                        on:click|preventDefault={() => navigate('/register')}>새 계정 만들기</a
+                        onclick={(event) => onNav(event, '/register')}>새 계정 만들기</a
                     >
                 {/if}
             </div>

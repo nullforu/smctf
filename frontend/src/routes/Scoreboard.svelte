@@ -3,10 +3,10 @@
     import { api } from '../lib/api'
     import { formatApiError, formatDateTime } from '../lib/utils'
 
-    let limit = 50
-    let interval = 10
+    let limit = $state(50)
+    let interval = $state(10)
 
-    let scores: Array<{ user_id: number; username: string; score: number }> = []
+    let scores: Array<{ user_id: number; username: string; score: number }> = $state([])
     let timeline: {
         interval_minutes: number
         users: Array<{ user_id: number; username: string; score: number }>
@@ -14,12 +14,12 @@
             bucket: string
             scores: Array<{ user_id: number; username: string; score: number }>
         }>
-    } | null = null
+    } | null = $state(null)
 
-    let loading = true
-    let timelineLoading = true
-    let errorMessage = ''
-    let timelineError = ''
+    let loading = $state(true)
+    let timelineLoading = $state(true)
+    let errorMessage = $state('')
+    let timelineError = $state('')
 
     const loadScoreboard = async () => {
         loading = true
@@ -66,7 +66,7 @@
                     min="1"
                     max="200"
                     bind:value={limit}
-                    on:change={() => {
+                    onchange={() => {
                         loadScoreboard()
                         loadTimeline()
                     }}
@@ -80,7 +80,7 @@
                     min="1"
                     max="120"
                     bind:value={interval}
-                    on:change={loadTimeline}
+                    onchange={loadTimeline}
                 />
                 <span class="text-slate-400">min</span>
             </label>

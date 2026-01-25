@@ -1,16 +1,26 @@
 <script lang="ts">
-    import { onMount } from 'svelte'
-    import { authStore } from '../lib/stores'
+    import { onDestroy, onMount } from 'svelte'
+    import { get } from 'svelte/store'
+    import { authStore, type AuthState } from '../lib/stores'
     import { api } from '../lib/api'
     import { formatApiError, formatDateTime } from '../lib/utils'
     import { navigate } from '../lib/router'
 
-    let solved: Array<{ challenge_id: number; title: string; points: number; solved_at: string }> = []
-    let loading = false
-    let errorMessage = ''
+    let solved: Array<{ challenge_id: number; title: string; points: number; solved_at: string }> = $state([])
+    let loading = $state(false)
+    let errorMessage = $state('')
+    let auth = $state<AuthState>(get(authStore))
+    const unsubscribe = authStore.subscribe((value) => {
+        auth = value
+    })
+    onDestroy(unsubscribe)
+    const onNav = (event: MouseEvent, path: string) => {
+        event.preventDefault()
+        navigate(path)
+    }
 
     const loadSolved = async () => {
-        if (!$authStore.user) return
+        if (!auth.user) return
         loading = true
         errorMessage = ''
         try {
@@ -33,12 +43,12 @@
         </div>
     </div>
 
-    {#if !$authStore.user}
+    {#if !auth.user}
         <div class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-100">
             로그인 후 프로필을 확인할 수 있습니다. <a
                 class="underline"
                 href="/login"
-                on:click|preventDefault={() => navigate('/login')}>로그인</a
+                onclick={(event) => onNav(event, '/login')}>로그인</a
             >
         </div>
     {:else}
@@ -48,15 +58,15 @@
                 <div class="mt-4 space-y-2 text-sm text-slate-300">
                     <div class="flex justify-between">
                         <span class="text-slate-400">Username</span>
-                        <span>{$authStore.user.username}</span>
+                        <span>{auth.user.username}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-slate-400">Email</span>
-                        <span>{$authStore.user.email}</span>
+                        <span>{auth.user.email}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-slate-400">Role</span>
-                        <span class="uppercase text-teal-200">{$authStore.user.role}</span>
+                        <span class="uppercase text-teal-200">{auth.user.role}</span>
                     </div>
                 </div>
             </div>
@@ -66,7 +76,7 @@
                     <h3 class="text-lg text-slate-100">Solved</h3>
                     <button
                         class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:border-teal-400"
-                        on:click={loadSolved}
+                        onclick={loadSolved}
                     >
                         새로고침
                     </button>

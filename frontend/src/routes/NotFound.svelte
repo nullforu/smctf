@@ -9,7 +9,10 @@
         <a
             href="/"
             class="mt-6 inline-flex rounded-full bg-teal-500/30 px-6 py-2 text-sm text-teal-100 transition hover:bg-teal-500/40"
-            on:click|preventDefault={() => navigate('/')}>홈으로</a
+            onclick={(event) => {
+                event.preventDefault()
+                navigate('/')
+            }}>홈으로</a
         >
     </div>
 </section>

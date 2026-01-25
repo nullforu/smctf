@@ -1,18 +1,25 @@
 <script lang="ts">
-    import { authStore } from '../lib/stores'
+    import { onDestroy } from 'svelte'
+    import { get } from 'svelte/store'
+    import { authStore, type AuthState } from '../lib/stores'
     import { api } from '../lib/api'
     import { formatApiError, type FieldErrors } from '../lib/utils'
 
-    let title = ''
-    let description = ''
-    let points = 100
-    let flag = ''
-    let isActive = true
+    let title = $state('')
+    let description = $state('')
+    let points = $state(100)
+    let flag = $state('')
+    let isActive = $state(true)
 
-    let loading = false
-    let errorMessage = ''
-    let fieldErrors: FieldErrors = {}
-    let successMessage = ''
+    let loading = $state(false)
+    let errorMessage = $state('')
+    let fieldErrors: FieldErrors = $state({})
+    let successMessage = $state('')
+    let auth = $state<AuthState>(get(authStore))
+    const unsubscribe = authStore.subscribe((value) => {
+        auth = value
+    })
+    onDestroy(unsubscribe)
 
     const submit = async () => {
         loading = true
@@ -49,17 +56,23 @@
         <p class="mt-2 text-sm text-slate-400">새로운 문제를 생성하고 활성화합니다.</p>
     </div>
 
-    {#if !$authStore.user}
+    {#if !auth.user}
         <div class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-100">
             관리자 기능은 로그인 후 접근 가능합니다.
         </div>
-    {:else if $authStore.user.role !== 'admin'}
+    {:else if auth.user.role !== 'admin'}
         <div class="mt-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200">
             권한이 없습니다. 관리자 계정으로 로그인하세요.
         </div>
     {:else}
         <div class="mt-6 rounded-3xl border border-slate-800/80 bg-slate-900/40 p-8">
-            <form class="space-y-5" on:submit|preventDefault={submit}>
+            <form
+                class="space-y-5"
+                onsubmit={(event) => {
+                    event.preventDefault()
+                    submit()
+                }}
+            >
                 <div>
                     <label class="text-xs uppercase tracking-wide text-slate-400" for="admin-title">Title</label>
                     <input

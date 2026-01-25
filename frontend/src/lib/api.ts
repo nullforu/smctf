@@ -4,15 +4,18 @@ import { authStore, clearAuth, setAuthTokens, setAuthUser } from './stores'
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
 
 export type ApiErrorDetail = { field: string; reason: string }
+export type RateLimitInfo = { limit: number; remaining: number; reset_seconds: number }
 
 export class ApiError extends Error {
     status: number
     details?: ApiErrorDetail[]
-    constructor(message: string, status: number, details?: ApiErrorDetail[]) {
+    rateLimit?: RateLimitInfo
+    constructor(message: string, status: number, details?: ApiErrorDetail[], rateLimit?: RateLimitInfo) {
         super(message)
         this.name = 'ApiError'
         this.status = status
         this.details = details
+        this.rateLimit = rateLimit
     }
 }
 
@@ -22,6 +25,17 @@ const parseJson = async (response: Response) => {
         return null
     }
     return response.json()
+}
+
+const extractRateLimit = (response: Response, data: any): RateLimitInfo | undefined => {
+    if (data?.rate_limit) return data.rate_limit as RateLimitInfo
+    const limit = Number(response.headers.get('x-ratelimit-limit'))
+    const remaining = Number(response.headers.get('x-ratelimit-remaining'))
+    const resetSeconds = Number(response.headers.get('x-ratelimit-reset'))
+    if (Number.isFinite(limit) && Number.isFinite(remaining) && Number.isFinite(resetSeconds)) {
+        return { limit, remaining, reset_seconds: resetSeconds }
+    }
+    return undefined
 }
 
 const buildHeaders = (withAuth: boolean, tokenOverride?: string) => {
@@ -51,7 +65,12 @@ const refreshToken = async () => {
     if (!response.ok) {
         const data = await parseJson(response)
         clearAuth()
-        throw new ApiError(data?.error ?? 'invalid credentials', response.status, data?.details)
+        throw new ApiError(
+            data?.error ?? 'invalid credentials',
+            response.status,
+            data?.details,
+            extractRateLimit(response, data),
+        )
     }
 
     const data = await response.json()
@@ -106,7 +125,12 @@ const request = async <T>(
                 return data as T
             }
             const retryData = await parseJson(retryResponse)
-            throw new ApiError(retryData?.error ?? 'request failed', retryResponse.status, retryData?.details)
+            throw new ApiError(
+                retryData?.error ?? 'request failed',
+                retryResponse.status,
+                retryData?.details,
+                extractRateLimit(retryResponse, retryData),
+            )
         } catch (error) {
             if (error instanceof ApiError) throw error
             clearAuth()
@@ -115,7 +139,12 @@ const request = async <T>(
     }
 
     const data = await parseJson(response)
-    throw new ApiError(data?.error ?? 'request failed', response.status, data?.details)
+    throw new ApiError(
+        data?.error ?? 'request failed',
+        response.status,
+        data?.details,
+        extractRateLimit(response, data),
+    )
 }
 
 export type AuthResponse = {

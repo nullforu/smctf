@@ -3,13 +3,17 @@
     import { formatApiError, type FieldErrors } from '../lib/utils'
     import { navigate } from '../lib/router'
 
-    let email = ''
-    let username = ''
-    let password = ''
-    let loading = false
-    let errorMessage = ''
-    let fieldErrors: FieldErrors = {}
-    let success = false
+    let email = $state('')
+    let username = $state('')
+    let password = $state('')
+    let loading = $state(false)
+    let errorMessage = $state('')
+    let fieldErrors: FieldErrors = $state({})
+    let success = $state(false)
+    const onNav = (event: MouseEvent, path: string) => {
+        event.preventDefault()
+        navigate(path)
+    }
 
     const submit = async () => {
         loading = true
@@ -38,7 +42,13 @@
             <h2 class="text-3xl text-slate-100">계정 생성</h2>
             <p class="mt-2 text-sm text-slate-400">당신의 해킹 스토리를 시작하세요.</p>
 
-            <form class="mt-6 space-y-5" on:submit|preventDefault={submit}>
+            <form
+                class="mt-6 space-y-5"
+                onsubmit={(event) => {
+                    event.preventDefault()
+                    submit()
+                }}
+            >
                 <div>
                     <label class="text-xs uppercase tracking-wide text-slate-400" for="register-email">Email</label>
                     <input
@@ -96,7 +106,7 @@
                         계정이 생성되었습니다. 이제 <a
                             class="underline"
                             href="/login"
-                            on:click|preventDefault={() => navigate('/login')}>로그인</a
+                            onclick={(event) => onNav(event, '/login')}>로그인</a
                         > 하세요.
                     </p>
                 {/if}
