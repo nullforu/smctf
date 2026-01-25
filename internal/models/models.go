@@ -24,7 +24,7 @@ type Challenge struct {
 	Description   string    `bun:",notnull"`
 	Points        int       `bun:",notnull,default:0"`
 	FlagHash      string    `bun:",notnull"`
-	IsActive      bool      `bun:",notnull,default:true"`
+	IsActive      bool      `bun:",notnull"`
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 }
 
