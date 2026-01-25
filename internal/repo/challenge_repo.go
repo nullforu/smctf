@@ -25,15 +25,15 @@ func (r *ChallengeRepo) ListActive(ctx context.Context) ([]models.Challenge, err
 }
 
 func (r *ChallengeRepo) GetByID(ctx context.Context, id int64) (*models.Challenge, error) {
-	ch := new(models.Challenge)
-	if err := r.db.NewSelect().Model(ch).Where("id = ?", id).Scan(ctx); err != nil {
+	challenge := new(models.Challenge)
+	if err := r.db.NewSelect().Model(challenge).Where("id = ?", id).Scan(ctx); err != nil {
 		return nil, wrapNotFound("challengeRepo.GetByID", err)
 	}
-	return ch, nil
+	return challenge, nil
 }
 
-func (r *ChallengeRepo) Create(ctx context.Context, ch *models.Challenge) error {
-	if _, err := r.db.NewInsert().Model(ch).Exec(ctx); err != nil {
+func (r *ChallengeRepo) Create(ctx context.Context, challenge *models.Challenge) error {
+	if _, err := r.db.NewInsert().Model(challenge).Exec(ctx); err != nil {
 		return wrapError("challengeRepo.Create", err)
 	}
 	return nil

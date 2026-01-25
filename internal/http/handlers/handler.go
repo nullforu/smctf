@@ -51,36 +51,36 @@ type submitRequest struct {
 	Flag string `json:"flag" binding:"required"`
 }
 
-func (h *Handler) Register(c *gin.Context) {
+func (h *Handler) Register(ctx *gin.Context) {
 	var req registerRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeBindError(c, err)
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
 		return
 	}
-	user, err := h.auth.Register(c.Request.Context(), req.Email, req.Username, req.Password)
+	user, err := h.auth.Register(ctx.Request.Context(), req.Email, req.Username, req.Password)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{
+	ctx.JSON(http.StatusCreated, gin.H{
 		"id":       user.ID,
 		"email":    user.Email,
 		"username": user.Username,
 	})
 }
 
-func (h *Handler) Login(c *gin.Context) {
+func (h *Handler) Login(ctx *gin.Context) {
 	var req loginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeBindError(c, err)
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
 		return
 	}
-	accessToken, refreshToken, user, err := h.auth.Login(c.Request.Context(), req.Email, req.Password)
+	accessToken, refreshToken, user, err := h.auth.Login(ctx.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	ctx.JSON(http.StatusOK, gin.H{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 		"user": gin.H{
@@ -92,44 +92,44 @@ func (h *Handler) Login(c *gin.Context) {
 	})
 }
 
-func (h *Handler) Refresh(c *gin.Context) {
+func (h *Handler) Refresh(ctx *gin.Context) {
 	var req refreshRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeBindError(c, err)
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
 		return
 	}
-	accessToken, refreshToken, err := h.auth.Refresh(c.Request.Context(), req.RefreshToken)
+	accessToken, refreshToken, err := h.auth.Refresh(ctx.Request.Context(), req.RefreshToken)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	ctx.JSON(http.StatusOK, gin.H{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 	})
 }
 
-func (h *Handler) Logout(c *gin.Context) {
+func (h *Handler) Logout(ctx *gin.Context) {
 	var req refreshRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeBindError(c, err)
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
 		return
 	}
-	if err := h.auth.Logout(c.Request.Context(), req.RefreshToken); err != nil {
-		writeError(c, err)
+	if err := h.auth.Logout(ctx.Request.Context(), req.RefreshToken); err != nil {
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-func (h *Handler) Me(c *gin.Context) {
-	userID := middleware.UserID(c)
-	user, err := h.users.GetByID(c.Request.Context(), userID)
+func (h *Handler) Me(ctx *gin.Context) {
+	userID := middleware.UserID(ctx)
+	user, err := h.users.GetByID(ctx.Request.Context(), userID)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	ctx.JSON(http.StatusOK, gin.H{
 		"id":       user.ID,
 		"email":    user.Email,
 		"username": user.Username,
@@ -137,118 +137,118 @@ func (h *Handler) Me(c *gin.Context) {
 	})
 }
 
-func (h *Handler) MeSolved(c *gin.Context) {
-	userID := middleware.UserID(c)
-	rows, err := h.ctf.SolvedChallenges(c.Request.Context(), userID)
+func (h *Handler) MeSolved(ctx *gin.Context) {
+	userID := middleware.UserID(ctx)
+	rows, err := h.ctf.SolvedChallenges(ctx.Request.Context(), userID)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusOK, rows)
+	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) ListChallenges(c *gin.Context) {
-	chs, err := h.ctf.ListChallenges(c.Request.Context())
+func (h *Handler) ListChallenges(ctx *gin.Context) {
+	challenges, err := h.ctf.ListChallenges(ctx.Request.Context())
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	resp := make([]gin.H, 0, len(chs))
-	for _, ch := range chs {
+	resp := make([]gin.H, 0, len(challenges))
+	for _, challenge := range challenges {
 		resp = append(resp, gin.H{
-			"id":          ch.ID,
-			"title":       ch.Title,
-			"description": ch.Description,
-			"points":      ch.Points,
-			"is_active":   ch.IsActive,
+			"id":          challenge.ID,
+			"title":       challenge.Title,
+			"description": challenge.Description,
+			"points":      challenge.Points,
+			"is_active":   challenge.IsActive,
 		})
 	}
-	c.JSON(http.StatusOK, resp)
+	ctx.JSON(http.StatusOK, resp)
 }
 
-func (h *Handler) SubmitFlag(c *gin.Context) {
-	challengeID, ok := parseIDParam(c, "id")
+func (h *Handler) SubmitFlag(ctx *gin.Context) {
+	challengeID, ok := parseIDParam(ctx, "id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, errorResponse{
+		ctx.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),
 			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
 		})
 		return
 	}
 	var req submitRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeBindError(c, err)
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
 		return
 	}
-	correct, err := h.ctf.SubmitFlag(c.Request.Context(), middleware.UserID(c), challengeID, req.Flag)
+	correct, err := h.ctf.SubmitFlag(ctx.Request.Context(), middleware.UserID(ctx), challengeID, req.Flag)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	ctx.JSON(http.StatusOK, gin.H{
 		"correct": correct,
 	})
 }
 
-func (h *Handler) CreateChallenge(c *gin.Context) {
+func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	var req createChallengeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeBindError(c, err)
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
 		return
 	}
 	active := true
 	if req.IsActive != nil {
 		active = *req.IsActive
 	}
-	ch, err := h.ctf.CreateChallenge(c.Request.Context(), req.Title, req.Description, req.Points, req.Flag, active)
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Points, req.Flag, active)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{
-		"id":          ch.ID,
-		"title":       ch.Title,
-		"description": ch.Description,
-		"points":      ch.Points,
-		"is_active":   ch.IsActive,
+	ctx.JSON(http.StatusCreated, gin.H{
+		"id":          challenge.ID,
+		"title":       challenge.Title,
+		"description": challenge.Description,
+		"points":      challenge.Points,
+		"is_active":   challenge.IsActive,
 	})
 }
 
-func (h *Handler) Scoreboard(c *gin.Context) {
-	limit := parseLimitQuery(c, 50, 200)
-	rows, err := h.users.Scoreboard(c.Request.Context(), limit)
+func (h *Handler) Scoreboard(ctx *gin.Context) {
+	limit := parseLimitQuery(ctx, 50, 200)
+	rows, err := h.users.Scoreboard(ctx.Request.Context(), limit)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
-	c.JSON(http.StatusOK, rows)
+	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) ScoreboardTimeline(c *gin.Context) {
-	limit := parseLimitQuery(c, 50, 200)
-	intervalMinutes, err := parseIntervalQuery(c, 10)
+func (h *Handler) ScoreboardTimeline(ctx *gin.Context) {
+	limit := parseLimitQuery(ctx, 50, 200)
+	intervalMinutes, err := parseIntervalQuery(ctx, 10)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse{
+		ctx.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),
 			Details: []service.FieldError{{Field: "interval", Reason: "invalid"}},
 		})
 		return
 	}
 
-	users, err := h.users.Scoreboard(c.Request.Context(), limit)
+	users, err := h.users.Scoreboard(ctx.Request.Context(), limit)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
 	userIDs, usernames := indexUsers(users)
 
-	rows, err := h.users.ScoreboardTimeline(c.Request.Context(), userIDs, time.Duration(intervalMinutes)*time.Minute)
+	rows, err := h.users.ScoreboardTimeline(ctx.Request.Context(), userIDs, time.Duration(intervalMinutes)*time.Minute)
 	if err != nil {
-		writeError(c, err)
+		writeError(ctx, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, models.ScoreTimelineResponse{
+	ctx.JSON(http.StatusOK, models.ScoreTimelineResponse{
 		IntervalMinutes: intervalMinutes,
 		Users:           users,
 		Buckets:         buildScoreTimelineBuckets(rows, userIDs, usernames),

@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func parseLimitQuery(c *gin.Context, def, max int) int {
-	value := strings.TrimSpace(c.Query("limit"))
+func parseLimitQuery(ctx *gin.Context, def, max int) int {
+	value := strings.TrimSpace(ctx.Query("limit"))
 	if value == "" {
 		return def
 	}
@@ -23,8 +23,8 @@ func parseLimitQuery(c *gin.Context, def, max int) int {
 	return limit
 }
 
-func parseIntervalQuery(c *gin.Context, def int) (int, error) {
-	value := strings.TrimSpace(c.Query("interval"))
+func parseIntervalQuery(ctx *gin.Context, def int) (int, error) {
+	value := strings.TrimSpace(ctx.Query("interval"))
 	if value == "" {
 		return def, nil
 	}
@@ -35,8 +35,8 @@ func parseIntervalQuery(c *gin.Context, def int) (int, error) {
 	return interval, nil
 }
 
-func parseIDParam(c *gin.Context, name string) (int64, bool) {
-	value := strings.TrimSpace(c.Param(name))
+func parseIDParam(ctx *gin.Context, name string) (int64, bool) {
+	value := strings.TrimSpace(ctx.Param(name))
 	if value == "" {
 		return 0, false
 	}

@@ -24,8 +24,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 
 	h := handlers.New(cfg, authSvc, ctfSvc, userRepo)
 
-	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
+	r.GET("/healthz", func(ctx *gin.Context) {
+		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
 	})
 
 	api := r.Group("/api")

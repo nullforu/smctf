@@ -22,10 +22,10 @@ func TestAuthMiddleware(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.GET("/protected", Auth(cfg), func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"user_id": UserID(c),
-			"role":    Role(c),
+	router.GET("/protected", Auth(cfg), func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{
+			"user_id": UserID(ctx),
+			"role":    Role(ctx),
 		})
 	})
 
@@ -87,8 +87,8 @@ func TestRequireRole(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.GET("/admin", Auth(cfg), RequireRole("admin"), func(c *gin.Context) {
-		c.Status(http.StatusOK)
+	router.GET("/admin", Auth(cfg), RequireRole("admin"), func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
 	})
 
 	userToken, err := auth.GenerateAccessToken(cfg, 1, "user")

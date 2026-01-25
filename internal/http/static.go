@@ -15,16 +15,16 @@ func attachFrontendRoutes(r *gin.Engine) {
 		return
 	}
 
-	r.NoRoute(func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.URL.Path, "/api") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+	r.NoRoute(func(ctx *gin.Context) {
+		if strings.HasPrefix(ctx.Request.URL.Path, "/api") {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
-		if filePath, ok := resolveStaticFile(staticDir, c.Request.URL.Path); ok {
-			c.File(filePath)
+		if filePath, ok := resolveStaticFile(staticDir, ctx.Request.URL.Path); ok {
+			ctx.File(filePath)
 			return
 		}
-		c.File(indexPath)
+		ctx.File(indexPath)
 	})
 }
 

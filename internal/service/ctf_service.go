@@ -46,7 +46,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description str
 		return nil, err
 	}
 
-	ch := &models.Challenge{
+	challenge := &models.Challenge{
 		Title:       title,
 		Description: description,
 		Points:      points,
@@ -54,10 +54,10 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description str
 		IsActive:    active,
 		CreatedAt:   time.Now().UTC(),
 	}
-	if err := s.challengeRepo.Create(ctx, ch); err != nil {
+	if err := s.challengeRepo.Create(ctx, challenge); err != nil {
 		return nil, fmt.Errorf("ctf.CreateChallenge: %w", err)
 	}
-	return ch, nil
+	return challenge, nil
 }
 
 func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, flag string) (bool, error) {
@@ -72,14 +72,14 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		return false, err
 	}
 
-	ch, err := s.challengeRepo.GetByID(ctx, challengeID)
+	challenge, err := s.challengeRepo.GetByID(ctx, challengeID)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
 			return false, ErrChallengeNotFound
 		}
 		return false, fmt.Errorf("ctf.SubmitFlag lookup: %w", err)
 	}
-	if !ch.IsActive {
+	if !challenge.IsActive {
 		return false, ErrChallengeNotFound
 	}
 
@@ -92,7 +92,7 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 	}
 
 	flagHash := utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag)
-	correct := utils.SecureCompare(flagHash, ch.FlagHash)
+	correct := utils.SecureCompare(flagHash, challenge.FlagHash)
 
 	sub := &models.Submission{
 		UserID:      userID,

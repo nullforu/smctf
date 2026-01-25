@@ -1,8 +1,8 @@
 package service
 
-func trimTo(v string, max int) string {
-	if len(v) <= max {
-		return v
+func trimTo(value string, max int) string {
+	if len(value) <= max {
+		return value
 	}
-	return v[:max]
+	return value[:max]
 }

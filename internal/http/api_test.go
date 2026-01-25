@@ -310,7 +310,7 @@ func createUser(t *testing.T, env testEnv, email, username, password, role strin
 
 func createChallenge(t *testing.T, env testEnv, title string, points int, flag string, active bool) *models.Challenge {
 	t.Helper()
-	ch := &models.Challenge{
+	challenge := &models.Challenge{
 		Title:       title,
 		Description: "desc",
 		Points:      points,
@@ -318,10 +318,10 @@ func createChallenge(t *testing.T, env testEnv, title string, points int, flag s
 		IsActive:    active,
 		CreatedAt:   time.Now().UTC(),
 	}
-	if err := env.challengeRepo.Create(context.Background(), ch); err != nil {
+	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
-	return ch
+	return challenge
 }
 
 func createSubmission(t *testing.T, env testEnv, userID, challengeID int64, correct bool, submittedAt time.Time) {
@@ -527,9 +527,9 @@ func TestMe(t *testing.T) {
 func TestMeSolved(t *testing.T) {
 	env := setupTest(t, testCfg)
 	access, _, userID := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
-	ch := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
-	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -543,7 +543,7 @@ func TestMeSolved(t *testing.T) {
 	if len(solved) != 1 {
 		t.Fatalf("expected 1 solved, got %d", len(solved))
 	}
-	if solved[0].ChallengeID != ch.ID || solved[0].Points != 100 || solved[0].Title != "Warmup" {
+	if solved[0].ChallengeID != challenge.ID || solved[0].Points != 100 || solved[0].Title != "Warmup" {
 		t.Fatalf("unexpected solved entry: %+v", solved[0])
 	}
 	if solved[0].ChallengeID == 0 || solved[0].SolvedAt.IsZero() {
@@ -578,8 +578,8 @@ func TestListChallenges(t *testing.T) {
 func TestSubmitFlag(t *testing.T) {
 	t.Run("missing auth", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		ch := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, nil)
+		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, nil)
 		if rec.Code != http.StatusUnauthorized {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -602,8 +602,8 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("invalid body", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
-		ch := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{}, authHeader(access))
+		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{}, authHeader(access))
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -629,8 +629,8 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("inactive challenge", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
-		ch := createChallenge(t, env, "Warmup", 100, "flag{ok}", false)
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", false)
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -639,9 +639,9 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("correct and wrong", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
-		ch := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -653,7 +653,7 @@ func TestSubmitFlag(t *testing.T) {
 			t.Fatalf("expected incorrect flag")
 		}
 
-		rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+		rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -669,14 +669,14 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("already solved", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
-		ch := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
 
-		rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+		rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -690,15 +690,15 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("rate limited", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
-		ch := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
 		for i := 0; i < env.cfg.Security.SubmissionMax; i++ {
-			rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
+			rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status %d at attempt %d: %s", rec.Code, i+1, rec.Body.String())
 			}
 		}
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(ch.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
 		if rec.Code != http.StatusTooManyRequests {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -720,12 +720,12 @@ func TestScoreboard(t *testing.T) {
 	env := setupTest(t, testCfg)
 	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
-	ch1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
-	ch2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
+	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
+	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
 
-	createSubmission(t, env, user1.ID, ch1.ID, true, time.Now().UTC())
-	createSubmission(t, env, user2.ID, ch1.ID, true, time.Now().UTC())
-	createSubmission(t, env, user2.ID, ch2.ID, true, time.Now().UTC())
+	createSubmission(t, env, user1.ID, challenge1.ID, true, time.Now().UTC())
+	createSubmission(t, env, user2.ID, challenge1.ID, true, time.Now().UTC())
+	createSubmission(t, env, user2.ID, challenge2.ID, true, time.Now().UTC())
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/scoreboard", nil, nil)
 	if rec.Code != http.StatusOK {
@@ -754,13 +754,13 @@ func TestScoreboardTimeline(t *testing.T) {
 	env := setupTest(t, testCfg)
 	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
-	ch1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
-	ch2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
+	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
+	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
 
 	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
-	createSubmission(t, env, user1.ID, ch1.ID, true, base.Add(3*time.Minute))
-	createSubmission(t, env, user2.ID, ch2.ID, true, base.Add(7*time.Minute))
-	createSubmission(t, env, user1.ID, ch2.ID, true, base.Add(16*time.Minute))
+	createSubmission(t, env, user1.ID, challenge1.ID, true, base.Add(3*time.Minute))
+	createSubmission(t, env, user2.ID, challenge2.ID, true, base.Add(7*time.Minute))
+	createSubmission(t, env, user1.ID, challenge2.ID, true, base.Add(16*time.Minute))
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/scoreboard/timeline?interval=10&limit=50", nil, nil)
 	if rec.Code != http.StatusOK {

@@ -13,25 +13,25 @@ func CORS(allowAll bool, allowedOrigins []string) gin.HandlerFunc {
 		allowed[strings.TrimSpace(o)] = struct{}{}
 	}
 
-	return func(c *gin.Context) {
-		origin := c.GetHeader("Origin")
+	return func(ctx *gin.Context) {
+		origin := ctx.GetHeader("Origin")
 		if allowAll {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+			ctx.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		} else if origin != "" {
 			if _, ok := allowed[origin]; ok {
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				c.Writer.Header().Set("Vary", "Origin")
+				ctx.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+				ctx.Writer.Header().Set("Vary", "Origin")
 			}
 		}
 
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
+		if ctx.Request.Method == http.MethodOptions {
+			ctx.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-		c.Next()
+		ctx.Next()
 	}
 }

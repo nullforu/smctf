@@ -22,12 +22,12 @@ type errorResponse struct {
 	RateLimit *service.RateLimitInfo `json:"rate_limit,omitempty"`
 }
 
-func writeError(c *gin.Context, err error) {
+func writeError(ctx *gin.Context, err error) {
 	status, resp, headers := mapError(err)
 	for key, value := range headers {
-		c.Header(key, value)
+		ctx.Header(key, value)
 	}
-	c.JSON(status, resp)
+	ctx.JSON(status, resp)
 }
 
 func mapError(err error) (int, errorResponse, map[string]string) {
@@ -83,12 +83,12 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	return status, resp, nil
 }
 
-func writeBindError(c *gin.Context, err error) {
+func writeBindError(ctx *gin.Context, err error) {
 	fields := bindErrorDetails(err)
 	if len(fields) == 0 {
 		fields = []service.FieldError{{Field: "body", Reason: "invalid"}}
 	}
-	c.JSON(http.StatusBadRequest, errorResponse{Error: service.ErrInvalidInput.Error(), Details: fields})
+	ctx.JSON(http.StatusBadRequest, errorResponse{Error: service.ErrInvalidInput.Error(), Details: fields})
 }
 
 func bindErrorDetails(err error) []service.FieldError {

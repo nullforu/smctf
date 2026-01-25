@@ -16,44 +16,44 @@ const (
 )
 
 func Auth(cfg config.JWTConfig) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
+	return func(ctx *gin.Context) {
+		authHeader := ctx.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization"})
 			return
 		}
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization"})
 			return
 		}
 		claims, err := auth.ParseToken(cfg, parts[1])
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
 		if claims.Type != auth.TokenTypeAccess {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
-		c.Set(ctxUserIDKey, claims.UserID)
-		c.Set(ctxRoleKey, claims.Role)
-		c.Next()
+		ctx.Set(ctxUserIDKey, claims.UserID)
+		ctx.Set(ctxRoleKey, claims.Role)
+		ctx.Next()
 	}
 }
 
 func RequireRole(role string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if Role(c) != role {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+	return func(ctx *gin.Context) {
+		if Role(ctx) != role {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
-		c.Next()
+		ctx.Next()
 	}
 }
 
-func UserID(c *gin.Context) int64 {
-	if v, ok := c.Get(ctxUserIDKey); ok {
+func UserID(ctx *gin.Context) int64 {
+	if v, ok := ctx.Get(ctxUserIDKey); ok {
 		if id, ok := v.(int64); ok {
 			return id
 		}
@@ -61,8 +61,8 @@ func UserID(c *gin.Context) int64 {
 	return 0
 }
 
-func Role(c *gin.Context) string {
-	if v, ok := c.Get(ctxRoleKey); ok {
+func Role(ctx *gin.Context) string {
+	if v, ok := ctx.Get(ctxRoleKey); ok {
 		if role, ok := v.(string); ok {
 			return role
 		}
