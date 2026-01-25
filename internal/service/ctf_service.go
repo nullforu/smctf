@@ -2,9 +2,8 @@ package service
 
 import (
 	"context"
-	"math"
-	"strconv"
-	"strings"
+	"errors"
+	"fmt"
 	"time"
 
 	"smctf/internal/config"
@@ -27,28 +26,24 @@ func NewCTFService(cfg config.Config, challengeRepo *repo.ChallengeRepo, submiss
 }
 
 func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, error) {
-	return s.challengeRepo.ListActive(ctx)
+	challenges, err := s.challengeRepo.ListActive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ctf.ListChallenges: %w", err)
+	}
+	return challenges, nil
 }
 
 func (s *CTFService) CreateChallenge(ctx context.Context, title, description string, points int, flag string, active bool) (*models.Challenge, error) {
-	title = strings.TrimSpace(title)
-	description = strings.TrimSpace(description)
-	flag = strings.TrimSpace(flag)
-	var fields []FieldError
-	if title == "" {
-		fields = append(fields, FieldError{Field: "title", Reason: "required"})
-	}
-	if description == "" {
-		fields = append(fields, FieldError{Field: "description", Reason: "required"})
-	}
-	if flag == "" {
-		fields = append(fields, FieldError{Field: "flag", Reason: "required"})
-	}
-	if points < 0 {
-		fields = append(fields, FieldError{Field: "points", Reason: "must be >= 0"})
-	}
-	if len(fields) > 0 {
-		return nil, NewValidationError(fields...)
+	title = normalizeTrim(title)
+	description = normalizeTrim(description)
+	flag = normalizeTrim(flag)
+	validator := newFieldValidator()
+	validator.Required("title", title)
+	validator.Required("description", description)
+	validator.Required("flag", flag)
+	validator.NonNegative("points", points)
+	if err := validator.Error(); err != nil {
+		return nil, err
 	}
 
 	ch := &models.Challenge{
@@ -60,28 +55,37 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description str
 		CreatedAt:   time.Now().UTC(),
 	}
 	if err := s.challengeRepo.Create(ctx, ch); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ctf.CreateChallenge: %w", err)
 	}
 	return ch, nil
 }
 
 func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, flag string) (bool, error) {
-	flag = strings.TrimSpace(flag)
-	if flag == "" {
-		return false, NewValidationError(FieldError{Field: "flag", Reason: "required"})
+	flag = normalizeTrim(flag)
+	validator := newFieldValidator()
+	validator.Required("flag", flag)
+	validator.PositiveID("challenge_id", challengeID)
+	if err := validator.Error(); err != nil {
+		return false, err
 	}
 	if err := s.rateLimit(ctx, userID); err != nil {
 		return false, err
 	}
 
 	ch, err := s.challengeRepo.GetByID(ctx, challengeID)
-	if err != nil || !ch.IsActive {
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return false, ErrChallengeNotFound
+		}
+		return false, fmt.Errorf("ctf.SubmitFlag lookup: %w", err)
+	}
+	if !ch.IsActive {
 		return false, ErrChallengeNotFound
 	}
 
 	already, err := s.submissionRepo.HasCorrect(ctx, userID, challengeID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("ctf.SubmitFlag check: %w", err)
 	}
 	if already {
 		return true, ErrAlreadySolved
@@ -98,60 +102,15 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		SubmittedAt: time.Now().UTC(),
 	}
 	if err := s.submissionRepo.Create(ctx, sub); err != nil {
-		return false, err
+		return false, fmt.Errorf("ctf.SubmitFlag create: %w", err)
 	}
 	return correct, nil
 }
 
 func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
-	return s.submissionRepo.SolvedChallenges(ctx, userID)
-}
-
-func (s *CTFService) rateLimit(ctx context.Context, userID int64) error {
-	key := "submit:" + itoa(userID)
-	pipe := s.redis.TxPipeline()
-	cnt := pipe.Incr(ctx, key)
-	ttl := pipe.TTL(ctx, key)
-	_, err := pipe.Exec(ctx)
+	rows, err := s.submissionRepo.SolvedChallenges(ctx, userID)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("ctf.SolvedChallenges: %w", err)
 	}
-
-	ttlVal := ttl.Val()
-	if ttlVal <= 0 {
-		if err := s.redis.Expire(ctx, key, s.cfg.Security.SubmissionWindow).Err(); err == nil {
-			ttlVal = s.cfg.Security.SubmissionWindow
-		} else {
-			ttlVal = s.cfg.Security.SubmissionWindow
-		}
-	}
-
-	remaining := s.cfg.Security.SubmissionMax - int(cnt.Val())
-	if remaining < 0 {
-		remaining = 0
-	}
-
-	if cnt.Val() > int64(s.cfg.Security.SubmissionMax) {
-		resetSeconds := int(math.Ceil(ttlVal.Seconds()))
-		if resetSeconds < 0 {
-			resetSeconds = int(s.cfg.Security.SubmissionWindow.Seconds())
-		}
-		return &RateLimitError{Info: RateLimitInfo{
-			Limit:        s.cfg.Security.SubmissionMax,
-			Remaining:    remaining,
-			ResetSeconds: resetSeconds,
-		}}
-	}
-	return nil
-}
-
-func trimTo(v string, max int) string {
-	if len(v) <= max {
-		return v
-	}
-	return v[:max]
-}
-
-func itoa(v int64) string {
-	return strconv.FormatInt(v, 10)
+	return rows, nil
 }

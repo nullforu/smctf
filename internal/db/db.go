@@ -40,23 +40,44 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 		(*models.Submission)(nil),
 	}
 
+	if err := createTables(ctx, db, modelsToCreate); err != nil {
+		return err
+	}
+	return createIndexes(ctx, db)
+}
+
+func createTables(ctx context.Context, db *bun.DB, modelsToCreate []interface{}) error {
 	for _, m := range modelsToCreate {
-		_, err := db.NewCreateTable().Model(m).IfNotExists().Exec(ctx)
-		if err != nil {
-			return err
+		if _, err := db.NewCreateTable().Model(m).IfNotExists().Exec(ctx); err != nil {
+			return fmt.Errorf("auto migrate create table %T: %w", m, err)
 		}
 	}
-	_, err := db.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions (user_id)")
-	if err != nil {
-		return err
+	return nil
+}
+
+func createIndexes(ctx context.Context, db *bun.DB) error {
+	indexes := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "idx_submissions_user",
+			query: "CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions (user_id)",
+		},
+		{
+			name:  "idx_submissions_challenge",
+			query: "CREATE INDEX IF NOT EXISTS idx_submissions_challenge ON submissions (challenge_id)",
+		},
+		{
+			name:  "idx_submissions_user_challenge",
+			query: "CREATE INDEX IF NOT EXISTS idx_submissions_user_challenge ON submissions (user_id, challenge_id)",
+		},
 	}
-	_, err = db.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_submissions_challenge ON submissions (challenge_id)")
-	if err != nil {
-		return err
-	}
-	_, err = db.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_submissions_user_challenge ON submissions (user_id, challenge_id)")
-	if err != nil {
-		return err
+
+	for _, idx := range indexes {
+		if _, err := db.ExecContext(ctx, idx.query); err != nil {
+			return fmt.Errorf("auto migrate create index %s: %w", idx.name, err)
+		}
 	}
 	return nil
 }

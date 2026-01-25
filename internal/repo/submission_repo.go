@@ -17,8 +17,10 @@ func NewSubmissionRepo(db *bun.DB) *SubmissionRepo {
 }
 
 func (r *SubmissionRepo) Create(ctx context.Context, sub *models.Submission) error {
-	_, err := r.db.NewInsert().Model(sub).Exec(ctx)
-	return err
+	if _, err := r.db.NewInsert().Model(sub).Exec(ctx); err != nil {
+		return wrapError("submissionRepo.Create", err)
+	}
+	return nil
 }
 
 func (r *SubmissionRepo) HasCorrect(ctx context.Context, userID, challengeID int64) (bool, error) {
@@ -28,7 +30,7 @@ func (r *SubmissionRepo) HasCorrect(ctx context.Context, userID, challengeID int
 		Where("correct = true").
 		Count(ctx)
 	if err != nil {
-		return false, err
+		return false, wrapError("submissionRepo.HasCorrect", err)
 	}
 	return count > 0, nil
 }
@@ -48,7 +50,7 @@ func (r *SubmissionRepo) SolvedChallenges(ctx context.Context, userID int64) ([]
 		OrderExpr("solved_at ASC").
 		Scan(ctx, &rows)
 	if err != nil {
-		return nil, err
+		return nil, wrapError("submissionRepo.SolvedChallenges", err)
 	}
 	return rows, nil
 }

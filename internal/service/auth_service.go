@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"database/sql"
-	"net/mail"
+	"errors"
+	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"smctf/internal/auth"
@@ -29,36 +29,28 @@ func NewAuthService(cfg config.Config, userRepo *repo.UserRepo, redis *redis.Cli
 }
 
 func (s *AuthService) Register(ctx context.Context, email, username, password string) (*models.User, error) {
-	email = strings.TrimSpace(strings.ToLower(email))
-	username = strings.TrimSpace(username)
-	var fields []FieldError
-	if email == "" {
-		fields = append(fields, FieldError{Field: "email", Reason: "required"})
-	}
-	if username == "" {
-		fields = append(fields, FieldError{Field: "username", Reason: "required"})
-	}
-	if password == "" {
-		fields = append(fields, FieldError{Field: "password", Reason: "required"})
-	}
-	if _, err := mail.ParseAddress(email); err != nil {
-		fields = append(fields, FieldError{Field: "email", Reason: "invalid format"})
-	}
-	if len(fields) > 0 {
-		return nil, NewValidationError(fields...)
+	email = normalizeEmail(email)
+	username = normalizeTrim(username)
+	validator := newFieldValidator()
+	validator.Required("email", email)
+	validator.Required("username", username)
+	validator.Required("password", password)
+	validator.Email("email", email)
+	if err := validator.Error(); err != nil {
+		return nil, err
 	}
 
 	_, err := s.userRepo.GetByEmailOrUsername(ctx, email, username)
 	switch {
 	case err == nil:
 		return nil, ErrUserExists
-	case err != sql.ErrNoRows:
-		return nil, err
+	case !errors.Is(err, repo.ErrNotFound):
+		return nil, fmt.Errorf("auth.Register lookup: %w", err)
 	}
 
 	hash, err := auth.HashPassword(password, s.cfg.PasswordBcryptCost)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth.Register hash: %w", err)
 	}
 	user := &models.User{
 		Email:        email,
@@ -72,26 +64,26 @@ func (s *AuthService) Register(ctx context.Context, email, username, password st
 		if db.IsUniqueViolation(err) {
 			return nil, ErrUserExists
 		}
-		return nil, err
+		return nil, fmt.Errorf("auth.Register create: %w", err)
 	}
 	return user, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (string, string, *models.User, error) {
-	email = strings.TrimSpace(strings.ToLower(email))
+	email = normalizeEmail(email)
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, repo.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
 			return "", "", nil, ErrInvalidCreds
 		}
-		return "", "", nil, err
+		return "", "", nil, fmt.Errorf("auth.Login lookup: %w", err)
 	}
 	if !auth.CheckPassword(user.PasswordHash, password) {
 		return "", "", nil, ErrInvalidCreds
 	}
 	accessToken, refreshToken, err := s.issueTokens(ctx, user)
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, fmt.Errorf("auth.Login issueTokens: %w", err)
 	}
 	return accessToken, refreshToken, user, nil
 }
@@ -108,7 +100,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string,
 		return "", "", ErrInvalidCreds
 	}
 	if err := s.redis.Del(ctx, refreshKey(claims.ID)).Err(); err != nil && err != redis.Nil {
-		return "", "", err
+		return "", "", fmt.Errorf("auth.Refresh revoke: %w", err)
 	}
 	user := &models.User{ID: claims.UserID, Role: claims.Role}
 	return s.issueTokens(ctx, user)
@@ -123,7 +115,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 		return ErrInvalidCreds
 	}
 	if err := s.redis.Del(ctx, refreshKey(claims.ID)).Err(); err != nil && err != redis.Nil {
-		return err
+		return fmt.Errorf("auth.Logout revoke: %w", err)
 	}
 	return nil
 }
@@ -132,14 +124,14 @@ func (s *AuthService) issueTokens(ctx context.Context, user *models.User) (strin
 	jti := uuid.NewString()
 	accessToken, err := auth.GenerateAccessToken(s.cfg.JWT, user.ID, user.Role)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("auth.issueTokens access: %w", err)
 	}
 	refreshToken, err := auth.GenerateRefreshToken(s.cfg.JWT, user.ID, user.Role, jti)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("auth.issueTokens refresh: %w", err)
 	}
 	if err := s.redis.Set(ctx, refreshKey(jti), strconv.FormatInt(user.ID, 10), s.cfg.JWT.RefreshTTL).Err(); err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("auth.issueTokens store: %w", err)
 	}
 	return accessToken, refreshToken, nil
 }
@@ -150,7 +142,7 @@ func (s *AuthService) assertRefreshValid(ctx context.Context, jti string, userID
 		return ErrInvalidCreds
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("auth.assertRefreshValid lookup: %w", err)
 	}
 	if val == "" {
 		return ErrInvalidCreds

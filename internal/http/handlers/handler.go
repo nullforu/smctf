@@ -1,14 +1,7 @@
 package handlers
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
-	"sort"
-	"strconv"
-	"strings"
 	"time"
 
 	"smctf/internal/config"
@@ -18,7 +11,6 @@ import (
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type Handler struct {
@@ -30,103 +22,6 @@ type Handler struct {
 
 func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo) *Handler {
 	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users}
-}
-
-type errorResponse struct {
-	Error     string                 `json:"error"`
-	Details   []service.FieldError   `json:"details,omitempty"`
-	RateLimit *service.RateLimitInfo `json:"rate_limit,omitempty"`
-}
-
-func writeError(c *gin.Context, err error) {
-	status := http.StatusInternalServerError
-	msg := "internal error"
-	var details []service.FieldError
-
-	var ve *service.ValidationError
-	if errors.As(err, &ve) {
-		status = http.StatusBadRequest
-		msg = ve.Error()
-		details = ve.Fields
-		c.JSON(status, errorResponse{Error: msg, Details: details})
-		return
-	}
-
-	var rl *service.RateLimitError
-	if errors.As(err, &rl) {
-		status = http.StatusTooManyRequests
-		msg = err.Error()
-		c.Header("X-RateLimit-Limit", strconv.Itoa(rl.Info.Limit))
-		c.Header("X-RateLimit-Remaining", strconv.Itoa(rl.Info.Remaining))
-		c.Header("X-RateLimit-Reset", strconv.Itoa(rl.Info.ResetSeconds))
-		c.JSON(status, errorResponse{Error: msg, RateLimit: &rl.Info})
-		return
-	}
-
-	switch err {
-	case service.ErrInvalidInput:
-		status = http.StatusBadRequest
-		msg = err.Error()
-		details = []service.FieldError{{Field: "request", Reason: "invalid"}}
-	case service.ErrInvalidCreds:
-		status = http.StatusUnauthorized
-		msg = err.Error()
-	case service.ErrUserExists:
-		status = http.StatusConflict
-		msg = err.Error()
-	case service.ErrChallengeNotFound:
-		status = http.StatusNotFound
-		msg = err.Error()
-	case service.ErrAlreadySolved:
-		status = http.StatusConflict
-		msg = err.Error()
-	case service.ErrRateLimited:
-		status = http.StatusTooManyRequests
-		msg = err.Error()
-	case sql.ErrNoRows:
-		status = http.StatusNotFound
-		msg = "not found"
-	default:
-		msg = "internal error"
-	}
-
-	c.JSON(status, errorResponse{Error: msg, Details: details})
-}
-
-func writeBindError(c *gin.Context, err error) {
-	fields := bindErrorDetails(err)
-	if len(fields) == 0 {
-		fields = []service.FieldError{{Field: "body", Reason: "invalid"}}
-	}
-	c.JSON(http.StatusBadRequest, errorResponse{Error: service.ErrInvalidInput.Error(), Details: fields})
-}
-
-func bindErrorDetails(err error) []service.FieldError {
-	var verrs validator.ValidationErrors
-	if errors.As(err, &verrs) {
-		fields := make([]service.FieldError, 0, len(verrs))
-		for _, fe := range verrs {
-			field := strings.ToLower(fe.Field())
-			fields = append(fields, service.FieldError{Field: field, Reason: fe.Tag()})
-		}
-		return fields
-	}
-	var ute *json.UnmarshalTypeError
-	if errors.As(err, &ute) {
-		field := strings.ToLower(ute.Field)
-		if field == "" {
-			field = "body"
-		}
-		return []service.FieldError{{Field: field, Reason: "invalid type"}}
-	}
-	var se *json.SyntaxError
-	if errors.As(err, &se) {
-		return []service.FieldError{{Field: "body", Reason: "invalid json"}}
-	}
-	if errors.Is(err, io.EOF) {
-		return []service.FieldError{{Field: "body", Reason: "empty"}}
-	}
-	return nil
 }
 
 type registerRequest struct {
@@ -272,8 +167,8 @@ func (h *Handler) ListChallenges(c *gin.Context) {
 }
 
 func (h *Handler) SubmitFlag(c *gin.Context) {
-	challengeID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
-	if err != nil || challengeID <= 0 {
+	challengeID, ok := parseIDParam(c, "id")
+	if !ok {
 		c.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),
 			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
@@ -320,47 +215,24 @@ func (h *Handler) CreateChallenge(c *gin.Context) {
 }
 
 func (h *Handler) Scoreboard(c *gin.Context) {
-	limit := 50
-	if v := strings.TrimSpace(c.Query("limit")); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			if n > 200 {
-				n = 200
-			}
-			limit = n
-		}
-	}
+	limit := parseLimitQuery(c, 50, 200)
 	rows, err := h.users.Scoreboard(c.Request.Context(), limit)
 	if err != nil {
 		writeError(c, err)
 		return
 	}
-	resp := make([]models.ScoreEntry, 0, len(rows))
-	resp = append(resp, rows...)
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, rows)
 }
 
 func (h *Handler) ScoreboardTimeline(c *gin.Context) {
-	limit := 50
-	if v := strings.TrimSpace(c.Query("limit")); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			if n > 200 {
-				n = 200
-			}
-			limit = n
-		}
-	}
-
-	intervalMinutes := 10
-	if v := strings.TrimSpace(c.Query("interval")); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			intervalMinutes = n
-		} else {
-			c.JSON(http.StatusBadRequest, errorResponse{
-				Error:   service.ErrInvalidInput.Error(),
-				Details: []service.FieldError{{Field: "interval", Reason: "invalid"}},
-			})
-			return
-		}
+	limit := parseLimitQuery(c, 50, 200)
+	intervalMinutes, err := parseIntervalQuery(c, 10)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "interval", Reason: "invalid"}},
+		})
+		return
 	}
 
 	users, err := h.users.Scoreboard(c.Request.Context(), limit)
@@ -368,12 +240,7 @@ func (h *Handler) ScoreboardTimeline(c *gin.Context) {
 		writeError(c, err)
 		return
 	}
-	userIDs := make([]int64, 0, len(users))
-	usernames := make(map[int64]string, len(users))
-	for _, u := range users {
-		userIDs = append(userIDs, u.UserID)
-		usernames[u.UserID] = u.Username
-	}
+	userIDs, usernames := indexUsers(users)
 
 	rows, err := h.users.ScoreboardTimeline(c.Request.Context(), userIDs, time.Duration(intervalMinutes)*time.Minute)
 	if err != nil {
@@ -381,41 +248,9 @@ func (h *Handler) ScoreboardTimeline(c *gin.Context) {
 		return
 	}
 
-	bucketMap := make(map[time.Time]map[int64]int)
-	for _, row := range rows {
-		if _, ok := bucketMap[row.Bucket]; !ok {
-			bucketMap[row.Bucket] = make(map[int64]int)
-		}
-		bucketMap[row.Bucket][row.UserID] += row.Score
-	}
-
-	buckets := make([]time.Time, 0, len(bucketMap))
-	for b := range bucketMap {
-		buckets = append(buckets, b)
-	}
-	sort.Slice(buckets, func(i, j int) bool { return buckets[i].Before(buckets[j]) })
-
-	cumulative := make(map[int64]int, len(userIDs))
-	respBuckets := make([]models.ScoreTimelineBucket, 0, len(buckets))
-	for _, bucket := range buckets {
-		scores := make([]models.ScoreEntry, 0, len(userIDs))
-		for _, id := range userIDs {
-			cumulative[id] += bucketMap[bucket][id]
-			scores = append(scores, models.ScoreEntry{
-				UserID:   id,
-				Username: usernames[id],
-				Score:    cumulative[id],
-			})
-		}
-		respBuckets = append(respBuckets, models.ScoreTimelineBucket{
-			Bucket: bucket,
-			Scores: scores,
-		})
-	}
-
 	c.JSON(http.StatusOK, models.ScoreTimelineResponse{
 		IntervalMinutes: intervalMinutes,
 		Users:           users,
-		Buckets:         respBuckets,
+		Buckets:         buildScoreTimelineBuckets(rows, userIDs, usernames),
 	})
 }

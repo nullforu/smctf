@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -19,35 +20,34 @@ func NewUserRepo(db *bun.DB) *UserRepo {
 }
 
 func (r *UserRepo) Create(ctx context.Context, user *models.User) error {
-	_, err := r.db.NewInsert().Model(user).Exec(ctx)
-	return err
+	if _, err := r.db.NewInsert().Model(user).Exec(ctx); err != nil {
+		return wrapError("userRepo.Create", err)
+	}
+	return nil
 }
 
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	user := new(models.User)
-	err := r.db.NewSelect().Model(user).Where("email = ?", email).Scan(ctx)
-	if err != nil {
-		return nil, err
+	if err := r.db.NewSelect().Model(user).Where("email = ?", email).Scan(ctx); err != nil {
+		return nil, wrapNotFound("userRepo.GetByEmail", err)
 	}
 	return user, nil
 }
 
 func (r *UserRepo) GetByEmailOrUsername(ctx context.Context, email, username string) (*models.User, error) {
 	user := new(models.User)
-	err := r.db.NewSelect().Model(user).
+	if err := r.db.NewSelect().Model(user).
 		Where("email = ? OR username = ?", email, username).
-		Scan(ctx)
-	if err != nil {
-		return nil, err
+		Scan(ctx); err != nil {
+		return nil, wrapNotFound("userRepo.GetByEmailOrUsername", err)
 	}
 	return user, nil
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) {
 	user := new(models.User)
-	err := r.db.NewSelect().Model(user).Where("id = ?", id).Scan(ctx)
-	if err != nil {
-		return nil, err
+	if err := r.db.NewSelect().Model(user).Where("id = ?", id).Scan(ctx); err != nil {
+		return nil, wrapNotFound("userRepo.GetByID", err)
 	}
 	return user, nil
 }
@@ -67,18 +67,18 @@ func (r *UserRepo) Scoreboard(ctx context.Context, limit int) ([]models.ScoreEnt
 		q = q.Limit(limit)
 	}
 	if err := q.Scan(ctx, &rows); err != nil {
-		return nil, err
+		return nil, wrapError("userRepo.Scoreboard", err)
 	}
 	return rows, nil
 }
 
 func (r *UserRepo) ScoreboardTimeline(ctx context.Context, userIDs []int64, interval time.Duration) ([]models.ScoreTimelineRow, error) {
 	if len(userIDs) == 0 {
-		return nil, nil
+		return []models.ScoreTimelineRow{}, nil
 	}
 	seconds := int(interval.Seconds())
 	if seconds <= 0 {
-		return nil, nil
+		return nil, wrapError("userRepo.ScoreboardTimeline", errors.New("interval must be positive"))
 	}
 	intervalStr := fmt.Sprintf("%d seconds", seconds)
 
@@ -97,7 +97,7 @@ func (r *UserRepo) ScoreboardTimeline(ctx context.Context, userIDs []int64, inte
 		OrderExpr("bucket ASC, u.id ASC").
 		Scan(ctx, &rows)
 	if err != nil {
-		return nil, err
+		return nil, wrapError("userRepo.ScoreboardTimeline", err)
 	}
 	return rows, nil
 }

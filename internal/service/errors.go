@@ -24,6 +24,10 @@ func (e *ValidationError) Error() string {
 	return ErrInvalidInput.Error()
 }
 
+func (e *ValidationError) Unwrap() error {
+	return ErrInvalidInput
+}
+
 func NewValidationError(fields ...FieldError) *ValidationError {
 	return &ValidationError{Fields: fields}
 }
@@ -40,4 +44,8 @@ type RateLimitError struct {
 
 func (e *RateLimitError) Error() string {
 	return ErrRateLimited.Error()
+}
+
+func (e *RateLimitError) Unwrap() error {
+	return ErrRateLimited
 }
