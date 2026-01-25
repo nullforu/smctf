@@ -42,12 +42,15 @@ func (s *CTFService) rateLimitState(ctx context.Context, key string) (int64, tim
 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
 		return 0, 0, err
 	}
+
 	if err := cntCmd.Err(); err != nil {
 		return 0, 0, err
 	}
+
 	if err := ttlCmd.Err(); err != nil {
 		return 0, 0, err
 	}
+
 	return cntCmd.Val(), ttlCmd.Val(), nil
 }
 
@@ -55,9 +58,11 @@ func (s *CTFService) ensureRateLimitTTL(ctx context.Context, key string, ttl tim
 	if ttl > 0 {
 		return ttl, nil
 	}
+
 	if err := s.redis.Expire(ctx, key, s.cfg.Security.SubmissionWindow).Err(); err != nil {
 		return 0, err
 	}
+
 	return s.cfg.Security.SubmissionWindow, nil
 }
 
@@ -66,11 +71,13 @@ func (s *CTFService) evaluateRateLimit(count int64, ttl time.Duration) error {
 	if remaining < 0 {
 		remaining = 0
 	}
+
 	if count > int64(s.cfg.Security.SubmissionMax) {
 		resetSeconds := int(math.Ceil(ttl.Seconds()))
 		if resetSeconds <= 0 {
 			resetSeconds = int(s.cfg.Security.SubmissionWindow.Seconds())
 		}
+
 		return &RateLimitError{Info: RateLimitInfo{
 			Limit:        s.cfg.Security.SubmissionMax,
 			Remaining:    remaining,

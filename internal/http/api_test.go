@@ -70,12 +70,14 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+
 	pgContainer = container
 
 	testDB, err = db.New(dbCfg, "test")
 	if err != nil {
 		panic(err)
 	}
+
 	if err := db.AutoMigrate(ctx, testDB); err != nil {
 		panic(err)
 	}
@@ -84,6 +86,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+
 	testRedis = redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
 
 	testCfg = config.Config{
@@ -117,12 +120,15 @@ func TestMain(m *testing.M) {
 	if testRedis != nil {
 		_ = testRedis.Close()
 	}
+
 	if redisServer != nil {
 		redisServer.Close()
 	}
+
 	if testDB != nil {
 		_ = testDB.Close()
 	}
+
 	if pgContainer != nil {
 		_ = pgContainer.Terminate(ctx)
 	}
@@ -141,10 +147,12 @@ func startPostgres(ctx context.Context) (testcontainers.Container, config.DBConf
 		},
 		WaitingFor: wait.ForListeningPort("5432/tcp"),
 	}
+
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 	})
+
 	if err != nil {
 		return nil, config.DBConfig{}, err
 	}
@@ -154,6 +162,7 @@ func startPostgres(ctx context.Context) (testcontainers.Container, config.DBConf
 		_ = container.Terminate(ctx)
 		return nil, config.DBConfig{}, err
 	}
+
 	port, err := container.MappedPort(ctx, "5432")
 	if err != nil {
 		_ = container.Terminate(ctx)
@@ -171,6 +180,7 @@ func startPostgres(ctx context.Context) (testcontainers.Container, config.DBConf
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 2 * time.Minute,
 	}
+
 	return container, cfg, nil
 }
 
@@ -199,9 +209,11 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 
 func resetState(t *testing.T) {
 	t.Helper()
+
 	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, challenges, users RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
+
 	if err := testRedis.FlushAll(context.Background()).Err(); err != nil {
 		t.Fatalf("flush redis: %v", err)
 	}
@@ -209,6 +221,7 @@ func resetState(t *testing.T) {
 
 func skipIfIntegrationDisabled(t *testing.T) {
 	t.Helper()
+
 	if skipIntegration {
 		t.Skip("integration tests disabled via SMCTF_SKIP_INTEGRATION")
 	}
@@ -216,7 +229,9 @@ func skipIfIntegrationDisabled(t *testing.T) {
 
 func doRequest(t *testing.T, router *gin.Engine, method, path string, body interface{}, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
+
 	var reader io.Reader
+
 	if body != nil {
 		switch v := body.(type) {
 		case string:
@@ -229,20 +244,25 @@ func doRequest(t *testing.T, router *gin.Engine, method, path string, body inter
 			reader = bytes.NewBuffer(data)
 		}
 	}
+
 	req := httptest.NewRequest(method, path, reader)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
+
 	return rec
 }
 
 func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest interface{}) {
 	t.Helper()
+
 	if err := json.Unmarshal(rec.Body.Bytes(), dest); err != nil {
 		t.Fatalf("decode json: %v", err)
 	}
@@ -254,28 +274,34 @@ func authHeader(token string) map[string]string {
 
 func registerAndLogin(t *testing.T, router *gin.Engine, email, username, password string) (string, string, int64) {
 	t.Helper()
+
 	regBody := map[string]string{
 		"email":    email,
 		"username": username,
 		"password": password,
 	}
+
 	rec := doRequest(t, router, http.MethodPost, "/api/auth/register", regBody, nil)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("register status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var regResp struct {
 		ID int64 `json:"id"`
 	}
+
 	decodeJSON(t, rec, &regResp)
 
 	loginBody := map[string]string{
 		"email":    email,
 		"password": password,
 	}
+
 	rec = doRequest(t, router, http.MethodPost, "/api/auth/login", loginBody, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("login status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var loginResp struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
@@ -283,6 +309,7 @@ func registerAndLogin(t *testing.T, router *gin.Engine, email, username, passwor
 			ID int64 `json:"id"`
 		} `json:"user"`
 	}
+
 	decodeJSON(t, rec, &loginResp)
 
 	return loginResp.AccessToken, loginResp.RefreshToken, loginResp.User.ID
@@ -290,10 +317,12 @@ func registerAndLogin(t *testing.T, router *gin.Engine, email, username, passwor
 
 func createUser(t *testing.T, env testEnv, email, username, password, role string) *models.User {
 	t.Helper()
+
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
+
 	user := &models.User{
 		Email:        email,
 		Username:     username,
@@ -302,14 +331,17 @@ func createUser(t *testing.T, env testEnv, email, username, password, role strin
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}
+
 	if err := env.userRepo.Create(context.Background(), user); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
+
 	return user
 }
 
 func createChallenge(t *testing.T, env testEnv, title string, points int, flag string, active bool) *models.Challenge {
 	t.Helper()
+
 	challenge := &models.Challenge{
 		Title:       title,
 		Description: "desc",
@@ -318,14 +350,17 @@ func createChallenge(t *testing.T, env testEnv, title string, points int, flag s
 		IsActive:    active,
 		CreatedAt:   time.Now().UTC(),
 	}
+
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
+
 	return challenge
 }
 
 func createSubmission(t *testing.T, env testEnv, userID, challengeID int64, correct bool, submittedAt time.Time) {
 	t.Helper()
+
 	sub := &models.Submission{
 		UserID:      userID,
 		ChallengeID: challengeID,
@@ -333,6 +368,7 @@ func createSubmission(t *testing.T, env testEnv, userID, challengeID int64, corr
 		Correct:     correct,
 		SubmittedAt: submittedAt,
 	}
+
 	if err := env.submissionRepo.Create(context.Background(), sub); err != nil {
 		t.Fatalf("create submission: %v", err)
 	}
@@ -340,10 +376,13 @@ func createSubmission(t *testing.T, env testEnv, userID, challengeID int64, corr
 
 func assertFieldErrors(t *testing.T, got []service.FieldError, expected map[string]string) {
 	t.Helper()
+
 	found := make(map[string]string, len(got))
+
 	for _, fe := range got {
 		found[fe.Field] = fe.Reason
 	}
+
 	for field, reason := range expected {
 		if found[field] != reason {
 			t.Fatalf("expected field %s reason %s, got %q", field, reason, found[field])
@@ -359,16 +398,20 @@ func TestRegister(t *testing.T) {
 			"username": "user1",
 			"password": "strong-password",
 		}
+
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp struct {
 			ID       int64  `json:"id"`
 			Email    string `json:"email"`
 			Username string `json:"username"`
 		}
+
 		decodeJSON(t, rec, &resp)
+
 		if resp.ID == 0 || resp.Email != body["email"] || resp.Username != body["username"] {
 			t.Fatalf("unexpected response: %+v", resp)
 		}
@@ -377,14 +420,18 @@ func TestRegister(t *testing.T) {
 	t.Run("invalid input", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", map[string]string{}, nil)
+
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		if resp.Error != service.ErrInvalidInput.Error() {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
+
 		assertFieldErrors(t, resp.Details, map[string]string{
 			"email":    "required",
 			"username": "required",
@@ -399,16 +446,20 @@ func TestRegister(t *testing.T) {
 			"username": "user1",
 			"password": "strong-password",
 		}
+
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		rec = doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		if resp.Error != service.ErrUserExists.Error() {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
@@ -419,6 +470,7 @@ func TestLogin(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, refresh, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+
 		if access == "" || refresh == "" {
 			t.Fatalf("tokens should not be empty")
 		}
@@ -428,12 +480,15 @@ func TestLogin(t *testing.T) {
 		env := setupTest(t, testCfg)
 		_, _, _ = registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
 		body := map[string]string{"email": "user@example.com", "password": "wrong"}
+
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/login", body, nil)
 		if rec.Code != http.StatusUnauthorized {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		if resp.Error != service.ErrInvalidCreds.Error() {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
@@ -445,8 +500,10 @@ func TestLogin(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		assertFieldErrors(t, resp.Details, map[string]string{
 			"password": "required",
 		})
@@ -461,14 +518,17 @@ func TestRefreshAndLogout(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var refreshResp struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 	}
+
 	decodeJSON(t, rec, &refreshResp)
 	if refreshResp.AccessToken == "" || refreshResp.RefreshToken == "" {
 		t.Fatalf("tokens should not be empty")
 	}
+
 	if refreshResp.RefreshToken == refresh {
 		t.Fatalf("refresh token should rotate")
 	}
@@ -512,13 +572,16 @@ func TestMe(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp struct {
 		ID       int64  `json:"id"`
 		Email    string `json:"email"`
 		Username string `json:"username"`
 		Role     string `json:"role"`
 	}
+
 	decodeJSON(t, rec, &resp)
+
 	if resp.Email != "user@example.com" || resp.Username != "user1" || resp.Role != "user" {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
@@ -538,14 +601,18 @@ func TestMeSolved(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var solved []models.SolvedChallenge
 	decodeJSON(t, rec, &solved)
+
 	if len(solved) != 1 {
 		t.Fatalf("expected 1 solved, got %d", len(solved))
 	}
+
 	if solved[0].ChallengeID != challenge.ID || solved[0].Points != 100 || solved[0].Title != "Warmup" {
 		t.Fatalf("unexpected solved entry: %+v", solved[0])
 	}
+
 	if solved[0].ChallengeID == 0 || solved[0].SolvedAt.IsZero() {
 		t.Fatalf("expected solved timestamp and id, got %+v for user %d", solved[0], userID)
 	}
@@ -561,13 +628,16 @@ func TestListChallenges(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp []map[string]interface{}
 	decodeJSON(t, rec, &resp)
+
 	if len(resp) != 3 {
 		t.Fatalf("expected 3 challenges, got %d", len(resp))
 	}
 
 	expectedTitles := []string{"Active 1", "Inactive", "Active 2"}
+
 	for i, row := range resp {
 		if row["title"] != expectedTitles[i] {
 			t.Fatalf("expected title %q, got %q", expectedTitles[i], row["title"])
@@ -580,6 +650,7 @@ func TestSubmitFlag(t *testing.T) {
 		env := setupTest(t, testCfg)
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, nil)
+
 		if rec.Code != http.StatusUnauthorized {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -589,11 +660,14 @@ func TestSubmitFlag(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/abc/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		if resp.Error != service.ErrInvalidInput.Error() {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
@@ -604,11 +678,14 @@ func TestSubmitFlag(t *testing.T) {
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{}, authHeader(access))
+
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		assertFieldErrors(t, resp.Details, map[string]string{"flag": "required"})
 	})
 
@@ -616,11 +693,14 @@ func TestSubmitFlag(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/999/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		if resp.Error != service.ErrChallengeNotFound.Error() {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
@@ -631,6 +711,7 @@ func TestSubmitFlag(t *testing.T) {
 		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", false)
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -645,10 +726,13 @@ func TestSubmitFlag(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var wrongResp struct {
 			Correct bool `json:"correct"`
 		}
+
 		decodeJSON(t, rec, &wrongResp)
+
 		if wrongResp.Correct {
 			t.Fatalf("expected incorrect flag")
 		}
@@ -657,10 +741,13 @@ func TestSubmitFlag(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var correctResp struct {
 			Correct bool `json:"correct"`
 		}
+
 		decodeJSON(t, rec, &correctResp)
+
 		if !correctResp.Correct {
 			t.Fatalf("expected correct flag")
 		}
@@ -680,8 +767,10 @@ func TestSubmitFlag(t *testing.T) {
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		if resp.Error != service.ErrAlreadySolved.Error() {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
@@ -698,18 +787,23 @@ func TestSubmitFlag(t *testing.T) {
 				t.Fatalf("status %d at attempt %d: %s", rec.Code, i+1, rec.Body.String())
 			}
 		}
+
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
 		if rec.Code != http.StatusTooManyRequests {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
+
 		var resp errorResp
 		decodeJSON(t, rec, &resp)
+
 		if resp.Error != service.ErrRateLimited.Error() || resp.RateLimit == nil {
 			t.Fatalf("unexpected rate limit response: %+v", resp)
 		}
+
 		if resp.RateLimit.Limit != env.cfg.Security.SubmissionMax || resp.RateLimit.Remaining != 0 {
 			t.Fatalf("unexpected rate limit info: %+v", resp.RateLimit)
 		}
+
 		if rec.Header().Get("X-RateLimit-Limit") == "" || rec.Header().Get("X-RateLimit-Remaining") == "" || rec.Header().Get("X-RateLimit-Reset") == "" {
 			t.Fatalf("missing rate limit headers")
 		}
@@ -731,11 +825,14 @@ func TestScoreboard(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var rows []models.ScoreEntry
 	decodeJSON(t, rec, &rows)
+
 	if len(rows) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(rows))
 	}
+
 	if rows[0].UserID != user2.ID || rows[0].Score != 300 {
 		t.Fatalf("unexpected first row: %+v", rows[0])
 	}
@@ -744,7 +841,9 @@ func TestScoreboard(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	decodeJSON(t, rec, &rows)
+
 	if len(rows) != 1 || rows[0].UserID != user2.ID {
 		t.Fatalf("unexpected limited rows: %+v", rows)
 	}
@@ -766,37 +865,48 @@ func TestScoreboardTimeline(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp struct {
 		IntervalMinutes int                          `json:"interval_minutes"`
 		Users           []models.ScoreEntry          `json:"users"`
 		Buckets         []models.ScoreTimelineBucket `json:"buckets"`
 		Events          []models.ScoreTimelineEvent  `json:"events"`
 	}
+
 	decodeJSON(t, rec, &resp)
+
 	if resp.IntervalMinutes != 10 {
 		t.Fatalf("unexpected interval: %d", resp.IntervalMinutes)
 	}
+
 	if len(resp.Users) != 2 || resp.Users[0].UserID != user1.ID {
 		t.Fatalf("unexpected users: %+v", resp.Users)
 	}
+
 	if len(resp.Buckets) != 2 {
 		t.Fatalf("expected 2 buckets, got %d", len(resp.Buckets))
 	}
+
 	if !resp.Buckets[0].Bucket.Equal(base) {
 		t.Fatalf("unexpected first bucket: %s", resp.Buckets[0].Bucket)
 	}
+
 	if resp.Buckets[0].Scores[0].Score != 100 || resp.Buckets[0].Scores[1].Score != 200 {
 		t.Fatalf("unexpected first bucket scores: %+v", resp.Buckets[0].Scores)
 	}
+
 	if resp.Buckets[1].Scores[0].Score != 300 || resp.Buckets[1].Scores[1].Score != 200 {
 		t.Fatalf("unexpected second bucket scores: %+v", resp.Buckets[1].Scores)
 	}
+
 	if len(resp.Events) != 3 {
 		t.Fatalf("expected 3 events, got %d", len(resp.Events))
 	}
+
 	if resp.Events[0].ChallengeTitle != "Ch1" || !resp.Events[0].SubmittedAt.Equal(base.Add(3*time.Minute)) {
 		t.Fatalf("unexpected first event: %+v", resp.Events[0])
 	}
+
 	if resp.Events[2].ChallengeTitle != "Ch2" || resp.Events[2].UserID != user1.ID {
 		t.Fatalf("unexpected last event: %+v", resp.Events[2])
 	}
@@ -811,6 +921,7 @@ func TestScoreboardTimelineWindow(t *testing.T) {
 
 	now := time.Now().UTC()
 	createSubmission(t, env, user1.ID, challenge1.ID, true, now.Add(-2*time.Hour))
+
 	recent := now.Add(-20 * time.Minute)
 	createSubmission(t, env, user2.ID, challenge2.ID, true, recent)
 
@@ -818,33 +929,42 @@ func TestScoreboardTimelineWindow(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp struct {
 		IntervalMinutes int                          `json:"interval_minutes"`
 		Users           []models.ScoreEntry          `json:"users"`
 		Buckets         []models.ScoreTimelineBucket `json:"buckets"`
 		Events          []models.ScoreTimelineEvent  `json:"events"`
 	}
+
 	decodeJSON(t, rec, &resp)
+
 	if len(resp.Buckets) != 1 {
 		t.Fatalf("expected 1 bucket, got %d", len(resp.Buckets))
 	}
+
 	if len(resp.Events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(resp.Events))
 	}
+
 	windowStart := now.Add(-60 * time.Minute)
 	if resp.Buckets[0].Bucket.Before(windowStart) {
 		t.Fatalf("bucket outside window: %s", resp.Buckets[0].Bucket)
 	}
+
 	if len(resp.Buckets[0].Scores) != 2 {
 		t.Fatalf("unexpected scores: %+v", resp.Buckets[0].Scores)
 	}
+
 	scoreByUser := make(map[int64]int, len(resp.Buckets[0].Scores))
 	for _, score := range resp.Buckets[0].Scores {
 		scoreByUser[score.UserID] = score.Score
 	}
+
 	if scoreByUser[user1.ID] != 0 {
 		t.Fatalf("unexpected user1 score: %d", scoreByUser[user1.ID])
 	}
+
 	if scoreByUser[user2.ID] != 200 {
 		t.Fatalf("unexpected user2 score: %d", scoreByUser[user2.ID])
 	}
@@ -856,8 +976,10 @@ func TestScoreboardTimelineInvalidInterval(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp errorResp
 	decodeJSON(t, rec, &resp)
+
 	if resp.Error != service.ErrInvalidInput.Error() {
 		t.Fatalf("unexpected error: %s", resp.Error)
 	}
@@ -869,8 +991,10 @@ func TestScoreboardTimelineInvalidWindow(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp errorResp
 	decodeJSON(t, rec, &resp)
+
 	if resp.Error != service.ErrInvalidInput.Error() {
 		t.Fatalf("unexpected error: %s", resp.Error)
 	}
@@ -893,6 +1017,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 		"flag":        "flag{1}",
 		"is_active":   true,
 	}, authHeader(accessUser))
+
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -905,6 +1030,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 		"flag":        "flag{1}",
 		"is_active":   true,
 	}, authHeader(adminAccess))
+
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -912,6 +1038,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
 		"title": "Ch2",
 	}, authHeader(adminAccess))
+
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -921,9 +1048,11 @@ func loginUser(t *testing.T, router *gin.Engine, email, password string) (string
 	t.Helper()
 	body := map[string]string{"email": email, "password": password}
 	rec := doRequest(t, router, http.MethodPost, "/api/auth/login", body, nil)
+
 	if rec.Code != http.StatusOK {
 		t.Fatalf("login status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
@@ -931,7 +1060,9 @@ func loginUser(t *testing.T, router *gin.Engine, email, password string) (string
 			ID int64 `json:"id"`
 		} `json:"user"`
 	}
+
 	decodeJSON(t, rec, &resp)
+
 	return resp.AccessToken, resp.RefreshToken, resp.User.ID
 }
 

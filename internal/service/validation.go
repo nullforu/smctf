@@ -35,6 +35,7 @@ func (v *fieldValidator) Email(field, value string) {
 	if strings.TrimSpace(value) == "" {
 		return
 	}
+
 	if _, err := mail.ParseAddress(value); err != nil {
 		v.fields = append(v.fields, FieldError{Field: field, Reason: "invalid format"})
 	}
@@ -44,6 +45,7 @@ func (v *fieldValidator) Error() error {
 	if len(v.fields) == 0 {
 		return nil
 	}
+
 	return NewValidationError(v.fields...)
 }
 

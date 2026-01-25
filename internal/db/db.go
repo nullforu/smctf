@@ -18,6 +18,7 @@ import (
 func New(cfg config.DBConfig, appEnv string) (*bun.DB, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name, cfg.SSLMode)
 	connector := pgdriver.NewConnector(pgdriver.WithDSN(dsn))
+
 	sqldb := sql.OpenDB(connector)
 	sqldb.SetMaxOpenConns(cfg.MaxOpenConns)
 	sqldb.SetMaxIdleConns(cfg.MaxIdleConns)
@@ -27,6 +28,7 @@ func New(cfg config.DBConfig, appEnv string) (*bun.DB, error) {
 	if appEnv != "production" {
 		db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(false)))
 	}
+
 	return db, nil
 }
 
@@ -43,6 +45,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 	if err := createTables(ctx, db, modelsToCreate); err != nil {
 		return err
 	}
+
 	return createIndexes(ctx, db)
 }
 
@@ -52,6 +55,7 @@ func createTables(ctx context.Context, db *bun.DB, modelsToCreate []interface{})
 			return fmt.Errorf("auto migrate create table %T: %w", m, err)
 		}
 	}
+
 	return nil
 }
 

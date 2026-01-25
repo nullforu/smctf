@@ -47,11 +47,13 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 		status = http.StatusTooManyRequests
 		resp.Error = rl.Error()
 		resp.RateLimit = &rl.Info
+
 		headers := map[string]string{
 			"X-RateLimit-Limit":     strconv.Itoa(rl.Info.Limit),
 			"X-RateLimit-Remaining": strconv.Itoa(rl.Info.Remaining),
 			"X-RateLimit-Reset":     strconv.Itoa(rl.Info.ResetSeconds),
 		}
+
 		return status, resp, headers
 	}
 
@@ -88,6 +90,7 @@ func writeBindError(ctx *gin.Context, err error) {
 	if len(fields) == 0 {
 		fields = []service.FieldError{{Field: "body", Reason: "invalid"}}
 	}
+
 	ctx.JSON(http.StatusBadRequest, errorResponse{Error: service.ErrInvalidInput.Error(), Details: fields})
 }
 
@@ -99,8 +102,10 @@ func bindErrorDetails(err error) []service.FieldError {
 			field := strings.ToLower(fe.Field())
 			fields = append(fields, service.FieldError{Field: field, Reason: fe.Tag()})
 		}
+
 		return fields
 	}
+
 	var ute *json.UnmarshalTypeError
 	if errors.As(err, &ute) {
 		field := strings.ToLower(ute.Field)
@@ -109,10 +114,12 @@ func bindErrorDetails(err error) []service.FieldError {
 		}
 		return []service.FieldError{{Field: field, Reason: "invalid type"}}
 	}
+
 	var se *json.SyntaxError
 	if errors.As(err, &se) {
 		return []service.FieldError{{Field: "body", Reason: "invalid json"}}
 	}
+
 	if errors.Is(err, io.EOF) {
 		return []service.FieldError{{Field: "body", Reason: "empty"}}
 	}

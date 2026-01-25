@@ -27,9 +27,11 @@ func NewCTFService(cfg config.Config, challengeRepo *repo.ChallengeRepo, submiss
 
 func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, error) {
 	challenges, err := s.challengeRepo.ListActive(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("ctf.ListChallenges: %w", err)
 	}
+
 	return challenges, nil
 }
 
@@ -42,6 +44,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description str
 	validator.Required("description", description)
 	validator.Required("flag", flag)
 	validator.NonNegative("points", points)
+
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
@@ -54,9 +57,11 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description str
 		IsActive:    active,
 		CreatedAt:   time.Now().UTC(),
 	}
+
 	if err := s.challengeRepo.Create(ctx, challenge); err != nil {
 		return nil, fmt.Errorf("ctf.CreateChallenge: %w", err)
 	}
+
 	return challenge, nil
 }
 
@@ -65,9 +70,11 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 	validator := newFieldValidator()
 	validator.Required("flag", flag)
 	validator.PositiveID("challenge_id", challengeID)
+
 	if err := validator.Error(); err != nil {
 		return false, err
 	}
+
 	if err := s.rateLimit(ctx, userID); err != nil {
 		return false, err
 	}
@@ -79,6 +86,7 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		}
 		return false, fmt.Errorf("ctf.SubmitFlag lookup: %w", err)
 	}
+
 	if !challenge.IsActive {
 		return false, ErrChallengeNotFound
 	}
@@ -87,6 +95,7 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 	if err != nil {
 		return false, fmt.Errorf("ctf.SubmitFlag check: %w", err)
 	}
+
 	if already {
 		return true, ErrAlreadySolved
 	}
@@ -101,16 +110,20 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		Correct:     correct,
 		SubmittedAt: time.Now().UTC(),
 	}
+
 	if err := s.submissionRepo.Create(ctx, sub); err != nil {
 		return false, fmt.Errorf("ctf.SubmitFlag create: %w", err)
 	}
+
 	return correct, nil
 }
 
 func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
 	rows, err := s.submissionRepo.SolvedChallenges(ctx, userID)
+
 	if err != nil {
 		return nil, fmt.Errorf("ctf.SolvedChallenges: %w", err)
 	}
+
 	return rows, nil
 }

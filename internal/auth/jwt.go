@@ -34,6 +34,7 @@ func GenerateAccessToken(cfg config.JWTConfig, userID int64, role string) (strin
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
 	return token.SignedString([]byte(cfg.Secret))
 }
 
@@ -51,6 +52,7 @@ func GenerateRefreshToken(cfg config.JWTConfig, userID int64, role, jti string) 
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
 	return token.SignedString([]byte(cfg.Secret))
 }
 
@@ -61,15 +63,20 @@ func ParseToken(cfg config.JWTConfig, tokenStr string) (*Claims, error) {
 		}
 		return []byte(cfg.Secret), nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
+
 	claims, ok := parsed.Claims.(*Claims)
+
 	if !ok || !parsed.Valid {
 		return nil, jwt.ErrTokenInvalidClaims
 	}
+
 	if claims.Issuer != cfg.Issuer {
 		return nil, jwt.ErrTokenInvalidIssuer
 	}
+
 	return claims, nil
 }

@@ -7,6 +7,7 @@ func HashPassword(password string, cost int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(hash), nil
 }
 

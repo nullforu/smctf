@@ -22,20 +22,24 @@ func Auth(cfg config.JWTConfig) gin.HandlerFunc {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization"})
 			return
 		}
+
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization"})
 			return
 		}
+
 		claims, err := auth.ParseToken(cfg, parts[1])
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
+
 		if claims.Type != auth.TokenTypeAccess {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
+
 		ctx.Set(ctxUserIDKey, claims.UserID)
 		ctx.Set(ctxRoleKey, claims.Role)
 		ctx.Next()
@@ -48,6 +52,7 @@ func RequireRole(role string) gin.HandlerFunc {
 			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
+
 		ctx.Next()
 	}
 }
@@ -58,6 +63,7 @@ func UserID(ctx *gin.Context) int64 {
 			return id
 		}
 	}
+
 	return 0
 }
 
@@ -67,5 +73,6 @@ func Role(ctx *gin.Context) string {
 			return role
 		}
 	}
+
 	return ""
 }

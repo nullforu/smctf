@@ -20,10 +20,12 @@ func attachFrontendRoutes(r *gin.Engine) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
+
 		if filePath, ok := resolveStaticFile(staticDir, ctx.Request.URL.Path); ok {
 			ctx.File(filePath)
 			return
 		}
+
 		ctx.File(indexPath)
 	})
 }
@@ -47,15 +49,18 @@ func resolveStaticFile(staticDir, urlPath string) (string, bool) {
 	if trimmed == "" {
 		return "", false
 	}
+
 	cleaned := filepath.Clean(trimmed)
 	if cleaned == "." || strings.HasPrefix(cleaned, "..") {
 		return "", false
 	}
+
 	filePath := filepath.Join(staticDir, cleaned)
 	info, err := os.Stat(filePath)
 	if err != nil || info.IsDir() {
 		return "", false
 	}
+
 	return filePath, true
 }
 

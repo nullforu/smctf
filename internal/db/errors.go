@@ -13,5 +13,6 @@ func IsUniqueViolation(err error) bool {
 	if errors.As(err, &pgerr) {
 		return pgerr.Field('C') == pgUniqueViolation
 	}
+
 	return false
 }
