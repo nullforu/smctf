@@ -50,5 +50,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.POST("/challenges", h.CreateChallenge)
 	}
 
+	attachFrontendRoutes(r)
+
 	return r
 }

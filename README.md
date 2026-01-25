@@ -1,5 +1,19 @@
 # CTF Platform
 
+```shell
+git clone https://github.com/nullforu/smctf.git
+cd smctf
+
+cd frontend
+npm install && npm run build
+cd ..
+
+go build -o smctf ./cmd/server
+./smctf
+
+# or: go run ./cmd/server
+```
+
 > 전공 동아리 [Null4U](https://github.com/nullforu)에서 Go 언어를 다루지도 않고, 아마 학교에서 Go 언어를 사용하는 인간이 저밖에 없지 않을까 생각합니다.
 > 
 > 그래도 Go 언어를 선택한 이유가 무엇이냐..?
