@@ -5,6 +5,7 @@
     <img src="./assets/preview_2.png" alt="SMCTF Preview 2" width="45%" />
 </div>
 
+# Installation and Usage
 
 ```shell
 git clone https://github.com/nullforu/smctf.git
@@ -19,6 +20,8 @@ go build -o smctf ./cmd/server
 
 # or: go run ./cmd/server
 ```
+
+# About SMCTF (Some excerpts)
 
 > 전공 동아리 [Null4U](https://github.com/nullforu)에서 Go 언어를 다루지도 않고, 아마 학교에서 Go 언어를 사용하는 인간이 저밖에 없지 않을까 생각합니다.
 > 
