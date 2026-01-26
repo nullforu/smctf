@@ -19,6 +19,23 @@ const (
 	maxFlagLength     = 128
 )
 
+var challengeCategories = map[string]struct{}{
+	"Web":         {},
+	"Web3":        {},
+	"Pwnable":     {},
+	"Reversing":   {},
+	"Crypto":      {},
+	"Forensics":   {},
+	"Network":     {},
+	"Cloud":       {},
+	"Misc":        {},
+	"Programming": {},
+	"Algorithms":  {},
+	"Math":        {},
+	"AI":          {},
+	"Blockchain":  {},
+}
+
 type CTFService struct {
 	cfg            config.Config
 	challengeRepo  *repo.ChallengeRepo
@@ -40,15 +57,20 @@ func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, er
 	return challenges, nil
 }
 
-func (s *CTFService) CreateChallenge(ctx context.Context, title, description string, points int, flag string, active bool) (*models.Challenge, error) {
+func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, flag string, active bool) (*models.Challenge, error) {
 	title = normalizeTrim(title)
 	description = normalizeTrim(description)
+	category = normalizeTrim(category)
 	flag = normalizeTrim(flag)
 	validator := newFieldValidator()
 	validator.Required("title", title)
 	validator.Required("description", description)
+	validator.Required("category", category)
 	validator.Required("flag", flag)
 	validator.NonNegative("points", points)
+	if _, ok := challengeCategories[category]; category != "" && !ok {
+		validator.fields = append(validator.fields, FieldError{Field: "category", Reason: "invalid"})
+	}
 
 	if err := validator.Error(); err != nil {
 		return nil, err
@@ -57,6 +79,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description str
 	challenge := &models.Challenge{
 		Title:       title,
 		Description: description,
+		Category:    category,
 		Points:      points,
 		FlagHash:    utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
 		IsActive:    active,

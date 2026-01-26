@@ -46,6 +46,7 @@ type refreshRequest struct {
 type createChallengeRequest struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description" binding:"required"`
+	Category    string `json:"category" binding:"required"`
 	Points      int    `json:"points" binding:"required"`
 	Flag        string `json:"flag" binding:"required"`
 	IsActive    *bool  `json:"is_active"`
@@ -164,6 +165,7 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 			"id":          challenge.ID,
 			"title":       challenge.Title,
 			"description": challenge.Description,
+			"category":    challenge.Category,
 			"points":      challenge.Points,
 			"is_active":   challenge.IsActive,
 		})
@@ -218,7 +220,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	if req.IsActive != nil {
 		active = *req.IsActive
 	}
-	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Points, req.Flag, active)
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, req.Flag, active)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -227,6 +229,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		"id":          challenge.ID,
 		"title":       challenge.Title,
 		"description": challenge.Description,
+		"category":    challenge.Category,
 		"points":      challenge.Points,
 		"is_active":   challenge.IsActive,
 	})

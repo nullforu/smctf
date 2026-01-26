@@ -345,6 +345,7 @@ func createChallenge(t *testing.T, env testEnv, title string, points int, flag s
 	challenge := &models.Challenge{
 		Title:       title,
 		Description: "desc",
+		Category:    "Misc",
 		Points:      points,
 		FlagHash:    utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
 		IsActive:    active,
@@ -638,10 +639,14 @@ func TestListChallenges(t *testing.T) {
 
 	expectedTitles := []string{"Active 1", "Inactive", "Active 2"}
 	expectedActive := []bool{true, false, true}
+	expectedCategories := []string{"Misc", "Misc", "Misc"}
 
 	for i, row := range resp {
 		if row["title"] != expectedTitles[i] {
 			t.Fatalf("expected title %q, got %q", expectedTitles[i], row["title"])
+		}
+		if row["category"] != expectedCategories[i] {
+			t.Fatalf("expected category %q, got %q", expectedCategories[i], row["category"])
 		}
 		if isActive, ok := row["is_active"].(bool); !ok || isActive != expectedActive[i] {
 			t.Fatalf("expected is_active to be %v for %q, got %v", expectedActive[i], row["title"], isActive)
@@ -960,6 +965,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
 		"title":       "Ch1",
 		"description": "desc",
+		"category":    "Web",
 		"points":      100,
 		"flag":        "flag{1}",
 		"is_active":   true,
@@ -973,6 +979,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
 		"title":       "Ch1",
 		"description": "desc",
+		"category":    "Web",
 		"points":      100,
 		"flag":        "flag{1}",
 		"is_active":   true,
@@ -989,6 +996,23 @@ func TestAdminCreateChallenge(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+		"title":       "Ch3",
+		"description": "desc",
+		"category":    "Unknown",
+		"points":      100,
+		"flag":        "flag{1}",
+		"is_active":   true,
+	}, authHeader(adminAccess))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp errorResp
+	decodeJSON(t, rec, &resp)
+	assertFieldErrors(t, resp.Details, map[string]string{"category": "invalid"})
 }
 
 func loginUser(t *testing.T, router *gin.Engine, email, password string) (string, string, int64) {
