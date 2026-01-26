@@ -210,10 +210,10 @@ Errors:
 
 ---
 
-## Scoreboard
+## Leaderboard
 
-### Get Scoreboard
-`GET /api/scoreboard?limit=50`
+### Get Leaderboard
+`GET /api/leaderboard`
 
 Response 200
 ```json
@@ -226,43 +226,35 @@ Response 200
 ]
 ```
 
+Returns all users sorted by score (descending).
+
 ---
 
-### Scoreboard Timeline
-`GET /api/scoreboard/timeline?interval=10&limit=50&window=60`
+## Timeline
+
+### Get Timeline
+`GET /api/timeline?window=60`
 
 Query
-- `interval`: bucket size in minutes (default 10)
-- `limit`: number of top users (default 50, max 200)
 - `window`: lookback window in minutes (optional, when omitted returns all time)
 
 Response 200
 ```json
 {
-  "interval_minutes": 10,
-  "users": [
-    { "user_id": 1, "username": "user1", "score": 300 }
-  ],
-  "buckets": [
+  "submissions": [
     {
-      "bucket": "2026-01-24T12:00:00Z",
-      "scores": [
-        { "user_id": 1, "username": "user1", "score": 100 }
-      ]
-    }
-  ],
-  "events": [
-    {
-      "submitted_at": "2026-01-24T12:03:00Z",
+      "timestamp": "2026-01-24T12:00:00Z",
       "user_id": 1,
       "username": "user1",
-      "challenge_id": 10,
-      "challenge_title": "Ch1",
-      "points": 100
+      "points": 300,
+      "challenge_count": 2
     }
   ]
 }
 ```
+
+Returns all submissions grouped by user and 10 minute intervals. 
+if multiple challenges are solved by the same user within 10 minutes, they are grouped together with cumulative points and challenge count.
 
 Errors:
 - 400 `invalid input`
