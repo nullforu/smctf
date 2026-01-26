@@ -6,7 +6,7 @@ import random
 import hashlib
 import hmac
 from datetime import datetime, timedelta, timezone
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 UTC = timezone.utc
 
@@ -157,6 +157,35 @@ def generate_challenges() -> List[Tuple[str, str, str, int, str, bool, str]]:
     return challenges
 
 
+def generate_registration_keys(user_count: int, count: int = 30) -> List[Tuple[str, int, Optional[int], Optional[str], str, Optional[str]]]:
+    keys = []
+    base_time = datetime.now(UTC) - timedelta(hours=46)
+    used_limit = max(1, int(count * 0.6))
+    seen_codes = set()
+
+    for i in range(count):
+        code = f"{random.randint(0, 999999):06d}"
+        while code in seen_codes:
+            code = f"{random.randint(0, 999999):06d}"
+        seen_codes.add(code)
+
+        created_at = base_time + timedelta(minutes=i * 7)
+        created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
+        used_by = None
+        used_by_ip = None
+        used_at_str = None
+
+        if i < used_limit and user_count > 1:
+            used_by = random.randint(2, user_count)
+            used_by_ip = f"203.0.113.{random.randint(1, 254)}"
+            used_at = created_at + timedelta(minutes=random.randint(5, 180))
+            used_at_str = used_at.strftime('%Y-%m-%d %H:%M:%S')
+
+        keys.append((code, 1, used_by, used_by_ip, created_at_str, used_at_str))
+
+    return keys
+
+
 def generate_submissions(user_count: int, challenge_count: int) -> List[Tuple[int, int, str, bool, str]]:
     submissions = []
     base_time = datetime.now(UTC) - timedelta(hours=42)
@@ -253,10 +282,12 @@ def generate_sql_file(output_file: str):
     
     users = generate_users(50)
     challenges = generate_challenges()
+    registration_keys = generate_registration_keys(len(users))
     submissions = generate_submissions(len(users), len(challenges))
     
     print(f"Generated {len(users)} users")
     print(f"Generated {len(challenges)} challenges")
+    print(f"Generated {len(registration_keys)} registration keys")
     print(f"Generated {len(submissions)} submissions")
     
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -268,7 +299,7 @@ def generate_sql_file(output_file: str):
         f.write("-- Admin credentials: admin@smctf.com / admin123!\n\n")
         
         f.write("-- Clear existing data\n")
-        f.write("TRUNCATE TABLE submissions, challenges, users RESTART IDENTITY CASCADE;\n\n")
+        f.write("TRUNCATE TABLE submissions, registration_keys, challenges, users RESTART IDENTITY CASCADE;\n\n")
         
         f.write("-- Insert users\n")
         for email, username, password_hash, role, created_at in users:
@@ -282,6 +313,18 @@ def generate_sql_file(output_file: str):
         
         f.write("\n")
         
+        f.write("-- Insert registration keys\n")
+        for code, created_by, used_by, used_by_ip, created_at, used_at in registration_keys:
+            code_esc = escape_sql_string(code)
+            used_by_value = "NULL" if used_by is None else str(used_by)
+            used_at_value = "NULL" if used_at is None else f"'{used_at}'"
+            used_by_ip_value = "NULL" if used_by_ip is None else f"'{escape_sql_string(used_by_ip)}'"
+
+            f.write("INSERT INTO registration_keys (code, created_by, used_by, used_by_ip, created_at, used_at) VALUES ")
+            f.write(f"('{code_esc}', {created_by}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n")
+
+        f.write("\n")
+
         f.write("-- Insert challenges\n")
         for title, description, category, points, flag_hash, is_active, created_at in challenges:
             title_esc = escape_sql_string(title)
@@ -305,6 +348,7 @@ def generate_sql_file(output_file: str):
         f.write("-- Update sequences\n")
         f.write("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));\n")
         f.write("SELECT setval('challenges_id_seq', (SELECT MAX(id) FROM challenges));\n")
+        f.write("SELECT setval('registration_keys_id_seq', (SELECT MAX(id) FROM registration_keys));\n")
         f.write("SELECT setval('submissions_id_seq', (SELECT MAX(id) FROM submissions));\n")
     
     print(f"\nGenerated {output_file}")
