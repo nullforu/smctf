@@ -40,6 +40,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 		(*models.User)(nil),
 		(*models.Challenge)(nil),
 		(*models.Submission)(nil),
+		(*models.RegistrationKey)(nil),
 	}
 
 	if err := createTables(ctx, db, modelsToCreate); err != nil {
@@ -47,6 +48,10 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 	}
 
 	if err := ensureChallengeCategory(ctx, db); err != nil {
+		return err
+	}
+
+	if err := ensureRegistrationKeyIP(ctx, db); err != nil {
 		return err
 	}
 
@@ -97,6 +102,13 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 func ensureChallengeCategory(ctx context.Context, db *bun.DB) error {
 	if _, err := db.ExecContext(ctx, "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Misc'"); err != nil {
 		return fmt.Errorf("auto migrate add category column: %w", err)
+	}
+	return nil
+}
+
+func ensureRegistrationKeyIP(ctx context.Context, db *bun.DB) error {
+	if _, err := db.ExecContext(ctx, "ALTER TABLE registration_keys ADD COLUMN IF NOT EXISTS used_by_ip TEXT"); err != nil {
+		return fmt.Errorf("auto migrate add registration key ip: %w", err)
 	}
 	return nil
 }

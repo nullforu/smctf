@@ -38,3 +38,14 @@ type Submission struct {
 	Correct       bool      `bun:",notnull,default:false"`
 	SubmittedAt   time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 }
+
+type RegistrationKey struct {
+	bun.BaseModel `bun:"table:registration_keys"`
+	ID            int64      `bun:",pk,autoincrement"`
+	Code          string     `bun:",unique,notnull"`
+	CreatedBy     int64      `bun:",notnull"`
+	UsedBy        *int64     `bun:",nullzero"`
+	UsedByIP      *string    `bun:",nullzero"`
+	CreatedAt     time.Time  `bun:",nullzero,notnull,default:current_timestamp"`
+	UsedAt        *time.Time `bun:",nullzero"`
+}

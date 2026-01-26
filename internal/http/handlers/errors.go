@@ -98,7 +98,7 @@ func bindErrorDetails(err error) []service.FieldError {
 	if errors.As(err, &verrs) {
 		fields := make([]service.FieldError, 0, len(verrs))
 		for _, fe := range verrs {
-			field := strings.ToLower(fe.Field())
+			field := toSnakeCase(fe.Field())
 			fields = append(fields, service.FieldError{Field: field, Reason: fe.Tag()})
 		}
 
@@ -123,4 +123,37 @@ func bindErrorDetails(err error) []service.FieldError {
 		return []service.FieldError{{Field: "body", Reason: "empty"}}
 	}
 	return nil
+}
+
+func toSnakeCase(value string) string {
+	if value == "" {
+		return value
+	}
+
+	runes := []rune(value)
+	var b strings.Builder
+	b.Grow(len(runes) + 4)
+
+	for i, r := range runes {
+		if r >= 'A' && r <= 'Z' {
+			if i > 0 {
+				prev := runes[i-1]
+				nextLower := i+1 < len(runes) && runes[i+1] >= 'a' && runes[i+1] <= 'z'
+				prevLower := prev >= 'a' && prev <= 'z'
+				prevDigit := prev >= '0' && prev <= '9'
+
+				if prevLower || prevDigit || nextLower {
+					b.WriteByte('_')
+				}
+			}
+
+			b.WriteRune(r + ('a' - 'A'))
+
+			continue
+		}
+
+		b.WriteRune(r)
+	}
+
+	return b.String()
 }

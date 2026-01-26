@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,6 +37,7 @@ type testEnv struct {
 	cfg            config.Config
 	router         *gin.Engine
 	userRepo       *repo.UserRepo
+	regKeyRepo     *repo.RegistrationKeyRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *service.AuthService
@@ -46,6 +50,18 @@ type errorResp struct {
 	RateLimit *service.RateLimitInfo `json:"rate_limit"`
 }
 
+type registrationKeyResp struct {
+	ID                int64      `json:"id"`
+	Code              string     `json:"code"`
+	CreatedBy         int64      `json:"created_by"`
+	CreatedByUsername string     `json:"created_by_username"`
+	UsedBy            *int64     `json:"used_by"`
+	UsedByUsername    *string    `json:"used_by_username"`
+	UsedByIP          *string    `json:"used_by_ip"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UsedAt            *time.Time `json:"used_at"`
+}
+
 var (
 	testDB          *bun.DB
 	testRedis       *redis.Client
@@ -53,6 +69,7 @@ var (
 	pgContainer     testcontainers.Container
 	redisServer     *miniredis.Miniredis
 	skipIntegration bool
+	regKeyCounter   int64 = 100000
 )
 
 func TestMain(m *testing.M) {
@@ -190,9 +207,10 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	resetState(t)
 
 	userRepo := repo.NewUserRepo(testDB)
+	registrationKeyRepo := repo.NewRegistrationKeyRepo(testDB)
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
-	authSvc := service.NewAuthService(cfg, userRepo, testRedis)
+	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, testRedis)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
 	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, testRedis)
 
@@ -200,6 +218,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 		cfg:            cfg,
 		router:         router,
 		userRepo:       userRepo,
+		regKeyRepo:     registrationKeyRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
@@ -210,7 +229,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, challenges, users RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -272,16 +291,19 @@ func authHeader(token string) map[string]string {
 	return map[string]string{"Authorization": "Bearer " + token}
 }
 
-func registerAndLogin(t *testing.T, router *gin.Engine, email, username, password string) (string, string, int64) {
+func registerAndLogin(t *testing.T, env testEnv, email, username, password string) (string, string, int64) {
 	t.Helper()
 
+	admin := ensureAdminUser(t, env)
+	key := createRegistrationKey(t, env, admin.ID)
 	regBody := map[string]string{
-		"email":    email,
-		"username": username,
-		"password": password,
+		"email":            email,
+		"username":         username,
+		"password":         password,
+		"registration_key": key.Code,
 	}
 
-	rec := doRequest(t, router, http.MethodPost, "/api/auth/register", regBody, nil)
+	rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", regBody, nil)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("register status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -297,7 +319,7 @@ func registerAndLogin(t *testing.T, router *gin.Engine, email, username, passwor
 		"password": password,
 	}
 
-	rec = doRequest(t, router, http.MethodPost, "/api/auth/login", loginBody, nil)
+	rec = doRequest(t, env.router, http.MethodPost, "/api/auth/login", loginBody, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("login status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -337,6 +359,41 @@ func createUser(t *testing.T, env testEnv, email, username, password, role strin
 	}
 
 	return user
+}
+
+func ensureAdminUser(t *testing.T, env testEnv) *models.User {
+	t.Helper()
+
+	user, err := env.userRepo.GetByEmail(context.Background(), "admin@example.com")
+	if err == nil {
+		return user
+	}
+	if !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("get admin: %v", err)
+	}
+
+	return createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+}
+
+func nextRegistrationCode() string {
+	value := atomic.AddInt64(&regKeyCounter, 1) % 1000000
+	return fmt.Sprintf("%06d", value)
+}
+
+func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.RegistrationKey {
+	t.Helper()
+
+	key := &models.RegistrationKey{
+		Code:      nextRegistrationCode(),
+		CreatedBy: createdBy,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := env.regKeyRepo.Create(context.Background(), key); err != nil {
+		t.Fatalf("create registration key: %v", err)
+	}
+
+	return key
 }
 
 func createChallenge(t *testing.T, env testEnv, title string, points int, flag string, active bool) *models.Challenge {
@@ -394,10 +451,13 @@ func assertFieldErrors(t *testing.T, got []service.FieldError, expected map[stri
 func TestRegister(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		env := setupTest(t, testCfg)
+		admin := ensureAdminUser(t, env)
+		key := createRegistrationKey(t, env, admin.ID)
 		body := map[string]string{
-			"email":    "user@example.com",
-			"username": "user1",
-			"password": "strong-password",
+			"email":            "user@example.com",
+			"username":         "user1",
+			"password":         "strong-password",
+			"registration_key": key.Code,
 		}
 
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
@@ -434,18 +494,66 @@ func TestRegister(t *testing.T) {
 		}
 
 		assertFieldErrors(t, resp.Details, map[string]string{
-			"email":    "required",
-			"username": "required",
-			"password": "required",
+			"email":            "required",
+			"username":         "required",
+			"password":         "required",
+			"registration_key": "required",
 		})
 	})
 
-	t.Run("duplicate", func(t *testing.T) {
+	t.Run("invalid key format", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		body := map[string]string{
-			"email":    "user@example.com",
-			"username": "user1",
-			"password": "strong-password",
+			"email":            "user@example.com",
+			"username":         "user1",
+			"password":         "strong-password",
+			"registration_key": "abc123",
+		}
+
+		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var resp errorResp
+		decodeJSON(t, rec, &resp)
+
+		assertFieldErrors(t, resp.Details, map[string]string{
+			"registration_key": "invalid",
+		})
+	})
+
+	t.Run("invalid key", func(t *testing.T) {
+		env := setupTest(t, testCfg)
+		body := map[string]string{
+			"email":            "user@example.com",
+			"username":         "user1",
+			"password":         "strong-password",
+			"registration_key": "123456",
+		}
+
+		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var resp errorResp
+		decodeJSON(t, rec, &resp)
+
+		assertFieldErrors(t, resp.Details, map[string]string{
+			"registration_key": "invalid",
+		})
+	})
+
+	t.Run("used key", func(t *testing.T) {
+		env := setupTest(t, testCfg)
+		admin := ensureAdminUser(t, env)
+		key := createRegistrationKey(t, env, admin.ID)
+		body := map[string]string{
+			"email":            "user@example.com",
+			"username":         "user1",
+			"password":         "strong-password",
+			"registration_key": key.Code,
 		}
 
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
@@ -453,6 +561,42 @@ func TestRegister(t *testing.T) {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
 
+		rec = doRequest(t, env.router, http.MethodPost, "/api/auth/register", map[string]string{
+			"email":            "user2@example.com",
+			"username":         "user2",
+			"password":         "strong-password",
+			"registration_key": key.Code,
+		}, nil)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var resp errorResp
+		decodeJSON(t, rec, &resp)
+
+		assertFieldErrors(t, resp.Details, map[string]string{
+			"registration_key": "used",
+		})
+	})
+
+	t.Run("duplicate", func(t *testing.T) {
+		env := setupTest(t, testCfg)
+		admin := ensureAdminUser(t, env)
+		key := createRegistrationKey(t, env, admin.ID)
+		body := map[string]string{
+			"email":            "user@example.com",
+			"username":         "user1",
+			"password":         "strong-password",
+			"registration_key": key.Code,
+		}
+
+		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		secondKey := createRegistrationKey(t, env, admin.ID)
+		body["registration_key"] = secondKey.Code
 		rec = doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
@@ -470,7 +614,7 @@ func TestRegister(t *testing.T) {
 func TestLogin(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, refresh, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, refresh, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 
 		if access == "" || refresh == "" {
 			t.Fatalf("tokens should not be empty")
@@ -479,7 +623,7 @@ func TestLogin(t *testing.T) {
 
 	t.Run("invalid password", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		_, _, _ = registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		_, _, _ = registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		body := map[string]string{"email": "user@example.com", "password": "wrong"}
 
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/login", body, nil)
@@ -513,7 +657,7 @@ func TestLogin(t *testing.T) {
 
 func TestRefreshAndLogout(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_, refresh, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+	_, refresh, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/auth/refresh", map[string]string{"refresh_token": refresh}, nil)
 	if rec.Code != http.StatusOK {
@@ -552,7 +696,7 @@ func TestRefreshAndLogout(t *testing.T) {
 
 func TestMe(t *testing.T) {
 	env := setupTest(t, testCfg)
-	access, refresh, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+	access, refresh, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/me", nil, nil)
 	if rec.Code != http.StatusUnauthorized {
@@ -590,7 +734,7 @@ func TestMe(t *testing.T) {
 
 func TestMeSolved(t *testing.T) {
 	env := setupTest(t, testCfg)
-	access, _, userID := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+	access, _, userID := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
@@ -667,7 +811,7 @@ func TestSubmitFlag(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/abc/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 
 		if rec.Code != http.StatusBadRequest {
@@ -684,7 +828,7 @@ func TestSubmitFlag(t *testing.T) {
 
 	t.Run("invalid body", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{}, authHeader(access))
 
@@ -700,7 +844,7 @@ func TestSubmitFlag(t *testing.T) {
 
 	t.Run("challenge not found", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/999/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 
 		if rec.Code != http.StatusNotFound {
@@ -717,7 +861,7 @@ func TestSubmitFlag(t *testing.T) {
 
 	t.Run("inactive challenge", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", false)
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 
@@ -728,7 +872,7 @@ func TestSubmitFlag(t *testing.T) {
 
 	t.Run("correct and wrong", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{nope}"}, authHeader(access))
@@ -764,7 +908,7 @@ func TestSubmitFlag(t *testing.T) {
 
 	t.Run("already solved", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
 		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
@@ -787,7 +931,7 @@ func TestSubmitFlag(t *testing.T) {
 
 	t.Run("rate limited", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		access, _, _ := registerAndLogin(t, env.router, "user@example.com", "user1", "strong-password")
+		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 
 		for i := 0; i < env.cfg.Security.SubmissionMax; i++ {
@@ -961,7 +1105,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	accessUser, _, _ := registerAndLogin(t, env.router, "user2@example.com", "user2", "strong-password")
+	accessUser, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
 	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
 		"title":       "Ch1",
 		"description": "desc",
@@ -1013,6 +1157,98 @@ func TestAdminCreateChallenge(t *testing.T) {
 	var resp errorResp
 	decodeJSON(t, rec, &resp)
 	assertFieldErrors(t, resp.Details, map[string]string{"category": "invalid"})
+}
+
+func TestAdminRegistrationKeys(t *testing.T) {
+	env := setupTest(t, testCfg)
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1}, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	accessUser, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1}, authHeader(accessUser))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp errorResp
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"count": "must be >= 1"})
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2}, authHeader(adminAccess))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var created []registrationKeyResp
+	decodeJSON(t, rec, &created)
+
+	if len(created) != 2 {
+		t.Fatalf("expected 2 keys, got %d", len(created))
+	}
+
+	if len(created[0].Code) != 6 || len(created[1].Code) != 6 {
+		t.Fatalf("expected 6-digit codes, got %q and %q", created[0].Code, created[1].Code)
+	}
+
+	if created[0].CreatedByUsername != "admin" {
+		t.Fatalf("expected created_by_username admin, got %q", created[0].CreatedByUsername)
+	}
+
+	regBody := map[string]string{
+		"email":            "user1@example.com",
+		"username":         "user1",
+		"password":         "strong-password",
+		"registration_key": created[0].Code,
+	}
+
+	regHeaders := map[string]string{"X-Forwarded-For": "203.0.113.7"}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/auth/register", regBody, regHeaders)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/registration-keys", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var listed []registrationKeyResp
+	decodeJSON(t, rec, &listed)
+
+	var found *registrationKeyResp
+	for i := range listed {
+		if listed[i].Code == created[0].Code {
+			found = &listed[i]
+			break
+		}
+	}
+
+	if found == nil {
+		t.Fatalf("expected key %s in list", created[0].Code)
+	}
+
+	if found.CreatedByUsername != "admin" {
+		t.Fatalf("expected created_by_username admin, got %q", found.CreatedByUsername)
+	}
+
+	if found.UsedByUsername == nil || *found.UsedByUsername != "user1" {
+		t.Fatalf("expected used_by_username user1, got %v", found.UsedByUsername)
+	}
+
+	if found.UsedByIP == nil || *found.UsedByIP != "203.0.113.7" {
+		t.Fatalf("expected used_by_ip 203.0.113.7, got %v", found.UsedByIP)
+	}
 }
 
 func loginUser(t *testing.T, router *gin.Engine, email, password string) (string, string, int64) {

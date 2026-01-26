@@ -29,9 +29,10 @@ func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, 
 }
 
 type registerRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Email           string `json:"email" binding:"required"`
+	Username        string `json:"username" binding:"required"`
+	Password        string `json:"password" binding:"required"`
+	RegistrationKey string `json:"registration_key" binding:"required"`
 }
 
 type loginRequest struct {
@@ -56,17 +57,25 @@ type submitRequest struct {
 	Flag string `json:"flag" binding:"required"`
 }
 
+type createRegistrationKeysRequest struct {
+	Count *int `json:"count" binding:"required"`
+}
+
 func (h *Handler) Register(ctx *gin.Context) {
 	var req registerRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		writeBindError(ctx, err)
 		return
 	}
-	user, err := h.auth.Register(ctx.Request.Context(), req.Email, req.Username, req.Password)
+
+	ip := ctx.ClientIP()
+
+	user, err := h.auth.Register(ctx.Request.Context(), req.Email, req.Username, req.Password, req.RegistrationKey, ip)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusCreated, gin.H{
 		"id":       user.ID,
 		"email":    user.Email,
@@ -235,12 +244,66 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	})
 }
 
+func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
+	var req createRegistrationKeysRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	count := 0
+	if req.Count != nil {
+		count = *req.Count
+	}
+
+	adminID := middleware.UserID(ctx)
+	admin, err := h.users.GetByID(ctx.Request.Context(), adminID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	resp := make([]gin.H, 0, len(keys))
+	for _, key := range keys {
+		resp = append(resp, gin.H{
+			"id":                  key.ID,
+			"code":                key.Code,
+			"created_by":          key.CreatedBy,
+			"created_by_username": admin.Username,
+			"used_by":             key.UsedBy,
+			"used_by_username":    nil,
+			"used_by_ip":          nil,
+			"created_at":          key.CreatedAt,
+			"used_at":             key.UsedAt,
+		})
+	}
+
+	ctx.JSON(http.StatusCreated, resp)
+}
+
+func (h *Handler) ListRegistrationKeys(ctx *gin.Context) {
+	rows, err := h.auth.ListRegistrationKeys(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
+}
+
 func (h *Handler) Leaderboard(ctx *gin.Context) {
 	rows, err := h.users.Leaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusOK, rows)
 }
 
