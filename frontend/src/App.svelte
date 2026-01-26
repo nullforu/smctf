@@ -9,7 +9,6 @@
     import Register from './routes/Register.svelte'
     import Challenges from './routes/Challenges.svelte'
     import Scoreboard from './routes/Scoreboard.svelte'
-    import Profile from './routes/Profile.svelte'
     import Users from './routes/Users.svelte'
     import UserProfile from './routes/UserProfile.svelte'
     import Admin from './routes/Admin.svelte'
@@ -21,7 +20,7 @@
         '/register': Register,
         '/challenges': Challenges,
         '/scoreboard': Scoreboard,
-        '/profile': Profile,
+        '/profile': UserProfile,
         '/users': Users,
         '/admin': Admin,
     }

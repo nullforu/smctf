@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte'
+    import { get } from 'svelte/store'
+    import { authStore, type AuthState } from '../lib/stores'
     import { api } from '../lib/api'
     import type { UserDetail, SolvedChallenge } from '../lib/types'
     import { formatApiError, formatDateTime } from '../lib/utils'
@@ -17,20 +19,28 @@
     let solved: SolvedChallenge[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
+    let auth = $state<AuthState>(get(authStore))
 
     const formatDateTimeLocal = formatDateTime
 
-    const loadUserProfile = async (userId: string) => {
+    $effect(() => {
+        const unsubscribe = authStore.subscribe((value) => {
+            auth = value
+        })
+        return unsubscribe
+    })
+
+    const isOwnProfile = $derived(auth.user ? !routeParams.id || parseInt(routeParams.id) === auth.user.id : false)
+    const showBackButton = $derived(!!routeParams.id)
+
+    const loadUserProfile = async (userId: number) => {
         loading = true
         errorMessage = ''
         user = null
         solved = []
 
         try {
-            const [userDetail, solvedData] = await Promise.all([
-                api.user(parseInt(userId)),
-                api.userSolved(parseInt(userId)),
-            ])
+            const [userDetail, solvedData] = await Promise.all([api.user(userId), api.userSolved(userId)])
             user = userDetail
             solved = solvedData
         } catch (error) {
@@ -42,41 +52,56 @@
 
     $effect(() => {
         if (routeParams.id) {
-            loadUserProfile(routeParams.id)
+            loadUserProfile(parseInt(routeParams.id))
+        } else if (auth.user) {
+            loadUserProfile(auth.user.id)
         }
     })
 
     onMount(() => {
         if (routeParams.id) {
-            loadUserProfile(routeParams.id)
+            loadUserProfile(parseInt(routeParams.id))
+        } else if (auth.user) {
+            loadUserProfile(auth.user.id)
         }
     })
 </script>
 
 <section class="fade-in">
-    <div class="mb-6">
-        <button
-            class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400"
-            onclick={() => navigate('/users')}
-        >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+    {#if showBackButton}
+        <div class="mb-6">
+            <button
+                class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400"
+                onclick={() => navigate('/users')}
             >
-                <path d="m15 18-6-6 6-6" />
-            </svg>
-            Back to Users
-        </button>
-    </div>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
+                Back to Users
+            </button>
+        </div>
+    {/if}
 
-    {#if loading}
+    {#if !auth.user}
+        <div>
+            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Profile</h2>
+        </div>
+        <div
+            class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-800 dark:text-amber-100"
+        >
+            Please <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>login</a> to view your profile.
+        </div>
+    {:else if loading}
         <div class="rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800/70 dark:bg-slate-900/40">
             <p class="text-center text-sm text-slate-600 dark:text-slate-400">Loading...</p>
         </div>
@@ -102,6 +127,28 @@
                     </span>
                 </div>
             </div>
+
+            {#if isOwnProfile}
+                <div
+                    class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
+                >
+                    <h3 class="text-lg text-slate-900 dark:text-slate-100">Account</h3>
+                    <div class="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                        <div class="flex justify-between">
+                            <span class="text-slate-600 dark:text-slate-400">Username</span>
+                            <span>{user.username}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-600 dark:text-slate-400">Email</span>
+                            <span>{user.email}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-600 dark:text-slate-400">Role</span>
+                            <span class="uppercase text-teal-600 dark:text-teal-200">{user.role}</span>
+                        </div>
+                    </div>
+                </div>
+            {/if}
 
             <div class="mt-8">
                 <div
