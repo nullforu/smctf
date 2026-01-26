@@ -239,7 +239,6 @@ func validateConfig(cfg Config) error {
 		errs = append(errs, fmt.Errorf("BCRYPT_COST must be between %d and %d", bcrypt.MinCost, bcrypt.MaxCost))
 	}
 
-	// Database validation
 	if cfg.DB.Host == "" || cfg.DB.Name == "" || cfg.DB.User == "" {
 		errs = append(errs, errors.New("DB_HOST, DB_NAME, and DB_USER must be set"))
 	}

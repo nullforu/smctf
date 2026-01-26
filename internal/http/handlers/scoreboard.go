@@ -1,62 +1,67 @@
 package handlers
 
 import (
-	"sort"
 	"time"
-
-	"smctf/internal/models"
 )
 
-func indexUsers(users []models.ScoreEntry) ([]int64, map[int64]string) {
-	userIDs := make([]int64, 0, len(users))
-	usernames := make(map[int64]string, len(users))
-
-	for _, u := range users {
-		userIDs = append(userIDs, u.UserID)
-		usernames[u.UserID] = u.Username
-	}
-
-	return userIDs, usernames
+type rawSubmission struct {
+	SubmittedAt time.Time `bun:"submitted_at"`
+	UserID      int64     `bun:"user_id"`
+	Username    string    `bun:"username"`
+	Points      int       `bun:"points"`
 }
 
-func buildScoreTimelineBuckets(rows []models.ScoreTimelineRow, userIDs []int64, usernames map[int64]string) []models.ScoreTimelineBucket {
-	bucketMap := make(map[time.Time]map[int64]int)
+type timelineSubmission struct {
+	Timestamp      time.Time `json:"timestamp"`
+	UserID         int64     `json:"user_id"`
+	Username       string    `json:"username"`
+	Points         int       `json:"points"`
+	ChallengeCount int       `json:"challenge_count"`
+}
 
-	for _, row := range rows {
-		if _, ok := bucketMap[row.Bucket]; !ok {
-			bucketMap[row.Bucket] = make(map[int64]int)
+func groupSubmissions(raw []rawSubmission) []timelineSubmission {
+	if len(raw) == 0 {
+		return []timelineSubmission{}
+	}
+
+	type groupKey struct {
+		userID int64
+		bucket time.Time
+	}
+
+	groups := make(map[groupKey]*timelineSubmission)
+
+	for _, sub := range raw {
+		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
+		key := groupKey{userID: sub.UserID, bucket: bucket}
+
+		if group, exists := groups[key]; exists {
+			group.Points += sub.Points
+			group.ChallengeCount++
+		} else {
+			groups[key] = &timelineSubmission{
+				Timestamp:      bucket,
+				UserID:         sub.UserID,
+				Username:       sub.Username,
+				Points:         sub.Points,
+				ChallengeCount: 1,
+			}
 		}
-
-		bucketMap[row.Bucket][row.UserID] += row.Score
 	}
 
-	buckets := make([]time.Time, 0, len(bucketMap))
-	for bucket := range bucketMap {
-		buckets = append(buckets, bucket)
+	result := make([]timelineSubmission, 0, len(groups))
+	for _, group := range groups {
+		result = append(result, *group)
 	}
 
-	sort.Slice(buckets, func(i, j int) bool { return buckets[i].Before(buckets[j]) })
-
-	cumulative := make(map[int64]int, len(userIDs))
-	respBuckets := make([]models.ScoreTimelineBucket, 0, len(buckets))
-
-	for _, bucket := range buckets {
-		scores := make([]models.ScoreEntry, 0, len(userIDs))
-
-		for _, id := range userIDs {
-			cumulative[id] += bucketMap[bucket][id]
-			scores = append(scores, models.ScoreEntry{
-				UserID:   id,
-				Username: usernames[id],
-				Score:    cumulative[id],
-			})
+	for i := 0; i < len(result); i++ {
+		for j := i + 1; j < len(result); j++ {
+			if result[i].Timestamp.After(result[j].Timestamp) ||
+				(result[i].Timestamp.Equal(result[j].Timestamp) && result[i].UserID > result[j].UserID) {
+				result[i], result[j] = result[j], result[i]
+			}
 		}
-
-		respBuckets = append(respBuckets, models.ScoreTimelineBucket{
-			Bucket: bucket,
-			Scores: scores,
-		})
 	}
 
-	return respBuckets
+	return result
 }

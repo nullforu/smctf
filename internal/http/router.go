@@ -36,8 +36,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		api.POST("/auth/logout", h.Logout)
 
 		api.GET("/challenges", h.ListChallenges)
-		api.GET("/scoreboard", h.Scoreboard)
-		api.GET("/scoreboard/timeline", h.ScoreboardTimeline)
+		api.GET("/leaderboard", h.Leaderboard)
+		api.GET("/timeline", h.Timeline)
 
 		auth := api.Group("")
 		auth.Use(middleware.Auth(cfg.JWT))

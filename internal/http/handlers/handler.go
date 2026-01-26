@@ -6,7 +6,6 @@ import (
 
 	"smctf/internal/config"
 	"smctf/internal/http/middleware"
-	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 
@@ -214,9 +213,8 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	})
 }
 
-func (h *Handler) Scoreboard(ctx *gin.Context) {
-	limit := parseLimitQuery(ctx, defaultLimit, maxLimit)
-	rows, err := h.users.Scoreboard(ctx.Request.Context(), limit)
+func (h *Handler) Leaderboard(ctx *gin.Context) {
+	rows, err := h.users.Leaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -224,16 +222,7 @@ func (h *Handler) Scoreboard(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) ScoreboardTimeline(ctx *gin.Context) {
-	limit := parseLimitQuery(ctx, defaultLimit, maxLimit)
-	intervalMinutes, err := parseIntervalQuery(ctx, defaultInterval)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "interval", Reason: "invalid"}},
-		})
-		return
-	}
+func (h *Handler) Timeline(ctx *gin.Context) {
 	windowMinutes, err := parseWindowQuery(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse{
@@ -243,33 +232,30 @@ func (h *Handler) ScoreboardTimeline(ctx *gin.Context) {
 		return
 	}
 
-	users, err := h.users.Scoreboard(ctx.Request.Context(), limit)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-	userIDs, usernames := indexUsers(users)
-
 	var windowStart *time.Time
 	if windowMinutes > 0 {
 		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
 		windowStart = &start
 	}
-	rows, err := h.users.ScoreboardTimeline(ctx.Request.Context(), userIDs, time.Duration(intervalMinutes)*time.Minute, windowStart)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-	events, err := h.users.ScoreboardTimelineEvents(ctx.Request.Context(), userIDs, windowStart)
+
+	raw, err := h.users.TimelineSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, models.ScoreTimelineResponse{
-		IntervalMinutes: intervalMinutes,
-		Users:           users,
-		Buckets:         buildScoreTimelineBuckets(rows, userIDs, usernames),
-		Events:          events,
+	rawSubs := make([]rawSubmission, len(raw))
+	for i, r := range raw {
+		rawSubs[i] = rawSubmission{
+			SubmittedAt: r.SubmittedAt,
+			UserID:      r.UserID,
+			Username:    r.Username,
+			Points:      r.Points,
+		}
+	}
+
+	submissions := groupSubmissions(rawSubs)
+	ctx.JSON(http.StatusOK, gin.H{
+		"submissions": submissions,
 	})
 }

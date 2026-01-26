@@ -3,46 +3,33 @@ package handlers
 import (
 	"testing"
 	"time"
-
-	"smctf/internal/models"
 )
 
-func TestIndexUsers(t *testing.T) {
-	users := []models.ScoreEntry{
-		{UserID: 2, Username: "b", Score: 200},
-		{UserID: 1, Username: "a", Score: 100},
-	}
-
-	ids, names := indexUsers(users)
-	if len(ids) != 2 || ids[0] != 2 || ids[1] != 1 {
-		t.Fatalf("unexpected ids: %+v", ids)
-	}
-
-	if names[1] != "a" || names[2] != "b" {
-		t.Fatalf("unexpected names: %+v", names)
-	}
-}
-
-func TestBuildScoreTimelineBuckets(t *testing.T) {
+func TestGroupSubmissions(t *testing.T) {
 	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
-	rows := []models.ScoreTimelineRow{
-		{Bucket: base, UserID: 1, Username: "a", Score: 100},
-		{Bucket: base, UserID: 2, Username: "b", Score: 200},
-		{Bucket: base.Add(10 * time.Minute), UserID: 1, Username: "a", Score: 50},
-	}
-	userIDs := []int64{1, 2}
-	usernames := map[int64]string{1: "a", 2: "b"}
-	buckets := buildScoreTimelineBuckets(rows, userIDs, usernames)
 
-	if len(buckets) != 2 {
-		t.Fatalf("expected 2 buckets, got %d", len(buckets))
+	raw := []rawSubmission{
+		{SubmittedAt: base.Add(2 * time.Minute), UserID: 1, Username: "user1", Points: 100},
+		{SubmittedAt: base.Add(5 * time.Minute), UserID: 1, Username: "user1", Points: 200},
+		{SubmittedAt: base.Add(15 * time.Minute), UserID: 1, Username: "user1", Points: 50},
+		{SubmittedAt: base.Add(3 * time.Minute), UserID: 2, Username: "user2", Points: 150},
 	}
 
-	if buckets[0].Scores[0].Score != 100 || buckets[0].Scores[1].Score != 200 {
-		t.Fatalf("unexpected first bucket scores: %+v", buckets[0].Scores)
+	result := groupSubmissions(raw)
+
+	if len(result) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(result))
 	}
 
-	if buckets[1].Scores[0].Score != 150 || buckets[1].Scores[1].Score != 200 {
-		t.Fatalf("unexpected second bucket scores: %+v", buckets[1].Scores)
+	if result[0].UserID != 1 || result[0].Points != 300 || result[0].ChallengeCount != 2 {
+		t.Fatalf("unexpected first group: %+v", result[0])
+	}
+
+	if result[1].UserID != 2 || result[1].Points != 150 || result[1].ChallengeCount != 1 {
+		t.Fatalf("unexpected second group: %+v", result[1])
+	}
+
+	if result[2].UserID != 1 || result[2].Points != 50 || result[2].ChallengeCount != 1 {
+		t.Fatalf("unexpected third group: %+v", result[2])
 	}
 }
