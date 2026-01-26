@@ -66,9 +66,9 @@
         <div
             class="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-300"
         >
-            푼 문제 {solvedIds.size} / 전체 {challenges.filter((c) => c.is_active).length}
+            Solved {solvedIds.size} / {challenges.filter((c) => c.is_active).length}
             {challenges.filter((c) => !c.is_active).length > 0
-                ? `(비활성 문제 ${challenges.filter((c) => !c.is_active).length}개)`
+                ? `(${challenges.filter((c) => !c.is_active).length} inactive)`
                 : ''}
         </div>
     </div>
@@ -77,7 +77,7 @@
         <div
             class="mt-6 rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400"
         >
-            문제를 불러오는 중...
+            Loading challenges...
         </div>
     {:else if errorMessage}
         <div

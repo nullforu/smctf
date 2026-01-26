@@ -106,14 +106,14 @@
 >
     <h3 class="text-lg text-slate-900 dark:text-slate-100">Timeline</h3>
     {#if loading}
-        <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">타임라인을 계산 중...</p>
+        <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">Calculating timeline...</p>
     {:else if errorMessage}
         <p class="mt-4 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
     {:else if timeline}
         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-500">
-            <span>최근 {windowMinutes}분</span>
+            <span>Last {windowMinutes} minutes</span>
             <span>·</span>
-            <span>상위 {Math.min(chartUserLimit, chartModel?.series?.length || 0)}명</span>
+            <span>Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)} users</span>
         </div>
         {#if chartModel}
             <div
@@ -247,8 +247,8 @@
                             <p class="text-slate-700 dark:text-slate-300">{tooltip.username}</p>
                             <p class="mt-1 text-sm text-slate-900 dark:text-slate-100">
                                 {tooltip.submission.challenge_count > 1
-                                    ? `문제 ${tooltip.submission.challenge_count}개 해결`
-                                    : '문제 해결'}
+                                    ? `Solved ${tooltip.submission.challenge_count} challenges`
+                                    : 'Challenge solved'}
                             </p>
                             <p class="mt-1 text-slate-600 dark:text-slate-400">
                                 {formatDateTimeLocal(tooltip.submission.timestamp)}
@@ -285,7 +285,7 @@
                 </div>
             </div>
         {:else}
-            <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">타임라인 데이터가 없습니다.</p>
+            <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">No timeline data available.</p>
         {/if}
     {/if}
 </div>

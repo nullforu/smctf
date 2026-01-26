@@ -35,12 +35,12 @@ export const formatDateTime = (value: string) => {
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return value
 
-    return date.toLocaleString('ko-KR', {
+    return date.toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: 'Asia/Seoul',
+        timeZone: 'UTC',
     })
 }

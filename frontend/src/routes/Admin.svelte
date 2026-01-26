@@ -44,7 +44,7 @@
                 is_active: isActive,
             })
 
-            successMessage = `문제 "${created.title}" (ID ${created.id}) 생성 완료`
+            successMessage = `Challenge "${created.title}" (ID ${created.id}) created successfully`
             title = ''
             description = ''
             points = 100
@@ -70,13 +70,13 @@
         <div
             class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-800 dark:text-amber-100"
         >
-            관리자 기능은 로그인 후 접근 가능합니다.
+            Admin functions require login.
         </div>
     {:else if auth.user.role !== 'admin'}
         <div
             class="mt-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-700 dark:text-rose-200"
         >
-            권한이 없습니다. 관리자 계정으로 로그인하세요.
+            Access denied. Admin account required.
         </div>
     {:else}
         <div
@@ -159,7 +159,7 @@
                         bind:checked={isActive}
                         class="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
                     />
-                    활성화 상태로 생성
+                    Create as active
                 </label>
 
                 {#if errorMessage}
@@ -182,7 +182,7 @@
                     type="submit"
                     disabled={loading}
                 >
-                    {loading ? '생성 중...' : '문제 생성'}
+                    {loading ? 'Creating...' : 'Create Challenge'}
                 </button>
             </form>
         </div>
