@@ -148,6 +148,7 @@ func (h *Handler) MeSolved(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusOK, rows)
 }
 
@@ -291,4 +292,67 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) ListUsers(ctx *gin.Context) {
+	users, err := h.users.List(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+	resp := make([]gin.H, 0, len(users))
+	for _, user := range users {
+		resp = append(resp, gin.H{
+			"id":       user.ID,
+			"username": user.Username,
+			"role":     user.Role,
+		})
+	}
+	ctx.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) GetUser(ctx *gin.Context) {
+	userID, ok := parseIDParam(ctx, "id")
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+		})
+		return
+	}
+	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+		"role":     user.Role,
+	})
+}
+
+func (h *Handler) GetUserSolved(ctx *gin.Context) {
+	userID, ok := parseIDParam(ctx, "id")
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+		})
+		return
+	}
+
+	_, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	rows, err := h.ctf.SolvedChallenges(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
 }

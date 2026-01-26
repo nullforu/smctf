@@ -213,6 +213,21 @@ def generate_submissions(user_count: int, challenge_count: int) -> List[Tuple[in
                     attempt_time.strftime('%Y-%m-%d %H:%M:%S')
                 ))
 
+    now = datetime.now(UTC)
+    recent_count = max(1, int(len(submissions) * 0.05))
+    recent_indices = random.sample(range(len(submissions)), recent_count)
+
+    for idx in recent_indices:
+        recent_time = now - timedelta(minutes=random.randint(0, 60))
+        user_id, chal_id, provided, correct, _ = submissions[idx]
+        submissions[idx] = (
+            user_id,
+            chal_id,
+            provided,
+            correct,
+            recent_time.strftime('%Y-%m-%d %H:%M:%S')
+        )
+
     submissions.sort(key=lambda x: x[4])
     
     return submissions

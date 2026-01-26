@@ -159,6 +159,66 @@ Errors:
 
 ---
 
+### List Users
+`GET /api/users`
+
+Response 200
+```json
+[
+  {
+    "id": 1,
+    "username": "user1",
+    "role": "user"
+  },
+  {
+    "id": 2,
+    "username": "admin",
+    "role": "admin"
+  }
+]
+```
+
+---
+
+### Get User
+`GET /api/users/{id}`
+
+Response 200
+```json
+{
+  "id": 1,
+  "username": "user1",
+  "role": "user"
+}
+```
+
+Errors:
+- 400 `invalid input`
+- 404 `not found`
+
+---
+
+### Get User Solved Challenges
+`GET /api/users/{id}/solved`
+
+Response 200
+```json
+[
+  {
+    "challenge_id": 1,
+    "title": "Warmup",
+    "points": 100,
+    "solved_at": "2026-01-24T12:00:00Z"
+  }
+]
+```
+
+Errors:
+- 400 `invalid input`
+- 404 `not found`
+
+---
+
 ## Challenges
 
 ### List Challenges

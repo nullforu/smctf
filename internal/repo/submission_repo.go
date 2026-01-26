@@ -39,7 +39,7 @@ func (r *SubmissionRepo) HasCorrect(ctx context.Context, userID, challengeID int
 }
 
 func (r *SubmissionRepo) SolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
-	var rows []models.SolvedChallenge
+	rows := make([]models.SolvedChallenge, 0)
 
 	err := r.db.NewSelect().
 		TableExpr("submissions AS s").

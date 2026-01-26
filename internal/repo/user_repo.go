@@ -58,7 +58,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) 
 }
 
 func (r *UserRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardEntry, error) {
-	var rows []models.LeaderboardEntry
+	rows := make([]models.LeaderboardEntry, 0)
 
 	q := r.db.NewSelect().
 		TableExpr("users AS u").
@@ -74,10 +74,6 @@ func (r *UserRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardEntry, 
 		return nil, wrapError("userRepo.Leaderboard", err)
 	}
 
-	if len(rows) < 1 {
-		return []models.LeaderboardEntry{}, nil
-	}
-
 	return rows, nil
 }
 
@@ -89,7 +85,7 @@ type RawSubmission struct {
 }
 
 func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]RawSubmission, error) {
-	var rows []RawSubmission
+	rows := make([]RawSubmission, 0)
 
 	query := r.db.NewSelect().
 		TableExpr("submissions AS s").
@@ -110,4 +106,14 @@ func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([
 	}
 
 	return rows, nil
+}
+
+func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
+	users := make([]models.User, 0)
+
+	if err := r.db.NewSelect().Model(&users).OrderExpr("id ASC").Scan(ctx); err != nil {
+		return nil, wrapError("userRepo.List", err)
+	}
+
+	return users, nil
 }

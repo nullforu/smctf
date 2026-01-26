@@ -17,7 +17,7 @@ func NewChallengeRepo(db *bun.DB) *ChallengeRepo {
 }
 
 func (r *ChallengeRepo) ListActive(ctx context.Context) ([]models.Challenge, error) {
-	var challenges []models.Challenge
+	challenges := make([]models.Challenge, 0)
 
 	if err := r.db.NewSelect().
 		Model(&challenges).
