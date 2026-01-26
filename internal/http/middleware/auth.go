@@ -13,30 +13,35 @@ import (
 const (
 	ctxUserIDKey = "userID"
 	ctxRoleKey   = "role"
+
+	errMissingAuth  = "missing authorization"
+	errInvalidAuth  = "invalid authorization"
+	errInvalidToken = "invalid token"
+	errForbidden    = "forbidden"
 )
 
 func Auth(cfg config.JWTConfig) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authHeader := ctx.GetHeader("Authorization")
 		if authHeader == "" {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errMissingAuth})
 			return
 		}
 
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errInvalidAuth})
 			return
 		}
 
 		claims, err := auth.ParseToken(cfg, parts[1])
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errInvalidToken})
 			return
 		}
 
 		if claims.Type != auth.TokenTypeAccess {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errInvalidToken})
 			return
 		}
 
@@ -49,7 +54,7 @@ func Auth(cfg config.JWTConfig) gin.HandlerFunc {
 func RequireRole(role string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if Role(ctx) != role {
-			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errForbidden})
 			return
 		}
 

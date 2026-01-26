@@ -31,7 +31,7 @@ func (s *CTFService) rateLimit(ctx context.Context, userID int64) error {
 }
 
 func rateLimitKey(userID int64) string {
-	return "submit:" + strconv.FormatInt(userID, 10)
+	return redisSubmitPrefix + strconv.FormatInt(userID, 10)
 }
 
 func (s *CTFService) rateLimitState(ctx context.Context, key string) (int64, time.Duration, error) {

@@ -8,6 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	defaultLimit    = 50
+	maxLimit        = 200
+	defaultInterval = 10
+)
+
 func parseLimitQuery(ctx *gin.Context, def, max int) int {
 	value := strings.TrimSpace(ctx.Query("limit"))
 	if value == "" {
@@ -46,12 +52,12 @@ func parseWindowQuery(ctx *gin.Context) (int, error) {
 		return 0, nil
 	}
 
-	windowMinutes, err := strconv.Atoi(value)
-	if err != nil || windowMinutes <= 0 {
+	window, err := strconv.Atoi(value)
+	if err != nil || window <= 0 {
 		return 0, errors.New("invalid window")
 	}
 
-	return windowMinutes, nil
+	return window, nil
 }
 
 func parseIDParam(ctx *gin.Context, name string) (int64, bool) {

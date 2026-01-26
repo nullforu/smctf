@@ -637,10 +637,14 @@ func TestListChallenges(t *testing.T) {
 	}
 
 	expectedTitles := []string{"Active 1", "Inactive", "Active 2"}
+	expectedActive := []bool{true, false, true}
 
 	for i, row := range resp {
 		if row["title"] != expectedTitles[i] {
 			t.Fatalf("expected title %q, got %q", expectedTitles[i], row["title"])
+		}
+		if isActive, ok := row["is_active"].(bool); !ok || isActive != expectedActive[i] {
+			t.Fatalf("expected is_active to be %v for %q, got %v", expectedActive[i], row["title"], isActive)
 		}
 	}
 }

@@ -215,7 +215,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 }
 
 func (h *Handler) Scoreboard(ctx *gin.Context) {
-	limit := parseLimitQuery(ctx, 50, 200)
+	limit := parseLimitQuery(ctx, defaultLimit, maxLimit)
 	rows, err := h.users.Scoreboard(ctx.Request.Context(), limit)
 	if err != nil {
 		writeError(ctx, err)
@@ -225,8 +225,8 @@ func (h *Handler) Scoreboard(ctx *gin.Context) {
 }
 
 func (h *Handler) ScoreboardTimeline(ctx *gin.Context) {
-	limit := parseLimitQuery(ctx, 50, 200)
-	intervalMinutes, err := parseIntervalQuery(ctx, 10)
+	limit := parseLimitQuery(ctx, defaultLimit, maxLimit)
+	intervalMinutes, err := parseIntervalQuery(ctx, defaultInterval)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),

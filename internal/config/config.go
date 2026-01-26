@@ -239,55 +239,52 @@ func validateConfig(cfg Config) error {
 		errs = append(errs, fmt.Errorf("BCRYPT_COST must be between %d and %d", bcrypt.MinCost, bcrypt.MaxCost))
 	}
 
+	// Database validation
 	if cfg.DB.Host == "" || cfg.DB.Name == "" || cfg.DB.User == "" {
 		errs = append(errs, errors.New("DB_HOST, DB_NAME, and DB_USER must be set"))
 	}
-
 	if cfg.DB.Port <= 0 {
 		errs = append(errs, errors.New("DB_PORT must be a positive integer"))
 	}
-
 	if cfg.DB.MaxOpenConns <= 0 || cfg.DB.MaxIdleConns <= 0 {
 		errs = append(errs, errors.New("DB_MAX_OPEN_CONNS and DB_MAX_IDLE_CONNS must be positive"))
 	}
-
 	if cfg.DB.ConnMaxLifetime <= 0 {
 		errs = append(errs, errors.New("DB_CONN_MAX_LIFETIME must be positive"))
 	}
 
+	// Redis validation
 	if cfg.Redis.Addr == "" {
 		errs = append(errs, errors.New("REDIS_ADDR must not be empty"))
 	}
-
 	if cfg.Redis.PoolSize <= 0 {
 		errs = append(errs, errors.New("REDIS_POOL_SIZE must be positive"))
 	}
 
+	// JWT validation
 	if cfg.JWT.Secret == "" {
 		errs = append(errs, errors.New("JWT_SECRET must not be empty"))
 	}
-
 	if cfg.JWT.Issuer == "" {
 		errs = append(errs, errors.New("JWT_ISSUER must not be empty"))
 	}
-
 	if cfg.JWT.AccessTTL <= 0 || cfg.JWT.RefreshTTL <= 0 {
 		errs = append(errs, errors.New("JWT_ACCESS_TTL and JWT_REFRESH_TTL must be positive"))
 	}
 
+	// Security validation
 	if cfg.Security.FlagHMACSecret == "" {
 		errs = append(errs, errors.New("FLAG_HMAC_SECRET must not be empty"))
 	}
-
 	if cfg.Security.SubmissionWindow <= 0 || cfg.Security.SubmissionMax <= 0 {
 		errs = append(errs, errors.New("SUBMIT_WINDOW and SUBMIT_MAX must be positive"))
 	}
 
+	// Production-specific validation
 	if cfg.AppEnv == "production" {
 		if cfg.JWT.Secret == defaultJWTSecret {
 			errs = append(errs, errors.New("JWT_SECRET must be set in production"))
 		}
-
 		if cfg.Security.FlagHMACSecret == defaultFlagSecret {
 			errs = append(errs, errors.New("FLAG_HMAC_SECRET must be set in production"))
 		}

@@ -69,8 +69,7 @@ func ParseToken(cfg config.JWTConfig, tokenStr string) (*Claims, error) {
 	}
 
 	claims, ok := parsed.Claims.(*Claims)
-
-	if !ok || !parsed.Valid {
+	if !ok {
 		return nil, jwt.ErrTokenInvalidClaims
 	}
 

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -16,6 +15,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	redisRefreshPrefix = "refresh:"
 )
 
 type AuthService struct {
@@ -79,7 +82,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	user, err := s.userRepo.GetByEmail(ctx, email)
 
 	if err != nil {
-		if errors.Is(err, repo.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, repo.ErrNotFound) {
 			return "", "", nil, ErrInvalidCreds
 		}
 
@@ -180,5 +183,5 @@ func (s *AuthService) assertRefreshValid(ctx context.Context, jti string, userID
 }
 
 func refreshKey(jti string) string {
-	return "refresh:" + jti
+	return redisRefreshPrefix + jti
 }

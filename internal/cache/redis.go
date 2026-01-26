@@ -1,8 +1,6 @@
 package cache
 
 import (
-	"context"
-
 	"smctf/internal/config"
 
 	"github.com/redis/go-redis/v9"
@@ -15,8 +13,4 @@ func New(cfg config.RedisConfig) *redis.Client {
 		DB:       cfg.DB,
 		PoolSize: cfg.PoolSize,
 	})
-}
-
-func Ping(ctx context.Context, rdb *redis.Client) error {
-	return rdb.Ping(ctx).Err()
 }

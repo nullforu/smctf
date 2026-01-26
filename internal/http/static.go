@@ -9,6 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	frontendDir     = "frontend"
+	frontendDistDir = "frontend/dist"
+	indexHTMLFile   = "index.html"
+	apiPathPrefix   = "/api"
+)
+
 func attachFrontendRoutes(r *gin.Engine) {
 	staticDir, indexPath := resolveFrontendPaths()
 	if staticDir == "" || indexPath == "" {
@@ -16,7 +23,7 @@ func attachFrontendRoutes(r *gin.Engine) {
 	}
 
 	r.NoRoute(func(ctx *gin.Context) {
-		if strings.HasPrefix(ctx.Request.URL.Path, "/api") {
+		if strings.HasPrefix(ctx.Request.URL.Path, apiPathPrefix) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
@@ -31,14 +38,12 @@ func attachFrontendRoutes(r *gin.Engine) {
 }
 
 func resolveFrontendPaths() (string, string) {
-	distDir := filepath.Join("frontend", "dist")
-	if dirExists(distDir) && fileExists(filepath.Join(distDir, "index.html")) {
-		return distDir, filepath.Join(distDir, "index.html")
+	if dirExists(frontendDistDir) && fileExists(filepath.Join(frontendDistDir, indexHTMLFile)) {
+		return frontendDistDir, filepath.Join(frontendDistDir, indexHTMLFile)
 	}
 
-	rootDir := "frontend"
-	if fileExists(filepath.Join(rootDir, "index.html")) {
-		return rootDir, filepath.Join(rootDir, "index.html")
+	if fileExists(filepath.Join(frontendDir, indexHTMLFile)) {
+		return frontendDir, filepath.Join(frontendDir, indexHTMLFile)
 	}
 
 	return "", ""

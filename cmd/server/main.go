@@ -33,7 +33,7 @@ func main() {
 	}
 
 	rdb := cache.New(cfg.Redis)
-	if err := cache.Ping(ctx, rdb); err != nil {
+	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("redis ping error: %v", err)
 	}
 

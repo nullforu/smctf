@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -77,7 +76,7 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	case errors.Is(err, service.ErrRateLimited):
 		status = http.StatusTooManyRequests
 		resp.Error = service.ErrRateLimited.Error()
-	case errors.Is(err, repo.ErrNotFound), errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, repo.ErrNotFound):
 		status = http.StatusNotFound
 		resp.Error = "not found"
 	}

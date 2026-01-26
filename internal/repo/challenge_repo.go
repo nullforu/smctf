@@ -19,7 +19,10 @@ func NewChallengeRepo(db *bun.DB) *ChallengeRepo {
 func (r *ChallengeRepo) ListActive(ctx context.Context) ([]models.Challenge, error) {
 	var challenges []models.Challenge
 
-	if err := r.db.NewSelect().Model(&challenges).Order("id ASC").Scan(ctx); err != nil {
+	if err := r.db.NewSelect().
+		Model(&challenges).
+		Order("id ASC").
+		Scan(ctx); err != nil {
 		return nil, wrapError("challengeRepo.ListActive", err)
 	}
 

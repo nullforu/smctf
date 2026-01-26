@@ -14,6 +14,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	redisSubmitPrefix = "submit:"
+	maxFlagLength     = 128
+)
+
 type CTFService struct {
 	cfg            config.Config
 	challengeRepo  *repo.ChallengeRepo
@@ -106,7 +111,7 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 	sub := &models.Submission{
 		UserID:      userID,
 		ChallengeID: challengeID,
-		Provided:    trimTo(flag, 128),
+		Provided:    trimTo(flag, maxFlagLength),
 		Correct:     correct,
 		SubmittedAt: time.Now().UTC(),
 	}
