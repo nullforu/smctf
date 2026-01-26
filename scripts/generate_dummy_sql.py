@@ -88,22 +88,31 @@ CHALLENGES = [
     ("Warmup", "Welcome to smctf! Can you find the flag in plain sight?", 50, "flag{w3lc0me_to_smctf_2024}", "Misc"),
     ("Easy Crypto", "Caesar cipher with a twist. Decode: Mjqqt1 Htsij", 100, "flag{caesar_cipher_easy}", "Crypto"),
     ("Web Basics", "Find the hidden admin page.", 100, "flag{hidden_in_robots_txt}", "Web"),
-    ("Binary Exploitation 101", "Simple buffer overflow challenge.", 150, "flag{buffer_overflow_basics}", "Pwn"),
-    ("Reverse Me", "Can you reverse this simple binary?", 150, "flag{rev3rse_3ng1neering}", "Reverse"),
+    ("Binary Exploitation 101", "Simple buffer overflow challenge.", 150, "flag{buffer_overflow_basics}", "Pwnable"),
+    ("Reverse Me", "Can you reverse this simple binary?", 150, "flag{rev3rse_3ng1neering}", "Reversing"),
     ("SQL Injection", "Classic SQLi. Admin login bypass.", 200, "flag{sqli_admin_bypass_2024}", "Web"),
     ("RSA Broken", "Small prime factorization problem.", 200, "flag{rsa_small_primes_weak}", "Crypto"),
-    ("Format String", "Exploit the format string vulnerability.", 250, "flag{fmt_str1ng_vuln}", "Pwn"),
+    ("Format String", "Exploit the format string vulnerability.", 250, "flag{fmt_str1ng_vuln}", "Pwnable"),
     ("XSS Challenge", "Steal the admin cookie.", 250, "flag{xss_cookie_stealer}", "Web"),
-    ("Heap Overflow", "Advanced heap exploitation.", 300, "flag{heap_overflow_mastery}", "Pwn"),
+    ("Heap Overflow", "Advanced heap exploitation.", 300, "flag{heap_overflow_mastery}", "Pwnable"),
     ("AES ECB Mode", "Exploit ECB mode weakness.", 300, "flag{ecb_mode_is_dangerous}", "Crypto"),
-    ("Advanced Reversing", "Multi-stage obfuscated binary.", 350, "flag{advanced_reverse_2024}", "Reverse"),
+    ("Advanced Reversing", "Multi-stage obfuscated binary.", 350, "flag{advanced_reverse_2024}", "Reversing"),
     ("Race Condition", "Win the race to get the flag.", 350, "flag{race_condition_exploit}", "Web"),
-    ("ROP Chain", "Return-oriented programming challenge.", 400, "flag{rop_chain_complete}", "Pwn"),
+    ("ROP Chain", "Return-oriented programming challenge.", 400, "flag{rop_chain_complete}", "Pwnable"),
     ("Elliptic Curve", "Break weak elliptic curve cryptography.", 400, "flag{ecc_weak_curve_break}", "Crypto"),
-    ("Kernel Exploitation", "Exploit a kernel vulnerability.", 450, "flag{kernel_pwn_master}", "Pwn"),
-    ("Custom Protocol", "Reverse engineer a custom network protocol.", 450, "flag{custom_proto_reversed}", "Reverse"),
+    ("Kernel Exploitation", "Exploit a kernel vulnerability.", 450, "flag{kernel_pwn_master}", "Pwnable"),
+    ("Custom Protocol", "Reverse engineer a custom network protocol.", 450, "flag{custom_proto_reversed}", "Reversing"),
     ("JWT Forgery", "Forge a JWT token with algorithm confusion.", 450, "flag{jwt_alg_none_attack}", "Web"),
     ("Side Channel Attack", "Timing attack on crypto implementation.", 500, "flag{timing_attack_success}", "Crypto"),
+    ("Smart Contract Audit", "Find the vulnerability in the token contract.", 350, "flag{token_reentrancy_bug}", "Web3"),
+    ("Chain Indexer", "Fix the block indexing logic.", 300, "flag{block_index_fix}", "Blockchain"),
+    ("AI Prompt Leak", "Extract the hidden prompt.", 300, "flag{prompt_injection_leak}", "AI"),
+    ("Packet Sleuth", "Analyze the capture to find the secret.", 250, "flag{pcap_hidden_secret}", "Network"),
+    ("Cloud Misconfig", "Public bucket exposure challenge.", 250, "flag{bucket_leak_found}", "Cloud"),
+    ("Forensic Timeline", "Recover deleted artifacts.", 250, "flag{timeline_recovered}", "Forensics"),
+    ("Algo Warmup", "Optimize the path search.", 200, "flag{shortest_path_ok}", "Algorithms"),
+    ("Math Puzzle", "Solve the modular equation.", 200, "flag{mod_inverse_found}", "Math"),
+    ("Programming Sprint", "Implement the parser.", 200, "flag{parser_passed}", "Programming"),
     ("Final Boss", "Combine multiple vulnerabilities to get the flag.", 500, "flag{final_boss_defeated_2024}", "Misc"),
 ]
 
@@ -133,7 +142,7 @@ def generate_users(count: int) -> List[Tuple[str, str, str, str, str]]:
     return users
 
 
-def generate_challenges() -> List[Tuple[str, str, int, str, bool, str]]:
+def generate_challenges() -> List[Tuple[str, str, str, int, str, bool, str]]:
     challenges = []
     base_time = datetime.now(UTC) - timedelta(hours=47)
     
@@ -143,7 +152,7 @@ def generate_challenges() -> List[Tuple[str, str, int, str, bool, str]]:
         created_at = (base_time + timedelta(minutes=i * 18))
         created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
         
-        challenges.append((title, description, points, flag_hash, is_active, created_at_str))
+        challenges.append((title, description, category, points, flag_hash, is_active, created_at_str))
     
     return challenges
 
@@ -274,13 +283,14 @@ def generate_sql_file(output_file: str):
         f.write("\n")
         
         f.write("-- Insert challenges\n")
-        for title, description, points, flag_hash, is_active, created_at in challenges:
+        for title, description, category, points, flag_hash, is_active, created_at in challenges:
             title_esc = escape_sql_string(title)
             description_esc = escape_sql_string(description)
+            category_esc = escape_sql_string(category)
             flag_hash_esc = escape_sql_string(flag_hash)
             
-            f.write(f"INSERT INTO challenges (title, description, points, flag_hash, is_active, created_at) VALUES ")
-            f.write(f"('{title_esc}', '{description_esc}', {points}, '{flag_hash_esc}', {is_active}, '{created_at}');\n")
+            f.write(f"INSERT INTO challenges (title, description, category, points, flag_hash, is_active, created_at) VALUES ")
+            f.write(f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, '{flag_hash_esc}', {is_active}, '{created_at}');\n")
         
         f.write("\n")
         
