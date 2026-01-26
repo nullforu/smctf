@@ -67,23 +67,14 @@ export interface ScoreEntry {
     score: number
 }
 
-export interface TimelineBucket {
-    bucket: string
-    scores: ScoreEntry[]
-}
-
-export interface TimelineEvent {
-    submitted_at: string
+export interface TimelineSubmission {
+    timestamp: string
     user_id: number
     username: string
-    challenge_id: number
-    challenge_title: string
     points: number
+    challenge_count: number
 }
 
 export interface TimelineResponse {
-    interval_minutes: number
-    users: ScoreEntry[]
-    buckets: TimelineBucket[]
-    events: TimelineEvent[]
+    submissions: TimelineSubmission[]
 }

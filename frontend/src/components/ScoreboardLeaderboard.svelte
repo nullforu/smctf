@@ -3,12 +3,6 @@
     import { formatApiError } from '../lib/utils'
     import type { ScoreEntry } from '../lib/types'
 
-    interface Props {
-        limit: number
-    }
-
-    let { limit }: Props = $props()
-
     let scores: ScoreEntry[] = $state([])
     let loading = $state(true)
     let errorMessage = $state('')
@@ -18,7 +12,7 @@
         errorMessage = ''
 
         try {
-            scores = await api.scoreboard(limit)
+            scores = await api.leaderboard()
         } catch (error) {
             errorMessage = formatApiError(error).message
         } finally {

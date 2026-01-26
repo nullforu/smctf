@@ -2,23 +2,21 @@
     import { onDestroy, onMount, tick } from 'svelte'
     import { api } from '../lib/api'
     import { formatApiError, formatDateTime } from '../lib/utils'
-    import { buildChartModel, chartLayout, type ChartEventPoint, type ChartModel } from '../routes/scoreboardChart'
-    import type { TimelineEvent, TimelineResponse } from '../lib/types'
+    import { buildChartModel, chartLayout, type ChartSubmissionPoint, type ChartModel } from '../routes/scoreboardChart'
+    import type { TimelineSubmission, TimelineResponse } from '../lib/types'
 
     interface Props {
-        interval: number
-        limit: number
         windowMinutes: number
     }
 
     interface TooltipState {
         left: number
         top: number
-        event: TimelineEvent
+        submission: TimelineSubmission
         username: string
     }
 
-    let { interval, limit, windowMinutes }: Props = $props()
+    let { windowMinutes }: Props = $props()
 
     let timeline: TimelineResponse | null = $state(null)
     let chartModel: ChartModel | null = $state(null)
@@ -36,7 +34,7 @@
 
     const formatDateTimeLocal = formatDateTime
 
-    const showTooltip = (event: MouseEvent, point: ChartEventPoint, username: string) => {
+    const showTooltip = (event: MouseEvent, point: ChartSubmissionPoint, username: string) => {
         if (!chartContainer || !tooltipBox) return
 
         const rect = chartContainer.getBoundingClientRect()
@@ -52,7 +50,7 @@
         tooltip = {
             left: Math.max(padding, Math.min(rawLeft, maxLeft)),
             top: Math.max(padding, Math.min(rawTop, maxTop)),
-            event: point.event,
+            submission: point.submission,
             username,
         }
     }
@@ -80,7 +78,7 @@
         tooltip = null
 
         try {
-            timeline = await api.timeline(interval, limit, windowMinutes)
+            timeline = await api.timeline(windowMinutes)
             chartModel = timeline ? buildChartModel(timeline, windowMinutes, chartWidth) : null
 
             await tick()
@@ -113,9 +111,9 @@
         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span>최근 {windowMinutes}분</span>
             <span>·</span>
-            <span>{timeline.interval_minutes}분 간격</span>
+            <span>10분 단위 그룹화</span>
             <span>·</span>
-            <span>상위 {Math.min(chartUserLimit, timeline.users.length)}명</span>
+            <span>상위 {Math.min(chartUserLimit, chartModel?.series?.length || 0)}명</span>
         </div>
         {#if chartModel}
             <div class="mt-4 rounded-xl border border-slate-800/70 bg-slate-950/40 p-4">
@@ -208,7 +206,7 @@
                                     />
                                 {/each}
                                 {#each chartModel.series as series}
-                                    {#each series.eventPoints as point}
+                                    {#each series.submissionPoints as point}
                                         <circle
                                             cx={point.x}
                                             cy={point.y}
@@ -244,11 +242,15 @@
                     >
                         {#if tooltip}
                             <p class="text-slate-300">{tooltip.username}</p>
-                            <p class="mt-1 text-sm text-slate-100">{tooltip.event.challenge_title}</p>
-                            <p class="mt-1 text-slate-400">
-                                {formatDateTimeLocal(tooltip.event.submitted_at)}
+                            <p class="mt-1 text-sm text-slate-100">
+                                {tooltip.submission.challenge_count > 1
+                                    ? `${tooltip.submission.challenge_count}개 챌린지 해결`
+                                    : '챌린지 해결'}
                             </p>
-                            <p class="mt-1 text-teal-200">+{tooltip.event.points} pts</p>
+                            <p class="mt-1 text-slate-400">
+                                {formatDateTimeLocal(tooltip.submission.timestamp)}
+                            </p>
+                            <p class="mt-1 text-teal-200">+{tooltip.submission.points} pts</p>
                         {/if}
                     </div>
                 </div>

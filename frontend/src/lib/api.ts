@@ -203,10 +203,10 @@ export const api = {
             auth: true,
         })
     },
-    scoreboard: (limit = 50) => request<ScoreEntry[]>(`/api/scoreboard?limit=${limit}`),
-    timeline: (interval = 10, limit = 50, windowMinutes?: number) => {
-        const windowParam = typeof windowMinutes === 'number' ? `&window=${windowMinutes}` : ''
-        return request<TimelineResponse>(`/api/scoreboard/timeline?interval=${interval}&limit=${limit}${windowParam}`)
+    leaderboard: () => request<ScoreEntry[]>(`/api/leaderboard`),
+    timeline: (windowMinutes?: number) => {
+        const windowParam = typeof windowMinutes === 'number' ? `?window=${windowMinutes}` : ''
+        return request<TimelineResponse>(`/api/timeline${windowParam}`)
     },
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })

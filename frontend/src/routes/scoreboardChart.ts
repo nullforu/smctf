@@ -1,4 +1,4 @@
-import type { TimelineEvent, TimelineResponse } from '../lib/types'
+import type { TimelineSubmission, TimelineResponse } from '../lib/types'
 
 export interface ChartPoint {
     x: number
@@ -6,11 +6,11 @@ export interface ChartPoint {
     value: number
 }
 
-export interface ChartEventPoint {
+export interface ChartSubmissionPoint {
     x: number
     y: number
     value: number
-    event: TimelineEvent
+    submission: TimelineSubmission
 }
 
 export interface ChartAxisTick {
@@ -36,7 +36,7 @@ export interface ChartSeries {
     color: string
     path: string
     points: ChartPoint[]
-    eventPoints: ChartEventPoint[]
+    submissionPoints: ChartSubmissionPoint[]
 }
 
 export interface ChartModel {
@@ -87,9 +87,7 @@ export const buildChartModel = (
     const baseWidth = Math.floor(widthValue || chartLayout.width)
     const resolvedWidth = Math.max(chartLayout.width, baseWidth)
 
-    const users = data.users.slice(0, Math.min(chartUserLimit, data.users.length))
-
-    if (users.length === 0) return null
+    if (!data.submissions || data.submissions.length === 0) return null
 
     const now = Date.now()
     const safeWindowMinutes = Number.isFinite(windowMinutesValue) && windowMinutesValue > 0 ? windowMinutesValue : 60
@@ -100,24 +98,50 @@ export const buildChartModel = (
     const plotWidth = resolvedWidth - chartLayout.padding.left - chartLayout.padding.right
     const plotHeight = chartLayout.height - chartLayout.padding.top - chartLayout.padding.bottom
 
-    const events = (data.events || [])
-        .map((event) => ({ event, time: new Date(event.submitted_at).getTime() }))
+    // Filter submissions within window
+    const submissions = data.submissions
+        .map((sub) => ({ sub, time: new Date(sub.timestamp).getTime() }))
         .filter((entry) => !Number.isNaN(entry.time) && entry.time >= windowStart && entry.time <= windowEnd)
         .sort((a, b) => a.time - b.time)
 
-    const eventsByUser = new Map<number, TimelineEvent[]>()
-    for (const user of users) {
-        eventsByUser.set(user.user_id, [])
-    }
-    for (const entry of events) {
-        if (eventsByUser.has(entry.event.user_id)) {
-            eventsByUser.get(entry.event.user_id)?.push(entry.event)
+    // Get unique users from submissions
+    const userMap = new Map<number, string>()
+    for (const entry of submissions) {
+        if (!userMap.has(entry.sub.user_id)) {
+            userMap.set(entry.sub.user_id, entry.sub.username)
         }
     }
 
+    // Calculate total scores per user to determine top users
+    const userScores = new Map<number, number>()
+    for (const entry of submissions) {
+        const current = userScores.get(entry.sub.user_id) || 0
+        userScores.set(entry.sub.user_id, current + entry.sub.points)
+    }
+
+    // Sort users by score and take top N
+    const topUsers = Array.from(userScores.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, chartUserLimit)
+        .map(([user_id]) => ({ user_id, username: userMap.get(user_id) || '' }))
+
+    if (topUsers.length === 0) return null
+
+    // Group submissions by user
+    const submissionsByUser = new Map<number, TimelineSubmission[]>()
+    for (const user of topUsers) {
+        submissionsByUser.set(user.user_id, [])
+    }
+    for (const entry of submissions) {
+        if (submissionsByUser.has(entry.sub.user_id)) {
+            submissionsByUser.get(entry.sub.user_id)?.push(entry.sub)
+        }
+    }
+
+    // Calculate max score for Y axis
     let maxValue = 0
-    for (const userEvents of eventsByUser.values()) {
-        const total = userEvents.reduce((sum, ev) => sum + ev.points, 0)
+    for (const userSubs of submissionsByUser.values()) {
+        const total = userSubs.reduce((sum, sub) => sum + sub.points, 0)
         if (total > maxValue) maxValue = total
     }
     const safeMax = Math.max(1, maxValue)
@@ -125,17 +149,17 @@ export const buildChartModel = (
     const xScale = (time: number) => chartLayout.padding.left + ((time - windowStart) / span) * plotWidth
     const yScale = (value: number) => chartLayout.padding.top + plotHeight - (value / safeMax) * plotHeight
 
-    const series = users.map((user, index) => {
-        const userEvents = eventsByUser.get(user.user_id) || []
-        const eventPoints: ChartEventPoint[] = []
+    const series = topUsers.map((user, index) => {
+        const userSubs = submissionsByUser.get(user.user_id) || []
+        const submissionPoints: ChartSubmissionPoint[] = []
         let runningScore = 0
 
-        for (const event of userEvents) {
-            const time = new Date(event.submitted_at).getTime()
+        for (const sub of userSubs) {
+            const time = new Date(sub.timestamp).getTime()
             const clampedTime = Math.min(windowEnd, Math.max(windowStart, time))
-            runningScore += event.points
-            eventPoints.push({
-                event,
+            runningScore += sub.points
+            submissionPoints.push({
+                submission: sub,
                 value: runningScore,
                 x: xScale(clampedTime),
                 y: yScale(runningScore),
@@ -144,7 +168,7 @@ export const buildChartModel = (
 
         const points: ChartPoint[] = [
             { x: xScale(windowStart), y: yScale(0), value: 0 },
-            ...eventPoints.map((point) => ({ x: point.x, y: point.y, value: point.value })),
+            ...submissionPoints.map((point) => ({ x: point.x, y: point.y, value: point.value })),
         ]
 
         const path = points
@@ -157,7 +181,7 @@ export const buildChartModel = (
             color: chartPalette[index % chartPalette.length],
             path,
             points,
-            eventPoints,
+            submissionPoints,
         }
     })
 
