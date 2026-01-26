@@ -12,7 +12,8 @@ Request
 {
   "email": "user@example.com",
   "username": "user1",
-  "password": "strong-password"
+  "password": "strong-password",
+  "registration_key": "123456"
 }
 ```
 
@@ -28,6 +29,8 @@ Response 201
 Errors:
 - 400 `invalid input`
 - 409 `user already exists`
+
+`registration_key` must be a 6-digit one-time code created by an admin.
 
 ---
 
@@ -323,6 +326,76 @@ Errors:
 ---
 
 ## Admin
+
+### Create Registration Keys
+`POST /api/admin/registration-keys`
+
+Headers
+```
+Authorization: Bearer <access_token>
+```
+
+Request
+```json
+{
+  "count": 5
+}
+```
+
+Response 201
+```json
+[
+  {
+    "id": 10,
+    "code": "123456",
+    "created_by": 2,
+    "created_by_username": "admin",
+    "used_by": null,
+    "used_by_username": null,
+    "used_by_ip": null,
+    "created_at": "2026-01-26T12:00:00Z",
+    "used_at": null
+  }
+]
+```
+
+Errors:
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+
+---
+
+### List Registration Keys
+`GET /api/admin/registration-keys`
+
+Headers
+```
+Authorization: Bearer <access_token>
+```
+
+Response 200
+```json
+[
+  {
+    "id": 10,
+    "code": "123456",
+    "created_by": 2,
+    "created_by_username": "admin",
+    "used_by": 5,
+    "used_by_username": "user1",
+    "used_by_ip": "203.0.113.7",
+    "created_at": "2026-01-26T12:00:00Z",
+    "used_at": "2026-01-26T12:30:00Z"
+  }
+]
+```
+
+Errors:
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+
+---
 
 ### Create Challenge
 `POST /api/admin/challenges`
