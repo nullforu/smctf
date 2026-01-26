@@ -231,6 +231,7 @@ Response 200
     "id": 1,
     "title": "Warmup",
     "description": "...",
+    "category": "Web",
     "points": 100,
     "is_active": true
   }
@@ -336,10 +337,17 @@ Request
 {
   "title": "New Challenge",
   "description": "...",
+  "category": "Web",
   "points": 200,
   "flag": "flag{...}",
   "is_active": true
 }
+```
+
+Categories
+```
+Web, Web3, Pwnable, Reversing, Crypto, Forensics, Network, Cloud, Misc,
+Programming, Algorithms, Math, AI, Blockchain
 ```
 
 Response 201
@@ -348,6 +356,7 @@ Response 201
   "id": 2,
   "title": "New Challenge",
   "description": "...",
+  "category": "Web",
   "points": 200,
   "is_active": true
 }
