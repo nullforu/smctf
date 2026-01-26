@@ -25,27 +25,29 @@
     })
 </script>
 
-<div class="min-w-0 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 sm:p-6">
-    <h3 class="text-lg text-slate-100">Leaderboard</h3>
+<div
+    class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
+>
+    <h3 class="text-lg text-slate-900 dark:text-slate-100">Leaderboard</h3>
     {#if loading}
-        <p class="mt-4 text-sm text-slate-400">불러오는 중...</p>
+        <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">불러오는 중...</p>
     {:else if errorMessage}
-        <p class="mt-4 text-sm text-rose-200">{errorMessage}</p>
+        <p class="mt-4 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
     {:else}
         <div class="mt-4 space-y-3">
             {#each scores as entry, index}
                 <div
-                    class="flex items-center justify-between rounded-xl border border-slate-800/70 bg-slate-950/40 px-4 py-3"
+                    class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800/70 dark:bg-slate-950/40"
                 >
                     <div class="flex min-w-0 items-center gap-3">
                         <span class="text-xs text-slate-500">#{index + 1}</span>
-                        <span class="truncate text-sm text-slate-100">{entry.username}</span>
+                        <span class="truncate text-sm text-slate-900 dark:text-slate-100">{entry.username}</span>
                     </div>
-                    <span class="text-sm text-teal-200">{entry.score} pts</span>
+                    <span class="text-sm text-teal-600 dark:text-teal-200">{entry.score} pts</span>
                 </div>
             {/each}
             {#if scores.length === 0}
-                <p class="text-sm text-slate-400">아직 점수가 등록되지 않았습니다.</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">아직 점수가 등록되지 않았습니다.</p>
             {/if}
         </div>
     {/if}

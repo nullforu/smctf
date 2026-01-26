@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte'
     import { get } from 'svelte/store'
-    import { authStore, setAuthUser, clearAuth } from './lib/stores'
+    import { authStore, themeStore, setAuthUser, clearAuth } from './lib/stores'
     import { api } from './lib/api'
     import Header from './components/Header.svelte'
     import Home from './routes/Home.svelte'
@@ -27,12 +27,27 @@
     let Component = $state(Home)
     let booting = $state(true)
     let auth = $state(get(authStore))
+    let theme = $state(get(themeStore))
 
     const HeaderComponent = Header
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
             auth = value
+        })
+        return unsubscribe
+    })
+
+    $effect(() => {
+        const unsubscribe = themeStore.subscribe((value) => {
+            theme = value
+            if (typeof document !== 'undefined') {
+                if (value === 'dark') {
+                    document.documentElement.classList.add('dark')
+                } else {
+                    document.documentElement.classList.remove('dark')
+                }
+            }
         })
         return unsubscribe
     })
@@ -69,12 +84,14 @@
     })
 </script>
 
-<div class="min-h-screen grid-overlay">
+<div class="min-h-screen">
     <HeaderComponent user={auth.user} />
 
     <main class="mx-auto w-full max-w-6xl px-6 py-10">
         {#if booting}
-            <div class="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-8 text-center text-slate-400">
+            <div
+                class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400"
+            >
                 세션 확인 중...
             </div>
         {:else}
@@ -82,7 +99,7 @@
         {/if}
     </main>
 
-    <footer class="border-t border-slate-800/70 py-6 text-center text-xs text-slate-500">
+    <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-500 dark:border-slate-800/70">
         <p>Copyright &copy; 2026 Semyeong Computer High School, All rights reserved.</p>
     </footer>
 </div>

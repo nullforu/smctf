@@ -3,15 +3,23 @@
 @tailwind utilities;
 
 :root {
-    color-scheme: dark;
+    color-scheme: light dark;
 }
 
+/* Light mode (default) */
 body {
     font-family: 'IBM Plex Sans', ui-sans-serif, system-ui;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    min-height: 100vh;
+    color: #1e293b;
+}
+
+/* Dark mode */
+.dark body {
     background:
         radial-gradient(circle at top, rgba(24, 34, 48, 0.6), transparent 55%),
         linear-gradient(180deg, #0b1016 0%, #0b1016 60%, #0f1724 100%);
-    min-height: 100vh;
+    color: #e2e8f0;
 }
 
 h1,
@@ -23,10 +31,13 @@ h4 {
 
 ::selection {
     background: rgba(14, 116, 144, 0.4);
+}
+
+.dark ::selection {
     color: #e2e8f0;
 }
 
-.fade-in {
+/* .fade-in {
     animation: fadeIn 0.6s ease-out both;
 }
 
@@ -39,7 +50,7 @@ h4 {
         opacity: 1;
         transform: translateY(0);
     }
-}
+} */
 
 /* 
 .grid-overlay {

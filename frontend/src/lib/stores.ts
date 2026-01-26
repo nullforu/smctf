@@ -45,3 +45,33 @@ export const setAuthUser = (user: AuthUser | null) => {
 export const clearAuth = () => {
     authStore.set(emptyAuth())
 }
+
+// Theme Store
+const THEME_KEY = 'smctf.theme'
+
+type Theme = 'light' | 'dark'
+
+const loadTheme = (): Theme => {
+    if (typeof localStorage === 'undefined') return 'light'
+
+    try {
+        const saved = localStorage.getItem(THEME_KEY)
+        return saved === 'dark' ? 'dark' : 'light'
+    } catch {
+        return 'light'
+    }
+}
+
+const persistTheme = (theme: Theme) => {
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(THEME_KEY, theme)
+    }
+}
+
+export const themeStore = writable<Theme>(loadTheme())
+
+themeStore.subscribe(persistTheme)
+
+export const toggleTheme = () => {
+    themeStore.update((current) => (current === 'light' ? 'dark' : 'light'))
+}

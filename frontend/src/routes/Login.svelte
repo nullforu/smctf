@@ -39,11 +39,13 @@
 
 <section class="fade-in">
     <div class="grid gap-8 md:grid-cols-[1.1fr_1fr]">
-        <div class="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-10">
-            <h2 class="text-3xl text-slate-100">Login</h2>
+        <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
+            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Login</h2>
 
             {#if auth.user}
-                <div class="mt-6 rounded-xl border border-teal-500/40 bg-teal-500/10 p-4 text-sm text-teal-200">
+                <div
+                    class="mt-6 rounded-xl border border-teal-500/40 bg-teal-500/10 p-4 text-sm text-teal-700 dark:text-teal-200"
+                >
                     이미 {auth.user.username} 계정으로 로그인되어 있습니다.
                     <a class="ml-2 underline" href="/challenges" onclick={(e) => navigate('/challenges', e)}
                         >바로 이동</a
@@ -59,42 +61,49 @@
                 }}
             >
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-slate-400" for="login-email">Email</label>
+                    <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="login-email"
+                        >Email</label
+                    >
                     <input
                         id="login-email"
-                        class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
+                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                         type="email"
                         bind:value={email}
                         placeholder="user@example.com"
                         autocomplete="email"
                     />
                     {#if fieldErrors.email}
-                        <p class="mt-2 text-xs text-rose-300">email: {fieldErrors.email}</p>
+                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">email: {fieldErrors.email}</p>
                     {/if}
                 </div>
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-slate-400" for="login-password">Password</label>
+                    <label
+                        class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                        for="login-password">Password</label
+                    >
                     <input
                         id="login-password"
-                        class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
+                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                         type="password"
                         bind:value={password}
                         placeholder="••••••••"
                         autocomplete="current-password"
                     />
                     {#if fieldErrors.password}
-                        <p class="mt-2 text-xs text-rose-300">password: {fieldErrors.password}</p>
+                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">password: {fieldErrors.password}</p>
                     {/if}
                 </div>
 
                 {#if errorMessage}
-                    <p class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+                    <p
+                        class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
+                    >
                         {errorMessage}
                     </p>
                 {/if}
 
                 <button
-                    class="w-full rounded-xl bg-teal-500/30 py-3 text-sm text-teal-100 transition hover:bg-teal-500/40 disabled:opacity-60"
+                    class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
                     type="submit"
                     disabled={loading}
                 >
@@ -103,12 +112,12 @@
             </form>
         </div>
 
-        <div class="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-10">
-            <h3 class="text-lg text-slate-100">도움이 필요하신가요?</h3>
-            <ul class="mt-4 space-y-3 text-sm text-slate-400">
+        <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
+            <h3 class="text-lg text-slate-900 dark:text-slate-100">도움이 필요하신가요?</h3>
+            <ul class="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-400">
                 <li>
                     아직 계정이 없다면 <a
-                        class="text-teal-200 underline"
+                        class="text-teal-600 underline dark:text-teal-200"
                         href="/register"
                         onclick={(e) => navigate('/register', e)}>가입</a
                     >하세요.

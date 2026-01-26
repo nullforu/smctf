@@ -57,19 +57,25 @@
 
 <section class="fade-in">
     <div>
-        <h2 class="text-3xl text-slate-100">Admin</h2>
+        <h2 class="text-3xl text-slate-900 dark:text-slate-100">Admin</h2>
     </div>
 
     {#if !auth.user}
-        <div class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-100">
+        <div
+            class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-800 dark:text-amber-100"
+        >
             관리자 기능은 로그인 후 접근 가능합니다.
         </div>
     {:else if auth.user.role !== 'admin'}
-        <div class="mt-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200">
+        <div
+            class="mt-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-700 dark:text-rose-200"
+        >
             권한이 없습니다. 관리자 계정으로 로그인하세요.
         </div>
     {:else}
-        <div class="mt-6 rounded-3xl border border-slate-800/80 bg-slate-900/40 p-8">
+        <div
+            class="mt-6 rounded-3xl border border-slate-200 bg-white p-8 dark:border-slate-800/80 dark:bg-slate-900/40"
+        >
             <form
                 class="space-y-5"
                 onsubmit={(event) => {
@@ -78,76 +84,95 @@
                 }}
             >
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-slate-400" for="admin-title">Title</label>
+                    <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-title"
+                        >Title</label
+                    >
                     <input
                         id="admin-title"
-                        class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
+                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                         type="text"
                         bind:value={title}
                     />
                     {#if fieldErrors.title}
-                        <p class="mt-2 text-xs text-rose-300">title: {fieldErrors.title}</p>
+                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">title: {fieldErrors.title}</p>
                     {/if}
                 </div>
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-slate-400" for="admin-description"
-                        >Description</label
+                    <label
+                        class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                        for="admin-description">Description</label
                     >
                     <textarea
                         id="admin-description"
-                        class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
+                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                         rows="5"
                         bind:value={description}
                     ></textarea>
                     {#if fieldErrors.description}
-                        <p class="mt-2 text-xs text-rose-300">description: {fieldErrors.description}</p>
+                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                            description: {fieldErrors.description}
+                        </p>
                     {/if}
                 </div>
                 <div class="grid gap-4 md:grid-cols-2">
                     <div>
-                        <label class="text-xs uppercase tracking-wide text-slate-400" for="admin-points">Points</label>
+                        <label
+                            class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                            for="admin-points">Points</label
+                        >
                         <input
                             id="admin-points"
-                            class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                             type="number"
                             min="1"
                             bind:value={points}
                         />
                         {#if fieldErrors.points}
-                            <p class="mt-2 text-xs text-rose-300">points: {fieldErrors.points}</p>
+                            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">points: {fieldErrors.points}</p>
                         {/if}
                     </div>
                     <div>
-                        <label class="text-xs uppercase tracking-wide text-slate-400" for="admin-flag">Flag</label>
+                        <label
+                            class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                            for="admin-flag">Flag</label
+                        >
                         <input
                             id="admin-flag"
-                            class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                             type="text"
                             bind:value={flag}
                         />
                         {#if fieldErrors.flag}
-                            <p class="mt-2 text-xs text-rose-300">flag: {fieldErrors.flag}</p>
+                            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">flag: {fieldErrors.flag}</p>
                         {/if}
                     </div>
                 </div>
-                <label class="flex items-center gap-3 text-sm text-slate-300">
-                    <input type="checkbox" bind:checked={isActive} class="h-4 w-4 rounded border-slate-700" />
+                <label class="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+                    <input
+                        type="checkbox"
+                        bind:checked={isActive}
+                        class="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
+                    />
                     활성화 상태로 생성
                 </label>
 
                 {#if errorMessage}
-                    <p class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+                    <p
+                        class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
+                    >
                         {errorMessage}
                     </p>
                 {/if}
                 {#if successMessage}
-                    <p class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-200">
+                    <p
+                        class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
+                    >
                         {successMessage}
                     </p>
                 {/if}
 
                 <button
-                    class="w-full rounded-xl bg-teal-500/30 py-3 text-sm text-teal-100 transition hover:bg-teal-500/40 disabled:opacity-60"
+                    class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
                     type="submit"
                     disabled={loading}
                 >

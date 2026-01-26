@@ -68,26 +68,33 @@
 
 <div
     class={`rounded-2xl border p-6 transition ${
-        challenge.is_active ? 'border-slate-800/80 bg-slate-900/40' : 'border-slate-800/40 bg-slate-900/20 opacity-60'
+        challenge.is_active
+            ? 'border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/40'
+            : 'border-slate-300/40 bg-slate-50 opacity-60 dark:border-slate-800/40 dark:bg-slate-900/20'
     }`}
 >
     <div class="flex items-start justify-between">
         <div>
-            <h3 class="text-lg text-slate-100">{challenge.title}</h3>
-            <p class="mt-1 text-xs text-slate-400">{challenge.points} pts</p>
+            <h3 class="text-lg text-slate-900 dark:text-slate-100">{challenge.title}</h3>
+            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{challenge.points} pts</p>
         </div>
         {#if isSolved}
-            <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs text-emerald-200">Solved</span>
+            <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs text-emerald-700 dark:text-emerald-200"
+                >Solved</span
+            >
         {:else if !challenge.is_active}
-            <span class="rounded-full bg-slate-500/10 px-3 py-1 text-xs text-slate-300">Inactive</span>
+            <span
+                class="rounded-full bg-slate-400/10 px-3 py-1 text-xs text-slate-600 dark:bg-slate-500/10 dark:text-slate-300"
+                >Inactive</span
+            >
         {/if}
     </div>
 
-    <p class="mt-4 text-sm text-slate-300">{challenge.description}</p>
+    <p class="mt-4 text-sm text-slate-700 dark:text-slate-300">{challenge.description}</p>
 
     <div class="mt-6 flex flex-wrap items-center gap-3">
         <button
-            class="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-200 transition hover:border-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
+            class="rounded-full border border-slate-300 px-4 py-2 text-xs text-slate-800 transition hover:border-teal-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400"
             onclick={() => (openFlag = !openFlag)}
             disabled={!challenge.is_active || isSolved}
         >
@@ -97,16 +104,22 @@
 
     {#if openFlag}
         {#if !auth.user}
-            <div class="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-100">
+            <div
+                class="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-800 dark:text-amber-100"
+            >
                 플래그 제출은 로그인 후 가능합니다.
                 <a class="ml-1 underline" href="/login" onclick={(e) => navigate('/login', e)}>로그인</a>
             </div>
         {:else if submission.status === 'success'}
-            <div class="mt-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-emerald-200">
+            <div
+                class="mt-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-emerald-700 dark:text-emerald-200"
+            >
                 {submission.message ?? '정답입니다!'}
             </div>
         {:else if isSolved}
-            <div class="mt-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-emerald-200">
+            <div
+                class="mt-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-emerald-700 dark:text-emerald-200"
+            >
                 이미 해결한 문제입니다.
             </div>
         {:else}
@@ -118,14 +131,14 @@
                 }}
             >
                 <input
-                    class="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 focus:border-teal-400 focus:outline-none"
+                    class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                     type="text"
                     bind:value={flagInput}
                     placeholder="flag&#123;...&#125;"
                     autocomplete="off"
                 />
                 <button
-                    class="w-full rounded-xl bg-teal-500/30 py-2 text-sm text-teal-100 transition hover:bg-teal-500/40 disabled:opacity-60"
+                    class="w-full rounded-xl bg-teal-600 py-2 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
                     type="submit"
                     disabled={submission.status === 'loading'}
                 >
@@ -135,8 +148,8 @@
                     <p
                         class={`rounded-xl border px-4 py-2 text-xs ${
                             isSuccessful
-                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                                : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+                                : 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-200'
                         }`}
                     >
                         {submission.message}
