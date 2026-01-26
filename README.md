@@ -1,8 +1,8 @@
 # SMCTF: CTF Platform
 
 <div align="center">
-    <img src="./assets/preview_1.png" alt="SMCTF Preview 1" width="45%" style="margin: 10px;" />
-    <img src="./assets/preview_2.png" alt="SMCTF Preview 2" width="45%" style="margin: 10px;" />
+    <img src="./assets/preview_1.png" alt="SMCTF Preview 1" width="45%" />
+    <img src="./assets/preview_2.png" alt="SMCTF Preview 2" width="45%" />
 </div>
 
 
