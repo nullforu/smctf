@@ -8,6 +8,8 @@ import type {
     ChallengeCreateResponse,
     FlagSubmissionResult,
     LoginPayload,
+    RegistrationKey,
+    RegistrationKeyCreatePayload,
     RegisterPayload,
     RegisterResponse,
     ScoreEntry,
@@ -212,6 +214,10 @@ export const api = {
     },
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })
+    },
+    registrationKeys: () => request<RegistrationKey[]>(`/api/admin/registration-keys`, { auth: true }),
+    createRegistrationKeys: (payload: RegistrationKeyCreatePayload) => {
+        return request<RegistrationKey[]>(`/api/admin/registration-keys`, { method: 'POST', body: payload, auth: true })
     },
     users: () => request<UserListItem[]>(`/api/users`),
     user: (id: number) => request<UserDetail>(`/api/users/${id}`),

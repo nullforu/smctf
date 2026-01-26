@@ -14,6 +14,7 @@
     let email = $state('')
     let username = $state('')
     let password = $state('')
+    let registrationKey = $state('')
     let loading = $state(false)
     let errorMessage = $state('')
     let fieldErrors: FieldErrors = $state({})
@@ -26,12 +27,13 @@
         fieldErrors = {}
 
         try {
-            await api.register({ email, username, password })
+            await api.register({ email, username, password, registration_key: registrationKey })
 
             success = true
             email = ''
             username = ''
             password = ''
+            registrationKey = ''
         } catch (error) {
             const formatted = formatApiError(error)
             errorMessage = formatted.message
@@ -103,6 +105,27 @@
                     />
                     {#if fieldErrors.password}
                         <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">password: {fieldErrors.password}</p>
+                    {/if}
+                </div>
+                <div>
+                    <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="register-key"
+                        >Registration Key</label
+                    >
+                    <input
+                        id="register-key"
+                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        maxlength="6"
+                        bind:value={registrationKey}
+                        placeholder="6-digit key"
+                        autocomplete="one-time-code"
+                    />
+                    {#if fieldErrors.registration_key}
+                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                            registration_key: {fieldErrors.registration_key}
+                        </p>
                     {/if}
                 </div>
 

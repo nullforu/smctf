@@ -9,6 +9,7 @@ export interface RegisterPayload {
     email: string
     username: string
     password: string
+    registration_key: string
 }
 
 export interface RegisterResponse {
@@ -92,4 +93,20 @@ export interface UserDetail {
     username: string
     email: string
     role: string
+}
+
+export interface RegistrationKey {
+    id: number
+    code: string
+    created_by: number
+    created_by_username: string
+    used_by?: number
+    used_by_username?: string
+    used_by_ip?: string
+    created_at: string
+    used_at?: string
+}
+
+export interface RegistrationKeyCreatePayload {
+    count: number
 }
