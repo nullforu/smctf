@@ -4,11 +4,15 @@
     import { formatApiError } from '../lib/utils'
     import type { Challenge } from '../lib/types'
     import ChallengeCard from '../components/ChallengeCard.svelte'
+    import ChallengeModal from '../components/ChallengeModal.svelte'
+
+    const ChallengeModalComponent = ChallengeModal
 
     let challenges: Challenge[] = $state([])
     let loading = $state(true)
     let errorMessage = $state('')
     let solvedIds = $state(new Set<number>())
+    let selectedChallenge: Challenge | null = $state(null)
 
     const ChallengeCardComponent = ChallengeCard
 
@@ -32,6 +36,14 @@
         } catch {
             solvedIds = new Set()
         }
+    }
+
+    const openChallenge = (challenge: Challenge) => {
+        selectedChallenge = challenge
+    }
+
+    const closeModal = () => {
+        selectedChallenge = null
     }
 
     onMount(async () => {
@@ -68,10 +80,23 @@
             {errorMessage}
         </div>
     {:else}
-        <div class="mt-6 grid gap-6 md:grid-cols-2">
+        <div class="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {#each challenges as challenge}
-                <ChallengeCardComponent {challenge} isSolved={solvedIds.has(challenge.id)} onSolved={loadSolved} />
+                <ChallengeCardComponent
+                    {challenge}
+                    isSolved={solvedIds.has(challenge.id)}
+                    onClick={() => openChallenge(challenge)}
+                />
             {/each}
         </div>
     {/if}
 </section>
+
+{#if selectedChallenge}
+    <ChallengeModalComponent
+        challenge={selectedChallenge}
+        isSolved={solvedIds.has(selectedChallenge.id)}
+        onClose={closeModal}
+        onSolved={loadSolved}
+    />
+{/if}
