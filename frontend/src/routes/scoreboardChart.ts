@@ -89,22 +89,21 @@ export const buildChartModel = (
 
     if (!data.submissions || data.submissions.length === 0) return null
 
-    const now = Date.now()
-    const safeWindowMinutes = Number.isFinite(windowMinutesValue) && windowMinutesValue > 0 ? windowMinutesValue : 60
-    const windowStart = now - safeWindowMinutes * 60 * 1000
-    const windowEnd = now
+    const submissions = data.submissions
+        .map((sub) => ({ sub, time: new Date(sub.timestamp).getTime() }))
+        .filter((entry) => !Number.isNaN(entry.time))
+        .sort((a, b) => a.time - b.time)
+
+    if (submissions.length === 0) return null
+
+    const times = submissions.map((entry) => entry.time)
+    const windowStart = Math.min(...times)
+    const windowEnd = Math.max(...times)
     const span = Math.max(1, windowEnd - windowStart)
 
     const plotWidth = resolvedWidth - chartLayout.padding.left - chartLayout.padding.right
     const plotHeight = chartLayout.height - chartLayout.padding.top - chartLayout.padding.bottom
 
-    // Filter submissions within window
-    const submissions = data.submissions
-        .map((sub) => ({ sub, time: new Date(sub.timestamp).getTime() }))
-        .filter((entry) => !Number.isNaN(entry.time) && entry.time >= windowStart && entry.time <= windowEnd)
-        .sort((a, b) => a.time - b.time)
-
-    // Get unique users from submissions
     const userMap = new Map<number, string>()
     for (const entry of submissions) {
         if (!userMap.has(entry.sub.user_id)) {
@@ -112,14 +111,12 @@ export const buildChartModel = (
         }
     }
 
-    // Calculate total scores per user to determine top users
     const userScores = new Map<number, number>()
     for (const entry of submissions) {
         const current = userScores.get(entry.sub.user_id) || 0
         userScores.set(entry.sub.user_id, current + entry.sub.points)
     }
 
-    // Sort users by score and take top N
     const topUsers = Array.from(userScores.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, chartUserLimit)
@@ -127,18 +124,18 @@ export const buildChartModel = (
 
     if (topUsers.length === 0) return null
 
-    // Group submissions by user
     const submissionsByUser = new Map<number, TimelineSubmission[]>()
+
     for (const user of topUsers) {
         submissionsByUser.set(user.user_id, [])
     }
+
     for (const entry of submissions) {
         if (submissionsByUser.has(entry.sub.user_id)) {
             submissionsByUser.get(entry.sub.user_id)?.push(entry.sub)
         }
     }
 
-    // Calculate max score for Y axis
     let maxValue = 0
     for (const userSubs of submissionsByUser.values()) {
         const total = userSubs.reduce((sum, sub) => sum + sub.points, 0)

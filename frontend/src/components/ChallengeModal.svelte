@@ -34,7 +34,7 @@
 
     const submitFlag = async () => {
         if (isSolved) {
-            submission = { status: 'success', message: '이미 해결한 문제입니다.' }
+            submission = { status: 'success', message: '정답입니다!' }
             return
         }
 
@@ -54,7 +54,7 @@
             }
         } catch (error) {
             if (error instanceof ApiError && error.status === 409) {
-                submission = { status: 'success', message: '정답입니다! (이미 해결됨)' }
+                submission = { status: 'success', message: '정답입니다!' }
                 flagInput = ''
                 onSolved()
                 return
@@ -121,7 +121,7 @@
                 <div
                     class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-200"
                 >
-                    이미 해결한 문제입니다.
+                    정답입니다!
                 </div>
             {:else if !challenge.is_active}
                 <div

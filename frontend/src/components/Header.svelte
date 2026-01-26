@@ -6,6 +6,7 @@
     import { get } from 'svelte/store'
 
     const toggleThemeCallback = toggleTheme
+    const clearAuthCallback = clearAuth
 
     interface Props {
         user: AuthUser | null
@@ -83,7 +84,6 @@
                 title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
                 {#if theme === 'light'}
-                    <!-- Moon icon for light mode (clicking switches to dark) -->
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="18"
@@ -98,7 +98,6 @@
                         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                     </svg>
                 {:else}
-                    <!-- Sun icon for dark mode (clicking switches to light) -->
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="18"
@@ -133,7 +132,7 @@
                         try {
                             await api.logout()
                         } catch {
-                            clearAuth()
+                            clearAuthCallback()
                         }
                         navigate('/login')
                     }}

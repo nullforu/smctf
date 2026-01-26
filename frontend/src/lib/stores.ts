@@ -46,7 +46,6 @@ export const clearAuth = () => {
     authStore.set(emptyAuth())
 }
 
-// Theme Store
 const THEME_KEY = 'smctf.theme'
 
 type Theme = 'light' | 'dark'
