@@ -44,10 +44,11 @@ func main() {
 	}
 
 	userRepo := repo.NewUserRepo(database)
+	registrationKeyRepo := repo.NewRegistrationKeyRepo(database)
 	challengeRepo := repo.NewChallengeRepo(database)
 	submissionRepo := repo.NewSubmissionRepo(database)
 
-	authSvc := service.NewAuthService(cfg, userRepo, redisClient)
+	authSvc := service.NewAuthService(cfg, database, userRepo, registrationKeyRepo, redisClient)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient)
 
 	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, userRepo, redisClient)
