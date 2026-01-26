@@ -76,6 +76,10 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 			name:  "idx_submissions_user_challenge",
 			query: "CREATE INDEX IF NOT EXISTS idx_submissions_user_challenge ON submissions (user_id, challenge_id)",
 		},
+		{
+			name:  "idx_submissions_correct_time",
+			query: "CREATE INDEX IF NOT EXISTS idx_submissions_correct_time ON submissions (correct, submitted_at) WHERE correct = true",
+		},
 	}
 
 	for _, idx := range indexes {

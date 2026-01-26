@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"sort"
 	"time"
 )
 
@@ -54,14 +55,13 @@ func groupSubmissions(raw []rawSubmission) []timelineSubmission {
 		result = append(result, *group)
 	}
 
-	for i := 0; i < len(result); i++ {
-		for j := i + 1; j < len(result); j++ {
-			if result[i].Timestamp.After(result[j].Timestamp) ||
-				(result[i].Timestamp.Equal(result[j].Timestamp) && result[i].UserID > result[j].UserID) {
-				result[i], result[j] = result[j], result[i]
-			}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Timestamp.Equal(result[j].Timestamp) {
+			return result[i].UserID < result[j].UserID
 		}
-	}
+
+		return result[i].Timestamp.Before(result[j].Timestamp)
+	})
 
 	return result
 }

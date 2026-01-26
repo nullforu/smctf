@@ -21,6 +21,7 @@ type Config struct {
 	Redis    RedisConfig
 	JWT      JWTConfig
 	Security SecurityConfig
+	Cache    CacheConfig
 }
 
 type DBConfig struct {
@@ -53,6 +54,10 @@ type SecurityConfig struct {
 	FlagHMACSecret   string
 	SubmissionWindow time.Duration
 	SubmissionMax    int
+}
+
+type CacheConfig struct {
+	TimelineTTL time.Duration
 }
 
 const (
@@ -130,6 +135,11 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	timelineCacheTTL, err := getDuration("TIMELINE_CACHE_TTL", 60*time.Second)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	cfg := Config{
 		AppEnv:             appEnv,
 		HTTPAddr:           httpAddr,
@@ -163,6 +173,9 @@ func Load() (Config, error) {
 			FlagHMACSecret:   getEnv("FLAG_HMAC_SECRET", defaultFlagSecret),
 			SubmissionWindow: submitWindow,
 			SubmissionMax:    submitMax,
+		},
+		Cache: CacheConfig{
+			TimelineTTL: timelineCacheTTL,
 		},
 	}
 

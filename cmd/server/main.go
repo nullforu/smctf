@@ -32,8 +32,8 @@ func main() {
 		log.Fatalf("db ping error: %v", err)
 	}
 
-	rdb := cache.New(cfg.Redis)
-	if err := rdb.Ping(ctx).Err(); err != nil {
+	redisClient := cache.New(cfg.Redis)
+	if err := redisClient.Ping(ctx).Err(); err != nil {
 		log.Fatalf("redis ping error: %v", err)
 	}
 
@@ -47,10 +47,10 @@ func main() {
 	challengeRepo := repo.NewChallengeRepo(database)
 	submissionRepo := repo.NewSubmissionRepo(database)
 
-	authSvc := service.NewAuthService(cfg, userRepo, rdb)
-	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, rdb)
+	authSvc := service.NewAuthService(cfg, userRepo, redisClient)
+	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient)
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, userRepo)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, userRepo, redisClient)
 
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
@@ -78,7 +78,7 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("server shutdown error: %v", err)
 	}
-	if err := rdb.Close(); err != nil {
+	if err := redisClient.Close(); err != nil {
 		log.Printf("redis close error: %v", err)
 	}
 	if err := database.Close(); err != nil {

@@ -10,9 +10,10 @@ import (
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, redis *redis.Client) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -22,7 +23,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORS(cfg.AppEnv != "production", nil))
 
-	h := handlers.New(cfg, authSvc, ctfSvc, userRepo)
+	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, redis)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})

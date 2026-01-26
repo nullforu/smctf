@@ -194,7 +194,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	submissionRepo := repo.NewSubmissionRepo(testDB)
 	authSvc := service.NewAuthService(cfg, userRepo, testRedis)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, testRedis)
 
 	return testEnv{
 		cfg:            cfg,

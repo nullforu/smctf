@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 type Handler struct {
@@ -17,10 +21,11 @@ type Handler struct {
 	auth  *service.AuthService
 	ctf   *service.CTFService
 	users *repo.UserRepo
+	redis *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, redis: redis}
 }
 
 type registerRequest struct {
@@ -184,6 +189,19 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+
+	if correct {
+		go func() {
+			bgCtx := context.Background()
+			keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
+			if err == nil {
+				if len(keys) > 0 {
+					_ = h.redis.Del(bgCtx, keys...).Err()
+				}
+			}
+		}()
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"correct": correct,
 	})
@@ -232,6 +250,14 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 		return
 	}
 
+	cacheKey := fmt.Sprintf("timeline:%d", windowMinutes)
+
+	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
+	if err == nil {
+		ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+		return
+	}
+
 	var windowStart *time.Time
 	if windowMinutes > 0 {
 		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
@@ -255,7 +281,14 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 	}
 
 	submissions := groupSubmissions(rawSubs)
-	ctx.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"submissions": submissions,
-	})
+	}
+
+	responseJSON, err := json.Marshal(response)
+	if err == nil {
+		_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
+	}
+
+	ctx.JSON(http.StatusOK, response)
 }
