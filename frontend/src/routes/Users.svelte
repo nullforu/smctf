@@ -57,14 +57,14 @@
     <div class="mt-6">
         <input
             type="text"
-            placeholder="사용자 이름 또는 ID로 검색..."
+            placeholder="Search by username or ID..."
             bind:value={searchQuery}
             class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-500 transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:placeholder-slate-400"
         />
     </div>
 
     {#if loading}
-        <p class="mt-6 text-sm text-slate-600 dark:text-slate-400">불러오는 중...</p>
+        <p class="mt-6 text-sm text-slate-600 dark:text-slate-400">Loading...</p>
     {:else if errorMessage}
         <p class="mt-6 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
     {:else}
@@ -133,7 +133,7 @@
                                         colspan="4"
                                         class="px-6 py-8 text-center text-sm text-slate-600 dark:text-slate-400"
                                     >
-                                        {searchQuery ? '검색 결과가 없습니다.' : '사용자가 없습니다.'}
+                                        {searchQuery ? 'No results found.' : 'No users found.'}
                                     </td>
                                 </tr>
                             {/if}
@@ -144,9 +144,9 @@
 
             {#if filteredUsers.length > 0}
                 <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
-                    총 {filteredUsers.length}명의 사용자
+                    {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
                     {#if searchQuery}
-                        (전체 {users.length}명 중)
+                        (out of {users.length})
                     {/if}
                 </p>
             {/if}

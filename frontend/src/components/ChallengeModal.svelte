@@ -36,7 +36,7 @@
 
     const submitFlag = async () => {
         if (isSolved) {
-            submission = { status: 'success', message: '정답입니다!' }
+            submission = { status: 'success', message: 'Correct!' }
             return
         }
 
@@ -48,15 +48,15 @@
             const result = await api.submitFlag(challenge.id, flagInput)
 
             if (result.correct) {
-                submission = { status: 'success', message: '정답입니다!' }
+                submission = { status: 'success', message: 'Correct!' }
                 flagInput = ''
                 onSolved()
             } else {
-                submission = { status: 'error', message: '오답입니다. 다시 시도해 주세요.' }
+                submission = { status: 'error', message: 'Incorrect. Please try again.' }
             }
         } catch (error) {
             if (error instanceof ApiError && error.status === 409) {
-                submission = { status: 'success', message: '정답입니다!' }
+                submission = { status: 'success', message: 'Correct!' }
                 flagInput = ''
                 onSolved()
                 return
@@ -116,20 +116,19 @@
                 <div
                     class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-100"
                 >
-                    플래그 제출은 로그인 후 가능합니다.
-                    <a class="ml-1 underline" href="/login" onclick={(e) => navigate('/login', e)}>로그인</a>
+                    Please <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>login</a> to submit flags.
                 </div>
             {:else if isSolved}
                 <div
                     class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-200"
                 >
-                    정답입니다!
+                    Correct!
                 </div>
             {:else if !challenge.is_active}
                 <div
                     class="rounded-xl border border-slate-400/40 bg-slate-400/10 p-4 text-sm text-slate-600 dark:text-slate-400"
                 >
-                    비활성화된 문제입니다.
+                    This challenge is inactive.
                 </div>
             {:else}
                 <form
@@ -141,7 +140,7 @@
                 >
                     <div>
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
-                            >플래그 입력
+                            >Enter Flag
                             <input
                                 class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                                 type="text"
@@ -156,7 +155,7 @@
                         type="submit"
                         disabled={submission.status === 'loading'}
                     >
-                        {submission.status === 'loading' ? '제출 중...' : '제출'}
+                        {submission.status === 'loading' ? 'Submitting...' : 'Submit'}
                     </button>
                     {#if submission.message}
                         <div

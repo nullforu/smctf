@@ -129,7 +129,7 @@
             <div
                 class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400"
             >
-                세션 확인 중...
+                Checking session...
             </div>
         {:else}
             <Component {routeParams} />

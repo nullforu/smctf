@@ -30,7 +30,7 @@
 >
     <h3 class="text-lg text-slate-900 dark:text-slate-100">Leaderboard</h3>
     {#if loading}
-        <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">불러오는 중...</p>
+        <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">Loading...</p>
     {:else if errorMessage}
         <p class="mt-4 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
     {:else}
@@ -47,7 +47,7 @@
                 </div>
             {/each}
             {#if scores.length === 0}
-                <p class="text-sm text-slate-600 dark:text-slate-400">아직 점수가 등록되지 않았습니다.</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">No scores registered yet.</p>
             {/if}
         </div>
     {/if}

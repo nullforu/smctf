@@ -117,11 +117,11 @@
                     <p
                         class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
                     >
-                        계정이 생성되었습니다. 이제 <a
+                        Account created successfully. Please <a
                             class="underline"
                             href="/login"
-                            onclick={(e) => navigate('/login', e)}>로그인</a
-                        > 하세요.
+                            onclick={(e) => navigate('/login', e)}>login</a
+                        >.
                     </p>
                 {/if}
 
@@ -130,16 +130,16 @@
                     type="submit"
                     disabled={loading}
                 >
-                    {loading ? '생성 중...' : '계정 만들기'}
+                    {loading ? 'Creating...' : 'Create Account'}
                 </button>
             </form>
         </div>
 
         <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
-            <h3 class="text-lg text-slate-900 dark:text-slate-100">안내사항</h3>
+            <h3 class="text-lg text-slate-900 dark:text-slate-100">Notice</h3>
             <ul class="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-400">
-                <li>대회 규정을 반드시 숙지하시기 바랍니다.</li>
-                <li>대회 규정에 따라 필요 시 참가 자격이 제한되거나 박탈될 수 있습니다.</li>
+                <li>Please read and follow the competition rules.</li>
+                <li>Participants may be restricted or disqualified if rules are violated.</li>
             </ul>
         </div>
     </div>

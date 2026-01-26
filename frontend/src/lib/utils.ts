@@ -11,8 +11,8 @@ export const formatApiError = (error: unknown) => {
             const resetSeconds = error.rateLimit?.reset_seconds
             const message =
                 typeof resetSeconds === 'number'
-                    ? `단기간에 플래그 제출이 너무 많습니다. ${resetSeconds}초 후 다시 시도해주세요.`
-                    : '단기간에 플래그 제출이 너무 많습니다. 잠시 후 다시 시도해주세요.'
+                    ? `Too many flag submissions. Please try again in ${resetSeconds} seconds.`
+                    : 'Too many flag submissions. Please try again later.'
 
             return { message, fieldErrors }
         }

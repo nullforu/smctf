@@ -78,7 +78,7 @@
 
     {#if loading}
         <div class="rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800/70 dark:bg-slate-900/40">
-            <p class="text-center text-sm text-slate-600 dark:text-slate-400">불러오는 중...</p>
+            <p class="text-center text-sm text-slate-600 dark:text-slate-400">Loading...</p>
         </div>
     {:else if errorMessage}
         <div class="rounded-2xl border border-rose-200 bg-rose-50 p-8 dark:border-rose-900/50 dark:bg-rose-950/20">
@@ -143,7 +143,7 @@
                             <div
                                 class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-800/70 dark:bg-slate-950/40"
                             >
-                                <p class="text-sm text-slate-600 dark:text-slate-400">아직 해결한 문제가 없습니다.</p>
+                                <p class="text-sm text-slate-600 dark:text-slate-400">No challenges solved yet.</p>
                             </div>
                         {/if}
                     </div>

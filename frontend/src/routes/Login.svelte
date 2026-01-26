@@ -54,9 +54,9 @@
                 <div
                     class="mt-6 rounded-xl border border-teal-500/40 bg-teal-500/10 p-4 text-sm text-teal-700 dark:text-teal-200"
                 >
-                    이미 {auth.user.username} 계정으로 로그인되어 있습니다.
+                    Already logged in as {auth.user.username}.
                     <a class="ml-2 underline" href="/challenges" onclick={(e) => navigate('/challenges', e)}
-                        >바로 이동</a
+                        >Go to Challenges</a
                     >
                 </div>
             {/if}
@@ -115,20 +115,20 @@
                     type="submit"
                     disabled={loading}
                 >
-                    {loading ? '로그인 중...' : '로그인'}
+                    {loading ? 'Logging in...' : 'Login'}
                 </button>
             </form>
         </div>
 
         <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
-            <h3 class="text-lg text-slate-900 dark:text-slate-100">도움이 필요하신가요?</h3>
+            <h3 class="text-lg text-slate-900 dark:text-slate-100">Need Help?</h3>
             <ul class="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-400">
                 <li>
-                    아직 계정이 없다면 <a
+                    Don't have an account? <a
                         class="text-teal-600 underline dark:text-teal-200"
                         href="/register"
-                        onclick={(e) => navigate('/register', e)}>가입</a
-                    >하세요.
+                        onclick={(e) => navigate('/register', e)}>Sign up</a
+                    >.
                 </li>
             </ul>
         </div>
