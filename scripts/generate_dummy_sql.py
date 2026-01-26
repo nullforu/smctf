@@ -8,7 +8,7 @@ import hmac
 from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
 
-KST = timezone(timedelta(hours=9))
+UTC = timezone.utc
 
 FLAG_HMAC_SECRET = os.getenv('FLAG_HMAC_SECRET', 'change-me-too')
 BCRYPT_COST = int(os.getenv('BCRYPT_COST', '12'))
@@ -51,7 +51,7 @@ USER_NAMES = [
     ("안준서", "junseo.ahn"),
     ("홍아린", "ahrin.hong"),
     ("김태양", "taeyang.kim"),
-    ("이하은", "haeun.lee"),
+    ("김준영", "junyoung.kim"),
     ("박성민", "seongmin.park"),
     ("최윤호", "yunho.choi"),
     ("정소율", "soyul.jung"),
@@ -112,7 +112,7 @@ def generate_users(count: int) -> List[Tuple[str, str, str, str, str]]:
     users = []
     selected_names = random.sample(USER_NAMES, min(count, len(USER_NAMES)))
     
-    base_time = datetime.now(KST) - timedelta(hours=48)
+    base_time = datetime.now(UTC) - timedelta(hours=48)
     
     admin_password_hash = hash_password("admin123!")
     admin_time = base_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -135,7 +135,7 @@ def generate_users(count: int) -> List[Tuple[str, str, str, str, str]]:
 
 def generate_challenges() -> List[Tuple[str, str, int, str, bool, str]]:
     challenges = []
-    base_time = datetime.now(KST) - timedelta(hours=47)
+    base_time = datetime.now(UTC) - timedelta(hours=47)
     
     for i, (title, description, points, flag, category) in enumerate(CHALLENGES):
         flag_hash = hmac_flag(FLAG_HMAC_SECRET, flag)
@@ -150,7 +150,7 @@ def generate_challenges() -> List[Tuple[str, str, int, str, bool, str]]:
 
 def generate_submissions(user_count: int, challenge_count: int) -> List[Tuple[int, int, str, bool, str]]:
     submissions = []
-    base_time = datetime.now(KST) - timedelta(hours=42)
+    base_time = datetime.now(UTC) - timedelta(hours=42)
     
     
     for user_id in range(2, user_count + 1): 
