@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -61,12 +63,16 @@ type CacheConfig struct {
 }
 
 const (
-	defaultJWTSecret  = "dev-secret-change-me"
-	defaultFlagSecret = "dev-flag-secret-change-me"
+	defaultJWTSecret  = "change-me"
+	defaultFlagSecret = "change-me-too"
 )
 
 func Load() (Config, error) {
 	var errs []error
+
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		errs = append(errs, fmt.Errorf("load .env: %w", err))
+	}
 
 	appEnv := getEnv("APP_ENV", "local")
 	httpAddr := getEnv("HTTP_ADDR", ":8080")
@@ -307,4 +313,63 @@ func validateConfig(cfg Config) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func Redact(cfg Config) Config {
+	cfg.DB.Password = redact(cfg.DB.Password)
+	cfg.Redis.Password = redact(cfg.Redis.Password)
+	cfg.JWT.Secret = redact(cfg.JWT.Secret)
+	cfg.Security.FlagHMACSecret = redact(cfg.Security.FlagHMACSecret)
+	return cfg
+}
+
+func redact(value string) string {
+	if value == "" {
+		return ""
+	}
+	const (
+		visiblePrefix = 2
+		visibleSuffix = 2
+	)
+	if len(value) <= visiblePrefix+visibleSuffix {
+		return "***"
+	}
+	return value[:visiblePrefix] + "***" + value[len(value)-visibleSuffix:]
+}
+
+func FormatForLog(cfg Config) string {
+	cfg = Redact(cfg)
+	var b strings.Builder
+	fmt.Fprintf(&b, "AppEnv=%s\n", cfg.AppEnv)
+	fmt.Fprintf(&b, "HTTPAddr=%s\n", cfg.HTTPAddr)
+	fmt.Fprintf(&b, "ShutdownTimeout=%s\n", cfg.ShutdownTimeout)
+	fmt.Fprintf(&b, "AutoMigrate=%t\n", cfg.AutoMigrate)
+	fmt.Fprintf(&b, "PasswordBcryptCost=%d\n", cfg.PasswordBcryptCost)
+	fmt.Fprintln(&b, "DB:")
+	fmt.Fprintf(&b, "  Host=%s\n", cfg.DB.Host)
+	fmt.Fprintf(&b, "  Port=%d\n", cfg.DB.Port)
+	fmt.Fprintf(&b, "  User=%s\n", cfg.DB.User)
+	fmt.Fprintf(&b, "  Password=%s\n", cfg.DB.Password)
+	fmt.Fprintf(&b, "  Name=%s\n", cfg.DB.Name)
+	fmt.Fprintf(&b, "  SSLMode=%s\n", cfg.DB.SSLMode)
+	fmt.Fprintf(&b, "  MaxOpenConns=%d\n", cfg.DB.MaxOpenConns)
+	fmt.Fprintf(&b, "  MaxIdleConns=%d\n", cfg.DB.MaxIdleConns)
+	fmt.Fprintf(&b, "  ConnMaxLifetime=%s\n", cfg.DB.ConnMaxLifetime)
+	fmt.Fprintln(&b, "Redis:")
+	fmt.Fprintf(&b, "  Addr=%s\n", cfg.Redis.Addr)
+	fmt.Fprintf(&b, "  Password=%s\n", cfg.Redis.Password)
+	fmt.Fprintf(&b, "  DB=%d\n", cfg.Redis.DB)
+	fmt.Fprintf(&b, "  PoolSize=%d\n", cfg.Redis.PoolSize)
+	fmt.Fprintln(&b, "JWT:")
+	fmt.Fprintf(&b, "  Secret=%s\n", cfg.JWT.Secret)
+	fmt.Fprintf(&b, "  Issuer=%s\n", cfg.JWT.Issuer)
+	fmt.Fprintf(&b, "  AccessTTL=%s\n", cfg.JWT.AccessTTL)
+	fmt.Fprintf(&b, "  RefreshTTL=%s\n", cfg.JWT.RefreshTTL)
+	fmt.Fprintln(&b, "Security:")
+	fmt.Fprintf(&b, "  FlagHMACSecret=%s\n", cfg.Security.FlagHMACSecret)
+	fmt.Fprintf(&b, "  SubmissionWindow=%s\n", cfg.Security.SubmissionWindow)
+	fmt.Fprintf(&b, "  SubmissionMax=%d\n", cfg.Security.SubmissionMax)
+	fmt.Fprintln(&b, "Cache:")
+	fmt.Fprintf(&b, "  TimelineTTL=%s\n", cfg.Cache.TimelineTTL)
+	return b.String()
 }

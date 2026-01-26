@@ -22,6 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("config error: %v", err)
 	}
+	log.Printf("config loaded:\n%s", config.FormatForLog(cfg))
 
 	ctx := context.Background()
 	database, err := db.New(cfg.DB, cfg.AppEnv)
