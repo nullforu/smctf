@@ -4,6 +4,12 @@
     import { api } from '../lib/api'
     import { formatApiError, type FieldErrors } from '../lib/utils'
 
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
+
     let title = $state('')
     let description = $state('')
     let points = $state(100)

@@ -1,5 +1,11 @@
 <script lang="ts">
     import { navigate } from '../lib/router'
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 </script>
 
 <section class="fade-in">

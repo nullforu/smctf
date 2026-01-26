@@ -13,6 +13,8 @@ import type {
     ScoreEntry,
     SolvedChallenge,
     TimelineResponse,
+    UserListItem,
+    UserDetail,
 } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
@@ -211,4 +213,7 @@ export const api = {
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })
     },
+    users: () => request<UserListItem[]>(`/api/users`),
+    user: (id: number) => request<UserDetail>(`/api/users/${id}`),
+    userSolved: (id: number) => request<SolvedChallenge[]>(`/api/users/${id}/solved`),
 }

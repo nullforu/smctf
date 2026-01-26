@@ -10,6 +10,8 @@
     import Challenges from './routes/Challenges.svelte'
     import Scoreboard from './routes/Scoreboard.svelte'
     import Profile from './routes/Profile.svelte'
+    import Users from './routes/Users.svelte'
+    import UserProfile from './routes/UserProfile.svelte'
     import Admin from './routes/Admin.svelte'
     import NotFound from './routes/NotFound.svelte'
 
@@ -20,11 +22,28 @@
         '/challenges': Challenges,
         '/scoreboard': Scoreboard,
         '/profile': Profile,
+        '/users': Users,
         '/admin': Admin,
     }
 
+    const dynamicRoutes: Array<{
+        pattern: RegExp
+        component: typeof Home
+        extractParams: (path: string) => Record<string, string>
+    }> = [
+        {
+            pattern: /^\/users\/(\d+)$/,
+            component: UserProfile,
+            extractParams: (path) => {
+                const match = path.match(/^\/users\/(\d+)$/)
+                return match ? { id: match[1] } : { id: '' }
+            },
+        },
+    ]
+
     let currentPath = $state('/')
     let Component = $state(Home)
+    let routeParams = $state<Record<string, string>>({})
     let booting = $state(true)
     let auth = $state(get(authStore))
     let theme = $state(get(themeStore))
@@ -58,7 +77,25 @@
 
     const updateRoute = () => {
         currentPath = normalizePath(window.location.pathname || '/')
-        Component = routes[currentPath] ?? NotFound
+
+        if (routes[currentPath]) {
+            Component = routes[currentPath]
+            routeParams = {}
+        } else {
+            let matched = false
+            for (const route of dynamicRoutes) {
+                if (route.pattern.test(currentPath)) {
+                    Component = route.component
+                    routeParams = route.extractParams(currentPath)
+                    matched = true
+                    break
+                }
+            }
+            if (!matched) {
+                Component = NotFound
+                routeParams = {}
+            }
+        }
     }
 
     const loadSession = async () => {
@@ -95,7 +132,7 @@
                 세션 확인 중...
             </div>
         {:else}
-            <Component />
+            <Component {routeParams} />
         {/if}
     </main>
 

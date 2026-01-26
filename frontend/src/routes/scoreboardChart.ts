@@ -76,8 +76,8 @@ const formatTime = (value: string) => {
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return value
 
-    return date.toLocaleTimeString('ko-KR', { 
-        hour: '2-digit', 
+    return date.toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
         minute: '2-digit',
         timeZone: 'Asia/Seoul',
     })

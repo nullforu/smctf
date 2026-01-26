@@ -3,7 +3,15 @@
     import { authStore } from '../lib/stores'
     import { api } from '../lib/api'
     import { formatApiError, type FieldErrors } from '../lib/utils'
-    import { navigate } from '../lib/router'
+    import { navigate as _navigate } from '../lib/router'
+
+    const navigate = _navigate
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 
     let email = $state('')
     let password = $state('')

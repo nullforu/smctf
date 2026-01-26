@@ -5,7 +5,15 @@
     import { api } from '../lib/api'
     import type { SolvedChallenge } from '../lib/types'
     import { formatApiError, formatDateTime } from '../lib/utils'
-    import { navigate } from '../lib/router'
+    import { navigate as _navigate } from '../lib/router'
+
+    const navigate = _navigate
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 
     let solved: SolvedChallenge[] = $state([])
     let loading = $state(false)

@@ -3,8 +3,10 @@
     import { authStore } from '../lib/stores'
     import { api, ApiError } from '../lib/api'
     import { formatApiError } from '../lib/utils'
-    import { navigate } from '../lib/router'
+    import { navigate as _navigate } from '../lib/router'
     import type { Challenge } from '../lib/types'
+
+    const navigate = _navigate
 
     interface SubmissionState {
         status: 'idle' | 'loading' | 'success' | 'error'

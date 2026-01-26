@@ -105,6 +105,9 @@
                 href="/scoreboard"
                 onclick={(e) => navigate('/scoreboard', e)}>Scoreboard</a
             >
+            <a class="hover:text-teal-600 dark:hover:text-teal-200" href="/users" onclick={(e) => navigate('/users', e)}
+                >Users</a
+            >
             <a
                 class="hover:text-teal-600 dark:hover:text-teal-200"
                 href="/profile"
@@ -286,6 +289,13 @@
                     onclick={(e) => navigateAndClose('/scoreboard', e)}
                 >
                     Scoreboard
+                </a>
+                <a
+                    href="/users"
+                    class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                    onclick={(e) => navigateAndClose('/users', e)}
+                >
+                    Users
                 </a>
                 <a
                     href="/profile"

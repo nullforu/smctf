@@ -2,6 +2,12 @@
     import ScoreboardTimeline from '../components/ScoreboardTimeline.svelte'
     import ScoreboardLeaderboard from '../components/ScoreboardLeaderboard.svelte'
 
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
+
     let windowMinutes = $state(60)
     let timelineKey = $state(0)
 

@@ -1,7 +1,15 @@
 <script lang="ts">
     import { get } from 'svelte/store'
     import { authStore } from '../lib/stores'
-    import { navigate } from '../lib/router'
+    import { navigate as _navigate } from '../lib/router'
+
+    const navigate = _navigate
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 
     let auth = $state(get(authStore))
 

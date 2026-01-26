@@ -6,6 +6,12 @@
     import ChallengeCard from '../components/ChallengeCard.svelte'
     import ChallengeModal from '../components/ChallengeModal.svelte'
 
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
+
     const ChallengeModalComponent = ChallengeModal
 
     let challenges: Challenge[] = $state([])

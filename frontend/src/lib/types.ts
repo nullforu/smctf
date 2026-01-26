@@ -78,3 +78,15 @@ export interface TimelineSubmission {
 export interface TimelineResponse {
     submissions: TimelineSubmission[]
 }
+
+export interface UserListItem {
+    id: number
+    username: string
+    role: string
+}
+
+export interface UserDetail {
+    id: number
+    username: string
+    role: string
+}
