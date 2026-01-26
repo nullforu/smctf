@@ -32,6 +32,7 @@ export interface Challenge {
     id: number
     title: string
     description: string
+    category: string
     points: number
     is_active: boolean
 }
@@ -39,6 +40,7 @@ export interface Challenge {
 export interface ChallengeCreatePayload {
     title: string
     description: string
+    category: string
     points: number
     flag: string
     is_active: boolean

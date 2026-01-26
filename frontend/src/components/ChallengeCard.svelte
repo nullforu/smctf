@@ -23,7 +23,13 @@
     <div class="flex items-start justify-between">
         <div class="flex-1">
             <h3 class="text-lg font-medium text-slate-900 dark:text-slate-100">{challenge.title}</h3>
-            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{challenge.points} pts</p>
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span
+                    class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    >{challenge.category}</span
+                >
+                <span class="text-slate-600 dark:text-slate-400">{challenge.points} pts</span>
+            </div>
         </div>
         {#if isSolved}
             <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs text-emerald-700 dark:text-emerald-200"

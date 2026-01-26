@@ -12,6 +12,23 @@
 
     let title = $state('')
     let description = $state('')
+    const categories = [
+        'Web',
+        'Web3',
+        'Pwnable',
+        'Reversing',
+        'Crypto',
+        'Forensics',
+        'Network',
+        'Cloud',
+        'Misc',
+        'Programming',
+        'Algorithms',
+        'Math',
+        'AI',
+        'Blockchain',
+    ]
+    let category = $state(categories[0])
     let points = $state(100)
     let flag = $state('')
     let isActive = $state(true)
@@ -39,6 +56,7 @@
             const created = await api.createChallenge({
                 title,
                 description,
+                category,
                 points: Number(points),
                 flag,
                 is_active: isActive,
@@ -47,6 +65,7 @@
             successMessage = `Challenge "${created.title}" (ID ${created.id}) created successfully`
             title = ''
             description = ''
+            category = categories[0]
             points = 100
             flag = ''
             isActive = true
@@ -121,6 +140,26 @@
                     {/if}
                 </div>
                 <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label
+                            class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                            for="admin-category">Category</label
+                        >
+                        <select
+                            id="admin-category"
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                            bind:value={category}
+                        >
+                            {#each categories as option}
+                                <option value={option}>{option}</option>
+                            {/each}
+                        </select>
+                        {#if fieldErrors.category}
+                            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                category: {fieldErrors.category}
+                            </p>
+                        {/if}
+                    </div>
                     <div>
                         <label
                             class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
