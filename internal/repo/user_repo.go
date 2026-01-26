@@ -74,6 +74,10 @@ func (r *UserRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardEntry, 
 		return nil, wrapError("userRepo.Leaderboard", err)
 	}
 
+	if len(rows) < 1 {
+		return []models.LeaderboardEntry{}, nil
+	}
+
 	return rows, nil
 }
 
