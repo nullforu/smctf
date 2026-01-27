@@ -1187,6 +1187,129 @@ func TestAdminCreateChallenge(t *testing.T) {
 	assertFieldErrors(t, resp.Details, map[string]string{"category": "invalid"})
 }
 
+func TestAdminUpdateChallenge(t *testing.T) {
+	env := setupTest(t, testCfg)
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+
+	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+		"title":       "Ch1",
+		"description": "desc",
+		"category":    "Web",
+		"points":      100,
+		"flag":        "flag{1}",
+		"is_active":   true,
+	}, authHeader(adminAccess))
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var created struct {
+		ID int64 `json:"id"`
+	}
+
+	decodeJSON(t, rec, &created)
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+		"title":     "Ch1 Updated",
+		"points":    150,
+		"is_active": false,
+	}, authHeader(adminAccess))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var updated struct {
+		ID          int64  `json:"id"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Category    string `json:"category"`
+		Points      int    `json:"points"`
+		IsActive    bool   `json:"is_active"`
+	}
+
+	decodeJSON(t, rec, &updated)
+
+	if updated.Title != "Ch1 Updated" || updated.Description != "desc" || updated.Category != "Web" || updated.Points != 150 || updated.IsActive != false {
+		t.Fatalf("unexpected updated challenge: %+v", updated)
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+		"category": "",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp errorResp
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"category": "required"})
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+		"category": "Unknown",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"category": "invalid"})
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+		"flag": "flag{rotated}",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"flag": "immutable"})
+}
+
+func TestAdminDeleteChallenge(t *testing.T) {
+	env := setupTest(t, testCfg)
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+
+	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+		"title":       "Ch1",
+		"description": "desc",
+		"category":    "Web",
+		"points":      100,
+		"flag":        "flag{1}",
+		"is_active":   true,
+	}, authHeader(adminAccess))
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var created struct {
+		ID int64 `json:"id"`
+	}
+
+	decodeJSON(t, rec, &created)
+
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/challenges/"+itoa(created.ID), nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var challenges []map[string]interface{}
+	decodeJSON(t, rec, &challenges)
+
+	if len(challenges) != 0 {
+		t.Fatalf("expected 0 challenges, got %d", len(challenges))
+	}
+}
+
 func TestAdminRegistrationKeys(t *testing.T) {
 	env := setupTest(t, testCfg)
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")

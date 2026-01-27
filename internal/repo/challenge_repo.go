@@ -46,3 +46,19 @@ func (r *ChallengeRepo) Create(ctx context.Context, challenge *models.Challenge)
 
 	return nil
 }
+
+func (r *ChallengeRepo) Update(ctx context.Context, challenge *models.Challenge) error {
+	if _, err := r.db.NewUpdate().Model(challenge).WherePK().Exec(ctx); err != nil {
+		return wrapError("challengeRepo.Update", err)
+	}
+
+	return nil
+}
+
+func (r *ChallengeRepo) Delete(ctx context.Context, challenge *models.Challenge) error {
+	if _, err := r.db.NewDelete().Model(challenge).WherePK().Exec(ctx); err != nil {
+		return wrapError("challengeRepo.Delete", err)
+	}
+
+	return nil
+}

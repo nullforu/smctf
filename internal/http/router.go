@@ -53,6 +53,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin := api.Group("/admin")
 		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireRole("admin"))
 		admin.POST("/challenges", h.CreateChallenge)
+		admin.PUT("/challenges/:id", h.UpdateChallenge)
+		admin.DELETE("/challenges/:id", h.DeleteChallenge)
 		admin.POST("/registration-keys", h.CreateRegistrationKeys)
 		admin.GET("/registration-keys", h.ListRegistrationKeys)
 	}

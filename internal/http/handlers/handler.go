@@ -57,6 +57,15 @@ type createChallengeRequest struct {
 	IsActive    *bool  `json:"is_active"`
 }
 
+type updateChallengeRequest struct {
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	Category    *string `json:"category"`
+	Points      *int    `json:"points"`
+	Flag        *string `json:"flag"`
+	IsActive    *bool   `json:"is_active"`
+}
+
 type submitRequest struct {
 	Flag string `json:"flag" binding:"required"`
 }
@@ -261,15 +270,18 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		writeBindError(ctx, err)
 		return
 	}
+
 	active := true
 	if req.IsActive != nil {
 		active = *req.IsActive
 	}
+
 	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, req.Flag, active)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusCreated, gin.H{
 		"id":          challenge.ID,
 		"title":       challenge.Title,
@@ -278,6 +290,56 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		"points":      challenge.Points,
 		"is_active":   challenge.IsActive,
 	})
+}
+
+func (h *Handler) UpdateChallenge(ctx *gin.Context) {
+	challengeID, ok := parseIDParam(ctx, "id")
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+		})
+		return
+	}
+
+	var req updateChallengeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.Flag, req.IsActive)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"id":          challenge.ID,
+		"title":       challenge.Title,
+		"description": challenge.Description,
+		"category":    challenge.Category,
+		"points":      challenge.Points,
+		"is_active":   challenge.IsActive,
+	})
+}
+
+func (h *Handler) DeleteChallenge(ctx *gin.Context) {
+	challengeID, ok := parseIDParam(ctx, "id")
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+		})
+		return
+	}
+
+	if err := h.ctf.DeleteChallenge(ctx.Request.Context(), challengeID); err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {

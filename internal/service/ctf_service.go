@@ -93,6 +93,102 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	return challenge, nil
 }
 
+func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, flag *string, active *bool) (*models.Challenge, error) {
+	normalizeOptionalString := func(value *string) *string {
+		if value == nil {
+			return nil
+		}
+		normalized := normalizeTrim(*value)
+		return &normalized
+	}
+
+	normalizedTitle := normalizeOptionalString(title)
+	normalizedDescription := normalizeOptionalString(description)
+	normalizedCategory := normalizeOptionalString(category)
+
+	validator := newFieldValidator()
+	validator.PositiveID("id", id)
+
+	if flag != nil {
+		return nil, NewValidationError(FieldError{Field: "flag", Reason: "immutable"})
+	}
+
+	if normalizedTitle != nil {
+		validator.Required("title", *normalizedTitle)
+	}
+
+	if normalizedDescription != nil {
+		validator.Required("description", *normalizedDescription)
+	}
+
+	if normalizedCategory != nil {
+		validator.Required("category", *normalizedCategory)
+		if *normalizedCategory != "" {
+			if _, ok := challengeCategories[*normalizedCategory]; !ok {
+				validator.fields = append(validator.fields, FieldError{Field: "category", Reason: "invalid"})
+			}
+		}
+	}
+
+	if points != nil {
+		validator.NonNegative("points", *points)
+	}
+
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	challenge, err := s.challengeRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrChallengeNotFound
+		}
+		return nil, fmt.Errorf("ctf.UpdateChallenge lookup: %w", err)
+	}
+
+	if normalizedTitle != nil {
+		challenge.Title = *normalizedTitle
+	}
+
+	if normalizedDescription != nil {
+		challenge.Description = *normalizedDescription
+	}
+
+	if normalizedCategory != nil {
+		challenge.Category = *normalizedCategory
+	}
+
+	if points != nil {
+		challenge.Points = *points
+	}
+
+	if active != nil {
+		challenge.IsActive = *active
+	}
+
+	if err := s.challengeRepo.Update(ctx, challenge); err != nil {
+		return nil, fmt.Errorf("ctf.UpdateChallenge update: %w", err)
+	}
+
+	return challenge, nil
+}
+
+func (s *CTFService) DeleteChallenge(ctx context.Context, id int64) error {
+	challenge, err := s.challengeRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return ErrChallengeNotFound
+		}
+		return fmt.Errorf("ctf.DeleteChallenge lookup: %w", err)
+	}
+
+	if err := s.challengeRepo.Delete(ctx, challenge); err != nil {
+		return fmt.Errorf("ctf.DeleteChallenge delete: %w", err)
+	}
+
+	return nil
+}
+
 func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, flag string) (bool, error) {
 	flag = normalizeTrim(flag)
 	validator := newFieldValidator()
