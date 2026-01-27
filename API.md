@@ -135,6 +135,35 @@ Response 200
 Errors:
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 
+### Update Me
+`PUT /api/me`
+
+Headers
+```
+Authorization: Bearer <access_token>
+```
+
+Request
+```json
+{
+  "username": "new_username"
+}
+```
+
+Response 200
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "username": "new_username",
+  "role": "user"
+}
+```
+
+Errors:
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+
 ---
 
 ### Solved Challenges

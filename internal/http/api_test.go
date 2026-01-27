@@ -732,6 +732,34 @@ func TestMe(t *testing.T) {
 	}
 }
 
+func TestUpdateMe(t *testing.T) {
+	env := setupTest(t, testCfg)
+	access, _, userID := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
+
+	rec := doRequest(t, env.router, http.MethodPut, "/api/me", map[string]string{"username": "newuser"}, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/me", map[string]string{"username": "newuser"}, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		ID       int64  `json:"id"`
+		Email    string `json:"email"`
+		Username string `json:"username"`
+		Role     string `json:"role"`
+	}
+
+	decodeJSON(t, rec, &resp)
+
+	if resp.ID != userID || resp.Email != "user@example.com" || resp.Username != "newuser" || resp.Role != "user" {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
 func TestMeSolved(t *testing.T) {
 	env := setupTest(t, testCfg)
 	access, _, userID := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")

@@ -21,6 +21,10 @@
     let errorMessage = $state('')
     let auth = $state<AuthState>(get(authStore))
 
+    let editingUsername = $state(false)
+    let usernameInput = $state('')
+    let savingUsername = $state(false)
+
     const formatDateTimeLocal = formatDateTime
 
     $effect(() => {
@@ -49,6 +53,29 @@
             loading = false
         }
     }
+
+    const saveUsername = async () => {
+        if (!user) return
+
+        savingUsername = true
+        errorMessage = ''
+
+        try {
+            const updated = await api.updateMe(usernameInput.trim())
+            user = updated
+            editingUsername = false
+        } catch (error) {
+            errorMessage = formatApiError(error).message
+        } finally {
+            savingUsername = false
+        }
+    }
+
+    $effect(() => {
+        if (user && isOwnProfile) {
+            usernameInput = user.username
+        }
+    })
 
     $effect(() => {
         if (routeParams.id) {
@@ -116,16 +143,14 @@
                     <h2 class="text-3xl text-slate-900 dark:text-slate-100">{user.username}</h2>
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">User ID: {user.id}</p>
                 </div>
-                <div>
-                    <span
-                        class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium uppercase {user.role ===
-                        'admin'
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                            : 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'}"
-                    >
-                        {user.role}
-                    </span>
-                </div>
+                <span
+                    class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium uppercase
+                    {user.role === 'admin'
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                        : 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'}"
+                >
+                    {user.role}
+                </span>
             </div>
 
             {#if isOwnProfile}
@@ -133,15 +158,53 @@
                     class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
                 >
                     <h3 class="text-lg text-slate-900 dark:text-slate-100">Account</h3>
+
                     <div class="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                        <div class="flex justify-between">
+                        <div class="flex items-center justify-between gap-4">
                             <span class="text-slate-600 dark:text-slate-400">Username</span>
-                            <span>{user.username}</span>
+
+                            {#if editingUsername}
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        class="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                        bind:value={usernameInput}
+                                        disabled={savingUsername}
+                                    />
+                                    <button
+                                        class="text-sm text-teal-600 hover:underline disabled:opacity-50"
+                                        disabled={savingUsername}
+                                        onclick={saveUsername}
+                                    >
+                                        Save
+                                    </button>
+                                    <button
+                                        class="text-sm text-slate-500 hover:underline"
+                                        onclick={() => {
+                                            editingUsername = false
+                                            usernameInput = user!.username
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            {:else}
+                                <div class="flex items-center gap-3">
+                                    <span>{user.username}</span>
+                                    <button
+                                        class="text-xs text-teal-600 hover:underline"
+                                        onclick={() => (editingUsername = true)}
+                                    >
+                                        Edit
+                                    </button>
+                                </div>
+                            {/if}
                         </div>
+
                         <div class="flex justify-between">
                             <span class="text-slate-600 dark:text-slate-400">Email</span>
                             <span>{user.email}</span>
                         </div>
+
                         <div class="flex justify-between">
                             <span class="text-slate-600 dark:text-slate-400">Role</span>
                             <span class="uppercase text-teal-600 dark:text-teal-200">{user.role}</span>
@@ -150,50 +213,39 @@
                 </div>
             {/if}
 
-            <div class="mt-8">
-                <div
-                    class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
-                >
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-lg text-slate-900 dark:text-slate-100">Solved Challenges</h3>
-                        <span class="text-sm text-slate-600 dark:text-slate-400">
-                            {solved.length}
-                            {solved.length === 1 ? 'problem' : 'problems'}
-                        </span>
-                    </div>
+            <div
+                class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
+            >
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg text-slate-900 dark:text-slate-100">Solved Challenges</h3>
+                    <span class="text-sm text-slate-600 dark:text-slate-400">
+                        {solved.length}
+                        {solved.length === 1 ? 'problem' : 'problems'}
+                    </span>
+                </div>
 
-                    <div class="mt-6 space-y-3">
-                        {#each solved as item}
-                            <div
-                                class="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800/70 dark:bg-slate-950/40"
-                            >
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center gap-3">
-                                            <h4 class="text-base font-medium text-slate-900 dark:text-slate-100">
-                                                {item.title}
-                                            </h4>
-                                            <span
-                                                class="inline-flex items-center rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-medium text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
-                                            >
-                                                {item.points} pts
-                                            </span>
-                                        </div>
-                                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                                            Solved at {formatDateTimeLocal(item.solved_at)}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        {/each}
-                        {#if solved.length === 0}
-                            <div
-                                class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-800/70 dark:bg-slate-950/40"
-                            >
-                                <p class="text-sm text-slate-600 dark:text-slate-400">No challenges solved yet.</p>
-                            </div>
-                        {/if}
-                    </div>
+                <div class="mt-6 space-y-3">
+                    {#each solved as item}
+                        <div
+                            class="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800/70 dark:bg-slate-950/40"
+                        >
+                            <h4 class="text-base font-medium text-slate-900 dark:text-slate-100">
+                                {item.title}
+                                <span class="ml-2 text-xs text-teal-600">{item.points} pts</span>
+                            </h4>
+                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                                Solved at {formatDateTimeLocal(item.solved_at)}
+                            </p>
+                        </div>
+                    {/each}
+
+                    {#if solved.length === 0}
+                        <div
+                            class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-800/70 dark:bg-slate-950/40"
+                        >
+                            <p class="text-sm text-slate-600 dark:text-slate-400">No challenges solved yet.</p>
+                        </div>
+                    {/if}
                 </div>
             </div>
 

@@ -117,3 +117,11 @@ func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
 
 	return users, nil
 }
+
+func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
+	if _, err := r.db.NewUpdate().Model(user).WherePK().Exec(ctx); err != nil {
+		return wrapError("userRepo.Update", err)
+	}
+
+	return nil
+}

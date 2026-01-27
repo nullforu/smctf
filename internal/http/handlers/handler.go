@@ -28,6 +28,10 @@ func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, 
 	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, redis: redis}
 }
 
+type meUpdateRequest struct {
+	Username *string `json:"username"`
+}
+
 type registerRequest struct {
 	Email           string `json:"email" binding:"required"`
 	Username        string `json:"username" binding:"required"`
@@ -160,6 +164,38 @@ func (h *Handler) MeSolved(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, rows)
+}
+
+func (h *Handler) UpdateMe(ctx *gin.Context) {
+	var req meUpdateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	userID := middleware.UserID(ctx)
+
+	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	if req.Username != nil {
+		user.Username = *req.Username
+	}
+
+	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"id":       user.ID,
+		"email":    user.Email,
+		"username": user.Username,
+		"role":     user.Role,
+	})
 }
 
 func (h *Handler) ListChallenges(ctx *gin.Context) {

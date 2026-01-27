@@ -197,9 +197,18 @@ export const api = {
         await request(`/api/auth/logout`, { method: 'POST', body: { refresh_token: refreshTokenValue } })
         clearAuth()
     },
-    me: () => request<AuthUser>(`/api/me`, { auth: true }),
-    solved: () => request<SolvedChallenge[]>(`/api/me/solved`, { auth: true }),
-    challenges: () => request<Challenge[]>(`/api/challenges`),
+    me: () => {
+        return request<AuthUser>(`/api/me`, { auth: true })
+    },
+    updateMe: (username: string) => {
+        return request<AuthUser>(`/api/me`, { method: 'PUT', body: { username }, auth: true })
+    },
+    solved: () => {
+        return request<SolvedChallenge[]>(`/api/me/solved`, { auth: true })
+    },
+    challenges: () => {
+        return request<Challenge[]>(`/api/challenges`)
+    },
     submitFlag: (id: number, flag: string) => {
         return request<FlagSubmissionResult>(`/api/challenges/${id}/submit`, {
             method: 'POST',
@@ -207,7 +216,9 @@ export const api = {
             auth: true,
         })
     },
-    leaderboard: () => request<ScoreEntry[]>(`/api/leaderboard`),
+    leaderboard: () => {
+        return request<ScoreEntry[]>(`/api/leaderboard`)
+    },
     timeline: (windowMinutes?: number) => {
         const windowParam = typeof windowMinutes === 'number' ? `?window=${windowMinutes}` : ''
         return request<TimelineResponse>(`/api/timeline${windowParam}`)
@@ -215,11 +226,19 @@ export const api = {
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })
     },
-    registrationKeys: () => request<RegistrationKey[]>(`/api/admin/registration-keys`, { auth: true }),
+    registrationKeys: () => {
+        return request<RegistrationKey[]>(`/api/admin/registration-keys`, { auth: true })
+    },
     createRegistrationKeys: (payload: RegistrationKeyCreatePayload) => {
         return request<RegistrationKey[]>(`/api/admin/registration-keys`, { method: 'POST', body: payload, auth: true })
     },
-    users: () => request<UserListItem[]>(`/api/users`),
-    user: (id: number) => request<UserDetail>(`/api/users/${id}`),
-    userSolved: (id: number) => request<SolvedChallenge[]>(`/api/users/${id}/solved`),
+    users: () => {
+        return request<UserListItem[]>(`/api/users`)
+    },
+    user: (id: number) => {
+        return request<UserDetail>(`/api/users/${id}`)
+    },
+    userSolved: (id: number) => {
+        return request<SolvedChallenge[]>(`/api/users/${id}/solved`)
+    },
 }
