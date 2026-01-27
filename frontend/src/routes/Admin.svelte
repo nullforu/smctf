@@ -431,7 +431,6 @@
             {:else if activeTab === 'challenge_management'}
                 <div class="mt-6 space-y-4">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-lg text-slate-900 dark:text-slate-100">챌린지 관리</h3>
                         <button
                             class="text-xs uppercase tracking-wide text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                             onclick={loadChallenges}
