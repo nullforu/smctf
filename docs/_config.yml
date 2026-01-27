@@ -1,0 +1,6 @@
+title: SMCTF API Documentation
+description: SMCTF REST API Documentation
+theme: just-the-docs
+
+search_enabled: true
+heading_anchors: true
