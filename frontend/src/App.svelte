@@ -3,7 +3,7 @@
     import { get } from 'svelte/store'
     import { authStore, themeStore, setAuthUser, clearAuth } from './lib/stores'
     import { api } from './lib/api'
-    import Header from './components/Header.svelte'
+    import _Header from './components/Header.svelte'
     import Home from './routes/Home.svelte'
     import Login from './routes/Login.svelte'
     import Register from './routes/Register.svelte'
@@ -13,6 +13,8 @@
     import UserProfile from './routes/UserProfile.svelte'
     import Admin from './routes/Admin.svelte'
     import NotFound from './routes/NotFound.svelte'
+
+    const Header = _Header
 
     const routes: Record<string, typeof Home> = {
         '/': Home,
@@ -46,8 +48,6 @@
     let booting = $state(true)
     let auth = $state(get(authStore))
     let theme = $state(get(themeStore))
-
-    const HeaderComponent = Header
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -121,7 +121,7 @@
 </script>
 
 <div class="min-h-screen">
-    <HeaderComponent user={auth.user} />
+    <Header user={auth.user} />
 
     <main class="mx-auto w-full max-w-6xl px-6 py-10">
         {#if booting}

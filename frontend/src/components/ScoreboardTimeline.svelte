@@ -4,6 +4,9 @@
     import { formatApiError, formatDateTime } from '../lib/utils'
     import { buildChartModel, chartLayout, type ChartSubmissionPoint, type ChartModel } from '../routes/scoreboardChart'
     import type { TimelineSubmission, TimelineResponse } from '../lib/types'
+    import { navigate as _navigate } from '../lib/router'
+
+    const navigate = _navigate
 
     interface Props {
         windowMinutes: number
@@ -259,12 +262,11 @@
                 </div>
                 <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
                     {#each chartModel.series as series}
-                        <span
+                        <button
                             class="flex items-center gap-2 transition"
                             class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
                             class:text-slate-900={hoveredUserId === series.user_id}
                             class:dark:text-slate-100={hoveredUserId === series.user_id}
-                            role="button"
                             tabindex="0"
                             aria-label={`${series.username} highlight`}
                             onmouseenter={() => {
@@ -273,10 +275,11 @@
                             onmouseleave={() => {
                                 hoveredUserId = null
                             }}
+                            onclick={() => navigate(`/users/${series.user_id}`)}
                         >
                             <span class="h-2 w-2 rounded-full" style={`background-color: ${series.color}`}></span>
                             {series.username}
-                        </span>
+                        </button>
                     {/each}
                 </div>
                 <div class="mt-2 flex justify-between text-xs text-slate-600 dark:text-slate-500">

@@ -124,10 +124,13 @@
 
         <div class="hidden items-center gap-3 md:flex">
             {#if user}
-                <div class="hidden text-right text-xs text-slate-600 dark:text-slate-400 sm:block">
+                <button
+                    class="hidden text-right text-xs text-slate-600 dark:text-slate-400 sm:block"
+                    onclick={() => navigate('/profile')}
+                >
                     <p class="text-slate-900 dark:text-slate-200">{user.username}</p>
                     <p>{user.email}</p>
-                </div>
+                </button>
                 <button
                     class="rounded-full border border-slate-300 px-4 py-2 text-xs text-slate-800 transition hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 dark:hover:text-teal-200"
                     onclick={async () => {

@@ -1,6 +1,9 @@
 <script lang="ts">
-    import ScoreboardTimeline from '../components/ScoreboardTimeline.svelte'
-    import ScoreboardLeaderboard from '../components/ScoreboardLeaderboard.svelte'
+    import _ScoreboardTimeline from '../components/ScoreboardTimeline.svelte'
+    import _ScoreboardLeaderboard from '../components/ScoreboardLeaderboard.svelte'
+
+    const ScoreboardTimeline = _ScoreboardTimeline
+    const ScoreboardLeaderboard = _ScoreboardLeaderboard
 
     interface Props {
         routeParams?: Record<string, string>
@@ -10,9 +13,6 @@
 
     let windowMinutes = $state(60)
     let timelineKey = $state(0)
-
-    const TimelineComponent = ScoreboardTimeline
-    const LeaderboardComponent = ScoreboardLeaderboard
 
     const reloadTimeline = () => {
         timelineKey++
@@ -44,8 +44,8 @@
 
     <div class="mt-6 grid min-w-0 grid-cols-1 gap-6">
         {#key timelineKey}
-            <TimelineComponent {windowMinutes} />
+            <ScoreboardTimeline {windowMinutes} />
         {/key}
-        <LeaderboardComponent />
+        <ScoreboardLeaderboard />
     </div>
 </section>

@@ -202,7 +202,7 @@
 
                         <div class="flex justify-between">
                             <span class="text-slate-600 dark:text-slate-400">Email</span>
-                            <span>{user.email}</span>
+                            <span>{auth.user?.email}</span>
                         </div>
 
                         <div class="flex justify-between">

@@ -100,7 +100,10 @@
                         </thead>
                         <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
                             {#each filteredUsers as user}
-                                <tr class="transition hover:bg-slate-50 dark:hover:bg-slate-900/60">
+                                <tr
+                                    class="transition hover:bg-slate-50 dark:hover:bg-slate-900/60 cursor-pointer"
+                                    onclick={() => navigate(`/users/${user.id}`)}
+                                >
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
                                         {user.id}
                                     </td>

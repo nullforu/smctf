@@ -91,7 +91,6 @@ export interface UserListItem {
 export interface UserDetail {
     id: number
     username: string
-    email: string
     role: string
 }
 
