@@ -49,6 +49,14 @@ export interface ChallengeCreatePayload {
 
 export interface ChallengeCreateResponse extends Challenge {}
 
+export interface ChallengeUpdatePayload {
+    title?: string
+    description?: string
+    category?: string
+    points?: number
+    is_active?: boolean
+}
+
 export interface FlagSubmissionPayload {
     flag: string
 }

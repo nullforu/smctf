@@ -6,6 +6,7 @@ import type {
     Challenge,
     ChallengeCreatePayload,
     ChallengeCreateResponse,
+    ChallengeUpdatePayload,
     FlagSubmissionResult,
     LoginPayload,
     RegistrationKey,
@@ -225,6 +226,12 @@ export const api = {
     },
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })
+    },
+    updateChallenge: (id: number, payload: ChallengeUpdatePayload) => {
+        return request<Challenge>(`/api/admin/challenges/${id}`, { method: 'PUT', body: payload, auth: true })
+    },
+    deleteChallenge: (id: number) => {
+        return request<void>(`/api/admin/challenges/${id}`, { method: 'DELETE', auth: true })
     },
     registrationKeys: () => {
         return request<RegistrationKey[]>(`/api/admin/registration-keys`, { auth: true })

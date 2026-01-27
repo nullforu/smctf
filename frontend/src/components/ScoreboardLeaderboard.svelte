@@ -3,7 +3,7 @@
     import { formatApiError } from '../lib/utils'
     import type { ScoreEntry } from '../lib/types'
     import { navigate as _navigate } from '../lib/router'
-    
+
     const navigate = _navigate
 
     let scores: ScoreEntry[] = $state([])
