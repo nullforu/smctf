@@ -156,18 +156,18 @@ go build -o smctf ./cmd/server
 ## Previews
 
 <div align="center">
-    <img src="./assets/preview_2_challenge.png" alt="SMCTF Preview 1" width="45%" />
-    <img src="./assets/preview_4_users.png" alt="SMCTF Preview 2" width="45%" />
+    <img src="./assets/preview_2_challenge.png" alt="SMCTF Preview 2" width="45%" />
+    <img src="./assets/preview_4_users.png" alt="SMCTF Preview 4" width="45%" />
 </div>
 
 <div align="center">
-    <img src="./assets/preview_5_users_profile.png" alt="SMCTF Preview 1" width="45%" />
-    <img src="./assets/preview_6_profile.png" alt="SMCTF Preview 2" width="45%" />
+    <img src="./assets/preview_5_users_profile.png" alt="SMCTF Preview 5" width="45%" />
+    <img src="./assets/preview_6_profile.png" alt="SMCTF Preview 6" width="45%" />
 </div>
 
 <div align="center">
-    <img src="./assets/preview_7_admin_keys.png" alt="SMCTF Preview 1" width="45%" />
-    <img src="./assets/preview_8_admin_challenge_management.png" alt="SMCTF Preview 1" width="45%" />
+    <img src="./assets/preview_7_admin_keys.png" alt="SMCTF Preview 7" width="45%" />
+    <img src="./assets/preview_8_admin_challenge_management.png" alt="SMCTF Preview 8" width="45%" />
 </div>
 
 ## Dummy/Sample SQL Data
