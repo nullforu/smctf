@@ -3,8 +3,23 @@ name: Backend Test CI
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'go.work'
+      - '.github/workflows/**'
+
   pull_request:
     branches: [ main ]
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'go.work'
+      - '.github/workflows/**'
 
 jobs:
   test:
