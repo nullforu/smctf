@@ -1,6 +1,9 @@
 title: SMCTF API Documentation
 description: SMCTF REST API Documentation
-theme: just-the-docs
+remote_theme: just-the-docs/just-the-docs@v0.3.3
+plugins:
+  - jekyll-feed
+  - jekyll-remote-theme
 
 search_enabled: true
 heading_anchors: true
