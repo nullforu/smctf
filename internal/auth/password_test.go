@@ -24,13 +24,12 @@ func TestHashPassword(t *testing.T) {
 		t.Fatal("hash should not be equal to plain password")
 	}
 
-	// Verify it's a valid bcrypt hash
 	if !strings.HasPrefix(hash, "$2a$") && !strings.HasPrefix(hash, "$2b$") {
 		t.Errorf("invalid bcrypt hash prefix: %s", hash)
 	}
 }
 
-func TestHashPassword_DifferentCosts(t *testing.T) {
+func TestHashPasswordDifferentCosts(t *testing.T) {
 	password := "test-password"
 
 	tests := []struct {
@@ -53,7 +52,6 @@ func TestHashPassword_DifferentCosts(t *testing.T) {
 				t.Fatal("expected non-empty hash")
 			}
 
-			// Verify the hash works with CheckPassword
 			if !CheckPassword(hash, password) {
 				t.Error("CheckPassword should return true for correct password")
 			}
@@ -61,10 +59,9 @@ func TestHashPassword_DifferentCosts(t *testing.T) {
 	}
 }
 
-func TestHashPassword_InvalidCost(t *testing.T) {
+func TestHashPasswordInvalidCost(t *testing.T) {
 	password := "test-password"
 
-	// Only test cost too high, as bcrypt automatically adjusts low costs
 	_, err := HashPassword(password, bcrypt.MaxCost+1)
 	if err == nil {
 		t.Error("expected error for cost too high, got nil")
@@ -80,33 +77,28 @@ func TestCheckPassword(t *testing.T) {
 		t.Fatalf("HashPassword failed: %v", err)
 	}
 
-	// Test correct password
 	if !CheckPassword(hash, password) {
 		t.Error("CheckPassword should return true for correct password")
 	}
 
-	// Test incorrect password
 	if CheckPassword(hash, "wrong-password") {
 		t.Error("CheckPassword should return false for incorrect password")
 	}
 
-	// Test empty password
 	if CheckPassword(hash, "") {
 		t.Error("CheckPassword should return false for empty password")
 	}
 
-	// Test invalid hash
 	if CheckPassword("invalid-hash", password) {
 		t.Error("CheckPassword should return false for invalid hash")
 	}
 
-	// Test empty hash
 	if CheckPassword("", password) {
 		t.Error("CheckPassword should return false for empty hash")
 	}
 }
 
-func TestHashPassword_SamePasswordDifferentHashes(t *testing.T) {
+func TestHashPasswordSamePasswordDifferentHashes(t *testing.T) {
 	password := "test-password"
 	cost := bcrypt.DefaultCost
 
@@ -120,12 +112,10 @@ func TestHashPassword_SamePasswordDifferentHashes(t *testing.T) {
 		t.Fatalf("second HashPassword failed: %v", err)
 	}
 
-	// Hashes should be different (bcrypt uses random salt)
 	if hash1 == hash2 {
 		t.Error("hashes should be different due to random salt")
 	}
 
-	// Both hashes should verify the same password
 	if !CheckPassword(hash1, password) {
 		t.Error("first hash should verify password")
 	}
@@ -135,7 +125,7 @@ func TestHashPassword_SamePasswordDifferentHashes(t *testing.T) {
 	}
 }
 
-func TestCheckPassword_CaseSensitive(t *testing.T) {
+func TestCheckPasswordCaseSensitive(t *testing.T) {
 	password := "TestPassword123"
 	cost := bcrypt.DefaultCost
 
@@ -144,7 +134,6 @@ func TestCheckPassword_CaseSensitive(t *testing.T) {
 		t.Fatalf("HashPassword failed: %v", err)
 	}
 
-	// Check case sensitivity
 	if CheckPassword(hash, "testpassword123") {
 		t.Error("CheckPassword should be case sensitive")
 	}

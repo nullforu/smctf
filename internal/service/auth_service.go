@@ -36,6 +36,20 @@ func NewAuthService(cfg config.Config, db *bun.DB, userRepo *repo.UserRepo, regi
 	return &AuthService{cfg: cfg, db: db, userRepo: userRepo, registrationKeyRepo: registrationKeyRepo, redis: redis}
 }
 
+func isSixDigitCode(value string) bool {
+	if len(value) != 6 {
+		return false
+	}
+
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (s *AuthService) Register(ctx context.Context, email, username, password, registrationKey, registrationIP string) (*models.User, error) {
 	email = normalizeEmail(email)
 	username = normalizeTrim(username)
@@ -125,6 +139,17 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 	return user, nil
 }
 
+func generateRegistrationCode() (string, error) {
+	var buf [4]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return "", err
+	}
+
+	value := binary.BigEndian.Uint32(buf[:]) % 1000000
+
+	return fmt.Sprintf("%06d", value), nil
+}
+
 func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int) ([]models.RegistrationKey, error) {
 	validator := newFieldValidator()
 	if count < 1 {
@@ -176,29 +201,6 @@ func (s *AuthService) ListRegistrationKeys(ctx context.Context) ([]models.Regist
 	return rows, nil
 }
 
-func generateRegistrationCode() (string, error) {
-	var buf [4]byte
-	if _, err := rand.Read(buf[:]); err != nil {
-		return "", err
-	}
-	value := binary.BigEndian.Uint32(buf[:]) % 1000000
-	return fmt.Sprintf("%06d", value), nil
-}
-
-func isSixDigitCode(value string) bool {
-	if len(value) != 6 {
-		return false
-	}
-
-	for _, r := range value {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (s *AuthService) Login(ctx context.Context, email, password string) (string, string, *models.User, error) {
 	email = normalizeEmail(email)
 	user, err := s.userRepo.GetByEmail(ctx, email)
@@ -221,6 +223,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	}
 
 	return accessToken, refreshToken, user, nil
+}
+
+func refreshKey(jti string) string {
+	return redisRefreshPrefix + jti
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
@@ -302,8 +308,4 @@ func (s *AuthService) assertRefreshValid(ctx context.Context, jti string, userID
 	}
 
 	return nil
-}
-
-func refreshKey(jti string) string {
-	return redisRefreshPrefix + jti
 }

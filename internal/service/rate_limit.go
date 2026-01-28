@@ -84,5 +84,6 @@ func (s *CTFService) evaluateRateLimit(count int64, ttl time.Duration) error {
 			ResetSeconds: resetSeconds,
 		}}
 	}
+
 	return nil
 }
