@@ -41,7 +41,7 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 
 ### Planned/Upcoming features:
 
-Also, the following features are planned to be implemented. see [discussions](https://github.com/nullforu/smctf/discussions) for more details.
+Also, the following features are planned to be implemented. see [issues](https://github.com/nullforu/smctf/issues) for more details.
 
 - User and Team/Group management
 - Per challenge individual instance/VM provisioning support via AWS SDK (ECS Fargate or EC2 based)
