@@ -87,7 +87,6 @@ func TestAuthMiddleware(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+access)
 
 	router.ServeHTTP(rec, req)
-
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
@@ -111,9 +110,11 @@ func TestRequireRole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("user token: %v", err)
 	}
+
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 	req.Header.Set("Authorization", "Bearer "+userToken)
+
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", rec.Code)
@@ -123,9 +124,11 @@ func TestRequireRole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("admin token: %v", err)
 	}
+
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
 	req.Header.Set("Authorization", "Bearer "+adminToken)
+
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)

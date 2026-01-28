@@ -29,7 +29,6 @@ func TestRegister(t *testing.T) {
 			Email    string `json:"email"`
 			Username string `json:"username"`
 		}
-
 		decodeJSON(t, rec, &resp)
 
 		if resp.ID == 0 || resp.Email != body["email"] || resp.Username != body["username"] {
@@ -156,6 +155,7 @@ func TestRegister(t *testing.T) {
 
 		secondKey := createRegistrationKey(t, env, admin.ID)
 		body["registration_key"] = secondKey.Code
+
 		rec = doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
@@ -227,8 +227,8 @@ func TestRefreshAndLogout(t *testing.T) {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 	}
-
 	decodeJSON(t, rec, &refreshResp)
+
 	if refreshResp.AccessToken == "" || refreshResp.RefreshToken == "" {
 		t.Fatalf("tokens should not be empty")
 	}
@@ -283,7 +283,6 @@ func TestMe(t *testing.T) {
 		Username string `json:"username"`
 		Role     string `json:"role"`
 	}
-
 	decodeJSON(t, rec, &resp)
 
 	if resp.Email != "user@example.com" || resp.Username != "user1" || resp.Role != "user" {
@@ -311,7 +310,6 @@ func TestUpdateMe(t *testing.T) {
 		Username string `json:"username"`
 		Role     string `json:"role"`
 	}
-
 	decodeJSON(t, rec, &resp)
 
 	if resp.ID != userID || resp.Email != "user@example.com" || resp.Username != "newuser" || resp.Role != "user" {

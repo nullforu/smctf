@@ -95,8 +95,8 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 	}
-
 	decodeJSON(t, rec, &loginResp)
+
 	if loginResp.AccessToken == "" || loginResp.RefreshToken == "" {
 		t.Fatalf("missing tokens")
 	}
@@ -132,6 +132,7 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/me", nil)
 	ctx.Set("userID", user.ID)
+
 	env.handler.Me(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("me status %d: %s", rec.Code, rec.Body.String())
@@ -139,6 +140,7 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "user2"})
 	ctx.Set("userID", user.ID)
+
 	env.handler.UpdateMe(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update me status %d: %s", rec.Code, rec.Body.String())
@@ -146,6 +148,7 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", "")
 	ctx.Set("userID", user.ID)
+
 	env.handler.UpdateMe(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("update me bind status %d: %s", rec.Code, rec.Body.String())
@@ -159,6 +162,7 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/0", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+
 	env.handler.GetUser(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("get user invalid status %d: %s", rec.Code, rec.Body.String())
@@ -166,6 +170,7 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/1", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", user.ID)}}
+
 	env.handler.GetUser(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get user status %d: %s", rec.Code, rec.Body.String())
@@ -179,6 +184,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	other := createHandlerChallenge(t, env, "Other", 50, "FLAG{2}", true)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+
 	env.handler.ListChallenges(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list challenges status %d: %s", rec.Code, rec.Body.String())
@@ -187,6 +193,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/bad/submit", map[string]string{"flag": "FLAG{1}"})
 	ctx.Params = gin.Params{{Key: "id", Value: "bad"}}
 	ctx.Set("userID", user.ID)
+
 	env.handler.SubmitFlag(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("submit invalid id status %d: %s", rec.Code, rec.Body.String())
@@ -195,6 +202,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/1/submit", map[string]string{"flag": "FLAG{1}"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 	ctx.Set("userID", user.ID)
+
 	env.handler.SubmitFlag(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit correct status %d: %s", rec.Code, rec.Body.String())
@@ -203,6 +211,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/1/submit", map[string]string{"flag": "FLAG{1}"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 	ctx.Set("userID", user.ID)
+
 	env.handler.SubmitFlag(ctx)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("submit already status %d: %s", rec.Code, rec.Body.String())
@@ -211,6 +220,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/2/submit", map[string]string{"flag": "WRONG"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", other.ID)}}
 	ctx.Set("userID", user.ID)
+
 	env.handler.SubmitFlag(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit wrong status %d: %s", rec.Code, rec.Body.String())
@@ -226,6 +236,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", updateReq)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+
 	env.handler.UpdateChallenge(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update challenge status %d: %s", rec.Code, rec.Body.String())
@@ -233,6 +244,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/bad", updateReq)
 	ctx.Params = gin.Params{{Key: "id", Value: "bad"}}
+
 	env.handler.UpdateChallenge(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("update challenge invalid id status %d: %s", rec.Code, rec.Body.String())
@@ -240,6 +252,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]interface{}{"flag": "new"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+
 	env.handler.UpdateChallenge(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("update challenge flag status %d: %s", rec.Code, rec.Body.String())
@@ -247,6 +260,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/admin/challenges/1", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+
 	env.handler.DeleteChallenge(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("delete challenge status %d: %s", rec.Code, rec.Body.String())
@@ -262,6 +276,7 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0})
 	ctx.Set("userID", admin.ID)
+
 	env.handler.CreateRegistrationKeys(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("create keys invalid status %d: %s", rec.Code, rec.Body.String())
@@ -269,6 +284,7 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2})
 	ctx.Set("userID", admin.ID)
+
 	env.handler.CreateRegistrationKeys(ctx)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create keys status %d: %s", rec.Code, rec.Body.String())
@@ -276,6 +292,7 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/admin/registration-keys", nil)
 	ctx.Set("userID", admin.ID)
+
 	env.handler.ListRegistrationKeys(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list keys status %d: %s", rec.Code, rec.Body.String())

@@ -15,6 +15,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 	}
 
 	accessUser, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
+
 	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
 		"title":       "Ch1",
 		"description": "desc",
@@ -23,7 +24,6 @@ func TestAdminCreateChallenge(t *testing.T) {
 		"flag":        "flag{1}",
 		"is_active":   true,
 	}, authHeader(accessUser))
-
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -45,7 +45,6 @@ func TestAdminCreateChallenge(t *testing.T) {
 	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
 		"title": "Ch2",
 	}, authHeader(adminAccess))
-
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -65,6 +64,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 
 	var resp errorResp
 	decodeJSON(t, rec, &resp)
+
 	assertFieldErrors(t, resp.Details, map[string]string{"category": "invalid"})
 }
 
@@ -73,6 +73,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
+
 	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
 		"title":       "Ch1",
 		"description": "desc",
@@ -81,7 +82,6 @@ func TestAdminUpdateChallenge(t *testing.T) {
 		"flag":        "flag{1}",
 		"is_active":   true,
 	}, authHeader(adminAccess))
-
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -89,7 +89,6 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	var created struct {
 		ID int64 `json:"id"`
 	}
-
 	decodeJSON(t, rec, &created)
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
@@ -110,7 +109,6 @@ func TestAdminUpdateChallenge(t *testing.T) {
 		Points      int    `json:"points"`
 		IsActive    bool   `json:"is_active"`
 	}
-
 	decodeJSON(t, rec, &updated)
 
 	if updated.Title != "Ch1 Updated" || updated.Description != "desc" || updated.Category != "Web" || updated.Points != 150 || updated.IsActive != false {
@@ -126,6 +124,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 
 	var errResp errorResp
 	decodeJSON(t, rec, &errResp)
+
 	assertFieldErrors(t, errResp.Details, map[string]string{"category": "required"})
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
@@ -136,6 +135,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	}
 
 	decodeJSON(t, rec, &errResp)
+
 	assertFieldErrors(t, errResp.Details, map[string]string{"category": "invalid"})
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
@@ -146,6 +146,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	}
 
 	decodeJSON(t, rec, &errResp)
+
 	assertFieldErrors(t, errResp.Details, map[string]string{"flag": "immutable"})
 }
 
@@ -170,7 +171,6 @@ func TestAdminDeleteChallenge(t *testing.T) {
 	var created struct {
 		ID int64 `json:"id"`
 	}
-
 	decodeJSON(t, rec, &created)
 
 	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/challenges/"+itoa(created.ID), nil, authHeader(adminAccess))
@@ -242,7 +242,6 @@ func TestAdminRegistrationKeys(t *testing.T) {
 		"password":         "strong-password",
 		"registration_key": created[0].Code,
 	}
-
 	regHeaders := map[string]string{"X-Forwarded-For": "203.0.113.7"}
 
 	rec = doRequest(t, env.router, http.MethodPost, "/api/auth/register", regBody, regHeaders)

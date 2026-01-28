@@ -32,9 +32,11 @@ func TestListChallenges(t *testing.T) {
 		if row["title"] != expectedTitles[i] {
 			t.Fatalf("expected title %q, got %q", expectedTitles[i], row["title"])
 		}
+
 		if row["category"] != expectedCategories[i] {
 			t.Fatalf("expected category %q, got %q", expectedCategories[i], row["category"])
 		}
+
 		if isActive, ok := row["is_active"].(bool); !ok || isActive != expectedActive[i] {
 			t.Fatalf("expected is_active to be %v for %q, got %v", expectedActive[i], row["title"], isActive)
 		}
@@ -45,8 +47,8 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("missing auth", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, nil)
 
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, nil)
 		if rec.Code != http.StatusUnauthorized {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -55,8 +57,8 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("invalid id", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/abc/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/abc/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -73,8 +75,8 @@ func TestSubmitFlag(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{}, authHeader(access))
 
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{}, authHeader(access))
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -88,8 +90,8 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("challenge not found", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/999/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/999/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -106,8 +108,8 @@ func TestSubmitFlag(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", false)
-		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -126,7 +128,6 @@ func TestSubmitFlag(t *testing.T) {
 		var wrongResp struct {
 			Correct bool `json:"correct"`
 		}
-
 		decodeJSON(t, rec, &wrongResp)
 
 		if wrongResp.Correct {
@@ -141,7 +142,6 @@ func TestSubmitFlag(t *testing.T) {
 		var correctResp struct {
 			Correct bool `json:"correct"`
 		}
-
 		decodeJSON(t, rec, &correctResp)
 
 		if !correctResp.Correct {

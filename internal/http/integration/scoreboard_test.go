@@ -62,7 +62,6 @@ func TestScoreboardTimeline(t *testing.T) {
 			ChallengeCount int       `json:"challenge_count"`
 		} `json:"submissions"`
 	}
-
 	decodeJSON(t, rec, &resp)
 
 	if len(resp.Submissions) != 3 {
@@ -109,7 +108,6 @@ func TestScoreboardTimelineWindow(t *testing.T) {
 			ChallengeCount int       `json:"challenge_count"`
 		} `json:"submissions"`
 	}
-
 	decodeJSON(t, rec, &resp)
 
 	if len(resp.Submissions) != 1 {

@@ -22,7 +22,6 @@ func TestListUsers(t *testing.T) {
 		Username string `json:"username"`
 		Role     string `json:"role"`
 	}
-
 	decodeJSON(t, rec, &resp)
 
 	if len(resp) != 3 {
@@ -49,7 +48,6 @@ func TestGetUser(t *testing.T) {
 			Username string `json:"username"`
 			Role     string `json:"role"`
 		}
-
 		decodeJSON(t, rec, &resp)
 
 		if resp.ID != user.ID || resp.Username != "user1" || resp.Role != "user" {
@@ -94,7 +92,6 @@ func TestGetUserSolved(t *testing.T) {
 			Points      int    `json:"points"`
 			SolvedAt    string `json:"solved_at"`
 		}
-
 		decodeJSON(t, rec, &resp)
 
 		if len(resp) != 1 {

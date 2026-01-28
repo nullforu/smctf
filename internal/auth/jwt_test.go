@@ -111,7 +111,6 @@ func TestParseTokenInvalidToken(t *testing.T) {
 		{"invalid format", "invalid.token.format"},
 		{"malformed", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.sig"},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := ParseToken(cfg, tt.token)

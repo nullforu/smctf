@@ -22,7 +22,6 @@ func TestCORSAllowAll(t *testing.T) {
 	req.Header.Set("Origin", "https://evil.example.com")
 
 	router.ServeHTTP(rec, req)
-
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
@@ -52,7 +51,6 @@ func TestCORSAllowedOrigin(t *testing.T) {
 		"https://example.com",
 		"https://admin.example.com",
 	}))
-
 	router.GET("/test", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
@@ -62,7 +60,6 @@ func TestCORSAllowedOrigin(t *testing.T) {
 	req.Header.Set("Origin", "https://example.com")
 
 	router.ServeHTTP(rec, req)
-
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
@@ -83,7 +80,6 @@ func TestCORSDisallowedOrigin(t *testing.T) {
 	router.Use(CORS(false, []string{
 		"https://example.com",
 	}))
-
 	router.GET("/test", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
@@ -93,7 +89,6 @@ func TestCORSDisallowedOrigin(t *testing.T) {
 	req.Header.Set("Origin", "https://evil.example.com")
 
 	router.ServeHTTP(rec, req)
-
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
@@ -108,7 +103,6 @@ func TestCORSPreflight(t *testing.T) {
 
 	router := gin.New()
 	router.Use(CORS(true, nil))
-
 	router.GET("/test", func(ctx *gin.Context) {
 		t.Fatal("handler should not be called on OPTIONS")
 	})
@@ -119,7 +113,6 @@ func TestCORSPreflight(t *testing.T) {
 	req.Header.Set("Access-Control-Request-Method", "GET")
 
 	router.ServeHTTP(rec, req)
-
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", rec.Code)
 	}
