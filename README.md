@@ -1,5 +1,16 @@
 ## SMCTF: CTF Platform for everyone, specialized for SMCH[^1]
 
+<div align="left">
+    <a href="https://github.com/nullforu/smctf/actions/workflows/backend-test-ci.yaml">
+        <img src="https://github.com/nullforu/smctf/actions/workflows/backend-test-ci.yaml/badge.svg" alt="backend-test-ci" />
+    </a>
+    <a href="https://codecov.io/github/nullforu/smctf">
+        <img src="https://codecov.io/github/nullforu/smctf/graph/badge.svg?token=T7HF44RDS8" alt="codecov" />
+    </a>
+</div>
+
+<br />
+
 <div align="center">
     <img src="./assets/preview_1_challenges.png" alt="SMCTF Preview 1" width="45%" />
     <img src="./assets/preview_3_scoreboard.png" alt="SMCTF Preview 2" width="45%" />
