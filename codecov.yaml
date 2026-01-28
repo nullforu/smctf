@@ -6,11 +6,12 @@ coverage:
         threshold: 1%
     patch:
       default:
-        target: 50%
+        target: 70%
 
 comment:
   layout: "reach, diff, flags, files"
-  behavior: default
+  behavior: update
+  require_changes: false
 
 ignore:
   - "**/*_test.go"
