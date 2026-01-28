@@ -251,6 +251,7 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 		go func() {
 			bgCtx := context.Background()
 			keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
+
 			if err == nil {
 				if len(keys) > 0 {
 					_ = h.redis.Del(bgCtx, keys...).Err()
