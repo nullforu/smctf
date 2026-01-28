@@ -10,7 +10,7 @@ coverage:
 
 comment:
   layout: "reach, diff, flags, files"
-  behavior: update
+  behavior: default
   require_changes: false
 
 ignore:
