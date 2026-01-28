@@ -10,7 +10,8 @@ coverage:
 
 comment:
   layout: "reach, diff, flags, files"
-  behavior: default
+  behavior: update
+  require_changes: false
 
 ignore:
   - "**/*_test.go"
