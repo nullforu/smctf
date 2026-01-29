@@ -54,7 +54,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) 
 		Model(user).
 		TableExpr("users AS u").
 		ColumnExpr("u.*").
-		ColumnExpr("COALESCE(g.name, '무소속') AS group_name").
+		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
 		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
 		Where("u.id = ?", id).
 		Scan(ctx); err != nil {
@@ -90,7 +90,7 @@ func (r *UserRepo) GroupLeaderboard(ctx context.Context) ([]models.GroupLeaderbo
 	q := r.db.NewSelect().
 		TableExpr("users AS u").
 		ColumnExpr("u.group_id AS group_id").
-		ColumnExpr("COALESCE(g.name, '무소속') AS group_name").
+		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
 		ColumnExpr("COALESCE(SUM(c.points), 0) AS score").
 		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
 		Join("LEFT JOIN submissions AS s ON s.user_id = u.id AND s.correct = true").
@@ -150,7 +150,7 @@ func (r *UserRepo) TimelineGroupSubmissions(ctx context.Context, since *time.Tim
 		TableExpr("submissions AS s").
 		ColumnExpr("s.submitted_at AS submitted_at").
 		ColumnExpr("u.group_id AS group_id").
-		ColumnExpr("COALESCE(g.name, '무소속') AS group_name").
+		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
 		ColumnExpr("c.points AS points").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
@@ -176,7 +176,7 @@ func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
 		Distinct().
 		TableExpr("users AS u").
 		ColumnExpr("u.*").
-		ColumnExpr("COALESCE(g.name, '무소속') AS group_name").
+		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
 		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
 		OrderExpr("u.id ASC").
 		Scan(ctx); err != nil {

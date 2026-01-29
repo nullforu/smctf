@@ -59,7 +59,9 @@
                     >
                         <div class="flex min-w-0 items-center gap-3">
                             <span class="text-xs text-slate-500">#{index + 1}</span>
-                            <span class="truncate text-sm text-slate-900 dark:text-slate-100">{entry.group_name}</span>
+                            <span class="truncate text-sm text-slate-900 dark:text-slate-100"
+                                >{entry.group_name === 'not affiliated' ? '-' : (entry.group_name ?? '–')}</span
+                            >
                         </div>
                         <span class="text-sm text-teal-600 dark:text-teal-200">{entry.score} pts</span>
                     </div>

@@ -119,7 +119,7 @@ Response 200
         "username": "admin",
         "role": "admin",
         "group_id": null,
-        "group_name": "무소속"
+        "group_name": "not affiliated"
     }
 ]
 ```

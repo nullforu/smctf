@@ -90,7 +90,7 @@
                           submissions: rawGroupTimeline.submissions.map((sub) => ({
                               timestamp: sub.timestamp,
                               user_id: sub.group_id ?? 0,
-                              username: sub.group_name,
+                              username: sub.group_name === 'not affiliated' ? '-' : (sub.group_name ?? '–'),
                               points: sub.points,
                               challenge_count: sub.challenge_count,
                           })),

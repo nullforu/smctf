@@ -38,13 +38,13 @@ Response 200
     },
     {
         "group_id": null,
-        "group_name": "무소속",
+        "group_name": "not affiliated",
         "score": 200
     }
 ]
 ```
 
-Returns all groups sorted by score (descending). Users without a group are shown as "무소속".
+Returns all groups sorted by score (descending). Users without a group are shown as "not affiliated".
 
 ---
 
@@ -106,7 +106,7 @@ Response 200
 ```
 
 Returns all submissions grouped by group and 10 minute intervals.
-Users without a group are grouped under "무소속".
+Users without a group are grouped under "not affiliated".
 
 Errors:
 

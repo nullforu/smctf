@@ -25,7 +25,7 @@
 
         try {
             users = await api.users()
-            filteredUsers = users
+            filteredUsers = users.sort((a, b) => a.id - b.id)
         } catch (error) {
             errorMessage = formatApiError(error).message
         } finally {
@@ -119,7 +119,7 @@
                                         {user.username}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
-                                        {user.group_name ?? '무소속'}
+                                        {user.group_name === 'not affiliated' ? '-' : (user.group_name ?? '–')}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm">
                                         <span

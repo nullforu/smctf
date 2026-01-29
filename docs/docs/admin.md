@@ -22,7 +22,7 @@ Request
 }
 ```
 
-`group_id` is optional. Omit or set to null for unassigned (무소속).
+`group_id` is optional. Omit or set to null for unassigned (not affiliated).
 
 Response 201
 

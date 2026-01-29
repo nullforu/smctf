@@ -795,7 +795,7 @@
                                     bind:value={selectedGroupId}
                                     disabled={groupsLoading}
                                 >
-                                    <option value="none">무소속</option>
+                                    <option value="none">(not affiliated)</option>
                                     {#each groups as group}
                                         <option value={group.id}>{group.name}</option>
                                     {/each}
@@ -883,7 +883,7 @@
                                                     {key.code}
                                                 </td>
                                                 <td class="py-3 pr-4">{key.created_by_username}</td>
-                                                <td class="py-3 pr-4">{key.group_name ?? '무소속'}</td>
+                                                <td class="py-3 pr-4">{key.group_name ?? '-'}</td>
                                                 <td class="py-3 pr-4">{formatDateTime(key.created_at)}</td>
                                                 <td class="py-3 pr-4">{key.used_by_username ?? '-'}</td>
                                                 <td class="py-3 pr-4 font-mono text-xs">{key.used_by_ip ?? '-'}</td>

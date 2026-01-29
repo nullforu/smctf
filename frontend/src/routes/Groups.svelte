@@ -25,7 +25,7 @@
 
         try {
             groups = await api.groups()
-            filteredGroups = groups
+            filteredGroups = groups.sort((a, b) => a.id - b.id)
         } catch (error) {
             errorMessage = formatApiError(error).message
         } finally {
