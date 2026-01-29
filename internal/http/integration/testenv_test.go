@@ -169,7 +169,6 @@ func startPostgres(ctx context.Context) (testcontainers.Container, config.DBConf
 		ContainerRequest: req,
 		Started:          true,
 	})
-
 	if err != nil {
 		return nil, config.DBConfig{}, err
 	}
