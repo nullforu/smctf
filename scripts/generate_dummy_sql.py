@@ -32,67 +32,47 @@ def hash_password(password: str, cost: int = BCRYPT_COST) -> str:
 
 
 USER_NAMES = [
-    ("김민준", "minjun.kim"),
-    ("이서윤", "seoyoon.lee"),
-    ("박지호", "jiho.park"),
-    ("최수아", "sua.choi"),
-    ("정예준", "yejun.jung"),
-    ("강하윤", "hayoon.kang"),
-    ("조도윤", "doyoon.cho"),
-    ("윤서준", "seojun.yoon"),
-    ("장시우", "siwoo.jang"),
-    ("임지우", "jiwoo.lim"),
+    ("김준영", "junyoung.kim"), # 1
+    ("강대용", "daeyong.kang"),
+    ("정회전", "rotation.jung"),
+    ("박대준", "daejoon.park"),
+    ("김치환", "chihwan.kim"),
+    ("이연덕", "yeondeok.lee"),
+    ("양지오", "geometry.yang"),
+    ("김기언", "kioon.kim"),
+    ("이휘찬", "hwichan.lee"),
+    ("윤정택", "jungtaek.yoon"), # 10
+    ("이하율", "leehayul.lee"),
+    ("유은호", "eunho.yoo"),
+    ("김지호", "jiho.kim"),
+    ("이은서", "eunseo.lee"),
+    ("유수아", "swua.yoo"),
+    ("김수빈", "subin.kim"),
     ("한예은", "yeeun.han"),
     ("오현우", "hyunwoo.oh"),
-    ("신지안", "jian.shin"),
-    ("권도현", "dohyun.kwon"),
-    ("황지윤", "jiyoon.hwang"),
-    ("송민서", "minseo.song"),
-    ("안준서", "junseo.ahn"),
-    ("홍아린", "ahrin.hong"),
-    ("김태양", "taeyang.kim"),
-    ("김준영", "junyoung.kim"),
-    ("박성민", "seongmin.park"),
-    ("최윤호", "yunho.choi"),
-    ("정소율", "soyul.jung"),
-    ("강민재", "minjae.kang"),
-    ("조유진", "yujin.cho"),
-    ("윤채원", "chaewon.yoon"),
-    ("장지훈", "jihoon.jang"),
-    ("임수빈", "subin.lim"),
-    ("한건우", "gunwoo.han"),
-    ("오다은", "daeun.oh"),
-    ("신우진", "woojin.shin"),
-    ("권서아", "seoa.kwon"),
-    ("황재현", "jaehyun.hwang"),
-    ("송나은", "naeun.song"),
-    ("안시현", "sihyun.ahn"),
-    ("홍준혁", "junhyuk.hong"),
-    ("김아윤", "ahyoon.kim"),
-    ("이찬영", "chanyoung.lee"),
-    ("박소현", "sohyun.park"),
-    ("최지율", "jiyul.choi"),
-    ("정태민", "taemin.jung"),
-    ("강예린", "yerin.kang"),
-    ("조승현", "seunghyun.cho"),
-    ("윤아인", "ain.yoon"),
-    ("장민혁", "minhyuk.jang"),
-    ("임지원", "jiwon.lim"),
-    ("한서영", "seoyoung.han"),
-    ("오준영", "junyoung.oh"),
-    ("신채은", "chaeeun.shin"),
-    ("권동현", "donghyun.kwon"),
+    ("장민주", "minju.jang"),
+    ("권도현", "dohyun.kwon"), # 20
+    ("김필임", "pilim.kim"),
+    ("강회창", "hoechang.kang"),
+    ("박기민", "kimin.park"),
+    ("채우현", "woohyun.chae"),
+    ("최우민", "woomin.choi"),
+    ("임선미", "sunmi.lim"),
+    ("손은오", "euno.son"),
+    ("최우준", "woojun.choi"),
+    ("강태성", "taesung.kang"),
+    ("강진호", "jinho.kang"), # 30
 ]
 
+if len(USER_NAMES) != 30:
+    print("Error: USER_NAMES must contain at least 30 unique entries.")
+    sys.exit(1)
+
 GROUP_NAMES = [
-    "세명컴퓨터고등학교",
     "두명컴퓨터고등학교",
     "한명컴퓨터고등학교",
+    "세명컴퓨터고등학교",
     "네명컴퓨터고등학교",
-    "다섯명컴퓨터고등학교",
-    "여섯명컴퓨터고등학교",
-    "일곱명컴퓨터고등학교",
-    "여덟명컴퓨터고등학교",
 ]
 
 CHALLENGES = [
@@ -314,7 +294,7 @@ def generate_sql_file(output_file: str):
     
     groups = generate_groups()
     group_ids = list(range(1, len(groups) + 1))
-    users = generate_users(50, group_ids)
+    users = generate_users(30, group_ids)
     challenges = generate_challenges()
     registration_keys = generate_registration_keys(len(users), group_ids)
     submissions = generate_submissions(len(users), len(challenges))
