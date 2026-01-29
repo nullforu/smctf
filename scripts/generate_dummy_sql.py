@@ -84,6 +84,17 @@ USER_NAMES = [
     ("권동현", "donghyun.kwon"),
 ]
 
+GROUP_NAMES = [
+    "세명컴퓨터고등학교",
+    "두명컴퓨터고등학교",
+    "한명컴퓨터고등학교",
+    "네명컴퓨터고등학교",
+    "다섯명컴퓨터고등학교",
+    "여섯명컴퓨터고등학교",
+    "일곱명컴퓨터고등학교",
+    "여덟명컴퓨터고등학교",
+]
+
 CHALLENGES = [
     ("Warmup", "Welcome to smctf! Can you find the flag in plain sight?", 50, "flag{w3lc0me_to_smctf_2024}", "Misc"),
     ("Easy Crypto", "Caesar cipher with a twist. Decode: Mjqqt1 Htsij", 100, "flag{caesar_cipher_easy}", "Crypto"),
@@ -117,7 +128,19 @@ CHALLENGES = [
 ]
 
 
-def generate_users(count: int) -> List[Tuple[str, str, str, str, str]]:
+def generate_groups() -> List[Tuple[str, str]]:
+    groups = []
+    base_time = datetime.now(UTC) - timedelta(hours=50)
+
+    for i, name in enumerate(GROUP_NAMES):
+        created_at = (base_time + timedelta(minutes=i * 9))
+        created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
+        groups.append((name, created_at_str))
+
+    return groups
+
+
+def generate_users(count: int, group_ids: List[int]) -> List[Tuple[str, str, str, str, str, Optional[int]]]:
     users = []
     selected_names = random.sample(USER_NAMES, min(count, len(USER_NAMES)))
     
@@ -125,7 +148,7 @@ def generate_users(count: int) -> List[Tuple[str, str, str, str, str]]:
     
     admin_password_hash = hash_password("admin123!")
     admin_time = base_time.strftime('%Y-%m-%d %H:%M:%S')
-    users.append(("admin@smctf.com", "admin", admin_password_hash, "admin", admin_time))
+    users.append(("admin@smctf.com", "admin", admin_password_hash, "admin", admin_time, None))
     
     for i, (korean_name, username) in enumerate(selected_names):
         if i >= count - 1:  
@@ -136,8 +159,11 @@ def generate_users(count: int) -> List[Tuple[str, str, str, str, str]]:
         role = "user"
         created_at = (base_time + timedelta(hours=random.random() * 12))
         created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
+        group_id = None
+        if group_ids and random.random() > 0.2:
+            group_id = random.choice(group_ids)
         
-        users.append((email, username, password_hash, role, created_at_str))
+        users.append((email, username, password_hash, role, created_at_str, group_id))
     
     return users
 
@@ -157,7 +183,9 @@ def generate_challenges() -> List[Tuple[str, str, str, int, str, bool, str]]:
     return challenges
 
 
-def generate_registration_keys(user_count: int, count: int = 30) -> List[Tuple[str, int, Optional[int], Optional[str], str, Optional[str]]]:
+def generate_registration_keys(
+    user_count: int, group_ids: List[int], count: int = 30
+) -> List[Tuple[str, int, Optional[int], Optional[int], Optional[str], str, Optional[str]]]:
     keys = []
     base_time = datetime.now(UTC) - timedelta(hours=46)
     used_limit = max(1, int(count * 0.6))
@@ -174,6 +202,10 @@ def generate_registration_keys(user_count: int, count: int = 30) -> List[Tuple[s
         used_by = None
         used_by_ip = None
         used_at_str = None
+        group_id = None
+
+        if group_ids and random.random() > 0.25:
+            group_id = random.choice(group_ids)
 
         if i < used_limit and user_count > 1:
             used_by = random.randint(2, user_count)
@@ -181,7 +213,7 @@ def generate_registration_keys(user_count: int, count: int = 30) -> List[Tuple[s
             used_at = created_at + timedelta(minutes=random.randint(5, 180))
             used_at_str = used_at.strftime('%Y-%m-%d %H:%M:%S')
 
-        keys.append((code, 1, used_by, used_by_ip, created_at_str, used_at_str))
+        keys.append((code, 1, group_id, used_by, used_by_ip, created_at_str, used_at_str))
 
     return keys
 
@@ -280,11 +312,14 @@ def generate_sql_file(output_file: str):
     print(f"FLAG_HMAC_SECRET: {FLAG_HMAC_SECRET}")
     print(f"BCRYPT_COST: {BCRYPT_COST}")
     
-    users = generate_users(50)
+    groups = generate_groups()
+    group_ids = list(range(1, len(groups) + 1))
+    users = generate_users(50, group_ids)
     challenges = generate_challenges()
-    registration_keys = generate_registration_keys(len(users))
+    registration_keys = generate_registration_keys(len(users), group_ids)
     submissions = generate_submissions(len(users), len(challenges))
     
+    print(f"Generated {len(groups)} groups")
     print(f"Generated {len(users)} users")
     print(f"Generated {len(challenges)} challenges")
     print(f"Generated {len(registration_keys)} registration keys")
@@ -299,29 +334,44 @@ def generate_sql_file(output_file: str):
         f.write("-- Admin credentials: admin@smctf.com / admin123!\n\n")
         
         f.write("-- Clear existing data\n")
-        f.write("TRUNCATE TABLE submissions, registration_keys, challenges, users RESTART IDENTITY CASCADE;\n\n")
+        f.write("TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE;\n\n")
+
+        f.write("-- Insert groups\n")
+        for name, created_at in groups:
+            name_esc = escape_sql_string(name)
+            f.write("INSERT INTO groups (name, created_at) VALUES ")
+            f.write(f"('{name_esc}', '{created_at}');\n")
+        f.write("\n")
         
         f.write("-- Insert users\n")
-        for email, username, password_hash, role, created_at in users:
+        for email, username, password_hash, role, created_at, group_id in users:
             email_esc = escape_sql_string(email)
             username_esc = escape_sql_string(username)
             password_hash_esc = escape_sql_string(password_hash)
             role_esc = escape_sql_string(role)
+            group_id_value = "NULL" if group_id is None else str(group_id)
             
-            f.write(f"INSERT INTO users (email, username, password_hash, role, created_at, updated_at) VALUES ")
-            f.write(f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', '{created_at}', '{created_at}');\n")
+            f.write(f"INSERT INTO users (email, username, password_hash, role, group_id, created_at, updated_at) VALUES ")
+            f.write(
+                f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', {group_id_value}, '{created_at}', '{created_at}');\n"
+            )
         
         f.write("\n")
         
         f.write("-- Insert registration keys\n")
-        for code, created_by, used_by, used_by_ip, created_at, used_at in registration_keys:
+        for code, created_by, group_id, used_by, used_by_ip, created_at, used_at in registration_keys:
             code_esc = escape_sql_string(code)
+            group_id_value = "NULL" if group_id is None else str(group_id)
             used_by_value = "NULL" if used_by is None else str(used_by)
             used_at_value = "NULL" if used_at is None else f"'{used_at}'"
             used_by_ip_value = "NULL" if used_by_ip is None else f"'{escape_sql_string(used_by_ip)}'"
 
-            f.write("INSERT INTO registration_keys (code, created_by, used_by, used_by_ip, created_at, used_at) VALUES ")
-            f.write(f"('{code_esc}', {created_by}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n")
+            f.write(
+                "INSERT INTO registration_keys (code, created_by, group_id, used_by, used_by_ip, created_at, used_at) VALUES "
+            )
+            f.write(
+                f"('{code_esc}', {created_by}, {group_id_value}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n"
+            )
 
         f.write("\n")
 
@@ -346,6 +396,7 @@ def generate_sql_file(output_file: str):
         
         f.write("\n")
         f.write("-- Update sequences\n")
+        f.write("SELECT setval('groups_id_seq', (SELECT MAX(id) FROM groups));\n")
         f.write("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));\n")
         f.write("SELECT setval('challenges_id_seq', (SELECT MAX(id) FROM challenges));\n")
         f.write("SELECT setval('registration_keys_id_seq', (SELECT MAX(id) FROM registration_keys));\n")
