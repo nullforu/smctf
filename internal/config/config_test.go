@@ -171,6 +171,12 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 		{"bcrypt cost too high", "BCRYPT_COST", "32"},
 		{"negative db port", "DB_PORT", "-1"},
 		{"zero db port", "DB_PORT", "0"},
+		{"invalid log max body", "LOG_MAX_BODY_BYTES", "nope"},
+		{"invalid log queue size", "LOG_WEBHOOK_QUEUE_SIZE", "bad"},
+		{"invalid log timeout", "LOG_WEBHOOK_TIMEOUT", "bad"},
+		{"invalid log batch size", "LOG_WEBHOOK_BATCH_SIZE", "bad"},
+		{"invalid log batch wait", "LOG_WEBHOOK_BATCH_WAIT", "bad"},
+		{"invalid log max chars", "LOG_WEBHOOK_MAX_CHARS", "bad"},
 	}
 
 	for _, tt := range tests {
@@ -207,6 +213,51 @@ func TestLoadConfig_ProductionValidation(t *testing.T) {
 
 	if cfg.AppEnv != "production" {
 		t.Errorf("expected AppEnv production, got %s", cfg.AppEnv)
+	}
+}
+
+func TestValidateConfig_InvalidLogging(t *testing.T) {
+	cfg := Config{
+		HTTPAddr:           ":8080",
+		PasswordBcryptCost: bcrypt.DefaultCost,
+		DB: DBConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "user",
+			Name:            "db",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			PoolSize: 10,
+		},
+		JWT: JWTConfig{
+			Secret:     "secret",
+			Issuer:     "issuer",
+			AccessTTL:  time.Hour,
+			RefreshTTL: 24 * time.Hour,
+		},
+		Security: SecurityConfig{
+			FlagHMACSecret:   "flag-secret",
+			SubmissionWindow: time.Minute,
+			SubmissionMax:    10,
+		},
+		Logging: LoggingConfig{
+			Dir:              "",
+			FilePrefix:       "",
+			MaxBodyBytes:     0,
+			WebhookQueueSize: 0,
+			WebhookTimeout:   0,
+			WebhookBatchSize: 0,
+			WebhookBatchWait: 0,
+			WebhookMaxChars:  0,
+		},
+	}
+
+	if err := validateConfig(cfg); err == nil {
+		t.Fatal("expected logging validation errors")
 	}
 }
 
