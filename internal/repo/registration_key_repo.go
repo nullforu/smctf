@@ -47,12 +47,15 @@ func (r *RegistrationKeyRepo) List(ctx context.Context) ([]models.RegistrationKe
 		ColumnExpr("rk.code AS code").
 		ColumnExpr("rk.created_by AS created_by").
 		ColumnExpr("creator.username AS created_by_username").
+		ColumnExpr("rk.group_id AS group_id").
+		ColumnExpr("g.name AS group_name").
 		ColumnExpr("rk.used_by AS used_by").
 		ColumnExpr("used.username AS used_by_username").
 		ColumnExpr("rk.used_by_ip AS used_by_ip").
 		ColumnExpr("rk.created_at AS created_at").
 		ColumnExpr("rk.used_at AS used_at").
 		Join("JOIN users AS creator ON creator.id = rk.created_by").
+		Join("LEFT JOIN groups AS g ON g.id = rk.group_id").
 		Join("LEFT JOIN users AS used ON used.id = rk.used_by").
 		OrderExpr("rk.id DESC")
 

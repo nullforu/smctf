@@ -37,6 +37,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 	defer cancel()
 
 	modelsToCreate := []interface{}{
+		(*models.Group)(nil),
 		(*models.User)(nil),
 		(*models.Challenge)(nil),
 		(*models.Submission)(nil),
@@ -52,6 +53,14 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 	}
 
 	if err := ensureRegistrationKeyIP(ctx, db); err != nil {
+		return err
+	}
+
+	if err := ensureUserGroupID(ctx, db); err != nil {
+		return err
+	}
+
+	if err := ensureRegistrationKeyGroupID(ctx, db); err != nil {
 		return err
 	}
 
@@ -89,6 +98,14 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 			name:  "idx_submissions_correct_time",
 			query: "CREATE INDEX IF NOT EXISTS idx_submissions_correct_time ON submissions (correct, submitted_at) WHERE correct = true",
 		},
+		{
+			name:  "idx_users_group_id",
+			query: "CREATE INDEX IF NOT EXISTS idx_users_group_id ON users (group_id)",
+		},
+		{
+			name:  "idx_registration_keys_group_id",
+			query: "CREATE INDEX IF NOT EXISTS idx_registration_keys_group_id ON registration_keys (group_id)",
+		},
 	}
 
 	for _, idx := range indexes {
@@ -109,6 +126,20 @@ func ensureChallengeCategory(ctx context.Context, db *bun.DB) error {
 func ensureRegistrationKeyIP(ctx context.Context, db *bun.DB) error {
 	if _, err := db.ExecContext(ctx, "ALTER TABLE registration_keys ADD COLUMN IF NOT EXISTS used_by_ip TEXT"); err != nil {
 		return fmt.Errorf("auto migrate add registration key ip: %w", err)
+	}
+	return nil
+}
+
+func ensureUserGroupID(ctx context.Context, db *bun.DB) error {
+	if _, err := db.ExecContext(ctx, "ALTER TABLE users ADD COLUMN IF NOT EXISTS group_id BIGINT"); err != nil {
+		return fmt.Errorf("auto migrate add users group_id: %w", err)
+	}
+	return nil
+}
+
+func ensureRegistrationKeyGroupID(ctx context.Context, db *bun.DB) error {
+	if _, err := db.ExecContext(ctx, "ALTER TABLE registration_keys ADD COLUMN IF NOT EXISTS group_id BIGINT"); err != nil {
+		return fmt.Errorf("auto migrate add registration keys group_id: %w", err)
 	}
 	return nil
 }

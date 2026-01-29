@@ -13,8 +13,17 @@ type User struct {
 	Username      string    `bun:",unique,notnull"`
 	PasswordHash  string    `bun:",notnull"`
 	Role          string    `bun:",notnull"`
+	GroupID       *int64    `bun:"group_id,nullzero"`
+	GroupName     *string   `bun:"group_name,scanonly"`
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+}
+
+type Group struct {
+	bun.BaseModel `bun:"table:groups"`
+	ID            int64     `bun:",pk,autoincrement"`
+	Name          string    `bun:",unique,notnull"`
+	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 }
 
 type Challenge struct {
@@ -44,6 +53,7 @@ type RegistrationKey struct {
 	ID            int64      `bun:",pk,autoincrement"`
 	Code          string     `bun:",unique,notnull"`
 	CreatedBy     int64      `bun:",notnull"`
+	GroupID       *int64     `bun:"group_id,nullzero"`
 	UsedBy        *int64     `bun:",nullzero"`
 	UsedByIP      *string    `bun:",nullzero"`
 	CreatedAt     time.Time  `bun:",nullzero,notnull,default:current_timestamp"`

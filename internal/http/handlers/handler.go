@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"smctf/internal/config"
+	"smctf/internal/db"
 	"smctf/internal/http/middleware"
+	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 
@@ -17,15 +20,16 @@ import (
 )
 
 type Handler struct {
-	cfg   config.Config
-	auth  *service.AuthService
-	ctf   *service.CTFService
-	users *repo.UserRepo
-	redis *redis.Client
+	cfg    config.Config
+	auth   *service.AuthService
+	ctf    *service.CTFService
+	users  *repo.UserRepo
+	groups *repo.GroupRepo
+	redis  *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, groups *repo.GroupRepo, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, groups: groups, redis: redis}
 }
 
 type meUpdateRequest struct {
@@ -71,7 +75,12 @@ type submitRequest struct {
 }
 
 type createRegistrationKeysRequest struct {
-	Count *int `json:"count" binding:"required"`
+	Count   *int   `json:"count" binding:"required"`
+	GroupID *int64 `json:"group_id"`
+}
+
+type createGroupRequest struct {
+	Name string `json:"name" binding:"required"`
 }
 
 func (h *Handler) Register(ctx *gin.Context) {
@@ -157,10 +166,12 @@ func (h *Handler) Me(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
-		"id":       user.ID,
-		"email":    user.Email,
-		"username": user.Username,
-		"role":     user.Role,
+		"id":         user.ID,
+		"email":      user.Email,
+		"username":   user.Username,
+		"role":       user.Role,
+		"group_id":   user.GroupID,
+		"group_name": user.GroupName,
 	})
 }
 
@@ -200,10 +211,12 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"id":       user.ID,
-		"email":    user.Email,
-		"username": user.Username,
-		"role":     user.Role,
+		"id":         user.ID,
+		"email":      user.Email,
+		"username":   user.Username,
+		"role":       user.Role,
+		"group_id":   user.GroupID,
+		"group_name": user.GroupName,
 	})
 }
 
@@ -355,6 +368,7 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		count = *req.Count
 	}
 
+	groupID := req.GroupID
 	adminID := middleware.UserID(ctx)
 	admin, err := h.users.GetByID(ctx.Request.Context(), adminID)
 	if err != nil {
@@ -362,10 +376,21 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		return
 	}
 
-	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count)
+	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count, groupID)
 	if err != nil {
 		writeError(ctx, err)
 		return
+	}
+
+	var groupName *string
+	if groupID != nil {
+		group, err := h.groups.GetByID(ctx.Request.Context(), *groupID)
+		if err != nil {
+			writeError(ctx, err)
+			return
+		}
+
+		groupName = &group.Name
 	}
 
 	resp := make([]gin.H, 0, len(keys))
@@ -375,6 +400,8 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 			"code":                key.Code,
 			"created_by":          key.CreatedBy,
 			"created_by_username": admin.Username,
+			"group_id":            key.GroupID,
+			"group_name":          groupName,
 			"used_by":             key.UsedBy,
 			"used_by_username":    nil,
 			"used_by_ip":          nil,
@@ -396,8 +423,72 @@ func (h *Handler) ListRegistrationKeys(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
+func (h *Handler) CreateGroup(ctx *gin.Context) {
+	var req createGroupRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "name", Reason: "required"}))
+		return
+	}
+
+	group := &models.Group{
+		Name:      name,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := h.groups.Create(ctx.Request.Context(), group); err != nil {
+		if db.IsUniqueViolation(err) {
+			writeError(ctx, service.NewValidationError(service.FieldError{Field: "name", Reason: "duplicate"}))
+			return
+		}
+
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"id":         group.ID,
+		"name":       group.Name,
+		"created_at": group.CreatedAt,
+	})
+}
+
+func (h *Handler) ListGroups(ctx *gin.Context) {
+	groups, err := h.groups.List(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	resp := make([]gin.H, 0, len(groups))
+	for _, group := range groups {
+		resp = append(resp, gin.H{
+			"id":         group.ID,
+			"name":       group.Name,
+			"created_at": group.CreatedAt,
+		})
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}
+
 func (h *Handler) Leaderboard(ctx *gin.Context) {
 	rows, err := h.users.Leaderboard(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
+}
+
+func (h *Handler) GroupLeaderboard(ctx *gin.Context) {
+	rows, err := h.users.GroupLeaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -459,20 +550,77 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
+func (h *Handler) GroupTimeline(ctx *gin.Context) {
+	windowMinutes, err := parseWindowQuery(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "window", Reason: "invalid"}},
+		})
+		return
+	}
+
+	cacheKey := fmt.Sprintf("timeline:groups:%d", windowMinutes)
+
+	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
+	if err == nil {
+		ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+		return
+	}
+
+	var windowStart *time.Time
+	if windowMinutes > 0 {
+		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
+		windowStart = &start
+	}
+
+	raw, err := h.users.TimelineGroupSubmissions(ctx.Request.Context(), windowStart)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	rawSubs := make([]rawGroupSubmission, len(raw))
+	for i, r := range raw {
+		rawSubs[i] = rawGroupSubmission{
+			SubmittedAt: r.SubmittedAt,
+			GroupID:     r.GroupID,
+			GroupName:   r.GroupName,
+			Points:      r.Points,
+		}
+	}
+
+	submissions := groupGroupSubmissions(rawSubs)
+	response := gin.H{
+		"submissions": submissions,
+	}
+
+	responseJSON, err := json.Marshal(response)
+	if err == nil {
+		_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
 func (h *Handler) ListUsers(ctx *gin.Context) {
 	users, err := h.users.List(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	resp := make([]gin.H, 0, len(users))
 	for _, user := range users {
 		resp = append(resp, gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-			"role":     user.Role,
+			"id":         user.ID,
+			"username":   user.Username,
+			"role":       user.Role,
+			"group_id":   user.GroupID,
+			"group_name": user.GroupName,
 		})
 	}
+
 	ctx.JSON(http.StatusOK, resp)
 }
 
@@ -485,15 +633,19 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 		})
 		return
 	}
+
 	user, err := h.users.GetByID(ctx.Request.Context(), userID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"id":       user.ID,
-		"username": user.Username,
-		"role":     user.Role,
+		"id":         user.ID,
+		"username":   user.Username,
+		"role":       user.Role,
+		"group_id":   user.GroupID,
+		"group_name": user.GroupName,
 	})
 }
 

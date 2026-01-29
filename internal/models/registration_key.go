@@ -7,6 +7,8 @@ type RegistrationKeyView struct {
 	Code              string     `bun:"code" json:"code"`
 	CreatedBy         int64      `bun:"created_by" json:"created_by"`
 	CreatedByUsername string     `bun:"created_by_username" json:"created_by_username"`
+	GroupID           *int64     `bun:"group_id" json:"group_id,omitempty"`
+	GroupName         *string    `bun:"group_name" json:"group_name,omitempty"`
 	UsedBy            *int64     `bun:"used_by" json:"used_by,omitempty"`
 	UsedByUsername    *string    `bun:"used_by_username" json:"used_by_username,omitempty"`
 	UsedByIP          *string    `bun:"used_by_ip" json:"used_by_ip,omitempty"`
