@@ -598,14 +598,14 @@
                                                             onclick={() => openEditor(challenge)}
                                                             disabled={manageLoading}
                                                         >
-                                                            수정
+                                                            {expandedChallengeId === challenge.id ? 'Close Edit' : 'Edit'}
                                                         </button>
                                                         <button
                                                             class="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
                                                             onclick={() => deleteChallenge(challenge)}
                                                             disabled={manageLoading}
                                                         >
-                                                            삭제
+                                                            Delete
                                                         </button>
                                                     </div>
                                                 </td>
@@ -918,7 +918,7 @@
                                     class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                                     type="text"
                                     bind:value={groupName}
-                                    placeholder="예: 서울고등학교"
+                                    placeholder="e.g., 세명컴퓨터고등학교 or Null4U"
                                 />
                                 {#if createGroupFieldErrors.name}
                                     <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
