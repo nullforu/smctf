@@ -69,6 +69,16 @@ func TestLoadConfig_CustomValues(t *testing.T) {
 	os.Setenv("FLAG_HMAC_SECRET", "custom-flag-secret")
 	os.Setenv("SUBMIT_WINDOW", "30s")
 	os.Setenv("SUBMIT_MAX", "5")
+	os.Setenv("LOG_DIR", "logs-test")
+	os.Setenv("LOG_FILE_PREFIX", "app-test")
+	os.Setenv("LOG_DISCORD_WEBHOOK_URL", "https://discord.example/hook")
+	os.Setenv("LOG_SLACK_WEBHOOK_URL", "https://slack.example/hook")
+	os.Setenv("LOG_MAX_BODY_BYTES", "2048")
+	os.Setenv("LOG_WEBHOOK_QUEUE_SIZE", "250")
+	os.Setenv("LOG_WEBHOOK_TIMEOUT", "3s")
+	os.Setenv("LOG_WEBHOOK_BATCH_SIZE", "5")
+	os.Setenv("LOG_WEBHOOK_BATCH_WAIT", "1s")
+	os.Setenv("LOG_WEBHOOK_MAX_CHARS", "1900")
 
 	defer os.Clearenv()
 
@@ -115,6 +125,36 @@ func TestLoadConfig_CustomValues(t *testing.T) {
 
 	if cfg.Security.SubmissionMax != 5 {
 		t.Errorf("expected Security.SubmissionMax 5, got %d", cfg.Security.SubmissionMax)
+	}
+	if cfg.Logging.Dir != "logs-test" {
+		t.Errorf("expected Logging.Dir logs-test, got %s", cfg.Logging.Dir)
+	}
+	if cfg.Logging.FilePrefix != "app-test" {
+		t.Errorf("expected Logging.FilePrefix app-test, got %s", cfg.Logging.FilePrefix)
+	}
+	if cfg.Logging.DiscordWebhookURL != "https://discord.example/hook" {
+		t.Errorf("expected Logging.DiscordWebhookURL, got %s", cfg.Logging.DiscordWebhookURL)
+	}
+	if cfg.Logging.SlackWebhookURL != "https://slack.example/hook" {
+		t.Errorf("expected Logging.SlackWebhookURL, got %s", cfg.Logging.SlackWebhookURL)
+	}
+	if cfg.Logging.MaxBodyBytes != 2048 {
+		t.Errorf("expected Logging.MaxBodyBytes 2048, got %d", cfg.Logging.MaxBodyBytes)
+	}
+	if cfg.Logging.WebhookQueueSize != 250 {
+		t.Errorf("expected Logging.WebhookQueueSize 250, got %d", cfg.Logging.WebhookQueueSize)
+	}
+	if cfg.Logging.WebhookTimeout != 3*time.Second {
+		t.Errorf("expected Logging.WebhookTimeout 3s, got %s", cfg.Logging.WebhookTimeout)
+	}
+	if cfg.Logging.WebhookBatchSize != 5 {
+		t.Errorf("expected Logging.WebhookBatchSize 5, got %d", cfg.Logging.WebhookBatchSize)
+	}
+	if cfg.Logging.WebhookBatchWait != time.Second {
+		t.Errorf("expected Logging.WebhookBatchWait 1s, got %s", cfg.Logging.WebhookBatchWait)
+	}
+	if cfg.Logging.WebhookMaxChars != 1900 {
+		t.Errorf("expected Logging.WebhookMaxChars 1900, got %d", cfg.Logging.WebhookMaxChars)
 	}
 }
 
@@ -262,6 +302,7 @@ func TestGetDuration(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+
 	if val != 5*time.Minute {
 		t.Errorf("expected 5m, got %v", val)
 	}
@@ -271,6 +312,7 @@ func TestGetDuration(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+
 	if val != 2*time.Hour+30*time.Minute {
 		t.Errorf("expected 2h30m, got %v", val)
 	}
@@ -310,6 +352,16 @@ func TestValidateConfig_EmptyValues(t *testing.T) {
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
 		},
+		Logging: LoggingConfig{
+			Dir:              "logs",
+			FilePrefix:       "app",
+			MaxBodyBytes:     1024,
+			WebhookQueueSize: 10,
+			WebhookTimeout:   time.Second,
+			WebhookBatchSize: 5,
+			WebhookBatchWait: time.Second,
+			WebhookMaxChars:  100,
+		},
 	}
 
 	err := validateConfig(cfg)
@@ -345,6 +397,16 @@ func TestValidateConfig_InvalidDBConfig(t *testing.T) {
 			FlagHMACSecret:   "flag-secret",
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
+		},
+		Logging: LoggingConfig{
+			Dir:              "logs",
+			FilePrefix:       "app",
+			MaxBodyBytes:     1024,
+			WebhookQueueSize: 10,
+			WebhookTimeout:   time.Second,
+			WebhookBatchSize: 5,
+			WebhookBatchWait: time.Second,
+			WebhookMaxChars:  100,
 		},
 	}
 
@@ -386,6 +448,15 @@ func TestValidateConfig_AdditionalValidation(t *testing.T) {
 		Cache: CacheConfig{
 			TimelineTTL: time.Minute,
 		},
+		Logging: LoggingConfig{
+			Dir:              "logs",
+			FilePrefix:       "app",
+			MaxBodyBytes:     1024,
+			WebhookQueueSize: 10,
+			WebhookTimeout:   time.Second,
+			WebhookBatchSize: 5,
+			WebhookBatchWait: time.Second,
+		},
 	}
 
 	if err := validateConfig(cfg); err == nil {
@@ -405,6 +476,10 @@ func TestRedact(t *testing.T) {
 		Security: SecurityConfig{
 			FlagHMACSecret: "flagsecret",
 		},
+		Logging: LoggingConfig{
+			DiscordWebhookURL: "https://discord.example/hook",
+			SlackWebhookURL:   "https://slack.example/hook",
+		},
 	}
 
 	redacted := Redact(cfg)
@@ -422,6 +497,14 @@ func TestRedact(t *testing.T) {
 
 	if redacted.Security.FlagHMACSecret == cfg.Security.FlagHMACSecret {
 		t.Fatalf("expected flag secret redacted")
+	}
+
+	if redacted.Logging.DiscordWebhookURL == cfg.Logging.DiscordWebhookURL {
+		t.Fatalf("expected discord webhook redacted")
+	}
+
+	if redacted.Logging.SlackWebhookURL == cfg.Logging.SlackWebhookURL {
+		t.Fatalf("expected slack webhook redacted")
 	}
 }
 
@@ -480,6 +563,18 @@ func TestFormatForLog(t *testing.T) {
 		},
 		Cache: CacheConfig{
 			TimelineTTL: time.Minute,
+		},
+		Logging: LoggingConfig{
+			Dir:               "logs",
+			FilePrefix:        "app",
+			DiscordWebhookURL: "https://discord.example/hook",
+			SlackWebhookURL:   "https://slack.example/hook",
+			MaxBodyBytes:      1024,
+			WebhookQueueSize:  10,
+			WebhookTimeout:    time.Second,
+			WebhookBatchSize:  5,
+			WebhookBatchWait:  time.Second,
+			WebhookMaxChars:   100,
 		},
 	}
 
