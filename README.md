@@ -12,8 +12,8 @@
 <br />
 
 <div align="center">
-    <img src="./assets/preview_1_challenges.png" alt="SMCTF Preview 1" width="45%" />
-    <img src="./assets/preview_3_scoreboard.png" alt="SMCTF Preview 2" width="45%" />
+    <img src="./assets/1_challenges_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/3_scoreboard_timeline_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
 </div>
 
 ## About
@@ -181,19 +181,119 @@ go build -o smctf ./cmd/server
 ## Previews
 
 <div align="center">
-    <img src="./assets/preview_2_challenge.png" alt="SMCTF Preview 2" width="45%" />
-    <img src="./assets/preview_4_users.png" alt="SMCTF Preview 4" width="45%" />
+    <img src="./assets/1_challenges_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/2_challenges_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
 </div>
 
 <div align="center">
-    <img src="./assets/preview_5_users_profile.png" alt="SMCTF Preview 5" width="45%" />
-    <img src="./assets/preview_6_profile.png" alt="SMCTF Preview 6" width="45%" />
+    <img src="./assets/7_groups_dark.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/5_scoreboard_group_timeline_light.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<details>
+<summary>See more preview/screenshots (Click)</summary>
+
+<div align="center">
+    <img src="./assets/0_main_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/0_main_dark.jpeg" alt="SMCTF Preview" width="45%" />
 </div>
 
 <div align="center">
-    <img src="./assets/preview_7_admin_keys.png" alt="SMCTF Preview 7" width="45%" />
-    <img src="./assets/preview_8_admin_challenge_management.png" alt="SMCTF Preview 8" width="45%" />
+    <img src="./assets/1_challenges_dark.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/1_challenges_light.jpeg" alt="SMCTF Preview" width="45%" />
 </div>
+
+<div align="center">
+    <img src="./assets/2_challenges_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/2_challenges_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/3_scoreboard_timeline_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/3_scoreboard_timeline_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/3_scoreboard_timeline_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/3_scoreboard_timeline_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/4_scoreboard_leaderboard_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/4_scoreboard_leaderboard_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/5_scoreboard_group_timeline_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/5_scoreboard_group_timeline_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/6_scoreboard_group_leaderboard_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/6_scoreboard_group_leaderboard_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/7_groups_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/7_groups_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/8_groups_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/8_groups_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/9_users_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/9_users_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/10_users_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/10_users_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/11_profile_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/11_profile_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/12_admin_create_challenge_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/12_admin_create_challenge_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/13_admin_challenge_management_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/13_admin_challenge_management_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/14_admin_challenge_management_edit_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/14_admin_challenge_management_edit_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/15_admin_registration_keys_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/15_admin_registration_keys_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/16_admin_registration_keys_ip_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/16_admin_registration_keys_ip_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/17_admin_groups_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/17_admin_groups_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+<div align="center">
+    <img src="./assets/18_mobile_sidebar_light.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="./assets/18_mobile_sidebar_dark.jpeg" alt="SMCTF Preview" width="45%" />
+</div>
+
+</details>
 
 ## Dummy/Sample SQL Data
 
