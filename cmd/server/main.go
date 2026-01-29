@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	nethttp "net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"smctf/internal/config"
 	"smctf/internal/db"
 	httpserver "smctf/internal/http"
+	"smctf/internal/logging"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 )
@@ -22,6 +24,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("config error: %v", err)
 	}
+
+	logger, err := logging.New(cfg.Logging)
+	if err != nil {
+		log.Fatalf("logging init error: %v", err)
+	}
+
+	defer func() {
+		if err := logger.Close(); err != nil {
+			log.Printf("log close error: %v", err)
+		}
+	}()
+
+	log.SetOutput(io.MultiWriter(os.Stdout, logger))
 	log.Printf("config loaded:\n%s", config.FormatForLog(cfg))
 
 	ctx := context.Background()
@@ -52,7 +67,7 @@ func main() {
 	authSvc := service.NewAuthService(cfg, database, userRepo, registrationKeyRepo, redisClient)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient)
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, userRepo, redisClient)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, userRepo, redisClient, logger)
 
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
@@ -80,9 +95,11 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("server shutdown error: %v", err)
 	}
+
 	if err := redisClient.Close(); err != nil {
 		log.Printf("redis close error: %v", err)
 	}
+
 	if err := database.Close(); err != nil {
 		log.Printf("db close error: %v", err)
 	}
