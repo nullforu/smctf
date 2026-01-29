@@ -286,7 +286,7 @@
                 <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
                     {#each chartModel.series as series}
                         {#if mode === 'groups'}
-                            <div
+                            <button
                                 class="flex items-center gap-2"
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
                                 class:text-slate-900={hoveredUserId === series.user_id}
@@ -301,7 +301,7 @@
                             >
                                 <span class="h-2 w-2 rounded-full" style={`background-color: ${series.color}`}></span>
                                 {series.username}
-                            </div>
+                            </button>
                         {:else}
                             <button
                                 class="flex items-center gap-2 transition"

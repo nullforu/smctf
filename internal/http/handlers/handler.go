@@ -5,13 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"smctf/internal/config"
-	"smctf/internal/db"
 	"smctf/internal/http/middleware"
-	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 
@@ -24,11 +21,11 @@ type Handler struct {
 	auth   *service.AuthService
 	ctf    *service.CTFService
 	users  *repo.UserRepo
-	groups *repo.GroupRepo
+	groups *service.GroupService
 	redis  *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, groups *repo.GroupRepo, redis *redis.Client) *Handler {
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, groups *service.GroupService, redis *redis.Client) *Handler {
 	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, groups: groups, redis: redis}
 }
 
@@ -384,7 +381,7 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 
 	var groupName *string
 	if groupID != nil {
-		group, err := h.groups.GetByID(ctx.Request.Context(), *groupID)
+		group, err := h.groups.GetGroup(ctx.Request.Context(), *groupID)
 		if err != nil {
 			writeError(ctx, err)
 			return
@@ -430,23 +427,8 @@ func (h *Handler) CreateGroup(ctx *gin.Context) {
 		return
 	}
 
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		writeError(ctx, service.NewValidationError(service.FieldError{Field: "name", Reason: "required"}))
-		return
-	}
-
-	group := &models.Group{
-		Name:      name,
-		CreatedAt: time.Now().UTC(),
-	}
-
-	if err := h.groups.Create(ctx.Request.Context(), group); err != nil {
-		if db.IsUniqueViolation(err) {
-			writeError(ctx, service.NewValidationError(service.FieldError{Field: "name", Reason: "duplicate"}))
-			return
-		}
-
+	group, err := h.groups.CreateGroup(ctx.Request.Context(), req.Name)
+	if err != nil {
 		writeError(ctx, err)
 		return
 	}
@@ -459,7 +441,7 @@ func (h *Handler) CreateGroup(ctx *gin.Context) {
 }
 
 func (h *Handler) ListGroups(ctx *gin.Context) {
-	groups, err := h.groups.List(ctx.Request.Context())
+	groups, err := h.groups.ListGroups(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -468,13 +450,72 @@ func (h *Handler) ListGroups(ctx *gin.Context) {
 	resp := make([]gin.H, 0, len(groups))
 	for _, group := range groups {
 		resp = append(resp, gin.H{
-			"id":         group.ID,
-			"name":       group.Name,
-			"created_at": group.CreatedAt,
+			"id":           group.ID,
+			"name":         group.Name,
+			"created_at":   group.CreatedAt,
+			"member_count": group.MemberCount,
+			"total_score":  group.TotalScore,
 		})
 	}
 
 	ctx.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) GetGroup(ctx *gin.Context) {
+	groupID, ok := parseIDParam(ctx, "id")
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+		})
+		return
+	}
+
+	group, err := h.groups.GetGroup(ctx.Request.Context(), groupID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, group)
+}
+
+func (h *Handler) ListGroupMembers(ctx *gin.Context) {
+	groupID, ok := parseIDParam(ctx, "id")
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+		})
+		return
+	}
+
+	rows, err := h.groups.ListMembers(ctx.Request.Context(), groupID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
+}
+
+func (h *Handler) ListGroupSolved(ctx *gin.Context) {
+	groupID, ok := parseIDParam(ctx, "id")
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+		})
+		return
+	}
+
+	rows, err := h.groups.ListSolvedChallenges(ctx.Request.Context(), groupID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
 }
 
 func (h *Handler) Leaderboard(ctx *gin.Context) {

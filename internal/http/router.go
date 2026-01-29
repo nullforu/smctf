@@ -16,7 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, groupRepo *repo.GroupRepo, redis *redis.Client, logger *logging.Logger) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, groupSvc *service.GroupService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -32,7 +32,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
 	r.Use(middleware.CORS(cfg.AppEnv != "production", nil))
 
-	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, groupRepo, redis)
+	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, groupSvc, redis)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
@@ -50,6 +50,10 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		api.GET("/leaderboard/groups", h.GroupLeaderboard)
 		api.GET("/timeline", h.Timeline)
 		api.GET("/timeline/groups", h.GroupTimeline)
+		api.GET("/groups", h.ListGroups)
+		api.GET("/groups/:id", h.GetGroup)
+		api.GET("/groups/:id/members", h.ListGroupMembers)
+		api.GET("/groups/:id/solved", h.ListGroupSolved)
 		api.GET("/users", h.ListUsers)
 		api.GET("/users/:id", h.GetUser)
 		api.GET("/users/:id/solved", h.GetUserSolved)
@@ -69,7 +73,6 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.POST("/registration-keys", h.CreateRegistrationKeys)
 		admin.GET("/registration-keys", h.ListRegistrationKeys)
 		admin.POST("/groups", h.CreateGroup)
-		admin.GET("/groups", h.ListGroups)
 	}
 
 	attachFrontendRoutes(r)

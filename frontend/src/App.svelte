@@ -9,6 +9,8 @@
     import Register from './routes/Register.svelte'
     import Challenges from './routes/Challenges.svelte'
     import Scoreboard from './routes/Scoreboard.svelte'
+    import Groups from './routes/Groups.svelte'
+    import GroupProfile from './routes/GroupProfile.svelte'
     import Users from './routes/Users.svelte'
     import UserProfile from './routes/UserProfile.svelte'
     import Admin from './routes/Admin.svelte'
@@ -22,6 +24,7 @@
         '/register': Register,
         '/challenges': Challenges,
         '/scoreboard': Scoreboard,
+        '/groups': Groups,
         '/profile': UserProfile,
         '/users': Users,
         '/admin': Admin,
@@ -37,6 +40,14 @@
             component: UserProfile,
             extractParams: (path) => {
                 const match = path.match(/^\/users\/(\d+)$/)
+                return match ? { id: match[1] } : { id: '' }
+            },
+        },
+        {
+            pattern: /^\/groups\/(\d+)$/,
+            component: GroupProfile,
+            extractParams: (path) => {
+                const match = path.match(/^\/groups\/(\d+)$/)
                 return match ? { id: match[1] } : { id: '' }
             },
         },

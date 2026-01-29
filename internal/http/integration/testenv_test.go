@@ -44,6 +44,7 @@ type testEnv struct {
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *service.AuthService
 	ctfSvc         *service.CTFService
+	groupSvc       *service.GroupService
 }
 
 type errorResp struct {
@@ -247,8 +248,9 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, groupRepo, testRedis)
+	groupSvc := service.NewGroupService(groupRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, groupRepo, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, groupSvc, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
@@ -260,6 +262,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
+		groupSvc:       groupSvc,
 	}
 }
 

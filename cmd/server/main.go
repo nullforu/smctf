@@ -67,9 +67,10 @@ func main() {
 	submissionRepo := repo.NewSubmissionRepo(database)
 
 	authSvc := service.NewAuthService(cfg, database, userRepo, registrationKeyRepo, groupRepo, redisClient)
+	groupSvc := service.NewGroupService(groupRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient)
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, userRepo, groupRepo, redisClient, logger)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, userRepo, groupSvc, redisClient, logger)
 
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,

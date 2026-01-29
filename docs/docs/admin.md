@@ -125,35 +125,6 @@ Errors:
 
 ---
 
-## List Groups / Organizations
-
-`GET /api/admin/groups`
-
-Headers
-
-```
-Authorization: Bearer <access_token>
-```
-
-Response 200
-
-```json
-[
-    {
-        "id": 1,
-        "name": "서울고등학교",
-        "created_at": "2026-01-26T12:00:00Z"
-    }
-]
-```
-
-Errors:
-
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
-- 403 `forbidden`
-
----
-
 ## Create Challenge
 
 `POST /api/admin/challenges`

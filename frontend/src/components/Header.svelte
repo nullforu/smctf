@@ -40,7 +40,7 @@
 <header class="border-b border-slate-200 bg-white/70 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/70">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <button
-            class="flex items-center justify-center p-2 text-slate-700 dark:text-slate-200 md:hidden"
+            class="flex items-center justify-center p-2 text-slate-700 dark:text-slate-200 lg:hidden"
             onclick={toggleMobileMenu}
             aria-label="Toggle mobile menu"
         >
@@ -66,7 +66,7 @@
             </svg>
         </button>
 
-        <a href="/" class="hidden items-center gap-3 md:flex" onclick={(event) => navigate('/', event)}>
+        <a href="/" class="hidden items-center gap-3 lg:flex" onclick={(event) => navigate('/', event)}>
             <div
                 class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-300"
             >
@@ -94,7 +94,7 @@
             </div>
         </a>
 
-        <nav class="hidden items-center gap-6 text-sm text-slate-700 dark:text-slate-300 md:flex">
+        <nav class="hidden items-center gap-6 text-sm text-slate-700 dark:text-slate-300 lg:flex">
             <a
                 class="hover:text-teal-600 dark:hover:text-teal-200"
                 href="/challenges"
@@ -104,6 +104,11 @@
                 class="hover:text-teal-600 dark:hover:text-teal-200"
                 href="/scoreboard"
                 onclick={(e) => navigate('/scoreboard', e)}>Scoreboard</a
+            >
+            <a
+                class="hover:text-teal-600 dark:hover:text-teal-200"
+                href="/groups"
+                onclick={(e) => navigate('/groups', e)}>Groups</a
             >
             <a class="hover:text-teal-600 dark:hover:text-teal-200" href="/users" onclick={(e) => navigate('/users', e)}
                 >Users</a
@@ -122,7 +127,7 @@
             {/if}
         </nav>
 
-        <div class="hidden items-center gap-3 md:flex">
+        <div class="hidden items-center gap-3 lg:flex">
             {#if user}
                 <button
                     class="hidden text-right text-xs text-slate-600 dark:text-slate-400 sm:block"
@@ -206,14 +211,14 @@
 
 {#if mobileMenuOpen}
     <button
-        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
         onclick={closeMobileMenu}
         aria-label="Close menu"
     ></button>
 {/if}
 
 <aside
-    class="fixed left-0 top-0 z-50 h-full w-72 transform border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-950 md:hidden {mobileMenuOpen
+    class="fixed left-0 top-0 z-50 h-full w-72 transform border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-950 lg:hidden {mobileMenuOpen
         ? 'translate-x-0'
         : '-translate-x-full'}"
 >
@@ -299,6 +304,13 @@
                     onclick={(e) => navigateAndClose('/users', e)}
                 >
                     Users
+                </a>
+                <a
+                    href="/groups"
+                    class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                    onclick={(e) => navigateAndClose('/groups', e)}
+                >
+                    Groups
                 </a>
                 <a
                     href="/profile"

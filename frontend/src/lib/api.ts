@@ -11,6 +11,10 @@ import type {
     Group,
     GroupCreatePayload,
     GroupScoreEntry,
+    GroupSummary,
+    GroupDetail,
+    GroupMember,
+    GroupSolvedChallenge,
     GroupTimelineResponse,
     LoginPayload,
     RegistrationKey,
@@ -250,11 +254,20 @@ export const api = {
     createRegistrationKeys: (payload: RegistrationKeyCreatePayload) => {
         return request<RegistrationKey[]>(`/api/admin/registration-keys`, { method: 'POST', body: payload, auth: true })
     },
-    groups: () => {
-        return request<Group[]>(`/api/admin/groups`, { auth: true })
-    },
     createGroup: (payload: GroupCreatePayload) => {
         return request<Group>(`/api/admin/groups`, { method: 'POST', body: payload, auth: true })
+    },
+    groups: () => {
+        return request<GroupSummary[]>(`/api/groups`)
+    },
+    groupDetail: (id: number) => {
+        return request<GroupDetail>(`/api/groups/${id}`)
+    },
+    groupMembers: (id: number) => {
+        return request<GroupMember[]>(`/api/groups/${id}/members`)
+    },
+    groupSolved: (id: number) => {
+        return request<GroupSolvedChallenge[]>(`/api/groups/${id}/solved`)
     },
     users: () => {
         return request<UserListItem[]>(`/api/users`)

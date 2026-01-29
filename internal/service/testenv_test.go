@@ -33,6 +33,7 @@ type serviceEnv struct {
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *AuthService
 	ctfSvc         *CTFService
+	groupSvc       *GroupService
 }
 
 var (
@@ -183,6 +184,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 	challengeRepo := repo.NewChallengeRepo(serviceDB)
 	submissionRepo := repo.NewSubmissionRepo(serviceDB)
 	authSvc := NewAuthService(serviceCfg, serviceDB, userRepo, regRepo, groupRepo, serviceRedis)
+	groupSvc := NewGroupService(groupRepo)
 	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
 
 	return serviceEnv{
@@ -196,6 +198,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
+		groupSvc:       groupSvc,
 	}
 }
 

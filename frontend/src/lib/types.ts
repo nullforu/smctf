@@ -154,3 +154,27 @@ export interface Group {
 export interface GroupCreatePayload {
     name: string
 }
+
+export interface GroupSummary {
+    id: number
+    name: string
+    created_at: string
+    member_count: number
+    total_score: number
+}
+
+export interface GroupMember {
+    id: number
+    username: string
+    role: string
+}
+
+export interface GroupDetail extends GroupSummary {}
+
+export interface GroupSolvedChallenge {
+    challenge_id: number
+    title: string
+    points: number
+    solve_count: number
+    last_solved_at: string
+}

@@ -34,6 +34,7 @@ type handlerEnv struct {
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *service.AuthService
 	ctfSvc         *service.CTFService
+	groupSvc       *service.GroupService
 	handler        *Handler
 }
 
@@ -185,8 +186,9 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	challengeRepo := repo.NewChallengeRepo(handlerDB)
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, groupRepo, handlerRedis)
+	groupSvc := service.NewGroupService(groupRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
-	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, groupRepo, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, groupSvc, handlerRedis)
 
 	return handlerEnv{
 		cfg:            handlerCfg,
@@ -199,6 +201,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
+		groupSvc:       groupSvc,
 		handler:        handler,
 	}
 }

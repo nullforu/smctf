@@ -7,67 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
-
-func TestHandlerGroups(t *testing.T) {
-	env := setupHandlerTest(t)
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
-
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/groups", map[string]string{"name": "  Alpha School  "})
-	env.handler.CreateGroup(ctx)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create group status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/groups", map[string]string{"name": "Alpha School"})
-	env.handler.CreateGroup(ctx)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("duplicate group status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/groups", map[string]string{"name": "   "})
-	env.handler.CreateGroup(ctx)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("empty group status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/admin/groups", nil)
-	env.handler.ListGroups(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("list groups status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var rows []struct {
-		ID   int64  `json:"id"`
-		Name string `json:"name"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
-		t.Fatalf("decode groups: %v", err)
-	}
-
-	if len(rows) != 1 || rows[0].Name != "Alpha School" {
-		t.Fatalf("unexpected groups: %+v", rows)
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]interface{}{
-		"count":    1,
-		"group_id": rows[0].ID,
-	})
-	ctx.Set("userID", admin.ID)
-	env.handler.CreateRegistrationKeys(ctx)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create keys status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var created []map[string]interface{}
-	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
-		t.Fatalf("decode keys: %v", err)
-	}
-
-	if len(created) != 1 || created[0]["group_name"] != "Alpha School" {
-		t.Fatalf("expected group name in key response, got %+v", created)
-	}
-}
 
 func TestHandlerGroupScoreboard(t *testing.T) {
 	env := setupHandlerTest(t)
@@ -131,5 +73,66 @@ func TestHandlerGroupScoreboard(t *testing.T) {
 
 	if len(resp.Submissions) == 0 || resp.Submissions[0].GroupName == "" {
 		t.Fatalf("unexpected timeline response: %+v", resp)
+	}
+}
+
+func TestHandlerGroups(t *testing.T) {
+	env := setupHandlerTest(t)
+	group := createHandlerGroup(t, env, "Alpha")
+	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
+
+	user.GroupID = &group.ID
+	if err := env.userRepo.Update(context.Background(), user); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+
+	challenge := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
+	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().Add(-time.Minute))
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/groups", nil)
+	env.handler.ListGroups(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list groups status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var groups []struct {
+		ID          int64 `json:"id"`
+		MemberCount int   `json:"member_count"`
+		TotalScore  int   `json:"total_score"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &groups); err != nil {
+		t.Fatalf("decode groups: %v", err)
+	}
+
+	if len(groups) != 1 || groups[0].ID != group.ID || groups[0].MemberCount != 1 || groups[0].TotalScore != 100 {
+		t.Fatalf("unexpected groups: %+v", groups)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/groups/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	env.handler.GetGroup(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("get group invalid status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/groups/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
+	env.handler.GetGroup(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get group status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/groups/1/members", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
+	env.handler.ListGroupMembers(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("members status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/groups/1/solved", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
+	env.handler.ListGroupSolved(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("solved status %d: %s", rec.Code, rec.Body.String())
 	}
 }

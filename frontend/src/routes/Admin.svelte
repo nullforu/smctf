@@ -2,7 +2,7 @@
     import { get } from 'svelte/store'
     import { authStore } from '../lib/stores'
     import { api } from '../lib/api'
-    import type { Challenge, Group, RegistrationKey } from '../lib/types'
+    import type { Challenge, GroupSummary, RegistrationKey } from '../lib/types'
     import { formatApiError, formatDateTime as _formatDateTime, type FieldErrors } from '../lib/utils'
 
     const formatDateTime = _formatDateTime
@@ -64,7 +64,7 @@
     let editPoints = $state(100)
     let editIsActive = $state(true)
     let auth = $state(get(authStore))
-    let groups: Group[] = $state([])
+    let groups: GroupSummary[] = $state([])
     let groupsLoading = $state(false)
     let groupsErrorMessage = $state('')
     let groupName = $state('')
