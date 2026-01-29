@@ -38,6 +38,8 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 - Flag submission with rate limiting and HMAC verification
 - Scoreboard and Timeline (Redis caching support)
 - User profile with statistics (Some implementations are still WIP)
+- Logging middleware with file logging and webhook support (e.g., Discord, Slack, etc.)
+    - Supports queuing and batching for webhooks to prevent rate limiting issues, and splitting long messages.
 
 ### Planned/Upcoming features:
 
@@ -49,7 +51,7 @@ Also, the following features are planned to be implemented. see [issues](https:/
 - Challenge file upload/download support via AWS Presigned URL
 - UI customization and detailed configuration options
 - Multi language support (i18n) and RTL language support (for global service expansion)
-- Systematized admin dashboard and log/monitoring system integration
+- (WIP) Systematized admin dashboard and log/monitoring system integration
 - ... and more features to be added.
 
 ## Tech Stacks
@@ -96,7 +98,7 @@ AUTO_MIGRATE=true
 ```
 
 <details>
-<summary>Click to expand <code>.env.example</code> file content.</summary>
+<summary>Click to expand <code>.env.example</code> file content. (default values)</summary>
 
 ```ini
 # App
@@ -136,6 +138,18 @@ SUBMIT_MAX=10
 
 # Cache
 TIMELINE_CACHE_TTL=60s
+
+# Logging
+LOG_DIR=logs
+LOG_FILE_PREFIX=app
+LOG_MAX_BODY_BYTES=1048576
+LOG_WEBHOOK_QUEUE_SIZE=1000
+LOG_WEBHOOK_TIMEOUT=5s
+LOG_WEBHOOK_BATCH_SIZE=20
+LOG_WEBHOOK_BATCH_WAIT=2s
+LOG_WEBHOOK_MAX_CHARS=1800
+LOG_DISCORD_WEBHOOK_URL=
+LOG_SLACK_WEBHOOK_URL=
 ```
 
 </details>
