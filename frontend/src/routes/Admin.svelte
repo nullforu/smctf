@@ -2,7 +2,7 @@
     import { get } from 'svelte/store'
     import { authStore } from '../lib/stores'
     import { api } from '../lib/api'
-    import type { Challenge, RegistrationKey } from '../lib/types'
+    import type { Challenge, Group, RegistrationKey } from '../lib/types'
     import { formatApiError, formatDateTime as _formatDateTime, type FieldErrors } from '../lib/utils'
 
     const formatDateTime = _formatDateTime
@@ -13,7 +13,7 @@
 
     let { routeParams = {} }: Props = $props()
 
-    let activeTab = $state<'challenges' | 'challenge_management' | 'registration_keys'>('challenges')
+    let activeTab = $state<'challenges' | 'challenge_management' | 'registration_keys' | 'groups'>('challenges')
     let title = $state('')
     let description = $state('')
     const categories = [
@@ -49,6 +49,7 @@
     let createKeysFieldErrors: FieldErrors = $state({})
     let createKeysSuccessMessage = $state('')
     let keyCount = $state(1)
+    let selectedGroupId = $state<string>('none')
     let challenges: Challenge[] = $state([])
     let challengesLoading = $state(false)
     let challengesErrorMessage = $state('')
@@ -63,6 +64,14 @@
     let editPoints = $state(100)
     let editIsActive = $state(true)
     let auth = $state(get(authStore))
+    let groups: Group[] = $state([])
+    let groupsLoading = $state(false)
+    let groupsErrorMessage = $state('')
+    let groupName = $state('')
+    let createGroupLoading = $state(false)
+    let createGroupErrorMessage = $state('')
+    let createGroupSuccessMessage = $state('')
+    let createGroupFieldErrors: FieldErrors = $state({})
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -74,6 +83,13 @@
     $effect(() => {
         if (auth.user?.role === 'admin' && activeTab === 'registration_keys') {
             loadKeys()
+            loadGroups()
+        }
+    })
+
+    $effect(() => {
+        if (auth.user?.role === 'admin' && activeTab === 'groups') {
+            loadGroups()
         }
     })
 
@@ -128,6 +144,20 @@
             keysErrorMessage = formatted.message
         } finally {
             keysLoading = false
+        }
+    }
+
+    const loadGroups = async () => {
+        groupsLoading = true
+        groupsErrorMessage = ''
+
+        try {
+            groups = await api.groups()
+        } catch (error) {
+            const formatted = formatApiError(error)
+            groupsErrorMessage = formatted.message
+        } finally {
+            groupsLoading = false
         }
     }
 
@@ -227,7 +257,11 @@
         createKeysFieldErrors = {}
 
         try {
-            const created = await api.createRegistrationKeys({ count: Number(keyCount) })
+            const payload = {
+                count: Number(keyCount),
+                group_id: selectedGroupId === 'none' ? null : Number(selectedGroupId),
+            }
+            const created = await api.createRegistrationKeys(payload)
             createKeysSuccessMessage = `${created.length} keys created`
             keyCount = 1
             await loadKeys()
@@ -237,6 +271,26 @@
             createKeysFieldErrors = formatted.fieldErrors
         } finally {
             createKeysLoading = false
+        }
+    }
+
+    const submitGroup = async () => {
+        createGroupLoading = true
+        createGroupErrorMessage = ''
+        createGroupSuccessMessage = ''
+        createGroupFieldErrors = {}
+
+        try {
+            const created = await api.createGroup({ name: groupName })
+            createGroupSuccessMessage = `Group "${created.name}" created`
+            groupName = ''
+            await loadGroups()
+        } catch (error) {
+            const formatted = formatApiError(error)
+            createGroupErrorMessage = formatted.message
+            createGroupFieldErrors = formatted.fieldErrors
+        } finally {
+            createGroupLoading = false
         }
     }
 </script>
@@ -292,6 +346,16 @@
                     onclick={() => (activeTab = 'registration_keys')}
                 >
                     Registration Keys
+                </button>
+                <button
+                    class={`rounded-full px-4 py-2 transition ${
+                        activeTab === 'groups'
+                            ? 'bg-teal-600 text-white'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                    }`}
+                    onclick={() => (activeTab = 'groups')}
+                >
+                    Groups
                 </button>
             </div>
 
@@ -690,7 +754,7 @@
                         </div>
                     {/if}
                 </div>
-            {:else}
+            {:else if activeTab === 'registration_keys'}
                 <div
                     class="mt-6 rounded-3xl border border-slate-200 bg-white p-8 dark:border-slate-800/80 dark:bg-slate-900/40"
                 >
@@ -701,7 +765,7 @@
                             submitKeys()
                         }}
                     >
-                        <div class="grid gap-4 md:grid-cols-[1fr_auto]">
+                        <div class="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
                             <div>
                                 <label
                                     class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
@@ -717,6 +781,33 @@
                                 {#if createKeysFieldErrors.count}
                                     <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
                                         count: {createKeysFieldErrors.count}
+                                    </p>
+                                {/if}
+                            </div>
+                            <div>
+                                <label
+                                    class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                                    for="admin-key-group">Group / Organization</label
+                                >
+                                <select
+                                    id="admin-key-group"
+                                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                                    bind:value={selectedGroupId}
+                                    disabled={groupsLoading}
+                                >
+                                    <option value="none">무소속</option>
+                                    {#each groups as group}
+                                        <option value={group.id}>{group.name}</option>
+                                    {/each}
+                                </select>
+                                {#if createKeysFieldErrors.group_id}
+                                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                        group_id: {createKeysFieldErrors.group_id}
+                                    </p>
+                                {/if}
+                                {#if groupsErrorMessage}
+                                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                        {groupsErrorMessage}
                                     </p>
                                 {/if}
                             </div>
@@ -778,6 +869,7 @@
                                         <tr>
                                             <th class="py-2 pr-4">Code</th>
                                             <th class="py-2 pr-4">Created by</th>
+                                            <th class="py-2 pr-4">Group / Organization</th>
                                             <th class="py-2 pr-4">Created at</th>
                                             <th class="py-2 pr-4">Used by</th>
                                             <th class="py-2 pr-4">Used IP</th>
@@ -791,10 +883,115 @@
                                                     {key.code}
                                                 </td>
                                                 <td class="py-3 pr-4">{key.created_by_username}</td>
+                                                <td class="py-3 pr-4">{key.group_name ?? '무소속'}</td>
                                                 <td class="py-3 pr-4">{formatDateTime(key.created_at)}</td>
                                                 <td class="py-3 pr-4">{key.used_by_username ?? '-'}</td>
                                                 <td class="py-3 pr-4 font-mono text-xs">{key.used_by_ip ?? '-'}</td>
                                                 <td class="py-3">{key.used_at ? formatDateTime(key.used_at) : '-'}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            {:else if activeTab === 'groups'}
+                <div class="mt-6 space-y-6">
+                    <div
+                        class="rounded-3xl border border-slate-200 bg-white p-8 dark:border-slate-800/80 dark:bg-slate-900/40"
+                    >
+                        <form
+                            class="space-y-4"
+                            onsubmit={(event) => {
+                                event.preventDefault()
+                                submitGroup()
+                            }}
+                        >
+                            <div>
+                                <label
+                                    class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                                    for="admin-group-name">Group / Organization Name</label
+                                >
+                                <input
+                                    id="admin-group-name"
+                                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                                    type="text"
+                                    bind:value={groupName}
+                                    placeholder="예: 서울고등학교"
+                                />
+                                {#if createGroupFieldErrors.name}
+                                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                        name: {createGroupFieldErrors.name}
+                                    </p>
+                                {/if}
+                            </div>
+                            {#if createGroupErrorMessage}
+                                <p
+                                    class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
+                                >
+                                    {createGroupErrorMessage}
+                                </p>
+                            {/if}
+                            {#if createGroupSuccessMessage}
+                                <p
+                                    class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
+                                >
+                                    {createGroupSuccessMessage}
+                                </p>
+                            {/if}
+                            <button
+                                class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
+                                type="submit"
+                                disabled={createGroupLoading}
+                            >
+                                {createGroupLoading ? 'Creating...' : 'Create Group'}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div
+                        class="rounded-3xl border border-slate-200 bg-white p-8 dark:border-slate-800/80 dark:bg-slate-900/40"
+                    >
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg text-slate-900 dark:text-slate-100">Groups</h3>
+                            <button
+                                class="text-xs uppercase tracking-wide text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                onclick={loadGroups}
+                                disabled={groupsLoading}
+                            >
+                                {groupsLoading ? 'Loading...' : 'Refresh'}
+                            </button>
+                        </div>
+
+                        {#if groupsErrorMessage}
+                            <p
+                                class="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
+                            >
+                                {groupsErrorMessage}
+                            </p>
+                        {/if}
+
+                        {#if groupsLoading}
+                            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">Loading groups...</p>
+                        {:else if groups.length === 0}
+                            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">No groups created yet.</p>
+                        {:else}
+                            <div class="mt-4 overflow-x-auto">
+                                <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                                    <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        <tr>
+                                            <th class="py-2 pr-4">ID</th>
+                                            <th class="py-2 pr-4">Name</th>
+                                            <th class="py-2">Created at</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#each groups as group}
+                                            <tr class="border-t border-slate-200/70 dark:border-slate-800/70">
+                                                <td class="py-3 pr-4">{group.id}</td>
+                                                <td class="py-3 pr-4">{group.name}</td>
+                                                <td class="py-3">{formatDateTime(group.created_at)}</td>
                                             </tr>
                                         {/each}
                                     </tbody>

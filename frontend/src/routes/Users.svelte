@@ -39,7 +39,10 @@
         } else {
             const query = searchQuery.toLowerCase()
             filteredUsers = users.filter(
-                (user) => user.username.toLowerCase().includes(query) || user.id.toString().includes(query),
+                (user) =>
+                    user.username.toLowerCase().includes(query) ||
+                    user.id.toString().includes(query) ||
+                    (user.group_name ?? '').toLowerCase().includes(query),
             )
         }
     })
@@ -89,6 +92,11 @@
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
                                 >
+                                    Group / Organization
+                                </th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                >
                                     Role
                                 </th>
                                 <th
@@ -109,6 +117,9 @@
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
                                         {user.username}
+                                    </td>
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
+                                        {user.group_name ?? '무소속'}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm">
                                         <span
@@ -133,7 +144,7 @@
                             {#if filteredUsers.length === 0}
                                 <tr>
                                     <td
-                                        colspan="4"
+                                        colspan="5"
                                         class="px-6 py-8 text-center text-sm text-slate-600 dark:text-slate-400"
                                     >
                                         {searchQuery ? 'No results found.' : 'No users found.'}

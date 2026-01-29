@@ -142,6 +142,9 @@
                 <div>
                     <h2 class="text-3xl text-slate-900 dark:text-slate-100">{user.username}</h2>
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">User ID: {user.id}</p>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                        Group / Organization: {user.group_name ?? '무소속'}
+                    </p>
                 </div>
                 <span
                     class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium uppercase

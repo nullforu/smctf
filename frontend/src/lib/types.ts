@@ -3,6 +3,8 @@ export interface AuthUser {
     email: string
     username: string
     role: string
+    group_id?: number | null
+    group_name?: string | null
 }
 
 export interface RegisterPayload {
@@ -78,6 +80,12 @@ export interface ScoreEntry {
     score: number
 }
 
+export interface GroupScoreEntry {
+    group_id?: number | null
+    group_name: string
+    score: number
+}
+
 export interface TimelineSubmission {
     timestamp: string
     user_id: number
@@ -90,16 +98,32 @@ export interface TimelineResponse {
     submissions: TimelineSubmission[]
 }
 
+export interface GroupTimelineSubmission {
+    timestamp: string
+    group_id?: number | null
+    group_name: string
+    points: number
+    challenge_count: number
+}
+
+export interface GroupTimelineResponse {
+    submissions: GroupTimelineSubmission[]
+}
+
 export interface UserListItem {
     id: number
     username: string
     role: string
+    group_id?: number | null
+    group_name?: string | null
 }
 
 export interface UserDetail {
     id: number
     username: string
     role: string
+    group_id?: number | null
+    group_name?: string | null
 }
 
 export interface RegistrationKey {
@@ -107,6 +131,8 @@ export interface RegistrationKey {
     code: string
     created_by: number
     created_by_username: string
+    group_id?: number | null
+    group_name?: string | null
     used_by?: number
     used_by_username?: string
     used_by_ip?: string
@@ -116,4 +142,15 @@ export interface RegistrationKey {
 
 export interface RegistrationKeyCreatePayload {
     count: number
+    group_id?: number | null
+}
+
+export interface Group {
+    id: number
+    name: string
+    created_at: string
+}
+
+export interface GroupCreatePayload {
+    name: string
 }

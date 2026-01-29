@@ -3,13 +3,14 @@
     import { api } from '../lib/api'
     import { formatApiError, formatDateTime } from '../lib/utils'
     import { buildChartModel, chartLayout, type ChartSubmissionPoint, type ChartModel } from '../routes/scoreboardChart'
-    import type { TimelineSubmission, TimelineResponse } from '../lib/types'
+    import type { GroupTimelineResponse, TimelineSubmission, TimelineResponse } from '../lib/types'
     import { navigate as _navigate } from '../lib/router'
 
     const navigate = _navigate
 
     interface Props {
         windowMinutes: number
+        mode?: 'users' | 'groups'
     }
 
     interface TooltipState {
@@ -19,9 +20,10 @@
         username: string
     }
 
-    let { windowMinutes }: Props = $props()
+    let { windowMinutes, mode = 'users' }: Props = $props()
 
     let timeline: TimelineResponse | null = $state(null)
+    let rawGroupTimeline: GroupTimelineResponse | null = $state(null)
     let chartModel: ChartModel | null = $state(null)
     let hoveredUserId: number | null = $state(null)
     let tooltip: TooltipState | null = $state(null)
@@ -81,7 +83,23 @@
         tooltip = null
 
         try {
-            timeline = await api.timeline(windowMinutes)
+            if (mode === 'groups') {
+                rawGroupTimeline = await api.timelineGroups(windowMinutes)
+                timeline = rawGroupTimeline
+                    ? {
+                          submissions: rawGroupTimeline.submissions.map((sub) => ({
+                              timestamp: sub.timestamp,
+                              user_id: sub.group_id ?? 0,
+                              username: sub.group_name,
+                              points: sub.points,
+                              challenge_count: sub.challenge_count,
+                          })),
+                      }
+                    : null
+            } else {
+                timeline = await api.timeline(windowMinutes)
+                rawGroupTimeline = null
+            }
             chartModel = timeline ? buildChartModel(timeline, windowMinutes, chartWidth) : null
 
             await tick()
@@ -116,7 +134,10 @@
         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-500">
             <span>Last {windowMinutes} minutes</span>
             <span>·</span>
-            <span>Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)} users</span>
+            <span>
+                Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)}
+                {mode === 'groups' ? 'groups' : 'users'}
+            </span>
         </div>
         {#if chartModel}
             <div
@@ -247,7 +268,9 @@
                         class:hidden={!tooltip}
                     >
                         {#if tooltip}
-                            <p class="text-slate-700 dark:text-slate-300">{tooltip.username}</p>
+                            <p class="text-slate-700 dark:text-slate-300">
+                                {mode === 'groups' ? 'Group / Organization' : 'User'}: {tooltip.username}
+                            </p>
                             <p class="mt-1 text-sm text-slate-900 dark:text-slate-100">
                                 {tooltip.submission.challenge_count > 1
                                     ? `Solved ${tooltip.submission.challenge_count} challenges`
@@ -262,24 +285,43 @@
                 </div>
                 <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
                     {#each chartModel.series as series}
-                        <button
-                            class="flex items-center gap-2 transition"
-                            class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
-                            class:text-slate-900={hoveredUserId === series.user_id}
-                            class:dark:text-slate-100={hoveredUserId === series.user_id}
-                            tabindex="0"
-                            aria-label={`${series.username} highlight`}
-                            onmouseenter={() => {
-                                hoveredUserId = series.user_id
-                            }}
-                            onmouseleave={() => {
-                                hoveredUserId = null
-                            }}
-                            onclick={() => navigate(`/users/${series.user_id}`)}
-                        >
-                            <span class="h-2 w-2 rounded-full" style={`background-color: ${series.color}`}></span>
-                            {series.username}
-                        </button>
+                        {#if mode === 'groups'}
+                            <div
+                                class="flex items-center gap-2"
+                                class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
+                                class:text-slate-900={hoveredUserId === series.user_id}
+                                class:dark:text-slate-100={hoveredUserId === series.user_id}
+                                aria-label={`${series.username} highlight`}
+                                onmouseenter={() => {
+                                    hoveredUserId = series.user_id
+                                }}
+                                onmouseleave={() => {
+                                    hoveredUserId = null
+                                }}
+                            >
+                                <span class="h-2 w-2 rounded-full" style={`background-color: ${series.color}`}></span>
+                                {series.username}
+                            </div>
+                        {:else}
+                            <button
+                                class="flex items-center gap-2 transition"
+                                class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
+                                class:text-slate-900={hoveredUserId === series.user_id}
+                                class:dark:text-slate-100={hoveredUserId === series.user_id}
+                                tabindex="0"
+                                aria-label={`${series.username} highlight`}
+                                onmouseenter={() => {
+                                    hoveredUserId = series.user_id
+                                }}
+                                onmouseleave={() => {
+                                    hoveredUserId = null
+                                }}
+                                onclick={() => navigate(`/users/${series.user_id}`)}
+                            >
+                                <span class="h-2 w-2 rounded-full" style={`background-color: ${series.color}`}></span>
+                                {series.username}
+                            </button>
+                        {/if}
                     {/each}
                 </div>
                 <div class="mt-2 flex justify-between text-xs text-slate-600 dark:text-slate-500">

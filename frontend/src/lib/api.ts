@@ -8,6 +8,10 @@ import type {
     ChallengeCreateResponse,
     ChallengeUpdatePayload,
     FlagSubmissionResult,
+    Group,
+    GroupCreatePayload,
+    GroupScoreEntry,
+    GroupTimelineResponse,
     LoginPayload,
     RegistrationKey,
     RegistrationKeyCreatePayload,
@@ -220,9 +224,16 @@ export const api = {
     leaderboard: () => {
         return request<ScoreEntry[]>(`/api/leaderboard`)
     },
+    leaderboardGroups: () => {
+        return request<GroupScoreEntry[]>(`/api/leaderboard/groups`)
+    },
     timeline: (windowMinutes?: number) => {
         const windowParam = typeof windowMinutes === 'number' ? `?window=${windowMinutes}` : ''
         return request<TimelineResponse>(`/api/timeline${windowParam}`)
+    },
+    timelineGroups: (windowMinutes?: number) => {
+        const windowParam = typeof windowMinutes === 'number' ? `?window=${windowMinutes}` : ''
+        return request<GroupTimelineResponse>(`/api/timeline/groups${windowParam}`)
     },
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })
@@ -238,6 +249,12 @@ export const api = {
     },
     createRegistrationKeys: (payload: RegistrationKeyCreatePayload) => {
         return request<RegistrationKey[]>(`/api/admin/registration-keys`, { method: 'POST', body: payload, auth: true })
+    },
+    groups: () => {
+        return request<Group[]>(`/api/admin/groups`, { auth: true })
+    },
+    createGroup: (payload: GroupCreatePayload) => {
+        return request<Group>(`/api/admin/groups`, { method: 'POST', body: payload, auth: true })
     },
     users: () => {
         return request<UserListItem[]>(`/api/users`)
