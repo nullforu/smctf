@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -350,5 +351,148 @@ func TestValidateConfig_InvalidDBConfig(t *testing.T) {
 	err := validateConfig(cfg)
 	if err == nil {
 		t.Error("expected error for invalid DB config")
+	}
+}
+
+func TestValidateConfig_AdditionalValidation(t *testing.T) {
+	cfg := Config{
+		AppEnv:             "local",
+		HTTPAddr:           ":8080",
+		PasswordBcryptCost: bcrypt.DefaultCost,
+		DB: DBConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "user",
+			Name:            "db",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: 10 * time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr:     "",
+			PoolSize: 0,
+		},
+		JWT: JWTConfig{
+			Secret:     "",
+			Issuer:     "",
+			AccessTTL:  0,
+			RefreshTTL: 0,
+		},
+		Security: SecurityConfig{
+			FlagHMACSecret:   "",
+			SubmissionWindow: 0,
+			SubmissionMax:    0,
+		},
+		Cache: CacheConfig{
+			TimelineTTL: time.Minute,
+		},
+	}
+
+	if err := validateConfig(cfg); err == nil {
+		t.Error("expected error for redis/jwt/security validation")
+	}
+}
+
+func TestRedact(t *testing.T) {
+	cfg := Config{
+		DB: DBConfig{Password: "dbpass"},
+		Redis: RedisConfig{
+			Password: "redispass",
+		},
+		JWT: JWTConfig{
+			Secret: "jwtsecret",
+		},
+		Security: SecurityConfig{
+			FlagHMACSecret: "flagsecret",
+		},
+	}
+
+	redacted := Redact(cfg)
+	if redacted.DB.Password == cfg.DB.Password {
+		t.Fatalf("expected db password redacted")
+	}
+
+	if redacted.Redis.Password == cfg.Redis.Password {
+		t.Fatalf("expected redis password redacted")
+	}
+
+	if redacted.JWT.Secret == cfg.JWT.Secret {
+		t.Fatalf("expected jwt secret redacted")
+	}
+
+	if redacted.Security.FlagHMACSecret == cfg.Security.FlagHMACSecret {
+		t.Fatalf("expected flag secret redacted")
+	}
+}
+
+func TestRedactValueEdgeCases(t *testing.T) {
+	if got := redact(""); got != "" {
+		t.Fatalf("expected empty value, got %s", got)
+	}
+
+	if got := redact("ab"); got != "***" {
+		t.Fatalf("expected short value to be masked, got %s", got)
+	}
+
+	if got := redact("abcd"); got != "***" {
+		t.Fatalf("expected short value to be masked, got %s", got)
+	}
+
+	if got := redact("abcdef"); got != "ab***ef" {
+		t.Fatalf("unexpected redaction: %s", got)
+	}
+}
+
+func TestFormatForLog(t *testing.T) {
+	cfg := Config{
+		AppEnv:             "local",
+		HTTPAddr:           ":8080",
+		ShutdownTimeout:    5 * time.Second,
+		AutoMigrate:        true,
+		PasswordBcryptCost: 10,
+		DB: DBConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "user",
+			Password:        "dbpass",
+			Name:            "db",
+			SSLMode:         "disable",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			Password: "redispass",
+			DB:       0,
+			PoolSize: 5,
+		},
+		JWT: JWTConfig{
+			Secret:     "jwtsecret",
+			Issuer:     "issuer",
+			AccessTTL:  time.Hour,
+			RefreshTTL: 2 * time.Hour,
+		},
+		Security: SecurityConfig{
+			FlagHMACSecret:   "flagsecret",
+			SubmissionWindow: time.Minute,
+			SubmissionMax:    10,
+		},
+		Cache: CacheConfig{
+			TimelineTTL: time.Minute,
+		},
+	}
+
+	out := FormatForLog(cfg)
+	if out == "" {
+		t.Fatalf("expected output")
+	}
+
+	if strings.Contains(out, "dbpass") || strings.Contains(out, "redispass") || strings.Contains(out, "jwtsecret") || strings.Contains(out, "flagsecret") {
+		t.Fatalf("expected secrets redacted")
+	}
+
+	if !strings.Contains(out, "AppEnv=local") || !strings.Contains(out, "DB:") || !strings.Contains(out, "Cache:") {
+		t.Fatalf("expected formatted config fields")
 	}
 }
