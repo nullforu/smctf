@@ -41,7 +41,7 @@ func TestGroupGroupSubmissions(t *testing.T) {
 	raw := []rawGroupSubmission{
 		{SubmittedAt: base.Add(2 * time.Minute), GroupID: &groupID, GroupName: "Alpha", Points: 100},
 		{SubmittedAt: base.Add(7 * time.Minute), GroupID: &groupID, GroupName: "Alpha", Points: 50},
-		{SubmittedAt: base.Add(12 * time.Minute), GroupID: nil, GroupName: "무소속", Points: 30},
+		{SubmittedAt: base.Add(12 * time.Minute), GroupID: nil, GroupName: "not affiliated", Points: 30},
 	}
 
 	result := groupGroupSubmissions(raw)
@@ -54,7 +54,7 @@ func TestGroupGroupSubmissions(t *testing.T) {
 		t.Fatalf("unexpected first group: %+v", result[0])
 	}
 
-	if result[1].GroupName != "무소속" || result[1].Points != 30 || result[1].ChallengeCount != 1 {
+	if result[1].GroupName != "not affiliated" || result[1].Points != 30 || result[1].ChallengeCount != 1 {
 		t.Fatalf("unexpected second group: %+v", result[1])
 	}
 }

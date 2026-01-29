@@ -49,7 +49,7 @@ func TestHandlerGroupScoreboard(t *testing.T) {
 		t.Fatalf("decode leaderboard: %v", err)
 	}
 
-	if len(leaderboard) != 3 || leaderboard[0].GroupName != "Alpha" || leaderboard[2].GroupName != "무소속" {
+	if len(leaderboard) != 3 || leaderboard[0].GroupName != "Alpha" || leaderboard[2].GroupName != "not affiliated" {
 		t.Fatalf("unexpected leaderboard: %+v", leaderboard)
 	}
 

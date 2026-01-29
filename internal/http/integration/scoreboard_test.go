@@ -66,7 +66,7 @@ func TestScoreboardGroups(t *testing.T) {
 		t.Fatalf("unexpected first row: %+v", rows[0])
 	}
 
-	if rows[2].GroupName != "무소속" {
+	if rows[2].GroupName != "not affiliated" || rows[2].Score != 50 {
 		t.Fatalf("unexpected last row: %+v", rows[2])
 	}
 }

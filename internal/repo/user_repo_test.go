@@ -41,7 +41,7 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("unexpected email: %s", got.Email)
 	}
 
-	if got.GroupName == nil || *got.GroupName != "무소속" {
+	if got.GroupName == nil || *got.GroupName != "not affiliated" {
 		t.Fatalf("expected default group name, got %+v", got.GroupName)
 	}
 
@@ -68,7 +68,7 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("expected 1 user, got %d", len(users))
 	}
 
-	if users[0].GroupName == nil || *users[0].GroupName != "무소속" {
+	if users[0].GroupName == nil || *users[0].GroupName != "not affiliated" {
 		t.Fatalf("expected default group name, got %+v", users[0].GroupName)
 	}
 }
@@ -154,7 +154,7 @@ func TestUserRepoGroupLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("unexpected group leaderboard first row: %+v", leaderboard[0])
 	}
 
-	if leaderboard[2].GroupName != "무소속" || leaderboard[2].Score != 50 {
+	if leaderboard[2].GroupName != "not affiliated" || leaderboard[2].Score != 50 {
 		t.Fatalf("unexpected group leaderboard last row: %+v", leaderboard[2])
 	}
 
