@@ -40,12 +40,12 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 - User profile with statistics (Some implementations are still WIP)
 - Logging middleware with file logging and webhook support (e.g., Discord, Slack, etc.)
     - Supports queuing and batching for webhooks to prevent rate limiting issues, and splitting long messages.
+- User and Team/Group management (WIP)
 
 ### Planned/Upcoming features:
 
 Also, the following features are planned to be implemented. see [issues](https://github.com/nullforu/smctf/issues) for more details.
 
-- User and Team/Group management
 - Per challenge individual instance/VM provisioning support via AWS SDK (ECS Fargate or EC2 based)
 - Dynamic scoring (ref: [CTFd - Dynamic Value](https://docs.ctfd.io/docs/custom-challenges/dynamic-value/))
 - Challenge file upload/download support via AWS Presigned URL

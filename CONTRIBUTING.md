@@ -4,7 +4,7 @@
 
 - Always create a dedicated branch for development.
 - Once development is complete, squash merge into the `main` branch.
-- After a feature or task is fully completed and no longer active, move the branch to `archive/*` for record keeping.
+- After a feature or task is fully completed and no longer active, delete the branch to keep the repository clean. (or archive it if necessary)
 
 ## Issue Tracking
 
