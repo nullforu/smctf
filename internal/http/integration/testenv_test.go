@@ -19,6 +19,7 @@ import (
 	"smctf/internal/config"
 	"smctf/internal/db"
 	apphttp "smctf/internal/http"
+	"smctf/internal/logging"
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
@@ -70,6 +71,8 @@ var (
 	redisServer     *miniredis.Miniredis
 	skipIntegration bool
 	regKeyCounter   int64 = 100000
+	testLogger      *logging.Logger
+	logDir          string
 )
 
 func TestMain(m *testing.M) {
@@ -130,6 +133,28 @@ func TestMain(m *testing.M) {
 			SubmissionWindow: 2 * time.Minute,
 			SubmissionMax:    5,
 		},
+		Logging: config.LoggingConfig{
+			Dir:              "",
+			FilePrefix:       "test",
+			MaxBodyBytes:     1024 * 1024,
+			WebhookQueueSize: 100,
+			WebhookTimeout:   time.Second,
+			WebhookBatchSize: 10,
+			WebhookBatchWait: time.Second,
+			WebhookMaxChars:  1000,
+		},
+	}
+
+	logDir, err = os.MkdirTemp("", "smctf-logs-*")
+	if err != nil {
+		panic(err)
+	}
+
+	testCfg.Logging.Dir = logDir
+
+	testLogger, err = logging.New(testCfg.Logging)
+	if err != nil {
+		panic(err)
 	}
 
 	code := m.Run()
@@ -146,8 +171,16 @@ func TestMain(m *testing.M) {
 		_ = testDB.Close()
 	}
 
+	if testLogger != nil {
+		_ = testLogger.Close()
+	}
+
 	if pgContainer != nil {
 		_ = pgContainer.Terminate(ctx)
+	}
+
+	if logDir != "" {
+		_ = os.RemoveAll(logDir)
 	}
 
 	os.Exit(code)
@@ -211,7 +244,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	submissionRepo := repo.NewSubmissionRepo(testDB)
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, testRedis)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, testRedis)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,

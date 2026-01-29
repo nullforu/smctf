@@ -1,11 +1,14 @@
 package http
 
 import (
+	"io"
 	nethttp "net/http"
+	"os"
 
 	"smctf/internal/config"
 	"smctf/internal/http/handlers"
 	"smctf/internal/http/middleware"
+	"smctf/internal/logging"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 
@@ -13,14 +16,20 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, redis *redis.Client) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, redis *redis.Client, logger *logging.Logger) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
+	}
+
+	if logger != nil {
+		gin.DefaultWriter = io.MultiWriter(os.Stdout, logger)
+		gin.DefaultErrorWriter = io.MultiWriter(os.Stderr, logger)
 	}
 
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
+	r.Use(middleware.RequestLogger(cfg.Logging, logger))
 	r.Use(middleware.CORS(cfg.AppEnv != "production", nil))
 
 	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, redis)

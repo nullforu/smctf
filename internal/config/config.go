@@ -24,6 +24,7 @@ type Config struct {
 	JWT      JWTConfig
 	Security SecurityConfig
 	Cache    CacheConfig
+	Logging  LoggingConfig
 }
 
 type DBConfig struct {
@@ -60,6 +61,19 @@ type SecurityConfig struct {
 
 type CacheConfig struct {
 	TimelineTTL time.Duration
+}
+
+type LoggingConfig struct {
+	Dir               string
+	FilePrefix        string
+	DiscordWebhookURL string
+	SlackWebhookURL   string
+	MaxBodyBytes      int
+	WebhookQueueSize  int
+	WebhookTimeout    time.Duration
+	WebhookBatchSize  int
+	WebhookBatchWait  time.Duration
+	WebhookMaxChars   int
 }
 
 const (
@@ -146,6 +160,38 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	logDir := getEnv("LOG_DIR", "logs")
+	logPrefix := getEnv("LOG_FILE_PREFIX", "app")
+	logMaxBodyBytes, err := getEnvInt("LOG_MAX_BODY_BYTES", 1024*1024)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	logWebhookQueueSize, err := getEnvInt("LOG_WEBHOOK_QUEUE_SIZE", 1000)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	logWebhookTimeout, err := getDuration("LOG_WEBHOOK_TIMEOUT", 5*time.Second)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	logWebhookBatchSize, err := getEnvInt("LOG_WEBHOOK_BATCH_SIZE", 20)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	logWebhookBatchWait, err := getDuration("LOG_WEBHOOK_BATCH_WAIT", 2*time.Second)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	logWebhookMaxChars, err := getEnvInt("LOG_WEBHOOK_MAX_CHARS", 1800)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	cfg := Config{
 		AppEnv:             appEnv,
 		HTTPAddr:           httpAddr,
@@ -182,6 +228,18 @@ func Load() (Config, error) {
 		},
 		Cache: CacheConfig{
 			TimelineTTL: timelineCacheTTL,
+		},
+		Logging: LoggingConfig{
+			Dir:               logDir,
+			FilePrefix:        logPrefix,
+			DiscordWebhookURL: getEnv("LOG_DISCORD_WEBHOOK_URL", ""),
+			SlackWebhookURL:   getEnv("LOG_SLACK_WEBHOOK_URL", ""),
+			MaxBodyBytes:      logMaxBodyBytes,
+			WebhookQueueSize:  logWebhookQueueSize,
+			WebhookTimeout:    logWebhookTimeout,
+			WebhookBatchSize:  logWebhookBatchSize,
+			WebhookBatchWait:  logWebhookBatchWait,
+			WebhookMaxChars:   logWebhookMaxChars,
 		},
 	}
 
@@ -308,6 +366,38 @@ func validateConfig(cfg Config) error {
 		}
 	}
 
+	if cfg.Logging.Dir == "" {
+		errs = append(errs, errors.New("LOG_DIR must not be empty"))
+	}
+
+	if cfg.Logging.FilePrefix == "" {
+		errs = append(errs, errors.New("LOG_FILE_PREFIX must not be empty"))
+	}
+
+	if cfg.Logging.MaxBodyBytes <= 0 {
+		errs = append(errs, errors.New("LOG_MAX_BODY_BYTES must be positive"))
+	}
+
+	if cfg.Logging.WebhookQueueSize <= 0 {
+		errs = append(errs, errors.New("LOG_WEBHOOK_QUEUE_SIZE must be positive"))
+	}
+
+	if cfg.Logging.WebhookTimeout <= 0 {
+		errs = append(errs, errors.New("LOG_WEBHOOK_TIMEOUT must be positive"))
+	}
+
+	if cfg.Logging.WebhookBatchSize <= 0 {
+		errs = append(errs, errors.New("LOG_WEBHOOK_BATCH_SIZE must be positive"))
+	}
+
+	if cfg.Logging.WebhookBatchWait <= 0 {
+		errs = append(errs, errors.New("LOG_WEBHOOK_BATCH_WAIT must be positive"))
+	}
+
+	if cfg.Logging.WebhookMaxChars <= 0 {
+		errs = append(errs, errors.New("LOG_WEBHOOK_MAX_CHARS must be positive"))
+	}
+
 	if len(errs) == 0 {
 		return nil
 	}
@@ -320,6 +410,8 @@ func Redact(cfg Config) Config {
 	cfg.Redis.Password = redact(cfg.Redis.Password)
 	cfg.JWT.Secret = redact(cfg.JWT.Secret)
 	cfg.Security.FlagHMACSecret = redact(cfg.Security.FlagHMACSecret)
+	cfg.Logging.DiscordWebhookURL = redact(cfg.Logging.DiscordWebhookURL)
+	cfg.Logging.SlackWebhookURL = redact(cfg.Logging.SlackWebhookURL)
 	return cfg
 }
 
@@ -371,5 +463,16 @@ func FormatForLog(cfg Config) string {
 	fmt.Fprintf(&b, "  SubmissionMax=%d\n", cfg.Security.SubmissionMax)
 	fmt.Fprintln(&b, "Cache:")
 	fmt.Fprintf(&b, "  TimelineTTL=%s\n", cfg.Cache.TimelineTTL)
+	fmt.Fprintln(&b, "Logging:")
+	fmt.Fprintf(&b, "  Dir=%s\n", cfg.Logging.Dir)
+	fmt.Fprintf(&b, "  FilePrefix=%s\n", cfg.Logging.FilePrefix)
+	fmt.Fprintf(&b, "  DiscordWebhookURL=%s\n", cfg.Logging.DiscordWebhookURL)
+	fmt.Fprintf(&b, "  SlackWebhookURL=%s\n", cfg.Logging.SlackWebhookURL)
+	fmt.Fprintf(&b, "  MaxBodyBytes=%d\n", cfg.Logging.MaxBodyBytes)
+	fmt.Fprintf(&b, "  WebhookQueueSize=%d\n", cfg.Logging.WebhookQueueSize)
+	fmt.Fprintf(&b, "  WebhookTimeout=%s\n", cfg.Logging.WebhookTimeout)
+	fmt.Fprintf(&b, "  WebhookBatchSize=%d\n", cfg.Logging.WebhookBatchSize)
+	fmt.Fprintf(&b, "  WebhookBatchWait=%s\n", cfg.Logging.WebhookBatchWait)
+	fmt.Fprintf(&b, "  WebhookMaxChars=%d\n", cfg.Logging.WebhookMaxChars)
 	return b.String()
 }
