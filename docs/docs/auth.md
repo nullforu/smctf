@@ -34,6 +34,7 @@ Errors:
 - 409 `user already exists`
 
 `registration_key` must be a 6-digit one-time code created by an admin.
+If the registration key is tied to a group/organization, the user is automatically assigned to it.
 
 ---
 

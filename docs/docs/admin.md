@@ -17,9 +17,12 @@ Request
 
 ```json
 {
-    "count": 5
+    "count": 5,
+    "group_id": 1
 }
 ```
+
+`group_id` is optional. Omit or set to null for unassigned (무소속).
 
 Response 201
 
@@ -30,6 +33,8 @@ Response 201
         "code": "123456",
         "created_by": 2,
         "created_by_username": "admin",
+        "group_id": 1,
+        "group_name": "서울고등학교",
         "used_by": null,
         "used_by_username": null,
         "used_by_ip": null,
@@ -66,11 +71,78 @@ Response 200
         "code": "123456",
         "created_by": 2,
         "created_by_username": "admin",
+        "group_id": 1,
+        "group_name": "서울고등학교",
         "used_by": 5,
         "used_by_username": "user1",
         "used_by_ip": "203.0.113.7",
         "created_at": "2026-01-26T12:00:00Z",
         "used_at": "2026-01-26T12:30:00Z"
+    }
+]
+```
+
+Errors:
+
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+
+---
+
+## Create Group / Organization
+
+`POST /api/admin/groups`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Request
+
+```json
+{
+    "name": "서울고등학교"
+}
+```
+
+Response 201
+
+```json
+{
+    "id": 1,
+    "name": "서울고등학교",
+    "created_at": "2026-01-26T12:00:00Z"
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+
+---
+
+## List Groups / Organizations
+
+`GET /api/admin/groups`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Response 200
+
+```json
+[
+    {
+        "id": 1,
+        "name": "서울고등학교",
+        "created_at": "2026-01-26T12:00:00Z"
     }
 ]
 ```
