@@ -70,11 +70,11 @@ func TestAuthServiceCreateRegistrationKeys(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 
-	if _, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 0); err == nil {
+	if _, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 0, nil); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 2)
+	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 2, nil)
 	if err != nil {
 		t.Fatalf("create keys: %v", err)
 	}
@@ -85,6 +85,37 @@ func TestAuthServiceCreateRegistrationKeys(t *testing.T) {
 
 	if keys[0].Code == keys[1].Code || len(keys[0].Code) != 6 || len(keys[1].Code) != 6 {
 		t.Fatalf("unexpected key codes: %+v", keys)
+	}
+}
+
+func TestAuthServiceCreateRegistrationKeysWithGroup(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	group := createGroup(t, env, "Alpha")
+
+	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, &group.ID)
+	if err != nil {
+		t.Fatalf("create keys: %v", err)
+	}
+
+	if len(keys) != 1 || keys[0].GroupID == nil || *keys[0].GroupID != group.ID {
+		t.Fatalf("expected group on key, got %+v", keys)
+	}
+}
+
+func TestAuthServiceRegisterAssignsGroup(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	group := createGroup(t, env, "Alpha")
+	key := createRegistrationKeyWithGroup(t, env, "654321", admin.ID, &group.ID)
+
+	user, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass1", key.Code, "")
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	if user.GroupID == nil || *user.GroupID != group.ID {
+		t.Fatalf("expected user group assigned, got %+v", user.GroupID)
 	}
 }
 

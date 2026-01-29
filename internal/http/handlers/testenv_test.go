@@ -29,6 +29,7 @@ type handlerEnv struct {
 	redis          *redis.Client
 	userRepo       *repo.UserRepo
 	regKeyRepo     *repo.RegistrationKeyRepo
+	groupRepo      *repo.GroupRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *service.AuthService
@@ -180,11 +181,12 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 
 	userRepo := repo.NewUserRepo(handlerDB)
 	regRepo := repo.NewRegistrationKeyRepo(handlerDB)
+	groupRepo := repo.NewGroupRepo(handlerDB)
 	challengeRepo := repo.NewChallengeRepo(handlerDB)
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
-	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, handlerRedis)
+	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, groupRepo, handlerRedis)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
-	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, groupRepo, handlerRedis)
 
 	return handlerEnv{
 		cfg:            handlerCfg,
@@ -192,6 +194,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		redis:          handlerRedis,
 		userRepo:       userRepo,
 		regKeyRepo:     regRepo,
+		groupRepo:      groupRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
@@ -203,7 +206,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 func resetHandlerState(t *testing.T) {
 	t.Helper()
 
-	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -258,6 +261,38 @@ func createHandlerRegistrationKey(t *testing.T, env handlerEnv, code string, cre
 	}
 
 	return key
+}
+
+func createHandlerRegistrationKeyWithGroup(t *testing.T, env handlerEnv, code string, createdBy int64, groupID *int64) *models.RegistrationKey {
+	t.Helper()
+
+	key := &models.RegistrationKey{
+		Code:      code,
+		CreatedBy: createdBy,
+		GroupID:   groupID,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := env.regKeyRepo.Create(context.Background(), key); err != nil {
+		t.Fatalf("create registration key: %v", err)
+	}
+
+	return key
+}
+
+func createHandlerGroup(t *testing.T, env handlerEnv, name string) *models.Group {
+	t.Helper()
+
+	group := &models.Group{
+		Name:      name,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := env.groupRepo.Create(context.Background(), group); err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+
+	return group
 }
 
 func createHandlerChallenge(t *testing.T, env handlerEnv, title string, points int, flag string, active bool) *models.Challenge {

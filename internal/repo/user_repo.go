@@ -173,6 +173,7 @@ func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
 
 	if err := r.db.NewSelect().
 		Model(&users).
+		Distinct().
 		TableExpr("users AS u").
 		ColumnExpr("u.*").
 		ColumnExpr("COALESCE(g.name, '무소속') AS group_name").

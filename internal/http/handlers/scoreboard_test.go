@@ -33,3 +33,28 @@ func TestGroupSubmissions(t *testing.T) {
 		t.Fatalf("unexpected third group: %+v", result[2])
 	}
 }
+
+func TestGroupGroupSubmissions(t *testing.T) {
+	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
+	groupID := int64(10)
+
+	raw := []rawGroupSubmission{
+		{SubmittedAt: base.Add(2 * time.Minute), GroupID: &groupID, GroupName: "Alpha", Points: 100},
+		{SubmittedAt: base.Add(7 * time.Minute), GroupID: &groupID, GroupName: "Alpha", Points: 50},
+		{SubmittedAt: base.Add(12 * time.Minute), GroupID: nil, GroupName: "무소속", Points: 30},
+	}
+
+	result := groupGroupSubmissions(raw)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(result))
+	}
+
+	if result[0].GroupName != "Alpha" || result[0].Points != 150 || result[0].ChallengeCount != 2 {
+		t.Fatalf("unexpected first group: %+v", result[0])
+	}
+
+	if result[1].GroupName != "무소속" || result[1].Points != 30 || result[1].ChallengeCount != 1 {
+		t.Fatalf("unexpected second group: %+v", result[1])
+	}
+}

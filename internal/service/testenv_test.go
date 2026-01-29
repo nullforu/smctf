@@ -28,6 +28,7 @@ type serviceEnv struct {
 	redis          *redis.Client
 	userRepo       *repo.UserRepo
 	regKeyRepo     *repo.RegistrationKeyRepo
+	groupRepo      *repo.GroupRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *AuthService
@@ -178,9 +179,10 @@ func setupServiceTest(t *testing.T) serviceEnv {
 
 	userRepo := repo.NewUserRepo(serviceDB)
 	regRepo := repo.NewRegistrationKeyRepo(serviceDB)
+	groupRepo := repo.NewGroupRepo(serviceDB)
 	challengeRepo := repo.NewChallengeRepo(serviceDB)
 	submissionRepo := repo.NewSubmissionRepo(serviceDB)
-	authSvc := NewAuthService(serviceCfg, serviceDB, userRepo, regRepo, serviceRedis)
+	authSvc := NewAuthService(serviceCfg, serviceDB, userRepo, regRepo, groupRepo, serviceRedis)
 	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
 
 	return serviceEnv{
@@ -189,6 +191,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 		redis:          serviceRedis,
 		userRepo:       userRepo,
 		regKeyRepo:     regRepo,
+		groupRepo:      groupRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
@@ -199,7 +202,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 func resetServiceState(t *testing.T) {
 	t.Helper()
 
-	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -240,12 +243,53 @@ func createUser(t *testing.T, env serviceEnv, email, username, password, role st
 	return user
 }
 
-func createRegistrationKey(t *testing.T, env serviceEnv, code string, createdBy int64) *models.RegistrationKey {
+func createUserWithGroup(t *testing.T, env serviceEnv, email, username, password, role string, groupID *int64) *models.User {
+	t.Helper()
+
+	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := &models.User{
+		Email:        email,
+		Username:     username,
+		PasswordHash: hash,
+		Role:         role,
+		GroupID:      groupID,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+
+	if err := env.userRepo.Create(context.Background(), user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	return user
+}
+
+func createGroup(t *testing.T, env serviceEnv, name string) *models.Group {
+	t.Helper()
+
+	group := &models.Group{
+		Name:      name,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := env.groupRepo.Create(context.Background(), group); err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+
+	return group
+}
+
+func createRegistrationKeyWithGroup(t *testing.T, env serviceEnv, code string, createdBy int64, groupID *int64) *models.RegistrationKey {
 	t.Helper()
 
 	key := &models.RegistrationKey{
 		Code:      code,
 		CreatedBy: createdBy,
+		GroupID:   groupID,
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -254,6 +298,12 @@ func createRegistrationKey(t *testing.T, env serviceEnv, code string, createdBy 
 	}
 
 	return key
+}
+
+func createRegistrationKey(t *testing.T, env serviceEnv, code string, createdBy int64) *models.RegistrationKey {
+	t.Helper()
+
+	return createRegistrationKeyWithGroup(t, env, code, createdBy, nil)
 }
 
 func createChallenge(t *testing.T, env serviceEnv, title string, points int, flag string, active bool) *models.Challenge {

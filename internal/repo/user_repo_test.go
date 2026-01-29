@@ -41,6 +41,10 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("unexpected email: %s", got.Email)
 	}
 
+	if got.GroupName == nil || *got.GroupName != "무소속" {
+		t.Fatalf("expected default group name, got %+v", got.GroupName)
+	}
+
 	got.Username = "user2"
 	if err := env.userRepo.Update(context.Background(), got); err != nil {
 		t.Fatalf("Update: %v", err)
@@ -63,6 +67,10 @@ func TestUserRepoCRUD(t *testing.T) {
 	if len(users) != 1 {
 		t.Fatalf("expected 1 user, got %d", len(users))
 	}
+
+	if users[0].GroupName == nil || *users[0].GroupName != "무소속" {
+		t.Fatalf("expected default group name, got %+v", users[0].GroupName)
+	}
 }
 
 func TestUserRepoNotFound(t *testing.T) {
@@ -75,7 +83,8 @@ func TestUserRepoNotFound(t *testing.T) {
 
 func TestUserRepoLeaderboardAndTimeline(t *testing.T) {
 	env := setupRepoTest(t)
-	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
+	group := createGroup(t, env, "Alpha")
+	user1 := createUserWithGroup(t, env, "u1@example.com", "u1", "pass", "user", &group.ID)
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
 
 	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
@@ -114,6 +123,52 @@ func TestUserRepoLeaderboardAndTimeline(t *testing.T) {
 
 	if rows[0].UserID != user1.ID {
 		t.Fatalf("unexpected timeline row: %+v", rows[0])
+	}
+}
+
+func TestUserRepoGroupLeaderboardAndTimeline(t *testing.T) {
+	env := setupRepoTest(t)
+	groupA := createGroup(t, env, "Alpha")
+	groupB := createGroup(t, env, "Beta")
+	user1 := createUserWithGroup(t, env, "u1@example.com", "u1", "pass", "user", &groupA.ID)
+	user2 := createUserWithGroup(t, env, "u2@example.com", "u2", "pass", "user", &groupB.ID)
+	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
+
+	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+	ch2 := createChallenge(t, env, "ch2", 50, "FLAG{2}", true)
+
+	createSubmission(t, env, user1.ID, ch1.ID, true, time.Now().Add(-3*time.Minute))
+	createSubmission(t, env, user2.ID, ch2.ID, true, time.Now().Add(-2*time.Minute))
+	createSubmission(t, env, user3.ID, ch2.ID, true, time.Now().Add(-1*time.Minute))
+
+	leaderboard, err := env.userRepo.GroupLeaderboard(context.Background())
+	if err != nil {
+		t.Fatalf("GroupLeaderboard: %v", err)
+	}
+
+	if len(leaderboard) != 3 {
+		t.Fatalf("expected 3 group rows, got %d", len(leaderboard))
+	}
+
+	if leaderboard[0].GroupName != "Alpha" || leaderboard[0].Score != 100 {
+		t.Fatalf("unexpected group leaderboard first row: %+v", leaderboard[0])
+	}
+
+	if leaderboard[2].GroupName != "무소속" || leaderboard[2].Score != 50 {
+		t.Fatalf("unexpected group leaderboard last row: %+v", leaderboard[2])
+	}
+
+	rows, err := env.userRepo.TimelineGroupSubmissions(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("TimelineGroupSubmissions: %v", err)
+	}
+
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 group timeline rows, got %d", len(rows))
+	}
+
+	if rows[0].GroupName == "" {
+		t.Fatalf("expected group name in row")
 	}
 }
 

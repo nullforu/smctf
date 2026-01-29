@@ -39,6 +39,7 @@ type testEnv struct {
 	router         *gin.Engine
 	userRepo       *repo.UserRepo
 	regKeyRepo     *repo.RegistrationKeyRepo
+	groupRepo      *repo.GroupRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *service.AuthService
@@ -56,6 +57,8 @@ type registrationKeyResp struct {
 	Code              string     `json:"code"`
 	CreatedBy         int64      `json:"created_by"`
 	CreatedByUsername string     `json:"created_by_username"`
+	GroupID           *int64     `json:"group_id"`
+	GroupName         *string    `json:"group_name"`
 	UsedBy            *int64     `json:"used_by"`
 	UsedByUsername    *string    `json:"used_by_username"`
 	UsedByIP          *string    `json:"used_by_ip"`
@@ -240,17 +243,19 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 
 	userRepo := repo.NewUserRepo(testDB)
 	registrationKeyRepo := repo.NewRegistrationKeyRepo(testDB)
+	groupRepo := repo.NewGroupRepo(testDB)
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
-	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, testRedis)
+	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, groupRepo, testRedis)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, groupRepo, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
 		router:         router,
 		userRepo:       userRepo,
 		regKeyRepo:     registrationKeyRepo,
+		groupRepo:      groupRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
@@ -261,7 +266,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -393,6 +398,46 @@ func createUser(t *testing.T, env testEnv, email, username, password, role strin
 	return user
 }
 
+func createUserWithGroup(t *testing.T, env testEnv, email, username, password, role string, groupID *int64) *models.User {
+	t.Helper()
+
+	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := &models.User{
+		Email:        email,
+		Username:     username,
+		PasswordHash: hash,
+		Role:         role,
+		GroupID:      groupID,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+
+	if err := env.userRepo.Create(context.Background(), user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	return user
+}
+
+func createGroup(t *testing.T, env testEnv, name string) *models.Group {
+	t.Helper()
+
+	group := &models.Group{
+		Name:      name,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := env.groupRepo.Create(context.Background(), group); err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+
+	return group
+}
+
 func loginUser(t *testing.T, router *gin.Engine, email, password string) (string, string, int64) {
 	t.Helper()
 	body := map[string]string{"email": email, "password": password}
@@ -440,6 +485,23 @@ func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.R
 	key := &models.RegistrationKey{
 		Code:      nextRegistrationCode(),
 		CreatedBy: createdBy,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := env.regKeyRepo.Create(context.Background(), key); err != nil {
+		t.Fatalf("create registration key: %v", err)
+	}
+
+	return key
+}
+
+func createRegistrationKeyWithGroup(t *testing.T, env testEnv, createdBy int64, groupID *int64) *models.RegistrationKey {
+	t.Helper()
+
+	key := &models.RegistrationKey{
+		Code:      nextRegistrationCode(),
+		CreatedBy: createdBy,
+		GroupID:   groupID,
 		CreatedAt: time.Now().UTC(),
 	}
 

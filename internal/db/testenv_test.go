@@ -124,13 +124,13 @@ func TestNewAndAutoMigrate(t *testing.T) {
 	if err := db.NewSelect().Table("information_schema.tables").
 		ColumnExpr("COUNT(*)").
 		Where("table_schema = 'public'").
-		Where("table_name IN ('users','challenges','submissions','registration_keys')").
+		Where("table_name IN ('users','challenges','submissions','registration_keys','groups')").
 		Scan(context.Background(), &tableCount); err != nil {
 		t.Fatalf("query tables: %v", err)
 	}
 
-	if tableCount != 4 {
-		t.Fatalf("expected 4 tables, got %d", tableCount)
+	if tableCount != 5 {
+		t.Fatalf("expected 5 tables, got %d", tableCount)
 	}
 }
 
@@ -153,6 +153,22 @@ func TestEnsureColumnsAndIndexes(t *testing.T) {
 		t.Fatalf("ensure used_by_ip: %v", err)
 	}
 
+	if _, err := db.ExecContext(context.Background(), "ALTER TABLE users DROP COLUMN IF EXISTS group_id"); err != nil {
+		t.Fatalf("drop group_id: %v", err)
+	}
+
+	if err := ensureUserGroupID(context.Background(), db); err != nil {
+		t.Fatalf("ensure user group_id: %v", err)
+	}
+
+	if _, err := db.ExecContext(context.Background(), "ALTER TABLE registration_keys DROP COLUMN IF EXISTS group_id"); err != nil {
+		t.Fatalf("drop reg key group_id: %v", err)
+	}
+
+	if err := ensureRegistrationKeyGroupID(context.Background(), db); err != nil {
+		t.Fatalf("ensure reg key group_id: %v", err)
+	}
+
 	if err := createIndexes(context.Background(), db); err != nil {
 		t.Fatalf("create indexes: %v", err)
 	}
@@ -162,6 +178,8 @@ func TestEnsureColumnsAndIndexes(t *testing.T) {
 		"idx_submissions_challenge",
 		"idx_submissions_user_challenge",
 		"idx_submissions_correct_time",
+		"idx_users_group_id",
+		"idx_registration_keys_group_id",
 	}
 
 	for _, name := range expected {
