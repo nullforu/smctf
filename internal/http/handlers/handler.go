@@ -17,16 +17,16 @@ import (
 )
 
 type Handler struct {
-	cfg    config.Config
-	auth   *service.AuthService
-	ctf    *service.CTFService
-	users  *repo.UserRepo
-	groups *service.GroupService
-	redis  *redis.Client
+	cfg   config.Config
+	auth  *service.AuthService
+	ctf   *service.CTFService
+	users *repo.UserRepo
+	teams *service.TeamService
+	redis *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, groups *service.GroupService, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, groups: groups, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, teams *service.TeamService, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, teams: teams, redis: redis}
 }
 
 type meUpdateRequest struct {
@@ -72,11 +72,11 @@ type submitRequest struct {
 }
 
 type createRegistrationKeysRequest struct {
-	Count   *int   `json:"count" binding:"required"`
-	GroupID *int64 `json:"group_id"`
+	Count  *int   `json:"count" binding:"required"`
+	TeamID *int64 `json:"team_id"`
 }
 
-type createGroupRequest struct {
+type createTeamRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
@@ -163,12 +163,12 @@ func (h *Handler) Me(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
-		"id":         user.ID,
-		"email":      user.Email,
-		"username":   user.Username,
-		"role":       user.Role,
-		"group_id":   user.GroupID,
-		"group_name": user.GroupName,
+		"id":        user.ID,
+		"email":     user.Email,
+		"username":  user.Username,
+		"role":      user.Role,
+		"team_id":   user.TeamID,
+		"team_name": user.TeamName,
 	})
 }
 
@@ -208,12 +208,12 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"id":         user.ID,
-		"email":      user.Email,
-		"username":   user.Username,
-		"role":       user.Role,
-		"group_id":   user.GroupID,
-		"group_name": user.GroupName,
+		"id":        user.ID,
+		"email":     user.Email,
+		"username":  user.Username,
+		"role":      user.Role,
+		"team_id":   user.TeamID,
+		"team_name": user.TeamName,
 	})
 }
 
@@ -365,7 +365,7 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		count = *req.Count
 	}
 
-	groupID := req.GroupID
+	teamID := req.TeamID
 	adminID := middleware.UserID(ctx)
 	admin, err := h.users.GetByID(ctx.Request.Context(), adminID)
 	if err != nil {
@@ -373,21 +373,21 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		return
 	}
 
-	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count, groupID)
+	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count, teamID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	var groupName *string
-	if groupID != nil {
-		group, err := h.groups.GetGroup(ctx.Request.Context(), *groupID)
+	var teamName *string
+	if teamID != nil {
+		team, err := h.teams.GetTeam(ctx.Request.Context(), *teamID)
 		if err != nil {
 			writeError(ctx, err)
 			return
 		}
 
-		groupName = &group.Name
+		teamName = &team.Name
 	}
 
 	resp := make([]gin.H, 0, len(keys))
@@ -397,8 +397,8 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 			"code":                key.Code,
 			"created_by":          key.CreatedBy,
 			"created_by_username": admin.Username,
-			"group_id":            key.GroupID,
-			"group_name":          groupName,
+			"team_id":             key.TeamID,
+			"team_name":           teamName,
 			"used_by":             key.UsedBy,
 			"used_by_username":    nil,
 			"used_by_ip":          nil,
@@ -420,49 +420,49 @@ func (h *Handler) ListRegistrationKeys(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) CreateGroup(ctx *gin.Context) {
-	var req createGroupRequest
+func (h *Handler) CreateTeam(ctx *gin.Context) {
+	var req createTeamRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		writeBindError(ctx, err)
 		return
 	}
 
-	group, err := h.groups.CreateGroup(ctx.Request.Context(), req.Name)
+	team, err := h.teams.CreateTeam(ctx.Request.Context(), req.Name)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{
-		"id":         group.ID,
-		"name":       group.Name,
-		"created_at": group.CreatedAt,
+		"id":         team.ID,
+		"name":       team.Name,
+		"created_at": team.CreatedAt,
 	})
 }
 
-func (h *Handler) ListGroups(ctx *gin.Context) {
-	groups, err := h.groups.ListGroups(ctx.Request.Context())
+func (h *Handler) ListTeams(ctx *gin.Context) {
+	teams, err := h.teams.ListTeams(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	resp := make([]gin.H, 0, len(groups))
-	for _, group := range groups {
+	resp := make([]gin.H, 0, len(teams))
+	for _, team := range teams {
 		resp = append(resp, gin.H{
-			"id":           group.ID,
-			"name":         group.Name,
-			"created_at":   group.CreatedAt,
-			"member_count": group.MemberCount,
-			"total_score":  group.TotalScore,
+			"id":           team.ID,
+			"name":         team.Name,
+			"created_at":   team.CreatedAt,
+			"member_count": team.MemberCount,
+			"total_score":  team.TotalScore,
 		})
 	}
 
 	ctx.JSON(http.StatusOK, resp)
 }
 
-func (h *Handler) GetGroup(ctx *gin.Context) {
-	groupID, ok := parseIDParam(ctx, "id")
+func (h *Handler) GetTeam(ctx *gin.Context) {
+	teamID, ok := parseIDParam(ctx, "id")
 	if !ok {
 		ctx.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),
@@ -471,17 +471,17 @@ func (h *Handler) GetGroup(ctx *gin.Context) {
 		return
 	}
 
-	group, err := h.groups.GetGroup(ctx.Request.Context(), groupID)
+	team, err := h.teams.GetTeam(ctx.Request.Context(), teamID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, group)
+	ctx.JSON(http.StatusOK, team)
 }
 
-func (h *Handler) ListGroupMembers(ctx *gin.Context) {
-	groupID, ok := parseIDParam(ctx, "id")
+func (h *Handler) ListTeamMembers(ctx *gin.Context) {
+	teamID, ok := parseIDParam(ctx, "id")
 	if !ok {
 		ctx.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),
@@ -490,7 +490,7 @@ func (h *Handler) ListGroupMembers(ctx *gin.Context) {
 		return
 	}
 
-	rows, err := h.groups.ListMembers(ctx.Request.Context(), groupID)
+	rows, err := h.teams.ListMembers(ctx.Request.Context(), teamID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -499,8 +499,8 @@ func (h *Handler) ListGroupMembers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) ListGroupSolved(ctx *gin.Context) {
-	groupID, ok := parseIDParam(ctx, "id")
+func (h *Handler) ListTeamSolved(ctx *gin.Context) {
+	teamID, ok := parseIDParam(ctx, "id")
 	if !ok {
 		ctx.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),
@@ -509,7 +509,7 @@ func (h *Handler) ListGroupSolved(ctx *gin.Context) {
 		return
 	}
 
-	rows, err := h.groups.ListSolvedChallenges(ctx.Request.Context(), groupID)
+	rows, err := h.teams.ListSolvedChallenges(ctx.Request.Context(), teamID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -528,8 +528,8 @@ func (h *Handler) Leaderboard(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) GroupLeaderboard(ctx *gin.Context) {
-	rows, err := h.users.GroupLeaderboard(ctx.Request.Context())
+func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
+	rows, err := h.users.TeamLeaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -578,7 +578,7 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 		}
 	}
 
-	submissions := groupSubmissions(rawSubs)
+	submissions := teamSubmissions(rawSubs)
 	response := gin.H{
 		"submissions": submissions,
 	}
@@ -591,7 +591,7 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
-func (h *Handler) GroupTimeline(ctx *gin.Context) {
+func (h *Handler) TeamTimeline(ctx *gin.Context) {
 	windowMinutes, err := parseWindowQuery(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse{
@@ -601,7 +601,7 @@ func (h *Handler) GroupTimeline(ctx *gin.Context) {
 		return
 	}
 
-	cacheKey := fmt.Sprintf("timeline:groups:%d", windowMinutes)
+	cacheKey := fmt.Sprintf("timeline:teams:%d", windowMinutes)
 
 	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
 	if err == nil {
@@ -615,23 +615,23 @@ func (h *Handler) GroupTimeline(ctx *gin.Context) {
 		windowStart = &start
 	}
 
-	raw, err := h.users.TimelineGroupSubmissions(ctx.Request.Context(), windowStart)
+	raw, err := h.users.TimelineTeamSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	rawSubs := make([]rawGroupSubmission, len(raw))
+	rawSubs := make([]rawTeamSubmission, len(raw))
 	for i, r := range raw {
-		rawSubs[i] = rawGroupSubmission{
+		rawSubs[i] = rawTeamSubmission{
 			SubmittedAt: r.SubmittedAt,
-			GroupID:     r.GroupID,
-			GroupName:   r.GroupName,
+			TeamID:      r.TeamID,
+			TeamName:    r.TeamName,
 			Points:      r.Points,
 		}
 	}
 
-	submissions := groupGroupSubmissions(rawSubs)
+	submissions := teamTeamSubmissions(rawSubs)
 	response := gin.H{
 		"submissions": submissions,
 	}
@@ -654,11 +654,11 @@ func (h *Handler) ListUsers(ctx *gin.Context) {
 	resp := make([]gin.H, 0, len(users))
 	for _, user := range users {
 		resp = append(resp, gin.H{
-			"id":         user.ID,
-			"username":   user.Username,
-			"role":       user.Role,
-			"group_id":   user.GroupID,
-			"group_name": user.GroupName,
+			"id":        user.ID,
+			"username":  user.Username,
+			"role":      user.Role,
+			"team_id":   user.TeamID,
+			"team_name": user.TeamName,
 		})
 	}
 
@@ -682,11 +682,11 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"id":         user.ID,
-		"username":   user.Username,
-		"role":       user.Role,
-		"group_id":   user.GroupID,
-		"group_name": user.GroupName,
+		"id":        user.ID,
+		"username":  user.Username,
+		"role":      user.Role,
+		"team_id":   user.TeamID,
+		"team_name": user.TeamName,
 	})
 }
 

@@ -28,12 +28,12 @@ type serviceEnv struct {
 	redis          *redis.Client
 	userRepo       *repo.UserRepo
 	regKeyRepo     *repo.RegistrationKeyRepo
-	groupRepo      *repo.GroupRepo
+	teamRepo       *repo.TeamRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *AuthService
 	ctfSvc         *CTFService
-	groupSvc       *GroupService
+	teamSvc        *TeamService
 }
 
 var (
@@ -180,11 +180,11 @@ func setupServiceTest(t *testing.T) serviceEnv {
 
 	userRepo := repo.NewUserRepo(serviceDB)
 	regRepo := repo.NewRegistrationKeyRepo(serviceDB)
-	groupRepo := repo.NewGroupRepo(serviceDB)
+	teamRepo := repo.NewTeamRepo(serviceDB)
 	challengeRepo := repo.NewChallengeRepo(serviceDB)
 	submissionRepo := repo.NewSubmissionRepo(serviceDB)
-	authSvc := NewAuthService(serviceCfg, serviceDB, userRepo, regRepo, groupRepo, serviceRedis)
-	groupSvc := NewGroupService(groupRepo)
+	authSvc := NewAuthService(serviceCfg, serviceDB, userRepo, regRepo, teamRepo, serviceRedis)
+	teamSvc := NewTeamService(teamRepo)
 	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
 
 	return serviceEnv{
@@ -193,19 +193,19 @@ func setupServiceTest(t *testing.T) serviceEnv {
 		redis:          serviceRedis,
 		userRepo:       userRepo,
 		regKeyRepo:     regRepo,
-		groupRepo:      groupRepo,
+		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
-		groupSvc:       groupSvc,
+		teamSvc:        teamSvc,
 	}
 }
 
 func resetServiceState(t *testing.T) {
 	t.Helper()
 
-	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -246,7 +246,7 @@ func createUser(t *testing.T, env serviceEnv, email, username, password, role st
 	return user
 }
 
-func createUserWithGroup(t *testing.T, env serviceEnv, email, username, password, role string, groupID *int64) *models.User {
+func createUserWithTeam(t *testing.T, env serviceEnv, email, username, password, role string, teamID *int64) *models.User {
 	t.Helper()
 
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
@@ -259,7 +259,7 @@ func createUserWithGroup(t *testing.T, env serviceEnv, email, username, password
 		Username:     username,
 		PasswordHash: hash,
 		Role:         role,
-		GroupID:      groupID,
+		TeamID:       teamID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -271,28 +271,28 @@ func createUserWithGroup(t *testing.T, env serviceEnv, email, username, password
 	return user
 }
 
-func createGroup(t *testing.T, env serviceEnv, name string) *models.Group {
+func createTeam(t *testing.T, env serviceEnv, name string) *models.Team {
 	t.Helper()
 
-	group := &models.Group{
+	team := &models.Team{
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
 	}
 
-	if err := env.groupRepo.Create(context.Background(), group); err != nil {
-		t.Fatalf("create group: %v", err)
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
 	}
 
-	return group
+	return team
 }
 
-func createRegistrationKeyWithGroup(t *testing.T, env serviceEnv, code string, createdBy int64, groupID *int64) *models.RegistrationKey {
+func createRegistrationKeyWithTeam(t *testing.T, env serviceEnv, code string, createdBy int64, teamID *int64) *models.RegistrationKey {
 	t.Helper()
 
 	key := &models.RegistrationKey{
 		Code:      code,
 		CreatedBy: createdBy,
-		GroupID:   groupID,
+		TeamID:    teamID,
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -306,7 +306,7 @@ func createRegistrationKeyWithGroup(t *testing.T, env serviceEnv, code string, c
 func createRegistrationKey(t *testing.T, env serviceEnv, code string, createdBy int64) *models.RegistrationKey {
 	t.Helper()
 
-	return createRegistrationKeyWithGroup(t, env, code, createdBy, nil)
+	return createRegistrationKeyWithTeam(t, env, code, createdBy, nil)
 }
 
 func createChallenge(t *testing.T, env serviceEnv, title string, points int, flag string, active bool) *models.Challenge {

@@ -105,10 +105,8 @@
                 href="/scoreboard"
                 onclick={(e) => navigate('/scoreboard', e)}>Scoreboard</a
             >
-            <a
-                class="hover:text-teal-600 dark:hover:text-teal-200"
-                href="/groups"
-                onclick={(e) => navigate('/groups', e)}>Groups</a
+            <a class="hover:text-teal-600 dark:hover:text-teal-200" href="/teams" onclick={(e) => navigate('/teams', e)}
+                >Teams</a
             >
             <a class="hover:text-teal-600 dark:hover:text-teal-200" href="/users" onclick={(e) => navigate('/users', e)}
                 >Users</a
@@ -306,11 +304,11 @@
                     Users
                 </a>
                 <a
-                    href="/groups"
+                    href="/teams"
                     class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
-                    onclick={(e) => navigateAndClose('/groups', e)}
+                    onclick={(e) => navigateAndClose('/teams', e)}
                 >
-                    Groups
+                    Teams
                 </a>
                 <a
                     href="/profile"

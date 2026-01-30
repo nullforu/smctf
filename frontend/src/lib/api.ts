@@ -8,14 +8,14 @@ import type {
     ChallengeCreateResponse,
     ChallengeUpdatePayload,
     FlagSubmissionResult,
-    Group,
-    GroupCreatePayload,
-    GroupScoreEntry,
-    GroupSummary,
-    GroupDetail,
-    GroupMember,
-    GroupSolvedChallenge,
-    GroupTimelineResponse,
+    Team,
+    TeamCreatePayload,
+    TeamScoreEntry,
+    TeamSummary,
+    TeamDetail,
+    TeamMember,
+    TeamSolvedChallenge,
+    TeamTimelineResponse,
     LoginPayload,
     RegistrationKey,
     RegistrationKeyCreatePayload,
@@ -228,16 +228,16 @@ export const api = {
     leaderboard: () => {
         return request<ScoreEntry[]>(`/api/leaderboard`)
     },
-    leaderboardGroups: () => {
-        return request<GroupScoreEntry[]>(`/api/leaderboard/groups`)
+    leaderboardTeams: () => {
+        return request<TeamScoreEntry[]>(`/api/leaderboard/teams`)
     },
     timeline: (windowMinutes?: number) => {
         const windowParam = typeof windowMinutes === 'number' ? `?window=${windowMinutes}` : ''
         return request<TimelineResponse>(`/api/timeline${windowParam}`)
     },
-    timelineGroups: (windowMinutes?: number) => {
+    timelineTeams: (windowMinutes?: number) => {
         const windowParam = typeof windowMinutes === 'number' ? `?window=${windowMinutes}` : ''
-        return request<GroupTimelineResponse>(`/api/timeline/groups${windowParam}`)
+        return request<TeamTimelineResponse>(`/api/timeline/teams${windowParam}`)
     },
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })
@@ -254,20 +254,20 @@ export const api = {
     createRegistrationKeys: (payload: RegistrationKeyCreatePayload) => {
         return request<RegistrationKey[]>(`/api/admin/registration-keys`, { method: 'POST', body: payload, auth: true })
     },
-    createGroup: (payload: GroupCreatePayload) => {
-        return request<Group>(`/api/admin/groups`, { method: 'POST', body: payload, auth: true })
+    createTeam: (payload: TeamCreatePayload) => {
+        return request<Team>(`/api/admin/teams`, { method: 'POST', body: payload, auth: true })
     },
-    groups: () => {
-        return request<GroupSummary[]>(`/api/groups`)
+    teams: () => {
+        return request<TeamSummary[]>(`/api/teams`)
     },
-    groupDetail: (id: number) => {
-        return request<GroupDetail>(`/api/groups/${id}`)
+    teamDetail: (id: number) => {
+        return request<TeamDetail>(`/api/teams/${id}`)
     },
-    groupMembers: (id: number) => {
-        return request<GroupMember[]>(`/api/groups/${id}/members`)
+    teamMembers: (id: number) => {
+        return request<TeamMember[]>(`/api/teams/${id}/members`)
     },
-    groupSolved: (id: number) => {
-        return request<GroupSolvedChallenge[]>(`/api/groups/${id}/solved`)
+    teamSolved: (id: number) => {
+        return request<TeamSolvedChallenge[]>(`/api/teams/${id}/solved`)
     },
     users: () => {
         return request<UserListItem[]>(`/api/users`)

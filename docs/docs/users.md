@@ -21,8 +21,8 @@ Response 200
     "email": "user@example.com",
     "username": "user1",
     "role": "user",
-    "group_id": 1,
-    "group_name": "서울고등학교"
+    "team_id": 1,
+    "team_name": "서울고등학교"
 }
 ```
 
@@ -58,8 +58,8 @@ Response 200
     "email": "user@example.com",
     "username": "new_username",
     "role": "user",
-    "group_id": 1,
-    "group_name": "서울고등학교"
+    "team_id": 1,
+    "team_name": "서울고등학교"
 }
 ```
 
@@ -111,15 +111,15 @@ Response 200
         "id": 1,
         "username": "user1",
         "role": "user",
-        "group_id": 1,
-        "group_name": "서울고등학교"
+        "team_id": 1,
+        "team_name": "서울고등학교"
     },
     {
         "id": 2,
         "username": "admin",
         "role": "admin",
-        "group_id": null,
-        "group_name": "not affiliated"
+        "team_id": null,
+        "team_name": "not affiliated"
     }
 ]
 ```
@@ -137,8 +137,8 @@ Response 200
     "id": 1,
     "username": "user1",
     "role": "user",
-    "group_id": 1,
-    "group_name": "서울고등학교"
+    "team_id": 1,
+    "team_name": "서울고등학교"
 }
 ```
 

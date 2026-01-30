@@ -20,42 +20,42 @@ type timelineSubmission struct {
 	ChallengeCount int       `json:"challenge_count"`
 }
 
-type rawGroupSubmission struct {
+type rawTeamSubmission struct {
 	SubmittedAt time.Time `bun:"submitted_at"`
-	GroupID     *int64    `bun:"group_id"`
-	GroupName   string    `bun:"group_name"`
+	TeamID      *int64    `bun:"team_id"`
+	TeamName    string    `bun:"team_name"`
 	Points      int       `bun:"points"`
 }
 
-type groupTimelineSubmission struct {
+type teamTimelineSubmission struct {
 	Timestamp      time.Time `json:"timestamp"`
-	GroupID        *int64    `json:"group_id,omitempty"`
-	GroupName      string    `json:"group_name"`
+	TeamID         *int64    `json:"team_id,omitempty"`
+	TeamName       string    `json:"team_name"`
 	Points         int       `json:"points"`
 	ChallengeCount int       `json:"challenge_count"`
 }
 
-func groupSubmissions(raw []rawSubmission) []timelineSubmission {
+func teamSubmissions(raw []rawSubmission) []timelineSubmission {
 	if len(raw) == 0 {
 		return []timelineSubmission{}
 	}
 
-	type groupKey struct {
+	type teamKey struct {
 		userID int64
 		bucket time.Time
 	}
 
-	groups := make(map[groupKey]*timelineSubmission)
+	teams := make(map[teamKey]*timelineSubmission)
 
 	for _, sub := range raw {
 		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
-		key := groupKey{userID: sub.UserID, bucket: bucket}
+		key := teamKey{userID: sub.UserID, bucket: bucket}
 
-		if group, exists := groups[key]; exists {
-			group.Points += sub.Points
-			group.ChallengeCount++
+		if team, exists := teams[key]; exists {
+			team.Points += sub.Points
+			team.ChallengeCount++
 		} else {
-			groups[key] = &timelineSubmission{
+			teams[key] = &timelineSubmission{
 				Timestamp:      bucket,
 				UserID:         sub.UserID,
 				Username:       sub.Username,
@@ -65,9 +65,9 @@ func groupSubmissions(raw []rawSubmission) []timelineSubmission {
 		}
 	}
 
-	result := make([]timelineSubmission, 0, len(groups))
-	for _, group := range groups {
-		result = append(result, *group)
+	result := make([]timelineSubmission, 0, len(teams))
+	for _, team := range teams {
+		result = append(result, *team)
 	}
 
 	sort.Slice(result, func(i, j int) bool {
@@ -81,53 +81,53 @@ func groupSubmissions(raw []rawSubmission) []timelineSubmission {
 	return result
 }
 
-func groupGroupSubmissions(raw []rawGroupSubmission) []groupTimelineSubmission {
+func teamTeamSubmissions(raw []rawTeamSubmission) []teamTimelineSubmission {
 	if len(raw) == 0 {
-		return []groupTimelineSubmission{}
+		return []teamTimelineSubmission{}
 	}
 
-	type groupKey struct {
-		groupID  int64
-		hasGroup bool
-		bucket   time.Time
+	type teamKey struct {
+		teamID  int64
+		hasTeam bool
+		bucket  time.Time
 	}
 
-	groups := make(map[groupKey]*groupTimelineSubmission)
+	teams := make(map[teamKey]*teamTimelineSubmission)
 
 	for _, sub := range raw {
 		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
-		key := groupKey{bucket: bucket}
-		if sub.GroupID != nil {
-			key.groupID = *sub.GroupID
-			key.hasGroup = true
+		key := teamKey{bucket: bucket}
+		if sub.TeamID != nil {
+			key.teamID = *sub.TeamID
+			key.hasTeam = true
 		}
 
-		if group, exists := groups[key]; exists {
-			group.Points += sub.Points
-			group.ChallengeCount++
+		if team, exists := teams[key]; exists {
+			team.Points += sub.Points
+			team.ChallengeCount++
 		} else {
-			groups[key] = &groupTimelineSubmission{
+			teams[key] = &teamTimelineSubmission{
 				Timestamp:      bucket,
-				GroupID:        sub.GroupID,
-				GroupName:      sub.GroupName,
+				TeamID:         sub.TeamID,
+				TeamName:       sub.TeamName,
 				Points:         sub.Points,
 				ChallengeCount: 1,
 			}
 		}
 	}
 
-	result := make([]groupTimelineSubmission, 0, len(groups))
-	for _, group := range groups {
-		result = append(result, *group)
+	result := make([]teamTimelineSubmission, 0, len(teams))
+	for _, team := range teams {
+		result = append(result, *team)
 	}
 
 	sort.Slice(result, func(i, j int) bool {
 		if result[i].Timestamp.Equal(result[j].Timestamp) {
-			if result[i].GroupName == result[j].GroupName {
-				return result[i].GroupID != nil && (result[j].GroupID == nil || *result[i].GroupID < *result[j].GroupID)
+			if result[i].TeamName == result[j].TeamName {
+				return result[i].TeamID != nil && (result[j].TeamID == nil || *result[i].TeamID < *result[j].TeamID)
 			}
 
-			return result[i].GroupName < result[j].GroupName
+			return result[i].TeamName < result[j].TeamName
 		}
 
 		return result[i].Timestamp.Before(result[j].Timestamp)

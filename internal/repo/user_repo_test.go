@@ -41,8 +41,8 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("unexpected email: %s", got.Email)
 	}
 
-	if got.GroupName == nil || *got.GroupName != "not affiliated" {
-		t.Fatalf("expected default group name, got %+v", got.GroupName)
+	if got.TeamName == nil || *got.TeamName != "not affiliated" {
+		t.Fatalf("expected default team name, got %+v", got.TeamName)
 	}
 
 	got.Username = "user2"
@@ -68,8 +68,8 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("expected 1 user, got %d", len(users))
 	}
 
-	if users[0].GroupName == nil || *users[0].GroupName != "not affiliated" {
-		t.Fatalf("expected default group name, got %+v", users[0].GroupName)
+	if users[0].TeamName == nil || *users[0].TeamName != "not affiliated" {
+		t.Fatalf("expected default team name, got %+v", users[0].TeamName)
 	}
 }
 
@@ -83,8 +83,8 @@ func TestUserRepoNotFound(t *testing.T) {
 
 func TestUserRepoLeaderboardAndTimeline(t *testing.T) {
 	env := setupRepoTest(t)
-	group := createGroup(t, env, "Alpha")
-	user1 := createUserWithGroup(t, env, "u1@example.com", "u1", "pass", "user", &group.ID)
+	team := createTeam(t, env, "Alpha")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
 
 	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
@@ -126,12 +126,12 @@ func TestUserRepoLeaderboardAndTimeline(t *testing.T) {
 	}
 }
 
-func TestUserRepoGroupLeaderboardAndTimeline(t *testing.T) {
+func TestUserRepoTeamLeaderboardAndTimeline(t *testing.T) {
 	env := setupRepoTest(t)
-	groupA := createGroup(t, env, "Alpha")
-	groupB := createGroup(t, env, "Beta")
-	user1 := createUserWithGroup(t, env, "u1@example.com", "u1", "pass", "user", &groupA.ID)
-	user2 := createUserWithGroup(t, env, "u2@example.com", "u2", "pass", "user", &groupB.ID)
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &teamB.ID)
 	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
 
 	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
@@ -141,34 +141,34 @@ func TestUserRepoGroupLeaderboardAndTimeline(t *testing.T) {
 	createSubmission(t, env, user2.ID, ch2.ID, true, time.Now().Add(-2*time.Minute))
 	createSubmission(t, env, user3.ID, ch2.ID, true, time.Now().Add(-1*time.Minute))
 
-	leaderboard, err := env.userRepo.GroupLeaderboard(context.Background())
+	leaderboard, err := env.userRepo.TeamLeaderboard(context.Background())
 	if err != nil {
-		t.Fatalf("GroupLeaderboard: %v", err)
+		t.Fatalf("TeamLeaderboard: %v", err)
 	}
 
 	if len(leaderboard) != 3 {
-		t.Fatalf("expected 3 group rows, got %d", len(leaderboard))
+		t.Fatalf("expected 3 team rows, got %d", len(leaderboard))
 	}
 
-	if leaderboard[0].GroupName != "Alpha" || leaderboard[0].Score != 100 {
-		t.Fatalf("unexpected group leaderboard first row: %+v", leaderboard[0])
+	if leaderboard[0].TeamName != "Alpha" || leaderboard[0].Score != 100 {
+		t.Fatalf("unexpected team leaderboard first row: %+v", leaderboard[0])
 	}
 
-	if leaderboard[2].GroupName != "not affiliated" || leaderboard[2].Score != 50 {
-		t.Fatalf("unexpected group leaderboard last row: %+v", leaderboard[2])
+	if leaderboard[2].TeamName != "not affiliated" || leaderboard[2].Score != 50 {
+		t.Fatalf("unexpected team leaderboard last row: %+v", leaderboard[2])
 	}
 
-	rows, err := env.userRepo.TimelineGroupSubmissions(context.Background(), nil)
+	rows, err := env.userRepo.TimelineTeamSubmissions(context.Background(), nil)
 	if err != nil {
-		t.Fatalf("TimelineGroupSubmissions: %v", err)
+		t.Fatalf("TimelineTeamSubmissions: %v", err)
 	}
 
 	if len(rows) != 3 {
-		t.Fatalf("expected 3 group timeline rows, got %d", len(rows))
+		t.Fatalf("expected 3 team timeline rows, got %d", len(rows))
 	}
 
-	if rows[0].GroupName == "" {
-		t.Fatalf("expected group name in row")
+	if rows[0].TeamName == "" {
+		t.Fatalf("expected team name in row")
 	}
 }
 

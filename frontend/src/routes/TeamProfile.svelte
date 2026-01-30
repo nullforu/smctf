@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte'
     import { api } from '../lib/api'
-    import type { GroupDetail, GroupMember, GroupSolvedChallenge } from '../lib/types'
+    import type { TeamDetail, TeamMember, TeamSolvedChallenge } from '../lib/types'
     import { formatApiError, formatDateTime } from '../lib/utils'
     import { navigate as _navigate } from '../lib/router'
 
@@ -13,28 +13,28 @@
 
     let { routeParams = {} }: Props = $props()
 
-    let group: GroupDetail | null = $state(null)
-    let members: GroupMember[] = $state([])
-    let solved: GroupSolvedChallenge[] = $state([])
+    let team: TeamDetail | null = $state(null)
+    let members: TeamMember[] = $state([])
+    let solved: TeamSolvedChallenge[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
 
     const formatDateTimeLocal = formatDateTime
 
-    const loadGroup = async (groupId: number) => {
+    const loadTeam = async (teamId: number) => {
         loading = true
         errorMessage = ''
-        group = null
+        team = null
         members = []
         solved = []
 
         try {
-            const [groupDetail, memberRows, solvedRows] = await Promise.all([
-                api.groupDetail(groupId),
-                api.groupMembers(groupId),
-                api.groupSolved(groupId),
+            const [teamDetail, memberRows, solvedRows] = await Promise.all([
+                api.teamDetail(teamId),
+                api.teamMembers(teamId),
+                api.teamSolved(teamId),
             ])
-            group = groupDetail
+            team = teamDetail
             members = memberRows
             solved = solvedRows
         } catch (error) {
@@ -46,13 +46,13 @@
 
     $effect(() => {
         if (routeParams.id) {
-            loadGroup(parseInt(routeParams.id))
+            loadTeam(parseInt(routeParams.id))
         }
     })
 
     onMount(() => {
         if (routeParams.id) {
-            loadGroup(parseInt(routeParams.id))
+            loadTeam(parseInt(routeParams.id))
         }
     })
 </script>
@@ -61,7 +61,7 @@
     <div class="mb-6">
         <button
             class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400"
-            onclick={() => navigate('/groups')}
+            onclick={() => navigate('/teams')}
         >
             <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -76,7 +76,7 @@
             >
                 <path d="m15 18-6-6 6-6" />
             </svg>
-            Back to Groups
+            Back to Teams
         </button>
     </div>
 
@@ -88,23 +88,23 @@
         <div class="rounded-2xl border border-rose-200 bg-rose-50 p-8 dark:border-rose-900/50 dark:bg-rose-950/20">
             <p class="text-center text-sm text-rose-700 dark:text-rose-300">{errorMessage}</p>
         </div>
-    {:else if group}
+    {:else if team}
         <div>
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h2 class="text-3xl text-slate-900 dark:text-slate-100">{group.name}</h2>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Group ID: {group.id}</p>
+                    <h2 class="text-3xl text-slate-900 dark:text-slate-100">{team.name}</h2>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Team ID: {team.id}</p>
                 </div>
                 <div class="flex flex-wrap gap-2 text-xs">
                     <span
                         class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/60 dark:text-slate-300"
                     >
-                        Members: {group.member_count}
+                        Members: {team.member_count}
                     </span>
                     <span
                         class="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-teal-700 dark:border-teal-800/40 dark:bg-teal-900/20 dark:text-teal-200"
                     >
-                        Total Score: {group.total_score} pts
+                        Total Score: {team.total_score} pts
                     </span>
                 </div>
             </div>

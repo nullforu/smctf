@@ -3,14 +3,14 @@
     import { api } from '../lib/api'
     import { formatApiError, formatDateTime } from '../lib/utils'
     import { buildChartModel, chartLayout, type ChartSubmissionPoint, type ChartModel } from '../routes/scoreboardChart'
-    import type { GroupTimelineResponse, TimelineSubmission, TimelineResponse } from '../lib/types'
+    import type { TeamTimelineResponse, TimelineSubmission, TimelineResponse } from '../lib/types'
     import { navigate as _navigate } from '../lib/router'
 
     const navigate = _navigate
 
     interface Props {
         windowMinutes: number
-        mode?: 'users' | 'groups'
+        mode?: 'users' | 'teams'
     }
 
     interface TooltipState {
@@ -23,7 +23,7 @@
     let { windowMinutes, mode = 'users' }: Props = $props()
 
     let timeline: TimelineResponse | null = $state(null)
-    let rawGroupTimeline: GroupTimelineResponse | null = $state(null)
+    let rawTeamTimeline: TeamTimelineResponse | null = $state(null)
     let chartModel: ChartModel | null = $state(null)
     let hoveredUserId: number | null = $state(null)
     let tooltip: TooltipState | null = $state(null)
@@ -83,14 +83,14 @@
         tooltip = null
 
         try {
-            if (mode === 'groups') {
-                rawGroupTimeline = await api.timelineGroups(windowMinutes)
-                timeline = rawGroupTimeline
+            if (mode === 'teams') {
+                rawTeamTimeline = await api.timelineTeams(windowMinutes)
+                timeline = rawTeamTimeline
                     ? {
-                          submissions: rawGroupTimeline.submissions.map((sub) => ({
+                          submissions: rawTeamTimeline.submissions.map((sub) => ({
                               timestamp: sub.timestamp,
-                              user_id: sub.group_id ?? 0,
-                              username: sub.group_name === 'not affiliated' ? '-' : (sub.group_name ?? '–'),
+                              user_id: sub.team_id ?? 0,
+                              username: sub.team_name === 'not affiliated' ? '-' : (sub.team_name ?? '–'),
                               points: sub.points,
                               challenge_count: sub.challenge_count,
                           })),
@@ -98,7 +98,7 @@
                     : null
             } else {
                 timeline = await api.timeline(windowMinutes)
-                rawGroupTimeline = null
+                rawTeamTimeline = null
             }
             chartModel = timeline ? buildChartModel(timeline, windowMinutes, chartWidth) : null
 
@@ -136,7 +136,7 @@
             <span>·</span>
             <span>
                 Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)}
-                {mode === 'groups' ? 'groups' : 'users'}
+                {mode === 'teams' ? 'teams' : 'users'}
             </span>
         </div>
         {#if chartModel}
@@ -269,7 +269,7 @@
                     >
                         {#if tooltip}
                             <p class="text-slate-700 dark:text-slate-300">
-                                {mode === 'groups' ? 'Group / Organization' : 'User'}: {tooltip.username}
+                                {mode === 'teams' ? 'Team' : 'User'}: {tooltip.username}
                             </p>
                             <p class="mt-1 text-sm text-slate-900 dark:text-slate-100">
                                 {tooltip.submission.challenge_count > 1
@@ -285,7 +285,7 @@
                 </div>
                 <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
                     {#each chartModel.series as series}
-                        {#if mode === 'groups'}
+                        {#if mode === 'teams'}
                             <button
                                 class="flex items-center gap-2"
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}

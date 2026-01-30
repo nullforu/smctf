@@ -29,12 +29,12 @@ type AuthService struct {
 	db                  *bun.DB
 	userRepo            *repo.UserRepo
 	registrationKeyRepo *repo.RegistrationKeyRepo
-	groupRepo           *repo.GroupRepo
+	teamRepo            *repo.TeamRepo
 	redis               *redis.Client
 }
 
-func NewAuthService(cfg config.Config, db *bun.DB, userRepo *repo.UserRepo, registrationKeyRepo *repo.RegistrationKeyRepo, groupRepo *repo.GroupRepo, redis *redis.Client) *AuthService {
-	return &AuthService{cfg: cfg, db: db, userRepo: userRepo, registrationKeyRepo: registrationKeyRepo, groupRepo: groupRepo, redis: redis}
+func NewAuthService(cfg config.Config, db *bun.DB, userRepo *repo.UserRepo, registrationKeyRepo *repo.RegistrationKeyRepo, teamRepo *repo.TeamRepo, redis *redis.Client) *AuthService {
+	return &AuthService{cfg: cfg, db: db, userRepo: userRepo, registrationKeyRepo: registrationKeyRepo, teamRepo: teamRepo, redis: redis}
 }
 
 func isSixDigitCode(value string) bool {
@@ -108,7 +108,7 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 			return NewValidationError(FieldError{Field: "registration_key", Reason: "used"})
 		}
 
-		user.GroupID = key.GroupID
+		user.TeamID = key.TeamID
 
 		if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
 			if db.IsUniqueViolation(err) {
@@ -153,27 +153,27 @@ func generateRegistrationCode() (string, error) {
 	return fmt.Sprintf("%06d", value), nil
 }
 
-func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int, groupID *int64) ([]models.RegistrationKey, error) {
+func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int, teamID *int64) ([]models.RegistrationKey, error) {
 	validator := newFieldValidator()
 	if count < 1 {
 		validator.fields = append(validator.fields, FieldError{Field: "count", Reason: "must be >= 1"})
 	}
 
-	if groupID != nil {
-		validator.PositiveID("group_id", *groupID)
+	if teamID != nil {
+		validator.PositiveID("team_id", *teamID)
 	}
 
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
 
-	if groupID != nil {
-		if _, err := s.groupRepo.GetByID(ctx, *groupID); err != nil {
+	if teamID != nil {
+		if _, err := s.teamRepo.GetByID(ctx, *teamID); err != nil {
 			if errors.Is(err, repo.ErrNotFound) {
-				return nil, NewValidationError(FieldError{Field: "group_id", Reason: "invalid"})
+				return nil, NewValidationError(FieldError{Field: "team_id", Reason: "invalid"})
 			}
 
-			return nil, fmt.Errorf("auth.CreateRegistrationKeys group lookup: %w", err)
+			return nil, fmt.Errorf("auth.CreateRegistrationKeys team lookup: %w", err)
 		}
 	}
 
@@ -192,7 +192,7 @@ func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64,
 		key := models.RegistrationKey{
 			Code:      code,
 			CreatedBy: adminID,
-			GroupID:   groupID,
+			TeamID:    teamID,
 			CreatedAt: time.Now().UTC(),
 		}
 

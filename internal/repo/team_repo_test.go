@@ -9,56 +9,56 @@ import (
 	"smctf/internal/models"
 )
 
-func TestGroupRepoCRUD(t *testing.T) {
+func TestTeamRepoCRUD(t *testing.T) {
 	env := setupRepoTest(t)
 
-	group := &models.Group{
+	team := &models.Team{
 		Name:      "Alpha School",
 		CreatedAt: time.Now().UTC(),
 	}
 
-	if err := env.groupRepo.Create(context.Background(), group); err != nil {
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	got, err := env.groupRepo.GetByID(context.Background(), group.ID)
+	got, err := env.teamRepo.GetByID(context.Background(), team.ID)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
 
-	if got.ID != group.ID || got.Name != group.Name {
-		t.Fatalf("unexpected group: %+v", got)
+	if got.ID != team.ID || got.Name != team.Name {
+		t.Fatalf("unexpected team: %+v", got)
 	}
 
-	list, err := env.groupRepo.List(context.Background())
+	list, err := env.teamRepo.List(context.Background())
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
 
 	if len(list) != 1 {
-		t.Fatalf("expected 1 group, got %d", len(list))
+		t.Fatalf("expected 1 team, got %d", len(list))
 	}
 }
 
-func TestGroupRepoNotFound(t *testing.T) {
+func TestTeamRepoNotFound(t *testing.T) {
 	env := setupRepoTest(t)
 
-	_, err := env.groupRepo.GetByID(context.Background(), 999)
+	_, err := env.teamRepo.GetByID(context.Background(), 999)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
 
-func TestGroupRepoListWithStats(t *testing.T) {
+func TestTeamRepoListWithStats(t *testing.T) {
 	env := setupRepoTest(t)
 
-	groupA := createGroup(t, env, "Alpha School")
-	groupB := createGroup(t, env, "Beta School")
+	teamA := createTeam(t, env, "Alpha School")
+	teamB := createTeam(t, env, "Beta School")
 
-	userA1 := createUserWithGroup(t, env, "a1@example.com", "alpha1", "pass", "user", &groupA.ID)
-	userA2 := createUserWithGroup(t, env, "a2@example.com", "alpha2", "pass", "user", &groupA.ID)
-	_ = createUserWithGroup(t, env, "b1@example.com", "beta1", "pass", "user", &groupB.ID)
-	_ = createUser(t, env, "nogroup@example.com", "nogroup", "pass", "user")
+	userA1 := createUserWithTeam(t, env, "a1@example.com", "alpha1", "pass", "user", &teamA.ID)
+	userA2 := createUserWithTeam(t, env, "a2@example.com", "alpha2", "pass", "user", &teamA.ID)
+	_ = createUserWithTeam(t, env, "b1@example.com", "beta1", "pass", "user", &teamB.ID)
+	_ = createUser(t, env, "noteam@example.com", "noteam", "pass", "user")
 
 	chal1 := createChallenge(t, env, "Basic", 100, "flag{basic}", true)
 	chal2 := createChallenge(t, env, "Hard", 200, "flag{hard}", true)
@@ -68,27 +68,27 @@ func TestGroupRepoListWithStats(t *testing.T) {
 	createSubmission(t, env, userA2.ID, chal2.ID, true, now.Add(-1*time.Minute))
 	createSubmission(t, env, userA1.ID, chal2.ID, false, now.Add(-30*time.Second))
 
-	rows, err := env.groupRepo.ListWithStats(context.Background())
+	rows, err := env.teamRepo.ListWithStats(context.Background())
 	if err != nil {
 		t.Fatalf("ListWithStats: %v", err)
 	}
 
 	if len(rows) != 2 {
-		t.Fatalf("expected 2 groups, got %d", len(rows))
+		t.Fatalf("expected 2 teams, got %d", len(rows))
 	}
 
-	var gotA, gotB *models.GroupSummary
+	var gotA, gotB *models.TeamSummary
 	for i := range rows {
 		switch rows[i].ID {
-		case groupA.ID:
+		case teamA.ID:
 			gotA = &rows[i]
-		case groupB.ID:
+		case teamB.ID:
 			gotB = &rows[i]
 		}
 	}
 
 	if gotA == nil || gotB == nil {
-		t.Fatalf("missing group rows: %+v", rows)
+		t.Fatalf("missing team rows: %+v", rows)
 	}
 
 	if gotA.MemberCount != 2 || gotA.TotalScore != 300 {
@@ -100,42 +100,42 @@ func TestGroupRepoListWithStats(t *testing.T) {
 	}
 }
 
-func TestGroupRepoGetStats(t *testing.T) {
+func TestTeamRepoGetStats(t *testing.T) {
 	env := setupRepoTest(t)
 
-	group := createGroup(t, env, "Gamma School")
-	user := createUserWithGroup(t, env, "g1@example.com", "gamma1", "pass", "user", &group.ID)
+	team := createTeam(t, env, "Gamma School")
+	user := createUserWithTeam(t, env, "g1@example.com", "gamma1", "pass", "user", &team.ID)
 	chal := createChallenge(t, env, "Gamma", 150, "flag{gamma}", true)
 	createSubmission(t, env, user.ID, chal.ID, true, time.Now().UTC())
 
-	row, err := env.groupRepo.GetStats(context.Background(), group.ID)
+	row, err := env.teamRepo.GetStats(context.Background(), team.ID)
 	if err != nil {
 		t.Fatalf("GetStats: %v", err)
 	}
 
-	if row.ID != group.ID || row.MemberCount != 1 || row.TotalScore != 150 {
+	if row.ID != team.ID || row.MemberCount != 1 || row.TotalScore != 150 {
 		t.Fatalf("unexpected stats: %+v", row)
 	}
 }
 
-func TestGroupRepoGetStatsNotFound(t *testing.T) {
+func TestTeamRepoGetStatsNotFound(t *testing.T) {
 	env := setupRepoTest(t)
 
-	_, err := env.groupRepo.GetStats(context.Background(), 404)
+	_, err := env.teamRepo.GetStats(context.Background(), 404)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
 
-func TestGroupRepoListMembers(t *testing.T) {
+func TestTeamRepoListMembers(t *testing.T) {
 	env := setupRepoTest(t)
 
-	group := createGroup(t, env, "Members School")
-	user1 := createUserWithGroup(t, env, "m1@example.com", "member1", "pass", "user", &group.ID)
-	user2 := createUserWithGroup(t, env, "m2@example.com", "member2", "pass", "admin", &group.ID)
+	team := createTeam(t, env, "Members School")
+	user1 := createUserWithTeam(t, env, "m1@example.com", "member1", "pass", "user", &team.ID)
+	user2 := createUserWithTeam(t, env, "m2@example.com", "member2", "pass", "admin", &team.ID)
 	_ = createUser(t, env, "other@example.com", "other", "pass", "user")
 
-	rows, err := env.groupRepo.ListMembers(context.Background(), group.ID)
+	rows, err := env.teamRepo.ListMembers(context.Background(), team.ID)
 	if err != nil {
 		t.Fatalf("ListMembers: %v", err)
 	}
@@ -153,12 +153,12 @@ func TestGroupRepoListMembers(t *testing.T) {
 	}
 }
 
-func TestGroupRepoListSolvedChallenges(t *testing.T) {
+func TestTeamRepoListSolvedChallenges(t *testing.T) {
 	env := setupRepoTest(t)
 
-	group := createGroup(t, env, "Solves School")
-	user1 := createUserWithGroup(t, env, "s1@example.com", "solver1", "pass", "user", &group.ID)
-	user2 := createUserWithGroup(t, env, "s2@example.com", "solver2", "pass", "user", &group.ID)
+	team := createTeam(t, env, "Solves School")
+	user1 := createUserWithTeam(t, env, "s1@example.com", "solver1", "pass", "user", &team.ID)
+	user2 := createUserWithTeam(t, env, "s2@example.com", "solver2", "pass", "user", &team.ID)
 
 	chal1 := createChallenge(t, env, "Intro", 50, "flag{intro}", true)
 	chal2 := createChallenge(t, env, "Advanced", 250, "flag{adv}", true)
@@ -169,7 +169,7 @@ func TestGroupRepoListSolvedChallenges(t *testing.T) {
 	createSubmission(t, env, user1.ID, chal2.ID, true, now.Add(-1*time.Minute))
 	createSubmission(t, env, user2.ID, chal2.ID, false, now.Add(-30*time.Second))
 
-	rows, err := env.groupRepo.ListSolvedChallenges(context.Background(), group.ID)
+	rows, err := env.teamRepo.ListSolvedChallenges(context.Background(), team.ID)
 	if err != nil {
 		t.Fatalf("ListSolvedChallenges: %v", err)
 	}

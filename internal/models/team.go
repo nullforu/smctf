@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-type GroupSummary struct {
+type TeamSummary struct {
 	ID          int64     `bun:"id" json:"id"`
 	Name        string    `bun:"name" json:"name"`
 	CreatedAt   time.Time `bun:"created_at" json:"created_at"`
@@ -10,13 +10,13 @@ type GroupSummary struct {
 	TotalScore  int       `bun:"total_score" json:"total_score"`
 }
 
-type GroupMember struct {
+type TeamMember struct {
 	ID       int64  `bun:"id" json:"id"`
 	Username string `bun:"username" json:"username"`
 	Role     string `bun:"role" json:"role"`
 }
 
-type GroupSolvedChallenge struct {
+type TeamSolvedChallenge struct {
 	ChallengeID  int64     `bun:"challenge_id" json:"challenge_id"`
 	Title        string    `bun:"title" json:"title"`
 	Points       int       `bun:"points" json:"points"`

@@ -68,7 +68,7 @@ if len(USER_NAMES) != 30:
     print("Error: USER_NAMES must contain at least 30 unique entries.")
     sys.exit(1)
 
-GROUP_NAMES = [
+TEAM_NAMES = [
     "두명컴퓨터고등학교",
     "한명컴퓨터고등학교",
     "세명컴퓨터고등학교",
@@ -108,19 +108,19 @@ CHALLENGES = [
 ]
 
 
-def generate_groups() -> List[Tuple[str, str]]:
-    groups = []
+def generate_teams() -> List[Tuple[str, str]]:
+    teams = []
     base_time = datetime.now(UTC) - timedelta(hours=50)
 
-    for i, name in enumerate(GROUP_NAMES):
+    for i, name in enumerate(TEAM_NAMES):
         created_at = (base_time + timedelta(minutes=i * 9))
         created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
-        groups.append((name, created_at_str))
+        teams.append((name, created_at_str))
 
-    return groups
+    return teams
 
 
-def generate_users(count: int, group_ids: List[int]) -> List[Tuple[str, str, str, str, str, Optional[int]]]:
+def generate_users(count: int, team_ids: List[int]) -> List[Tuple[str, str, str, str, str, Optional[int]]]:
     users = []
     selected_names = random.sample(USER_NAMES, min(count, len(USER_NAMES)))
     
@@ -139,11 +139,11 @@ def generate_users(count: int, group_ids: List[int]) -> List[Tuple[str, str, str
         role = "user"
         created_at = (base_time + timedelta(hours=random.random() * 12))
         created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
-        group_id = None
-        if group_ids and random.random() > 0.2:
-            group_id = random.choice(group_ids)
+        team_id = None
+        if team_ids and random.random() > 0.2:
+            team_id = random.choice(team_ids)
         
-        users.append((email, username, password_hash, role, created_at_str, group_id))
+        users.append((email, username, password_hash, role, created_at_str, team_id))
     
     return users
 
@@ -164,7 +164,7 @@ def generate_challenges() -> List[Tuple[str, str, str, int, str, bool, str]]:
 
 
 def generate_registration_keys(
-    user_count: int, group_ids: List[int], count: int = 30
+    user_count: int, team_ids: List[int], count: int = 30
 ) -> List[Tuple[str, int, Optional[int], Optional[int], Optional[str], str, Optional[str]]]:
     keys = []
     base_time = datetime.now(UTC) - timedelta(hours=46)
@@ -182,10 +182,10 @@ def generate_registration_keys(
         used_by = None
         used_by_ip = None
         used_at_str = None
-        group_id = None
+        team_id = None
 
-        if group_ids and random.random() > 0.25:
-            group_id = random.choice(group_ids)
+        if team_ids and random.random() > 0.25:
+            team_id = random.choice(team_ids)
 
         if i < used_limit and user_count > 1:
             used_by = random.randint(2, user_count)
@@ -193,7 +193,7 @@ def generate_registration_keys(
             used_at = created_at + timedelta(minutes=random.randint(5, 180))
             used_at_str = used_at.strftime('%Y-%m-%d %H:%M:%S')
 
-        keys.append((code, 1, group_id, used_by, used_by_ip, created_at_str, used_at_str))
+        keys.append((code, 1, team_id, used_by, used_by_ip, created_at_str, used_at_str))
 
     return keys
 
@@ -292,14 +292,14 @@ def generate_sql_file(output_file: str):
     print(f"FLAG_HMAC_SECRET: {FLAG_HMAC_SECRET}")
     print(f"BCRYPT_COST: {BCRYPT_COST}")
     
-    groups = generate_groups()
-    group_ids = list(range(1, len(groups) + 1))
-    users = generate_users(30, group_ids)
+    teams = generate_teams()
+    team_ids = list(range(1, len(teams) + 1))
+    users = generate_users(30, team_ids)
     challenges = generate_challenges()
-    registration_keys = generate_registration_keys(len(users), group_ids)
+    registration_keys = generate_registration_keys(len(users), team_ids)
     submissions = generate_submissions(len(users), len(challenges))
     
-    print(f"Generated {len(groups)} groups")
+    print(f"Generated {len(teams)} teams")
     print(f"Generated {len(users)} users")
     print(f"Generated {len(challenges)} challenges")
     print(f"Generated {len(registration_keys)} registration keys")
@@ -314,43 +314,43 @@ def generate_sql_file(output_file: str):
         f.write("-- Admin credentials: admin@smctf.com / admin123!\n\n")
         
         f.write("-- Clear existing data\n")
-        f.write("TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE;\n\n")
+        f.write("TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE;\n\n")
 
-        f.write("-- Insert groups\n")
-        for name, created_at in groups:
+        f.write("-- Insert teams\n")
+        for name, created_at in teams:
             name_esc = escape_sql_string(name)
-            f.write("INSERT INTO groups (name, created_at) VALUES ")
+            f.write("INSERT INTO teams (name, created_at) VALUES ")
             f.write(f"('{name_esc}', '{created_at}');\n")
         f.write("\n")
         
         f.write("-- Insert users\n")
-        for email, username, password_hash, role, created_at, group_id in users:
+        for email, username, password_hash, role, created_at, team_id in users:
             email_esc = escape_sql_string(email)
             username_esc = escape_sql_string(username)
             password_hash_esc = escape_sql_string(password_hash)
             role_esc = escape_sql_string(role)
-            group_id_value = "NULL" if group_id is None else str(group_id)
+            team_id_value = "NULL" if team_id is None else str(team_id)
             
-            f.write(f"INSERT INTO users (email, username, password_hash, role, group_id, created_at, updated_at) VALUES ")
+            f.write(f"INSERT INTO users (email, username, password_hash, role, team_id, created_at, updated_at) VALUES ")
             f.write(
-                f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', {group_id_value}, '{created_at}', '{created_at}');\n"
+                f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', {team_id_value}, '{created_at}', '{created_at}');\n"
             )
         
         f.write("\n")
         
         f.write("-- Insert registration keys\n")
-        for code, created_by, group_id, used_by, used_by_ip, created_at, used_at in registration_keys:
+        for code, created_by, team_id, used_by, used_by_ip, created_at, used_at in registration_keys:
             code_esc = escape_sql_string(code)
-            group_id_value = "NULL" if group_id is None else str(group_id)
+            team_id_value = "NULL" if team_id is None else str(team_id)
             used_by_value = "NULL" if used_by is None else str(used_by)
             used_at_value = "NULL" if used_at is None else f"'{used_at}'"
             used_by_ip_value = "NULL" if used_by_ip is None else f"'{escape_sql_string(used_by_ip)}'"
 
             f.write(
-                "INSERT INTO registration_keys (code, created_by, group_id, used_by, used_by_ip, created_at, used_at) VALUES "
+                "INSERT INTO registration_keys (code, created_by, team_id, used_by, used_by_ip, created_at, used_at) VALUES "
             )
             f.write(
-                f"('{code_esc}', {created_by}, {group_id_value}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n"
+                f"('{code_esc}', {created_by}, {team_id_value}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n"
             )
 
         f.write("\n")
@@ -376,7 +376,7 @@ def generate_sql_file(output_file: str):
         
         f.write("\n")
         f.write("-- Update sequences\n")
-        f.write("SELECT setval('groups_id_seq', (SELECT MAX(id) FROM groups));\n")
+        f.write("SELECT setval('teams_id_seq', (SELECT MAX(id) FROM teams));\n")
         f.write("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));\n")
         f.write("SELECT setval('challenges_id_seq', (SELECT MAX(id) FROM challenges));\n")
         f.write("SELECT setval('registration_keys_id_seq', (SELECT MAX(id) FROM registration_keys));\n")

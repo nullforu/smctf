@@ -13,7 +13,7 @@
 
     let windowMinutes = $state(60)
     let timelineKey = $state(0)
-    let viewMode = $state<'users' | 'groups'>('users')
+    let viewMode = $state<'users' | 'teams'>('users')
 
     const reloadTimeline = () => {
         timelineKey++
@@ -44,16 +44,16 @@
                 </button>
                 <button
                     class={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        viewMode === 'groups'
+                        viewMode === 'teams'
                             ? 'bg-teal-500/20 text-teal-700 dark:text-teal-200'
                             : 'text-slate-600 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-200'
                     }`}
                     onclick={() => {
-                        viewMode = 'groups'
+                        viewMode = 'teams'
                         reloadTimeline()
                     }}
                 >
-                    Group / Organization
+                    Team
                 </button>
             </div>
             <label

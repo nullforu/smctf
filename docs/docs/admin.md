@@ -18,11 +18,11 @@ Request
 ```json
 {
     "count": 5,
-    "group_id": 1
+    "team_id": 1
 }
 ```
 
-`group_id` is optional. Omit or set to null for unassigned (not affiliated).
+`team_id` is optional. Omit or set to null for unassigned (not affiliated).
 
 Response 201
 
@@ -33,8 +33,8 @@ Response 201
         "code": "123456",
         "created_by": 2,
         "created_by_username": "admin",
-        "group_id": 1,
-        "group_name": "서울고등학교",
+        "team_id": 1,
+        "team_name": "서울고등학교",
         "used_by": null,
         "used_by_username": null,
         "used_by_ip": null,
@@ -71,8 +71,8 @@ Response 200
         "code": "123456",
         "created_by": 2,
         "created_by_username": "admin",
-        "group_id": 1,
-        "group_name": "서울고등학교",
+        "team_id": 1,
+        "team_name": "서울고등학교",
         "used_by": 5,
         "used_by_username": "user1",
         "used_by_ip": "203.0.113.7",
@@ -89,9 +89,9 @@ Errors:
 
 ---
 
-## Create Group / Organization
+## Create Team
 
-`POST /api/admin/groups`
+`POST /api/admin/teams`
 
 Headers
 

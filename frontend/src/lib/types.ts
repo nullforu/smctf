@@ -3,8 +3,8 @@ export interface AuthUser {
     email: string
     username: string
     role: string
-    group_id?: number | null
-    group_name?: string | null
+    team_id?: number | null
+    team_name?: string | null
 }
 
 export interface RegisterPayload {
@@ -80,9 +80,9 @@ export interface ScoreEntry {
     score: number
 }
 
-export interface GroupScoreEntry {
-    group_id?: number | null
-    group_name: string
+export interface TeamScoreEntry {
+    team_id?: number | null
+    team_name: string
     score: number
 }
 
@@ -98,32 +98,32 @@ export interface TimelineResponse {
     submissions: TimelineSubmission[]
 }
 
-export interface GroupTimelineSubmission {
+export interface TeamTimelineSubmission {
     timestamp: string
-    group_id?: number | null
-    group_name: string
+    team_id?: number | null
+    team_name: string
     points: number
     challenge_count: number
 }
 
-export interface GroupTimelineResponse {
-    submissions: GroupTimelineSubmission[]
+export interface TeamTimelineResponse {
+    submissions: TeamTimelineSubmission[]
 }
 
 export interface UserListItem {
     id: number
     username: string
     role: string
-    group_id?: number | null
-    group_name?: string | null
+    team_id?: number | null
+    team_name?: string | null
 }
 
 export interface UserDetail {
     id: number
     username: string
     role: string
-    group_id?: number | null
-    group_name?: string | null
+    team_id?: number | null
+    team_name?: string | null
 }
 
 export interface RegistrationKey {
@@ -131,8 +131,8 @@ export interface RegistrationKey {
     code: string
     created_by: number
     created_by_username: string
-    group_id?: number | null
-    group_name?: string | null
+    team_id?: number | null
+    team_name?: string | null
     used_by?: number
     used_by_username?: string
     used_by_ip?: string
@@ -142,20 +142,20 @@ export interface RegistrationKey {
 
 export interface RegistrationKeyCreatePayload {
     count: number
-    group_id?: number | null
+    team_id?: number | null
 }
 
-export interface Group {
+export interface Team {
     id: number
     name: string
     created_at: string
 }
 
-export interface GroupCreatePayload {
+export interface TeamCreatePayload {
     name: string
 }
 
-export interface GroupSummary {
+export interface TeamSummary {
     id: number
     name: string
     created_at: string
@@ -163,15 +163,15 @@ export interface GroupSummary {
     total_score: number
 }
 
-export interface GroupMember {
+export interface TeamMember {
     id: number
     username: string
     role: string
 }
 
-export interface GroupDetail extends GroupSummary {}
+export interface TeamDetail extends TeamSummary {}
 
-export interface GroupSolvedChallenge {
+export interface TeamSolvedChallenge {
     challenge_id: number
     title: string
     points: number
