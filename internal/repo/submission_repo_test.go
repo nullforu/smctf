@@ -76,25 +76,6 @@ func TestSubmissionRepoSolvedChallenges(t *testing.T) {
 	}
 }
 
-func TestSubmissionRepoSolvedChallengesTeam(t *testing.T) {
-	env := setupRepoTest(t)
-	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
-	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
-
-	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().UTC())
-
-	rows, err := env.submissionRepo.SolvedChallengesTeam(context.Background(), user2.ID)
-	if err != nil {
-		t.Fatalf("SolvedChallenges teammate: %v", err)
-	}
-
-	if len(rows) != 1 || rows[0].ChallengeID != ch.ID {
-		t.Fatalf("unexpected team solved rows: %+v", rows)
-	}
-}
-
 func TestSubmissionRepoSolvedChallengesEmpty(t *testing.T) {
 	env := setupRepoTest(t)
 	rows, err := env.submissionRepo.SolvedChallenges(context.Background(), 123)

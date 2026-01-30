@@ -25,6 +25,65 @@ func (r *SubmissionRepo) Create(ctx context.Context, sub *models.Submission) err
 	return nil
 }
 
+func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID int64) (sql.NullInt64, error) {
+	var teamID sql.NullInt64
+	if err := db.NewSelect().
+		TableExpr("users AS u").
+		ColumnExpr("u.team_id").
+		Where("u.id = ?", userID).
+		For("UPDATE").
+		Scan(ctx, &teamID); err != nil {
+		return teamID, err
+	}
+
+	if teamID.Valid {
+		if _, err := db.NewSelect().
+			TableExpr("teams AS t").
+			ColumnExpr("t.id").
+			Where("t.id = ?", teamID.Int64).
+			For("UPDATE").
+			Exec(ctx); err != nil {
+			return teamID, err
+		}
+	}
+
+	return teamID, nil
+}
+
+func (r *SubmissionRepo) correctSubmissionCount(
+	ctx context.Context,
+	db bun.IDB,
+	userID int64,
+	challengeID int64,
+	teamID sql.NullInt64,
+) (int, error) {
+	query := db.NewSelect().
+		TableExpr("submissions AS s").
+		Join("JOIN users AS u ON u.id = s.user_id").
+		Where("s.challenge_id = ?", challengeID).
+		Where("s.correct = true")
+
+	if teamID.Valid {
+		query = query.Where("u.team_id = ?", teamID.Int64)
+	} else {
+		query = query.Where("u.id = ?", userID)
+	}
+
+	return query.Count(ctx)
+}
+
+func (r *SubmissionRepo) solvedChallengesQuery(db bun.IDB) *bun.SelectQuery {
+	return db.NewSelect().
+		TableExpr("submissions AS s").
+		ColumnExpr("s.challenge_id AS challenge_id").
+		ColumnExpr("c.title AS title").
+		ColumnExpr("c.points AS points").
+		ColumnExpr("MIN(s.submitted_at) AS solved_at").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
+		Join("JOIN users AS u ON u.id = s.user_id").
+		Where("s.correct = true")
+}
+
 func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub *models.Submission) (bool, error) {
 	if !sub.Correct {
 		if err := r.Create(ctx, sub); err != nil {
@@ -38,41 +97,13 @@ func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam begin", err)
 	}
 
-	var teamID sql.NullInt64
-	if err := tx.NewSelect().
-		TableExpr("users AS u").
-		ColumnExpr("u.team_id").
-		Where("u.id = ?", sub.UserID).
-		For("UPDATE").
-		Scan(ctx, &teamID); err != nil {
+	teamID, err := r.lockTeamScope(ctx, tx, sub.UserID)
+	if err != nil {
 		_ = tx.Rollback()
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam lock user", err)
 	}
 
-	if teamID.Valid {
-		if _, err := tx.NewSelect().
-			TableExpr("teams AS t").
-			ColumnExpr("t.id").
-			Where("t.id = ?", teamID.Int64).
-			For("UPDATE").
-			Exec(ctx); err != nil {
-			_ = tx.Rollback()
-			return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam lock team", err)
-		}
-	}
-
-	query := tx.NewSelect().
-		TableExpr("submissions AS s").
-		Join("JOIN users AS u ON u.id = s.user_id").
-		Where("s.challenge_id = ?", sub.ChallengeID).
-		Where("s.correct = true")
-	if teamID.Valid {
-		query = query.Where("u.team_id = ?", teamID.Int64)
-	} else {
-		query = query.Where("u.id = ?", sub.UserID)
-	}
-
-	count, err := query.Count(ctx)
+	count, err := r.correctSubmissionCount(ctx, tx, sub.UserID, sub.ChallengeID, teamID)
 	if err != nil {
 		_ = tx.Rollback()
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam check", err)
@@ -115,15 +146,7 @@ func (r *SubmissionRepo) HasCorrect(ctx context.Context, userID, challengeID int
 func (r *SubmissionRepo) SolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
 	rows := make([]models.SolvedChallenge, 0)
 
-	err := r.db.NewSelect().
-		TableExpr("submissions AS s").
-		ColumnExpr("s.challenge_id AS challenge_id").
-		ColumnExpr("c.title AS title").
-		ColumnExpr("c.points AS points").
-		ColumnExpr("MIN(s.submitted_at) AS solved_at").
-		Join("JOIN challenges AS c ON c.id = s.challenge_id").
-		Join("JOIN users AS u ON u.id = s.user_id").
-		Where("s.correct = true").
+	err := r.solvedChallengesQuery(r.db).
 		Where("u.id = ?", userID).
 		GroupExpr("s.challenge_id, c.title, c.points").
 		OrderExpr("solved_at ASC").
@@ -131,31 +154,6 @@ func (r *SubmissionRepo) SolvedChallenges(ctx context.Context, userID int64) ([]
 
 	if err != nil {
 		return nil, wrapError("submissionRepo.SolvedChallenges", err)
-	}
-
-	return rows, nil
-}
-
-func (r *SubmissionRepo) SolvedChallengesTeam(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
-	rows := make([]models.SolvedChallenge, 0)
-
-	err := r.db.NewSelect().
-		TableExpr("submissions AS s").
-		ColumnExpr("s.challenge_id AS challenge_id").
-		ColumnExpr("c.title AS title").
-		ColumnExpr("c.points AS points").
-		ColumnExpr("MIN(s.submitted_at) AS solved_at").
-		Join("JOIN challenges AS c ON c.id = s.challenge_id").
-		Join("JOIN users AS u ON u.id = s.user_id").
-		Join("JOIN users AS me ON me.id = ?", userID).
-		Where("s.correct = true").
-		Where("(me.team_id IS NULL AND u.id = me.id) OR (me.team_id IS NOT NULL AND u.team_id = me.team_id)").
-		GroupExpr("s.challenge_id, c.title, c.points").
-		OrderExpr("solved_at ASC").
-		Scan(ctx, &rows)
-
-	if err != nil {
-		return nil, wrapError("submissionRepo.SolvedChallengesTeam", err)
 	}
 
 	return rows, nil

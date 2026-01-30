@@ -72,6 +72,16 @@ func (s *TeamService) GetTeam(ctx context.Context, id int64) (*models.TeamSummar
 	return team, nil
 }
 
+func (s *TeamService) ensureTeamExists(ctx context.Context, id int64, contextLabel string) error {
+	if _, err := s.teamRepo.GetByID(ctx, id); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return repo.ErrNotFound
+		}
+		return fmt.Errorf("%s lookup: %w", contextLabel, err)
+	}
+	return nil
+}
+
 func (s *TeamService) ListMembers(ctx context.Context, id int64) ([]models.TeamMember, error) {
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
@@ -79,11 +89,8 @@ func (s *TeamService) ListMembers(ctx context.Context, id int64) ([]models.TeamM
 		return nil, err
 	}
 
-	if _, err := s.teamRepo.GetByID(ctx, id); err != nil {
-		if errors.Is(err, repo.ErrNotFound) {
-			return nil, repo.ErrNotFound
-		}
-		return nil, fmt.Errorf("team.ListMembers lookup: %w", err)
+	if err := s.ensureTeamExists(ctx, id, "team.ListMembers"); err != nil {
+		return nil, err
 	}
 
 	rows, err := s.teamRepo.ListMembers(ctx, id)
@@ -101,12 +108,8 @@ func (s *TeamService) ListSolvedChallenges(ctx context.Context, id int64) ([]mod
 		return nil, err
 	}
 
-	if _, err := s.teamRepo.GetByID(ctx, id); err != nil {
-		if errors.Is(err, repo.ErrNotFound) {
-			return nil, repo.ErrNotFound
-		}
-
-		return nil, fmt.Errorf("team.ListSolvedChallenges lookup: %w", err)
+	if err := s.ensureTeamExists(ctx, id, "team.ListSolvedChallenges"); err != nil {
+		return nil, err
 	}
 
 	rows, err := s.teamRepo.ListSolvedChallenges(ctx, id)

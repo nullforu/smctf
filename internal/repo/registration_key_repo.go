@@ -38,10 +38,8 @@ func (r *RegistrationKeyRepo) GetByCodeForUpdate(ctx context.Context, db bun.IDB
 	return key, nil
 }
 
-func (r *RegistrationKeyRepo) List(ctx context.Context) ([]models.RegistrationKeyView, error) {
-	keys := make([]models.RegistrationKeyView, 0)
-
-	query := r.db.NewSelect().
+func (r *RegistrationKeyRepo) baseRegistrationKeyViewQuery() *bun.SelectQuery {
+	return r.db.NewSelect().
 		TableExpr("registration_keys AS rk").
 		ColumnExpr("rk.id AS id").
 		ColumnExpr("rk.code AS code").
@@ -56,8 +54,13 @@ func (r *RegistrationKeyRepo) List(ctx context.Context) ([]models.RegistrationKe
 		ColumnExpr("rk.used_at AS used_at").
 		Join("JOIN users AS creator ON creator.id = rk.created_by").
 		Join("LEFT JOIN teams AS g ON g.id = rk.team_id").
-		Join("LEFT JOIN users AS used ON used.id = rk.used_by").
-		OrderExpr("rk.id DESC")
+		Join("LEFT JOIN users AS used ON used.id = rk.used_by")
+}
+
+func (r *RegistrationKeyRepo) List(ctx context.Context) ([]models.RegistrationKeyView, error) {
+	keys := make([]models.RegistrationKeyView, 0)
+
+	query := r.baseRegistrationKeyViewQuery().OrderExpr("rk.id DESC")
 
 	if err := query.Scan(ctx, &keys); err != nil {
 		return nil, wrapError("registrationKeyRepo.List", err)

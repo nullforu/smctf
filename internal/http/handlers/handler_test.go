@@ -364,9 +364,9 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 		t.Fatalf("get user solved status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/me/solved", nil)
-	ctx.Set("userID", user1.ID)
-	env.handler.MeSolved(ctx)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/1/solved", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", user1.ID)}}
+	env.handler.GetUserSolved(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("me solved status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -378,9 +378,9 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 
 	createHandlerSubmission(t, env, teamUser1.ID, teamChallenge.ID, true, time.Now().Add(-time.Minute))
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/me/solved", nil)
-	ctx.Set("userID", teamUser2.ID)
-	env.handler.MeSolved(ctx)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/1/solved", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", teamUser2.ID)}}
+	env.handler.GetUserSolved(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("me solved status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -396,9 +396,9 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 		t.Fatalf("expected personal solved empty, got %+v", personal)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/me/solved/team", nil)
-	ctx.Set("userID", teamUser2.ID)
-	env.handler.MeSolvedTeam(ctx)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1/solved", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", team.ID)}}
+	env.handler.ListTeamSolved(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("me solved team status %d: %s", rec.Code, rec.Body.String())
 	}

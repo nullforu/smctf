@@ -327,7 +327,7 @@ func TestMeSolved(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/me/solved", nil, authHeader(access))
+	rec = doRequest(t, env.router, http.MethodGet, "/api/users/"+itoa(userID)+"/solved", nil, authHeader(access))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

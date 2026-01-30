@@ -47,15 +47,19 @@ func (r *UserRepo) GetByEmailOrUsername(ctx context.Context, email, username str
 	return user, nil
 }
 
-func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) {
-	user := new(models.User)
-
-	if err := r.db.NewSelect().
-		Model(user).
+func (r *UserRepo) baseUserWithTeamQuery() *bun.SelectQuery {
+	return r.db.NewSelect().
 		TableExpr("users AS u").
 		ColumnExpr("u.*").
 		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
-		Join("LEFT JOIN teams AS g ON g.id = u.team_id").
+		Join("LEFT JOIN teams AS g ON g.id = u.team_id")
+}
+
+func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) {
+	user := new(models.User)
+
+	if err := r.baseUserWithTeamQuery().
+		Model(user).
 		Where("u.id = ?", id).
 		Scan(ctx); err != nil {
 		return nil, wrapNotFound("userRepo.GetByID", err)
@@ -171,13 +175,9 @@ func (r *UserRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time
 func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
 	users := make([]models.User, 0)
 
-	if err := r.db.NewSelect().
+	if err := r.baseUserWithTeamQuery().
 		Model(&users).
 		Distinct().
-		TableExpr("users AS u").
-		ColumnExpr("u.*").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
-		Join("LEFT JOIN teams AS g ON g.id = u.team_id").
 		OrderExpr("u.id ASC").
 		Scan(ctx); err != nil {
 		return nil, wrapError("userRepo.List", err)

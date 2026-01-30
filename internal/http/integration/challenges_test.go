@@ -198,7 +198,7 @@ func TestSubmitFlag(t *testing.T) {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
 
-		rec = doRequest(t, env.router, http.MethodGet, "/api/me/solved", nil, authHeader(access2))
+		rec = doRequest(t, env.router, http.MethodGet, "/api/users/"+itoa(user2.ID)+"/solved", nil, authHeader(access2))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
@@ -212,7 +212,7 @@ func TestSubmitFlag(t *testing.T) {
 			t.Fatalf("expected personal solved list empty, got %+v", solvedPersonal)
 		}
 
-		rec = doRequest(t, env.router, http.MethodGet, "/api/me/solved/team", nil, authHeader(access2))
+		rec = doRequest(t, env.router, http.MethodGet, "/api/teams/"+itoa(team.ID)+"/solved", nil, authHeader(access2))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}

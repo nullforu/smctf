@@ -212,12 +212,6 @@ export const api = {
     updateMe: (username: string) => {
         return request<AuthUser>(`/api/me`, { method: 'PUT', body: { username }, auth: true })
     },
-    solved: () => {
-        return request<SolvedChallenge[]>(`/api/me/solved`, { auth: true })
-    },
-    solvedTeam: () => {
-        return request<SolvedChallenge[]>(`/api/me/solved/team`, { auth: true })
-    },
     challenges: () => {
         return request<Challenge[]>(`/api/challenges`)
     },

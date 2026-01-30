@@ -260,13 +260,3 @@ func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]mode
 
 	return rows, nil
 }
-
-func (s *CTFService) TeamSolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
-	rows, err := s.submissionRepo.SolvedChallengesTeam(ctx, userID)
-
-	if err != nil {
-		return nil, fmt.Errorf("ctf.TeamSolvedChallenges: %w", err)
-	}
-
-	return rows, nil
-}

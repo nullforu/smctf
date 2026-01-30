@@ -9,6 +9,7 @@ import (
 
 	"smctf/internal/config"
 	"smctf/internal/http/middleware"
+	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 
@@ -78,6 +79,88 @@ type createRegistrationKeysRequest struct {
 
 type createTeamRequest struct {
 	Name string `json:"name" binding:"required"`
+}
+
+func userMeResponse(user *models.User) gin.H {
+	return gin.H{
+		"id":        user.ID,
+		"email":     user.Email,
+		"username":  user.Username,
+		"role":      user.Role,
+		"team_id":   user.TeamID,
+		"team_name": user.TeamName,
+	}
+}
+
+func userDetailResponse(user *models.User) gin.H {
+	return gin.H{
+		"id":        user.ID,
+		"username":  user.Username,
+		"role":      user.Role,
+		"team_id":   user.TeamID,
+		"team_name": user.TeamName,
+	}
+}
+
+func challengeResponse(challenge *models.Challenge) gin.H {
+	return gin.H{
+		"id":          challenge.ID,
+		"title":       challenge.Title,
+		"description": challenge.Description,
+		"category":    challenge.Category,
+		"points":      challenge.Points,
+		"is_active":   challenge.IsActive,
+	}
+}
+
+func windowStartFromMinutes(windowMinutes int) *time.Time {
+	if windowMinutes <= 0 {
+		return nil
+	}
+	start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
+	return &start
+}
+
+func (h *Handler) respondFromCache(ctx *gin.Context, cacheKey string) bool {
+	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
+	if err != nil {
+		return false
+	}
+
+	ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+	return true
+}
+
+func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response gin.H) {
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+
+	_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
+}
+
+func (h *Handler) invalidateTimelineCache() {
+	go func() {
+		bgCtx := context.Background()
+		keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
+		if err != nil || len(keys) == 0 {
+			return
+		}
+		_ = h.redis.Del(bgCtx, keys...).Err()
+	}()
+}
+
+func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
+	id, ok := parseIDParam(ctx, name)
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: name, Reason: "invalid"}},
+		})
+		return 0, false
+	}
+	return id, true
 }
 
 func (h *Handler) Register(ctx *gin.Context) {
@@ -162,36 +245,7 @@ func (h *Handler) Me(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":        user.ID,
-		"email":     user.Email,
-		"username":  user.Username,
-		"role":      user.Role,
-		"team_id":   user.TeamID,
-		"team_name": user.TeamName,
-	})
-}
-
-func (h *Handler) MeSolved(ctx *gin.Context) {
-	userID := middleware.UserID(ctx)
-	rows, err := h.ctf.SolvedChallenges(ctx.Request.Context(), userID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, rows)
-}
-
-func (h *Handler) MeSolvedTeam(ctx *gin.Context) {
-	userID := middleware.UserID(ctx)
-	rows, err := h.ctf.TeamSolvedChallenges(ctx.Request.Context(), userID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, rows)
+	ctx.JSON(http.StatusOK, userMeResponse(user))
 }
 
 func (h *Handler) UpdateMe(ctx *gin.Context) {
@@ -218,14 +272,7 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":        user.ID,
-		"email":     user.Email,
-		"username":  user.Username,
-		"role":      user.Role,
-		"team_id":   user.TeamID,
-		"team_name": user.TeamName,
-	})
+	ctx.JSON(http.StatusOK, userMeResponse(user))
 }
 
 func (h *Handler) ListChallenges(ctx *gin.Context) {
@@ -236,25 +283,15 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 	}
 	resp := make([]gin.H, 0, len(challenges))
 	for _, challenge := range challenges {
-		resp = append(resp, gin.H{
-			"id":          challenge.ID,
-			"title":       challenge.Title,
-			"description": challenge.Description,
-			"category":    challenge.Category,
-			"points":      challenge.Points,
-			"is_active":   challenge.IsActive,
-		})
+		ch := challenge
+		resp = append(resp, challengeResponse(&ch))
 	}
 	ctx.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) SubmitFlag(ctx *gin.Context) {
-	challengeID, ok := parseIDParam(ctx, "id")
+	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 	var req submitRequest
@@ -269,16 +306,7 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 	}
 
 	if correct {
-		go func() {
-			bgCtx := context.Background()
-			keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
-
-			if err == nil {
-				if len(keys) > 0 {
-					_ = h.redis.Del(bgCtx, keys...).Err()
-				}
-			}
-		}()
+		h.invalidateTimelineCache()
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -304,23 +332,12 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"id":          challenge.ID,
-		"title":       challenge.Title,
-		"description": challenge.Description,
-		"category":    challenge.Category,
-		"points":      challenge.Points,
-		"is_active":   challenge.IsActive,
-	})
+	ctx.JSON(http.StatusCreated, challengeResponse(challenge))
 }
 
 func (h *Handler) UpdateChallenge(ctx *gin.Context) {
-	challengeID, ok := parseIDParam(ctx, "id")
+	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -336,23 +353,12 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":          challenge.ID,
-		"title":       challenge.Title,
-		"description": challenge.Description,
-		"category":    challenge.Category,
-		"points":      challenge.Points,
-		"is_active":   challenge.IsActive,
-	})
+	ctx.JSON(http.StatusOK, challengeResponse(challenge))
 }
 
 func (h *Handler) DeleteChallenge(ctx *gin.Context) {
-	challengeID, ok := parseIDParam(ctx, "id")
+	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -473,12 +479,8 @@ func (h *Handler) ListTeams(ctx *gin.Context) {
 }
 
 func (h *Handler) GetTeam(ctx *gin.Context) {
-	teamID, ok := parseIDParam(ctx, "id")
+	teamID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -492,12 +494,8 @@ func (h *Handler) GetTeam(ctx *gin.Context) {
 }
 
 func (h *Handler) ListTeamMembers(ctx *gin.Context) {
-	teamID, ok := parseIDParam(ctx, "id")
+	teamID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -511,12 +509,8 @@ func (h *Handler) ListTeamMembers(ctx *gin.Context) {
 }
 
 func (h *Handler) ListTeamSolved(ctx *gin.Context) {
-	teamID, ok := parseIDParam(ctx, "id")
+	teamID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -561,17 +555,11 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 
 	cacheKey := fmt.Sprintf("timeline:%d", windowMinutes)
 
-	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
-	if err == nil {
-		ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	var windowStart *time.Time
-	if windowMinutes > 0 {
-		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
-		windowStart = &start
-	}
+	windowStart := windowStartFromMinutes(windowMinutes)
 
 	raw, err := h.users.TimelineSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
@@ -594,10 +582,7 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 		"submissions": submissions,
 	}
 
-	responseJSON, err := json.Marshal(response)
-	if err == nil {
-		_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
-	}
+	h.storeCache(ctx, cacheKey, response)
 
 	ctx.JSON(http.StatusOK, response)
 }
@@ -614,17 +599,11 @@ func (h *Handler) TeamTimeline(ctx *gin.Context) {
 
 	cacheKey := fmt.Sprintf("timeline:teams:%d", windowMinutes)
 
-	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
-	if err == nil {
-		ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	var windowStart *time.Time
-	if windowMinutes > 0 {
-		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
-		windowStart = &start
-	}
+	windowStart := windowStartFromMinutes(windowMinutes)
 
 	raw, err := h.users.TimelineTeamSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
@@ -647,10 +626,7 @@ func (h *Handler) TeamTimeline(ctx *gin.Context) {
 		"submissions": submissions,
 	}
 
-	responseJSON, err := json.Marshal(response)
-	if err == nil {
-		_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
-	}
+	h.storeCache(ctx, cacheKey, response)
 
 	ctx.JSON(http.StatusOK, response)
 }
@@ -664,25 +640,16 @@ func (h *Handler) ListUsers(ctx *gin.Context) {
 
 	resp := make([]gin.H, 0, len(users))
 	for _, user := range users {
-		resp = append(resp, gin.H{
-			"id":        user.ID,
-			"username":  user.Username,
-			"role":      user.Role,
-			"team_id":   user.TeamID,
-			"team_name": user.TeamName,
-		})
+		u := user
+		resp = append(resp, userDetailResponse(&u))
 	}
 
 	ctx.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) GetUser(ctx *gin.Context) {
-	userID, ok := parseIDParam(ctx, "id")
+	userID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -692,22 +659,12 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":        user.ID,
-		"username":  user.Username,
-		"role":      user.Role,
-		"team_id":   user.TeamID,
-		"team_name": user.TeamName,
-	})
+	ctx.JSON(http.StatusOK, userDetailResponse(user))
 }
 
 func (h *Handler) GetUserSolved(ctx *gin.Context) {
-	userID, ok := parseIDParam(ctx, "id")
+	userID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 

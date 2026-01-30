@@ -164,22 +164,3 @@ func TestCTFServiceSolvedChallenges(t *testing.T) {
 		t.Fatalf("unexpected solved rows: %+v", rows)
 	}
 }
-
-func TestCTFServiceSolvedChallengesTeam(t *testing.T) {
-	env := setupServiceTest(t)
-	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
-	challenge := createChallenge(t, env, "TeamSolved", 120, "FLAG{TEAM}", true)
-
-	_ = createSubmission(t, env, user1.ID, challenge.ID, true, time.Now().UTC())
-
-	rows, err := env.ctfSvc.TeamSolvedChallenges(context.Background(), user2.ID)
-	if err != nil {
-		t.Fatalf("team solved challenges: %v", err)
-	}
-
-	if len(rows) != 1 || rows[0].ChallengeID != challenge.ID {
-		t.Fatalf("unexpected team solved rows: %+v", rows)
-	}
-}
