@@ -567,9 +567,9 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 		return
 	}
 
-	rawSubs := make([]rawSubmission, len(raw))
+	rawSubs := make([]repo.RawSubmission, len(raw))
 	for i, r := range raw {
-		rawSubs[i] = rawSubmission{
+		rawSubs[i] = repo.RawSubmission{
 			SubmittedAt: r.SubmittedAt,
 			UserID:      r.UserID,
 			Username:    r.Username,
@@ -611,9 +611,9 @@ func (h *Handler) TeamTimeline(ctx *gin.Context) {
 		return
 	}
 
-	rawSubs := make([]rawTeamSubmission, len(raw))
+	rawSubs := make([]repo.RawTeamSubmission, len(raw))
 	for i, r := range raw {
-		rawSubs[i] = rawTeamSubmission{
+		rawSubs[i] = repo.RawTeamSubmission{
 			SubmittedAt: r.SubmittedAt,
 			TeamID:      r.TeamID,
 			TeamName:    r.TeamName,

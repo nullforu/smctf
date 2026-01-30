@@ -3,12 +3,14 @@ package handlers
 import (
 	"testing"
 	"time"
+
+	"smctf/internal/repo"
 )
 
 func TestTeamSubmissions(t *testing.T) {
 	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
 
-	raw := []rawSubmission{
+	raw := []repo.RawSubmission{
 		{SubmittedAt: base.Add(2 * time.Minute), UserID: 1, Username: "user1", Points: 100},
 		{SubmittedAt: base.Add(5 * time.Minute), UserID: 1, Username: "user1", Points: 200},
 		{SubmittedAt: base.Add(15 * time.Minute), UserID: 1, Username: "user1", Points: 50},
@@ -38,7 +40,7 @@ func TestTeamTeamSubmissions(t *testing.T) {
 	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
 	teamID := int64(10)
 
-	raw := []rawTeamSubmission{
+	raw := []repo.RawTeamSubmission{
 		{SubmittedAt: base.Add(2 * time.Minute), TeamID: &teamID, TeamName: "Alpha", Points: 100},
 		{SubmittedAt: base.Add(7 * time.Minute), TeamID: &teamID, TeamName: "Alpha", Points: 50},
 		{SubmittedAt: base.Add(12 * time.Minute), TeamID: nil, TeamName: "not affiliated", Points: 30},

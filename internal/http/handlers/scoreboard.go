@@ -3,41 +3,14 @@ package handlers
 import (
 	"sort"
 	"time"
+
+	"smctf/internal/models"
+	"smctf/internal/repo"
 )
 
-type rawSubmission struct {
-	SubmittedAt time.Time `bun:"submitted_at"`
-	UserID      int64     `bun:"user_id"`
-	Username    string    `bun:"username"`
-	Points      int       `bun:"points"`
-}
-
-type timelineSubmission struct {
-	Timestamp      time.Time `json:"timestamp"`
-	UserID         int64     `json:"user_id"`
-	Username       string    `json:"username"`
-	Points         int       `json:"points"`
-	ChallengeCount int       `json:"challenge_count"`
-}
-
-type rawTeamSubmission struct {
-	SubmittedAt time.Time `bun:"submitted_at"`
-	TeamID      *int64    `bun:"team_id"`
-	TeamName    string    `bun:"team_name"`
-	Points      int       `bun:"points"`
-}
-
-type teamTimelineSubmission struct {
-	Timestamp      time.Time `json:"timestamp"`
-	TeamID         *int64    `json:"team_id,omitempty"`
-	TeamName       string    `json:"team_name"`
-	Points         int       `json:"points"`
-	ChallengeCount int       `json:"challenge_count"`
-}
-
-func teamSubmissions(raw []rawSubmission) []timelineSubmission {
+func teamSubmissions(raw []repo.RawSubmission) []models.TimelineSubmission {
 	if len(raw) == 0 {
-		return []timelineSubmission{}
+		return []models.TimelineSubmission{}
 	}
 
 	type teamKey struct {
@@ -45,7 +18,7 @@ func teamSubmissions(raw []rawSubmission) []timelineSubmission {
 		bucket time.Time
 	}
 
-	teams := make(map[teamKey]*timelineSubmission)
+	teams := make(map[teamKey]*models.TimelineSubmission)
 
 	for _, sub := range raw {
 		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
@@ -55,7 +28,7 @@ func teamSubmissions(raw []rawSubmission) []timelineSubmission {
 			team.Points += sub.Points
 			team.ChallengeCount++
 		} else {
-			teams[key] = &timelineSubmission{
+			teams[key] = &models.TimelineSubmission{
 				Timestamp:      bucket,
 				UserID:         sub.UserID,
 				Username:       sub.Username,
@@ -65,7 +38,7 @@ func teamSubmissions(raw []rawSubmission) []timelineSubmission {
 		}
 	}
 
-	result := make([]timelineSubmission, 0, len(teams))
+	result := make([]models.TimelineSubmission, 0, len(teams))
 	for _, team := range teams {
 		result = append(result, *team)
 	}
@@ -81,9 +54,9 @@ func teamSubmissions(raw []rawSubmission) []timelineSubmission {
 	return result
 }
 
-func teamTeamSubmissions(raw []rawTeamSubmission) []teamTimelineSubmission {
+func teamTeamSubmissions(raw []repo.RawTeamSubmission) []models.TeamTimelineSubmission {
 	if len(raw) == 0 {
-		return []teamTimelineSubmission{}
+		return []models.TeamTimelineSubmission{}
 	}
 
 	type teamKey struct {
@@ -92,7 +65,7 @@ func teamTeamSubmissions(raw []rawTeamSubmission) []teamTimelineSubmission {
 		bucket  time.Time
 	}
 
-	teams := make(map[teamKey]*teamTimelineSubmission)
+	teams := make(map[teamKey]*models.TeamTimelineSubmission)
 
 	for _, sub := range raw {
 		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
@@ -106,7 +79,7 @@ func teamTeamSubmissions(raw []rawTeamSubmission) []teamTimelineSubmission {
 			team.Points += sub.Points
 			team.ChallengeCount++
 		} else {
-			teams[key] = &teamTimelineSubmission{
+			teams[key] = &models.TeamTimelineSubmission{
 				Timestamp:      bucket,
 				TeamID:         sub.TeamID,
 				TeamName:       sub.TeamName,
@@ -116,7 +89,7 @@ func teamTeamSubmissions(raw []rawTeamSubmission) []teamTimelineSubmission {
 		}
 	}
 
-	result := make([]teamTimelineSubmission, 0, len(teams))
+	result := make([]models.TeamTimelineSubmission, 0, len(teams))
 	for _, team := range teams {
 		result = append(result, *team)
 	}
