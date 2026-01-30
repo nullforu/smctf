@@ -48,22 +48,6 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 		return err
 	}
 
-	if err := ensureChallengeCategory(ctx, db); err != nil {
-		return err
-	}
-
-	if err := ensureRegistrationKeyIP(ctx, db); err != nil {
-		return err
-	}
-
-	if err := ensureUserTeamID(ctx, db); err != nil {
-		return err
-	}
-
-	if err := ensureRegistrationKeyTeamID(ctx, db); err != nil {
-		return err
-	}
-
 	return createIndexes(ctx, db)
 }
 
@@ -112,34 +96,6 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 		if _, err := db.ExecContext(ctx, idx.query); err != nil {
 			return fmt.Errorf("auto migrate create index %s: %w", idx.name, err)
 		}
-	}
-	return nil
-}
-
-func ensureChallengeCategory(ctx context.Context, db *bun.DB) error {
-	if _, err := db.ExecContext(ctx, "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Misc'"); err != nil {
-		return fmt.Errorf("auto migrate add category column: %w", err)
-	}
-	return nil
-}
-
-func ensureRegistrationKeyIP(ctx context.Context, db *bun.DB) error {
-	if _, err := db.ExecContext(ctx, "ALTER TABLE registration_keys ADD COLUMN IF NOT EXISTS used_by_ip TEXT"); err != nil {
-		return fmt.Errorf("auto migrate add registration key ip: %w", err)
-	}
-	return nil
-}
-
-func ensureUserTeamID(ctx context.Context, db *bun.DB) error {
-	if _, err := db.ExecContext(ctx, "ALTER TABLE users ADD COLUMN IF NOT EXISTS team_id BIGINT"); err != nil {
-		return fmt.Errorf("auto migrate add users team_id: %w", err)
-	}
-	return nil
-}
-
-func ensureRegistrationKeyTeamID(ctx context.Context, db *bun.DB) error {
-	if _, err := db.ExecContext(ctx, "ALTER TABLE registration_keys ADD COLUMN IF NOT EXISTS team_id BIGINT"); err != nil {
-		return fmt.Errorf("auto migrate add registration keys team_id: %w", err)
 	}
 	return nil
 }

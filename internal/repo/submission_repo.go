@@ -57,11 +57,8 @@ func (r *SubmissionRepo) correctSubmissionCount(
 	challengeID int64,
 	teamID sql.NullInt64,
 ) (int, error) {
-	query := db.NewSelect().
-		TableExpr("submissions AS s").
-		Join("JOIN users AS u ON u.id = s.user_id").
-		Where("s.challenge_id = ?", challengeID).
-		Where("s.correct = true")
+	query := r.baseCorrectSubmissionsQuery(db).
+		Where("s.challenge_id = ?", challengeID)
 
 	if teamID.Valid {
 		query = query.Where("u.team_id = ?", teamID.Int64)
@@ -70,6 +67,13 @@ func (r *SubmissionRepo) correctSubmissionCount(
 	}
 
 	return query.Count(ctx)
+}
+
+func (r *SubmissionRepo) baseCorrectSubmissionsQuery(db bun.IDB) *bun.SelectQuery {
+	return db.NewSelect().
+		TableExpr("submissions AS s").
+		Join("JOIN users AS u ON u.id = s.user_id").
+		Where("s.correct = true")
 }
 
 func (r *SubmissionRepo) solvedChallengesQuery(db bun.IDB) *bun.SelectQuery {
@@ -127,12 +131,9 @@ func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub
 }
 
 func (r *SubmissionRepo) HasCorrect(ctx context.Context, userID, challengeID int64) (bool, error) {
-	count, err := r.db.NewSelect().
-		TableExpr("submissions AS s").
-		Join("JOIN users AS u ON u.id = s.user_id").
+	count, err := r.baseCorrectSubmissionsQuery(r.db).
 		Join("JOIN users AS me ON me.id = ?", userID).
 		Where("s.challenge_id = ?", challengeID).
-		Where("s.correct = true").
 		Where("(me.team_id IS NULL AND u.id = me.id) OR (me.team_id IS NOT NULL AND u.team_id = me.team_id)").
 		Count(ctx)
 

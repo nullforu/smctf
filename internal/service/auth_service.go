@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"strconv"
@@ -35,20 +33,6 @@ type AuthService struct {
 
 func NewAuthService(cfg config.Config, db *bun.DB, userRepo *repo.UserRepo, registrationKeyRepo *repo.RegistrationKeyRepo, teamRepo *repo.TeamRepo, redis *redis.Client) *AuthService {
 	return &AuthService{cfg: cfg, db: db, userRepo: userRepo, registrationKeyRepo: registrationKeyRepo, teamRepo: teamRepo, redis: redis}
-}
-
-func isSixDigitCode(value string) bool {
-	if len(value) != 6 {
-		return false
-	}
-
-	for _, r := range value {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (s *AuthService) Register(ctx context.Context, email, username, password, registrationKey, registrationIP string) (*models.User, error) {
@@ -142,17 +126,6 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 	return user, nil
 }
 
-func generateRegistrationCode() (string, error) {
-	var buf [4]byte
-	if _, err := rand.Read(buf[:]); err != nil {
-		return "", err
-	}
-
-	value := binary.BigEndian.Uint32(buf[:]) % 1000000
-
-	return fmt.Sprintf("%06d", value), nil
-}
-
 func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int, teamID *int64) ([]models.RegistrationKey, error) {
 	validator := newFieldValidator()
 	if count < 1 {
@@ -210,7 +183,7 @@ func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64,
 	return created, nil
 }
 
-func (s *AuthService) ListRegistrationKeys(ctx context.Context) ([]models.RegistrationKeyView, error) {
+func (s *AuthService) ListRegistrationKeys(ctx context.Context) ([]models.RegistrationKeySummary, error) {
 	rows, err := s.registrationKeyRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("auth.ListRegistrationKeys: %w", err)
@@ -248,13 +221,9 @@ func refreshKey(jti string) string {
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
-	claims, err := auth.ParseToken(s.cfg.JWT, refreshToken)
+	claims, err := s.parseRefreshToken(refreshToken)
 	if err != nil {
-		return "", "", ErrInvalidCreds
-	}
-
-	if claims.Type != auth.TokenTypeRefresh || claims.ID == "" {
-		return "", "", ErrInvalidCreds
+		return "", "", err
 	}
 
 	if err := s.assertRefreshValid(ctx, claims.ID, claims.UserID); err != nil {
@@ -271,13 +240,9 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string,
 }
 
 func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
-	claims, err := auth.ParseToken(s.cfg.JWT, refreshToken)
+	claims, err := s.parseRefreshToken(refreshToken)
 	if err != nil {
-		return ErrInvalidCreds
-	}
-
-	if claims.Type != auth.TokenTypeRefresh || claims.ID == "" {
-		return ErrInvalidCreds
+		return err
 	}
 
 	if err := s.redis.Del(ctx, refreshKey(claims.ID)).Err(); err != nil && err != redis.Nil {
@@ -326,4 +291,17 @@ func (s *AuthService) assertRefreshValid(ctx context.Context, jti string, userID
 	}
 
 	return nil
+}
+
+func (s *AuthService) parseRefreshToken(refreshToken string) (*auth.Claims, error) {
+	claims, err := auth.ParseToken(s.cfg.JWT, refreshToken)
+	if err != nil {
+		return nil, ErrInvalidCreds
+	}
+
+	if claims.Type != auth.TokenTypeRefresh || claims.ID == "" {
+		return nil, ErrInvalidCreds
+	}
+
+	return claims, nil
 }

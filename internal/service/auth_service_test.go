@@ -150,7 +150,7 @@ func TestAuthServiceListRegistrationKeys(t *testing.T) {
 	}
 
 	if rows[0].CreatedByUsername != admin.Username || rows[0].UsedByUsername == nil || *rows[0].UsedByUsername != user.Username {
-		t.Fatalf("unexpected key view: %+v", rows[0])
+		t.Fatalf("unexpected key summary: %+v", rows[0])
 	}
 }
 

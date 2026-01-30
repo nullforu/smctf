@@ -59,7 +59,7 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 	}
 
 	if rows[0].TeamID == nil || *rows[0].TeamID != team.ID || rows[0].TeamName == nil || *rows[0].TeamName != team.Name {
-		t.Fatalf("expected team in key view, got %+v", rows[0])
+		t.Fatalf("expected team in key summary, got %+v", rows[0])
 	}
 }
 

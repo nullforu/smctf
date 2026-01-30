@@ -109,15 +109,8 @@ func (r *UserRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLeaderboar
 	return rows, nil
 }
 
-type RawSubmission struct {
-	SubmittedAt time.Time `bun:"submitted_at"`
-	UserID      int64     `bun:"user_id"`
-	Username    string    `bun:"username"`
-	Points      int       `bun:"points"`
-}
-
-func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]RawSubmission, error) {
-	rows := make([]RawSubmission, 0)
+func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]models.UserTimelineRow, error) {
+	rows := make([]models.UserTimelineRow, 0)
 
 	query := r.db.NewSelect().
 		TableExpr("submissions AS s").
@@ -129,26 +122,17 @@ func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([
 		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Where("s.correct = true")
 
-	if since != nil {
-		query = query.Where("s.submitted_at >= ?", *since)
-	}
+	query = applyTimelineWindow(query, since)
 
-	if err := query.OrderExpr("s.submitted_at ASC, s.id ASC").Scan(ctx, &rows); err != nil {
+	if err := query.Scan(ctx, &rows); err != nil {
 		return nil, wrapError("userRepo.TimelineSubmissions", err)
 	}
 
 	return rows, nil
 }
 
-type RawTeamSubmission struct {
-	SubmittedAt time.Time `bun:"submitted_at"`
-	TeamID      *int64    `bun:"team_id"`
-	TeamName    string    `bun:"team_name"`
-	Points      int       `bun:"points"`
-}
-
-func (r *UserRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time) ([]RawTeamSubmission, error) {
-	rows := make([]RawTeamSubmission, 0)
+func (r *UserRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time) ([]models.TeamTimelineRow, error) {
+	rows := make([]models.TeamTimelineRow, 0)
 
 	query := r.db.NewSelect().
 		TableExpr("submissions AS s").
@@ -161,15 +145,20 @@ func (r *UserRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time
 		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Where("s.correct = true")
 
-	if since != nil {
-		query = query.Where("s.submitted_at >= ?", *since)
-	}
+	query = applyTimelineWindow(query, since)
 
-	if err := query.OrderExpr("s.submitted_at ASC, s.id ASC").Scan(ctx, &rows); err != nil {
+	if err := query.Scan(ctx, &rows); err != nil {
 		return nil, wrapError("userRepo.TimelineTeamSubmissions", err)
 	}
 
 	return rows, nil
+}
+
+func applyTimelineWindow(query *bun.SelectQuery, since *time.Time) *bun.SelectQuery {
+	if since != nil {
+		query = query.Where("s.submitted_at >= ?", *since)
+	}
+	return query.OrderExpr("s.submitted_at ASC, s.id ASC")
 }
 
 func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {

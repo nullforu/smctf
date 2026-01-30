@@ -1,6 +1,18 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/uptrace/bun"
+)
+
+// Database model for teams
+type Team struct {
+	bun.BaseModel `bun:"table:teams"`
+	ID            int64     `bun:",pk,autoincrement"`
+	Name          string    `bun:",unique,notnull"`
+	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+}
 
 type TeamSummary struct {
 	ID          int64     `bun:"id" json:"id"`

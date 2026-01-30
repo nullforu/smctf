@@ -134,40 +134,8 @@ func TestNewAndAutoMigrate(t *testing.T) {
 	}
 }
 
-func TestEnsureColumnsAndIndexes(t *testing.T) {
+func TestEnsureIndexes(t *testing.T) {
 	db := setupDBTest(t)
-
-	if _, err := db.ExecContext(context.Background(), "ALTER TABLE challenges DROP COLUMN IF EXISTS category"); err != nil {
-		t.Fatalf("drop category: %v", err)
-	}
-
-	if err := ensureChallengeCategory(context.Background(), db); err != nil {
-		t.Fatalf("ensure category: %v", err)
-	}
-
-	if _, err := db.ExecContext(context.Background(), "ALTER TABLE registration_keys DROP COLUMN IF EXISTS used_by_ip"); err != nil {
-		t.Fatalf("drop used_by_ip: %v", err)
-	}
-
-	if err := ensureRegistrationKeyIP(context.Background(), db); err != nil {
-		t.Fatalf("ensure used_by_ip: %v", err)
-	}
-
-	if _, err := db.ExecContext(context.Background(), "ALTER TABLE users DROP COLUMN IF EXISTS team_id"); err != nil {
-		t.Fatalf("drop team_id: %v", err)
-	}
-
-	if err := ensureUserTeamID(context.Background(), db); err != nil {
-		t.Fatalf("ensure user team_id: %v", err)
-	}
-
-	if _, err := db.ExecContext(context.Background(), "ALTER TABLE registration_keys DROP COLUMN IF EXISTS team_id"); err != nil {
-		t.Fatalf("drop reg key team_id: %v", err)
-	}
-
-	if err := ensureRegistrationKeyTeamID(context.Background(), db); err != nil {
-		t.Fatalf("ensure reg key team_id: %v", err)
-	}
 
 	if err := createIndexes(context.Background(), db); err != nil {
 		t.Fatalf("create indexes: %v", err)

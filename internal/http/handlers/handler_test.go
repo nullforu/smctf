@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"smctf/internal/models"
 	"testing"
 	"time"
 
@@ -53,6 +54,26 @@ func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest interface{}) 
 		t.Fatalf("decode json: %v", err)
 	}
 }
+
+// Helper Tests
+
+func TestParseIDParam(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Params = gin.Params{{Key: "id", Value: "123"}}
+	if got, ok := parseIDParam(ctx, "id"); !ok || got != 123 {
+		t.Fatalf("expected 123 ok, got %d ok %v", got, ok)
+	}
+
+	ctx, _ = gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	if _, ok := parseIDParam(ctx, "id"); ok {
+		t.Fatalf("expected invalid id")
+	}
+}
+
+// Auth Handler Tests
 
 func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	env := setupHandlerTest(t)
@@ -126,56 +147,23 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	}
 }
 
-func TestHandlerMeUpdateUsers(t *testing.T) {
+func TestHandlerBindErrorDetails(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/auth/register", "{")
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/me", nil)
-	ctx.Set("userID", user.ID)
-
-	env.handler.Me(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("me status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "user2"})
-	ctx.Set("userID", user.ID)
-
-	env.handler.UpdateMe(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("update me status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", "")
-	ctx.Set("userID", user.ID)
-
-	env.handler.UpdateMe(ctx)
+	env.handler.Register(ctx)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("update me bind status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("bind invalid json status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users", nil)
-	env.handler.ListUsers(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("list users status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/0", nil)
-	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
-
-	env.handler.GetUser(ctx)
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/login", map[string]interface{}{"email": 123, "password": true})
+	env.handler.Login(ctx)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("get user invalid status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/1", nil)
-	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", user.ID)}}
-
-	env.handler.GetUser(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("get user status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("bind type status %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+// Challenge Handler Tests
 
 func TestHandlerChallengesAndSubmit(t *testing.T) {
 	env := setupHandlerTest(t)
@@ -293,6 +281,36 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	_ = other
 }
 
+func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges", "")
+	env.handler.CreateChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("create challenge bind status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := map[string]interface{}{
+		"title":       "New Challenge",
+		"description": "desc",
+		"category":    "Misc",
+		"points":      100,
+		"flag":        "FLAG{X}",
+		"is_active":   true,
+	}
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/challenges", body)
+	ctx.Set("userID", admin.ID)
+
+	env.handler.CreateChallenge(ctx)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create challenge status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// Registration Key Handler Tests
+
 func TestHandlerRegistrationKeys(t *testing.T) {
 	env := setupHandlerTest(t)
 	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
@@ -321,6 +339,64 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 		t.Fatalf("list keys status %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+// Scoreboard Helper Tests
+
+func TestTeamSubmissions(t *testing.T) {
+	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
+
+	raw := []models.UserTimelineRow{
+		{SubmittedAt: base.Add(2 * time.Minute), UserID: 1, Username: "user1", Points: 100},
+		{SubmittedAt: base.Add(5 * time.Minute), UserID: 1, Username: "user1", Points: 200},
+		{SubmittedAt: base.Add(15 * time.Minute), UserID: 1, Username: "user1", Points: 50},
+		{SubmittedAt: base.Add(3 * time.Minute), UserID: 2, Username: "user2", Points: 150},
+	}
+
+	result := aggregateUserTimeline(raw)
+
+	if len(result) != 3 {
+		t.Fatalf("expected 3 teams, got %d", len(result))
+	}
+
+	if result[0].UserID != 1 || result[0].Points != 300 || result[0].ChallengeCount != 2 {
+		t.Fatalf("unexpected first team: %+v", result[0])
+	}
+
+	if result[1].UserID != 2 || result[1].Points != 150 || result[1].ChallengeCount != 1 {
+		t.Fatalf("unexpected second team: %+v", result[1])
+	}
+
+	if result[2].UserID != 1 || result[2].Points != 50 || result[2].ChallengeCount != 1 {
+		t.Fatalf("unexpected third team: %+v", result[2])
+	}
+}
+
+func TestTeamTeamSubmissions(t *testing.T) {
+	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
+	teamID := int64(10)
+
+	raw := []models.TeamTimelineRow{
+		{SubmittedAt: base.Add(2 * time.Minute), TeamID: &teamID, TeamName: "Alpha", Points: 100},
+		{SubmittedAt: base.Add(7 * time.Minute), TeamID: &teamID, TeamName: "Alpha", Points: 50},
+		{SubmittedAt: base.Add(12 * time.Minute), TeamID: nil, TeamName: "not affiliated", Points: 30},
+	}
+
+	result := aggregateTeamTimeline(raw)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 teams, got %d", len(result))
+	}
+
+	if result[0].TeamName != "Alpha" || result[0].Points != 150 || result[0].ChallengeCount != 2 {
+		t.Fatalf("unexpected first team: %+v", result[0])
+	}
+
+	if result[1].TeamName != "not affiliated" || result[1].Points != 30 || result[1].ChallengeCount != 1 {
+		t.Fatalf("unexpected second team: %+v", result[1])
+	}
+}
+
+// Scoreboard Handler Tests
 
 func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 	env := setupHandlerTest(t)
@@ -404,135 +480,6 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 	}
 }
 
-func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
-	env := setupHandlerTest(t)
-
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
-
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges", "")
-	env.handler.CreateChallenge(ctx)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("create challenge bind status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	body := map[string]interface{}{
-		"title":       "New Challenge",
-		"description": "desc",
-		"category":    "Misc",
-		"points":      100,
-		"flag":        "FLAG{X}",
-		"is_active":   true,
-	}
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/challenges", body)
-	ctx.Set("userID", admin.ID)
-
-	env.handler.CreateChallenge(ctx)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create challenge status %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestHandlerTimelineUsesCache(t *testing.T) {
-	env := setupHandlerTest(t)
-	cacheKey := "timeline:0"
-	payload := []byte(`{"submissions":[]}`)
-
-	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
-		t.Fatalf("set cache: %v", err)
-	}
-
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/timeline", nil)
-	env.handler.Timeline(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("timeline cache status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	if !bytes.Equal(rec.Body.Bytes(), payload) {
-		t.Fatalf("expected cached response")
-	}
-}
-
-func TestHandlerTeams(t *testing.T) {
-	env := setupHandlerTest(t)
-	team := createHandlerTeam(t, env, "Alpha")
-	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
-
-	user.TeamID = &team.ID
-	if err := env.userRepo.Update(context.Background(), user); err != nil {
-		t.Fatalf("update user: %v", err)
-	}
-
-	challenge := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
-	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().Add(-time.Minute))
-
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/teams", nil)
-	env.handler.ListTeams(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("list teams status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var teams []struct {
-		ID          int64 `json:"id"`
-		MemberCount int   `json:"member_count"`
-		TotalScore  int   `json:"total_score"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &teams); err != nil {
-		t.Fatalf("decode teams: %v", err)
-	}
-
-	if len(teams) != 1 || teams[0].ID != team.ID || teams[0].MemberCount != 1 || teams[0].TotalScore != 100 {
-		t.Fatalf("unexpected teams: %+v", teams)
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1", nil)
-	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
-	env.handler.GetTeam(ctx)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("get team invalid status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1", nil)
-	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
-	env.handler.GetTeam(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("get team status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1/members", nil)
-	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
-	env.handler.ListTeamMembers(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("members status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1/solved", nil)
-	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
-	env.handler.ListTeamSolved(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("solved status %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestHandlerTeamTimelineUsesCache(t *testing.T) {
-	env := setupHandlerTest(t)
-	cacheKey := "timeline:teams:0"
-	payload := []byte(`{"submissions":[]}`)
-
-	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
-		t.Fatalf("set cache: %v", err)
-	}
-
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/timeline/teams", nil)
-	env.handler.TeamTimeline(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("team timeline cache status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	if !bytes.Equal(rec.Body.Bytes(), payload) {
-		t.Fatalf("expected cached response")
-	}
-}
-
 func TestHandlerTeamScoreboard(t *testing.T) {
 	env := setupHandlerTest(t)
 	teamA := createHandlerTeam(t, env, "Alpha")
@@ -598,18 +545,158 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 	}
 }
 
-func TestHandlerBindErrorDetails(t *testing.T) {
+func TestHandlerTimelineUsesCache(t *testing.T) {
 	env := setupHandlerTest(t)
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/auth/register", "{")
+	cacheKey := "timeline:0"
+	payload := []byte(`{"submissions":[]}`)
 
-	env.handler.Register(ctx)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("bind invalid json status %d: %s", rec.Code, rec.Body.String())
+	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
+		t.Fatalf("set cache: %v", err)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/login", map[string]interface{}{"email": 123, "password": true})
-	env.handler.Login(ctx)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/timeline", nil)
+	env.handler.Timeline(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("timeline cache status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if !bytes.Equal(rec.Body.Bytes(), payload) {
+		t.Fatalf("expected cached response")
+	}
+}
+
+func TestHandlerTeamTimelineUsesCache(t *testing.T) {
+	env := setupHandlerTest(t)
+	cacheKey := "timeline:teams:0"
+	payload := []byte(`{"submissions":[]}`)
+
+	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
+		t.Fatalf("set cache: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/timeline/teams", nil)
+	env.handler.TeamTimeline(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("team timeline cache status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if !bytes.Equal(rec.Body.Bytes(), payload) {
+		t.Fatalf("expected cached response")
+	}
+}
+
+// Team Handler Tests
+
+func TestHandlerTeams(t *testing.T) {
+	env := setupHandlerTest(t)
+	team := createHandlerTeam(t, env, "Alpha")
+	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
+
+	user.TeamID = &team.ID
+	if err := env.userRepo.Update(context.Background(), user); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+
+	challenge := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
+	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().Add(-time.Minute))
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/teams", nil)
+	env.handler.ListTeams(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list teams status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var teams []struct {
+		ID          int64 `json:"id"`
+		MemberCount int   `json:"member_count"`
+		TotalScore  int   `json:"total_score"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &teams); err != nil {
+		t.Fatalf("decode teams: %v", err)
+	}
+
+	if len(teams) != 1 || teams[0].ID != team.ID || teams[0].MemberCount != 1 || teams[0].TotalScore != 100 {
+		t.Fatalf("unexpected teams: %+v", teams)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	env.handler.GetTeam(ctx)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("bind type status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("get team invalid status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
+	env.handler.GetTeam(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get team status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1/members", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
+	env.handler.ListTeamMembers(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("members status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/teams/1/solved", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
+	env.handler.ListTeamSolved(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("solved status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// User Handler Tests
+
+func TestHandlerMeUpdateUsers(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/me", nil)
+	ctx.Set("userID", user.ID)
+
+	env.handler.Me(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("me status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "user2"})
+	ctx.Set("userID", user.ID)
+
+	env.handler.UpdateMe(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update me status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", "")
+	ctx.Set("userID", user.ID)
+
+	env.handler.UpdateMe(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("update me bind status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users", nil)
+	env.handler.ListUsers(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list users status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/0", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+
+	env.handler.GetUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("get user invalid status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", user.ID)}}
+
+	env.handler.GetUser(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get user status %d: %s", rec.Code, rec.Body.String())
 	}
 }

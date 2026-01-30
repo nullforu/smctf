@@ -14,6 +14,20 @@ type TeamLeaderboardEntry struct {
 	Score    int    `bun:"score" json:"score"`
 }
 
+type UserTimelineRow struct {
+	SubmittedAt time.Time `bun:"submitted_at"`
+	UserID      int64     `bun:"user_id"`
+	Username    string    `bun:"username"`
+	Points      int       `bun:"points"`
+}
+
+type TeamTimelineRow struct {
+	SubmittedAt time.Time `bun:"submitted_at"`
+	TeamID      *int64    `bun:"team_id"`
+	TeamName    string    `bun:"team_name"`
+	Points      int       `bun:"points"`
+}
+
 type TimelineSubmission struct {
 	Timestamp      time.Time `json:"timestamp"`
 	UserID         int64     `json:"user_id"`

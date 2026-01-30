@@ -94,17 +94,9 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 }
 
 func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, flag *string, active *bool) (*models.Challenge, error) {
-	normalizeOptionalString := func(value *string) *string {
-		if value == nil {
-			return nil
-		}
-		normalized := normalizeTrim(*value)
-		return &normalized
-	}
-
-	normalizedTitle := normalizeOptionalString(title)
-	normalizedDescription := normalizeOptionalString(description)
-	normalizedCategory := normalizeOptionalString(category)
+	normalizedTitle := normalizeOptional(title)
+	normalizedDescription := normalizeOptional(description)
+	normalizedCategory := normalizeOptional(category)
 
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)

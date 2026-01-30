@@ -33,4 +33,13 @@ func TestNormalizeHelpers(t *testing.T) {
 	if got := normalizeTrim("  hi  "); got != "hi" {
 		t.Fatalf("unexpected trim: %s", got)
 	}
+
+	if got := normalizeOptional(nil); got != nil {
+		t.Fatalf("expected nil")
+	}
+
+	val := "  hello  "
+	if got := normalizeOptional(&val); *got != "hello" {
+		t.Fatalf("unexpected optional: %v", got)
+	}
 }
