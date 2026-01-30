@@ -235,7 +235,16 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		SubmittedAt: time.Now().UTC(),
 	}
 
-	if err := s.submissionRepo.Create(ctx, sub); err != nil {
+	if correct {
+		inserted, err := s.submissionRepo.CreateCorrectIfNotSolvedByTeam(ctx, sub)
+		if err != nil {
+			return false, fmt.Errorf("ctf.SubmitFlag create: %w", err)
+		}
+
+		if !inserted {
+			return true, ErrAlreadySolved
+		}
+	} else if err := s.submissionRepo.Create(ctx, sub); err != nil {
 		return false, fmt.Errorf("ctf.SubmitFlag create: %w", err)
 	}
 
@@ -247,6 +256,16 @@ func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]mode
 
 	if err != nil {
 		return nil, fmt.Errorf("ctf.SolvedChallenges: %w", err)
+	}
+
+	return rows, nil
+}
+
+func (s *CTFService) TeamSolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
+	rows, err := s.submissionRepo.SolvedChallengesTeam(ctx, userID)
+
+	if err != nil {
+		return nil, fmt.Errorf("ctf.TeamSolvedChallenges: %w", err)
 	}
 
 	return rows, nil

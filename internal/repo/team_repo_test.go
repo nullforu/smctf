@@ -165,7 +165,7 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 
 	now := time.Now().UTC()
 	createSubmission(t, env, user1.ID, chal1.ID, true, now.Add(-3*time.Minute))
-	createSubmission(t, env, user2.ID, chal1.ID, true, now.Add(-2*time.Minute))
+	createSubmission(t, env, user2.ID, chal1.ID, false, now.Add(-2*time.Minute))
 	createSubmission(t, env, user1.ID, chal2.ID, true, now.Add(-1*time.Minute))
 	createSubmission(t, env, user2.ID, chal2.ID, false, now.Add(-30*time.Second))
 
@@ -182,7 +182,7 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 		t.Fatalf("unexpected first row: %+v", rows[0])
 	}
 
-	if rows[1].ChallengeID != chal1.ID || rows[1].SolveCount != 2 || rows[1].Points != 50 {
+	if rows[1].ChallengeID != chal1.ID || rows[1].SolveCount != 1 || rows[1].Points != 50 {
 		t.Fatalf("unexpected second row: %+v", rows[1])
 	}
 

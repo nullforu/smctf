@@ -50,6 +50,10 @@ Response 200
 }
 ```
 
+Notes:
+
+- If a user belongs to a team, a challenge is considered already solved once any teammate solves it.
+
 Errors:
 
 - 400 `invalid input`

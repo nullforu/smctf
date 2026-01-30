@@ -32,6 +32,22 @@ func TestSubmissionRepoCreateAndHasCorrect(t *testing.T) {
 	}
 }
 
+func TestSubmissionRepoHasCorrectTeam(t *testing.T) {
+	env := setupRepoTest(t)
+	team := createTeam(t, env, "Alpha")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+
+	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().UTC())
+
+	if ok, err := env.submissionRepo.HasCorrect(context.Background(), user2.ID, ch.ID); err != nil {
+		t.Fatalf("HasCorrect teammate: %v", err)
+	} else if !ok {
+		t.Fatalf("expected teammate solved submission")
+	}
+}
+
 func TestSubmissionRepoSolvedChallenges(t *testing.T) {
 	env := setupRepoTest(t)
 	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
@@ -57,6 +73,25 @@ func TestSubmissionRepoSolvedChallenges(t *testing.T) {
 
 	if rows[1].ChallengeID != ch2.ID {
 		t.Fatalf("expected second solved to be ch2, got %+v", rows[1])
+	}
+}
+
+func TestSubmissionRepoSolvedChallengesTeam(t *testing.T) {
+	env := setupRepoTest(t)
+	team := createTeam(t, env, "Alpha")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+
+	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().UTC())
+
+	rows, err := env.submissionRepo.SolvedChallengesTeam(context.Background(), user2.ID)
+	if err != nil {
+		t.Fatalf("SolvedChallenges teammate: %v", err)
+	}
+
+	if len(rows) != 1 || rows[0].ChallengeID != ch.ID {
+		t.Fatalf("unexpected team solved rows: %+v", rows)
 	}
 }
 

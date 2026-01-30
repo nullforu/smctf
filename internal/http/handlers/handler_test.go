@@ -217,6 +217,29 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 		t.Fatalf("submit already status %d: %s", rec.Code, rec.Body.String())
 	}
 
+	team := createHandlerTeam(t, env, "Alpha")
+	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
+	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
+	teamChallenge := createHandlerChallenge(t, env, "Team", 120, "FLAG{TEAM}", true)
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/3/submit", map[string]string{"flag": "FLAG{TEAM}"})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", teamChallenge.ID)}}
+	ctx.Set("userID", teamUser1.ID)
+
+	env.handler.SubmitFlag(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit team correct status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/3/submit", map[string]string{"flag": "FLAG{TEAM}"})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", teamChallenge.ID)}}
+	ctx.Set("userID", teamUser2.ID)
+
+	env.handler.SubmitFlag(ctx)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("submit team already status %d: %s", rec.Code, rec.Body.String())
+	}
+
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/2/submit", map[string]string{"flag": "WRONG"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", other.ID)}}
 	ctx.Set("userID", user.ID)
@@ -346,6 +369,38 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 	env.handler.MeSolved(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("me solved status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	team := createHandlerTeam(t, env, "Alpha")
+	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
+	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
+	teamChallenge := createHandlerChallenge(t, env, "TeamSolved", 120, "FLAG{TEAM}", true)
+
+	createHandlerSubmission(t, env, teamUser1.ID, teamChallenge.ID, true, time.Now().Add(-time.Minute))
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/me/solved", nil)
+	ctx.Set("userID", teamUser2.ID)
+	env.handler.MeSolved(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("me solved status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var personal []struct {
+		ChallengeID int64 `json:"challenge_id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &personal); err != nil {
+		t.Fatalf("decode me solved: %v", err)
+	}
+
+	if len(personal) != 0 {
+		t.Fatalf("expected personal solved empty, got %+v", personal)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/me/solved/team", nil)
+	ctx.Set("userID", teamUser2.ID)
+	env.handler.MeSolvedTeam(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("me solved team status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

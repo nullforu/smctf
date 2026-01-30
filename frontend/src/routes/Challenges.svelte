@@ -37,7 +37,7 @@
 
     const loadSolved = async () => {
         try {
-            const solved = await api.solved()
+            const solved = await api.solvedTeam()
             solvedIds = new Set(solved.map((item) => item.challenge_id))
         } catch {
             solvedIds = new Set()

@@ -94,17 +94,18 @@ func TestCTFServiceDeleteChallenge(t *testing.T) {
 
 func TestCTFServiceSubmitFlag(t *testing.T) {
 	env := setupServiceTest(t)
+	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	challenge := createChallenge(t, env, "Solve", 100, "FLAG{4}", true)
 
 	if _, err := env.ctfSvc.SubmitFlag(context.Background(), 0, challenge.ID, "flag"); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	if _, err := env.ctfSvc.SubmitFlag(context.Background(), 1, 0, ""); err == nil {
+	if _, err := env.ctfSvc.SubmitFlag(context.Background(), user.ID, 0, ""); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	correct, err := env.ctfSvc.SubmitFlag(context.Background(), 1, challenge.ID, "WRONG")
+	correct, err := env.ctfSvc.SubmitFlag(context.Background(), user.ID, challenge.ID, "WRONG")
 	if err != nil {
 		t.Fatalf("submit wrong: %v", err)
 	}
@@ -113,7 +114,7 @@ func TestCTFServiceSubmitFlag(t *testing.T) {
 		t.Fatalf("expected incorrect submission")
 	}
 
-	correct, err = env.ctfSvc.SubmitFlag(context.Background(), 1, challenge.ID, "FLAG{4}")
+	correct, err = env.ctfSvc.SubmitFlag(context.Background(), user.ID, challenge.ID, "FLAG{4}")
 	if err != nil {
 		t.Fatalf("submit correct: %v", err)
 	}
@@ -122,29 +123,63 @@ func TestCTFServiceSubmitFlag(t *testing.T) {
 		t.Fatalf("expected correct submission")
 	}
 
-	correct, err = env.ctfSvc.SubmitFlag(context.Background(), 1, challenge.ID, "FLAG{4}")
+	correct, err = env.ctfSvc.SubmitFlag(context.Background(), user.ID, challenge.ID, "FLAG{4}")
 	if !errors.Is(err, ErrAlreadySolved) || !correct {
 		t.Fatalf("expected already solved, got %v correct %v", err, correct)
 	}
 
+	team := createTeam(t, env, "Alpha")
+	user1 := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
+	user2 := createUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
+	teamChallenge := createChallenge(t, env, "Team", 120, "FLAG{TEAM}", true)
+
+	if _, err := env.ctfSvc.SubmitFlag(context.Background(), user1.ID, teamChallenge.ID, "FLAG{TEAM}"); err != nil {
+		t.Fatalf("team submit correct: %v", err)
+	}
+
+	correct, err = env.ctfSvc.SubmitFlag(context.Background(), user2.ID, teamChallenge.ID, "FLAG{TEAM}")
+	if !errors.Is(err, ErrAlreadySolved) || !correct {
+		t.Fatalf("expected teammate already solved, got %v correct %v", err, correct)
+	}
+
 	inactive := createChallenge(t, env, "Inactive", 50, "FLAG{5}", false)
-	if _, err := env.ctfSvc.SubmitFlag(context.Background(), 1, inactive.ID, "FLAG{5}"); !errors.Is(err, ErrChallengeNotFound) {
+	if _, err := env.ctfSvc.SubmitFlag(context.Background(), user.ID, inactive.ID, "FLAG{5}"); !errors.Is(err, ErrChallengeNotFound) {
 		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
 	}
 }
 
 func TestCTFServiceSolvedChallenges(t *testing.T) {
 	env := setupServiceTest(t)
+	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	challenge := createChallenge(t, env, "Solved", 100, "FLAG{6}", true)
 	now := time.Now().UTC()
-	_ = createSubmission(t, env, 1, challenge.ID, true, now.Add(-time.Minute))
+	_ = createSubmission(t, env, user.ID, challenge.ID, true, now.Add(-time.Minute))
 
-	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), 1)
+	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("solved challenges: %v", err)
 	}
 
 	if len(rows) != 1 || rows[0].ChallengeID != challenge.ID {
 		t.Fatalf("unexpected solved rows: %+v", rows)
+	}
+}
+
+func TestCTFServiceSolvedChallengesTeam(t *testing.T) {
+	env := setupServiceTest(t)
+	team := createTeam(t, env, "Alpha")
+	user1 := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
+	user2 := createUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
+	challenge := createChallenge(t, env, "TeamSolved", 120, "FLAG{TEAM}", true)
+
+	_ = createSubmission(t, env, user1.ID, challenge.ID, true, time.Now().UTC())
+
+	rows, err := env.ctfSvc.TeamSolvedChallenges(context.Background(), user2.ID)
+	if err != nil {
+		t.Fatalf("team solved challenges: %v", err)
+	}
+
+	if len(rows) != 1 || rows[0].ChallengeID != challenge.ID {
+		t.Fatalf("unexpected team solved rows: %+v", rows)
 	}
 }

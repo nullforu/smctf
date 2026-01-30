@@ -250,6 +250,31 @@ func createHandlerUser(t *testing.T, env handlerEnv, email, username, password, 
 	return user
 }
 
+func createHandlerUserWithTeam(t *testing.T, env handlerEnv, email, username, password, role string, teamID *int64) *models.User {
+	t.Helper()
+
+	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := &models.User{
+		Email:        email,
+		Username:     username,
+		PasswordHash: hash,
+		Role:         role,
+		TeamID:       teamID,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+
+	if err := env.userRepo.Create(context.Background(), user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	return user
+}
+
 func createHandlerRegistrationKey(t *testing.T, env handlerEnv, code string, createdBy int64) *models.RegistrationKey {
 	t.Helper()
 

@@ -13,6 +13,8 @@ Headers
 Authorization: Bearer <access_token>
 ```
 
+Returns only the user's own solved challenges (not team-shared).
+
 Response 200
 
 ```json
@@ -153,6 +155,8 @@ Errors:
 
 `GET /api/users/{id}/solved`
 
+Returns only the user's own solved challenges (not team-shared).
+
 Response 200
 
 ```json
@@ -170,3 +174,34 @@ Errors:
 
 - 400 `invalid input`
 - 404 `not found`
+
+---
+
+## Team Solved Challenges (My Team)
+
+`GET /api/me/solved/team`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+If the user belongs to a team, this list includes challenges solved by any teammate. Users without a team only see their own solves.
+
+Response 200
+
+```json
+[
+    {
+        "challenge_id": 1,
+        "title": "Warmup",
+        "points": 100,
+        "solved_at": "2026-01-24T12:00:00Z"
+    }
+]
+```
+
+Errors:
+
+- 401 `invalid token` or `missing authorization` or `invalid authorization`

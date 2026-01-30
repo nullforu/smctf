@@ -172,6 +172,61 @@ func TestSubmitFlag(t *testing.T) {
 		}
 	})
 
+	t.Run("team already solved", func(t *testing.T) {
+		env := setupTest(t, testCfg)
+		team := createTeam(t, env, "Alpha")
+		user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
+		user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
+		access1, _, _ := loginUser(t, env.router, user1.Email, "pass")
+		access2, _, _ := loginUser(t, env.router, user2.Email, "pass")
+		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+
+		rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access1))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access2))
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var resp errorResp
+		decodeJSON(t, rec, &resp)
+
+		if resp.Error != service.ErrAlreadySolved.Error() {
+			t.Fatalf("unexpected error: %s", resp.Error)
+		}
+
+		rec = doRequest(t, env.router, http.MethodGet, "/api/me/solved", nil, authHeader(access2))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var solvedPersonal []struct {
+			ChallengeID int64 `json:"challenge_id"`
+		}
+		decodeJSON(t, rec, &solvedPersonal)
+
+		if len(solvedPersonal) != 0 {
+			t.Fatalf("expected personal solved list empty, got %+v", solvedPersonal)
+		}
+
+		rec = doRequest(t, env.router, http.MethodGet, "/api/me/solved/team", nil, authHeader(access2))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var solvedTeam []struct {
+			ChallengeID int64 `json:"challenge_id"`
+		}
+		decodeJSON(t, rec, &solvedTeam)
+
+		if len(solvedTeam) != 1 || solvedTeam[0].ChallengeID != challenge.ID {
+			t.Fatalf("unexpected team solved list: %+v", solvedTeam)
+		}
+	})
+
 	t.Run("rate limited", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")

@@ -198,12 +198,15 @@ def generate_registration_keys(
     return keys
 
 
-def generate_submissions(user_count: int, challenge_count: int) -> List[Tuple[int, int, str, bool, str]]:
+def generate_submissions(
+    users: List[Tuple[str, str, str, str, str, Optional[int]]], challenge_count: int
+) -> List[Tuple[int, int, str, bool, str]]:
     submissions = []
     base_time = datetime.now(UTC) - timedelta(hours=42)
-    
-    
-    for user_id in range(2, user_count + 1): 
+    user_team_map = {idx + 1: user[5] for idx, user in enumerate(users)}
+    team_solved = {team_id: set() for team_id in set(user_team_map.values()) if team_id is not None}
+
+    for user_id in range(2, len(users) + 1): 
         skill_level = random.betavariate(2, 5)
         attempt_count = random.randint(5, 15)
         attempted_challenges = set()
@@ -227,6 +230,9 @@ def generate_submissions(user_count: int, challenge_count: int) -> List[Tuple[in
             
             solve_probability = max(0.1, skill_level - difficulty + 0.2)
             will_solve = random.random() < solve_probability
+            team_id = user_team_map.get(user_id)
+            if team_id is not None and chal_id in team_solved.get(team_id, set()):
+                will_solve = False
             
             if will_solve:
                 wrong_attempts = random.choices([0, 1, 2], weights=[0.4, 0.4, 0.2])[0]
@@ -251,6 +257,8 @@ def generate_submissions(user_count: int, challenge_count: int) -> List[Tuple[in
                     True,
                     submission_time.strftime('%Y-%m-%d %H:%M:%S')
                 ))
+                if team_id is not None:
+                    team_solved.setdefault(team_id, set()).add(chal_id)
             else:
                 attempt_time = submission_time + timedelta(minutes=random.randint(0, 120))
                 wrong_flag = f"flag{{incorrect_{random.randint(1000, 9999)}}}"
@@ -297,7 +305,7 @@ def generate_sql_file(output_file: str):
     users = generate_users(30, team_ids)
     challenges = generate_challenges()
     registration_keys = generate_registration_keys(len(users), team_ids)
-    submissions = generate_submissions(len(users), len(challenges))
+    submissions = generate_submissions(users, len(challenges))
     
     print(f"Generated {len(teams)} teams")
     print(f"Generated {len(users)} users")

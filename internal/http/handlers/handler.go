@@ -183,6 +183,17 @@ func (h *Handler) MeSolved(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
+func (h *Handler) MeSolvedTeam(ctx *gin.Context) {
+	userID := middleware.UserID(ctx)
+	rows, err := h.ctf.TeamSolvedChallenges(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
+}
+
 func (h *Handler) UpdateMe(ctx *gin.Context) {
 	var req meUpdateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

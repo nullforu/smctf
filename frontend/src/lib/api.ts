@@ -215,6 +215,9 @@ export const api = {
     solved: () => {
         return request<SolvedChallenge[]>(`/api/me/solved`, { auth: true })
     },
+    solvedTeam: () => {
+        return request<SolvedChallenge[]>(`/api/me/solved/team`, { auth: true })
+    },
     challenges: () => {
         return request<Challenge[]>(`/api/challenges`)
     },
