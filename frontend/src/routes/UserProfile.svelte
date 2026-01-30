@@ -143,7 +143,7 @@
                     <h2 class="text-3xl text-slate-900 dark:text-slate-100">{user.username}</h2>
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">User ID: {user.id}</p>
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                        Group / Organization: {user.group_name === 'not affiliated' ? '-' : (user.group_name ?? '–')}
+                        Team: {user.team_name === 'not affiliated' ? '-' : (user.team_name ?? '–')}
                     </p>
                 </div>
                 <span

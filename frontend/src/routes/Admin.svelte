@@ -2,7 +2,7 @@
     import { get } from 'svelte/store'
     import { authStore } from '../lib/stores'
     import { api } from '../lib/api'
-    import type { Challenge, GroupSummary, RegistrationKey } from '../lib/types'
+    import type { Challenge, TeamSummary, RegistrationKey } from '../lib/types'
     import { formatApiError, formatDateTime as _formatDateTime, type FieldErrors } from '../lib/utils'
 
     const formatDateTime = _formatDateTime
@@ -13,7 +13,7 @@
 
     let { routeParams = {} }: Props = $props()
 
-    let activeTab = $state<'challenges' | 'challenge_management' | 'registration_keys' | 'groups'>('challenges')
+    let activeTab = $state<'challenges' | 'challenge_management' | 'registration_keys' | 'teams'>('challenges')
     let title = $state('')
     let description = $state('')
     const categories = [
@@ -49,7 +49,7 @@
     let createKeysFieldErrors: FieldErrors = $state({})
     let createKeysSuccessMessage = $state('')
     let keyCount = $state(1)
-    let selectedGroupId = $state<string>('none')
+    let selectedTeamId = $state<string>('none')
     let challenges: Challenge[] = $state([])
     let challengesLoading = $state(false)
     let challengesErrorMessage = $state('')
@@ -64,14 +64,14 @@
     let editPoints = $state(100)
     let editIsActive = $state(true)
     let auth = $state(get(authStore))
-    let groups: GroupSummary[] = $state([])
-    let groupsLoading = $state(false)
-    let groupsErrorMessage = $state('')
-    let groupName = $state('')
-    let createGroupLoading = $state(false)
-    let createGroupErrorMessage = $state('')
-    let createGroupSuccessMessage = $state('')
-    let createGroupFieldErrors: FieldErrors = $state({})
+    let teams: TeamSummary[] = $state([])
+    let teamsLoading = $state(false)
+    let teamsErrorMessage = $state('')
+    let teamName = $state('')
+    let createTeamLoading = $state(false)
+    let createTeamErrorMessage = $state('')
+    let createTeamSuccessMessage = $state('')
+    let createTeamFieldErrors: FieldErrors = $state({})
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -83,13 +83,13 @@
     $effect(() => {
         if (auth.user?.role === 'admin' && activeTab === 'registration_keys') {
             loadKeys()
-            loadGroups()
+            loadTeams()
         }
     })
 
     $effect(() => {
-        if (auth.user?.role === 'admin' && activeTab === 'groups') {
-            loadGroups()
+        if (auth.user?.role === 'admin' && activeTab === 'teams') {
+            loadTeams()
         }
     })
 
@@ -147,17 +147,17 @@
         }
     }
 
-    const loadGroups = async () => {
-        groupsLoading = true
-        groupsErrorMessage = ''
+    const loadTeams = async () => {
+        teamsLoading = true
+        teamsErrorMessage = ''
 
         try {
-            groups = await api.groups()
+            teams = await api.teams()
         } catch (error) {
             const formatted = formatApiError(error)
-            groupsErrorMessage = formatted.message
+            teamsErrorMessage = formatted.message
         } finally {
-            groupsLoading = false
+            teamsLoading = false
         }
     }
 
@@ -259,7 +259,7 @@
         try {
             const payload = {
                 count: Number(keyCount),
-                group_id: selectedGroupId === 'none' ? null : Number(selectedGroupId),
+                team_id: selectedTeamId === 'none' ? null : Number(selectedTeamId),
             }
             const created = await api.createRegistrationKeys(payload)
             createKeysSuccessMessage = `${created.length} keys created`
@@ -274,23 +274,23 @@
         }
     }
 
-    const submitGroup = async () => {
-        createGroupLoading = true
-        createGroupErrorMessage = ''
-        createGroupSuccessMessage = ''
-        createGroupFieldErrors = {}
+    const submitTeam = async () => {
+        createTeamLoading = true
+        createTeamErrorMessage = ''
+        createTeamSuccessMessage = ''
+        createTeamFieldErrors = {}
 
         try {
-            const created = await api.createGroup({ name: groupName })
-            createGroupSuccessMessage = `Group "${created.name}" created`
-            groupName = ''
-            await loadGroups()
+            const created = await api.createTeam({ name: teamName })
+            createTeamSuccessMessage = `Team "${created.name}" created`
+            teamName = ''
+            await loadTeams()
         } catch (error) {
             const formatted = formatApiError(error)
-            createGroupErrorMessage = formatted.message
-            createGroupFieldErrors = formatted.fieldErrors
+            createTeamErrorMessage = formatted.message
+            createTeamFieldErrors = formatted.fieldErrors
         } finally {
-            createGroupLoading = false
+            createTeamLoading = false
         }
     }
 </script>
@@ -349,13 +349,13 @@
                 </button>
                 <button
                     class={`rounded-full px-4 py-2 transition ${
-                        activeTab === 'groups'
+                        activeTab === 'teams'
                             ? 'bg-teal-600 text-white'
                             : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                     }`}
-                    onclick={() => (activeTab = 'groups')}
+                    onclick={() => (activeTab = 'teams')}
                 >
-                    Groups
+                    Teams
                 </button>
             </div>
 
@@ -598,7 +598,9 @@
                                                             onclick={() => openEditor(challenge)}
                                                             disabled={manageLoading}
                                                         >
-                                                            {expandedChallengeId === challenge.id ? 'Close Edit' : 'Edit'}
+                                                            {expandedChallengeId === challenge.id
+                                                                ? 'Close Edit'
+                                                                : 'Edit'}
                                                         </button>
                                                         <button
                                                             class="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
@@ -787,27 +789,27 @@
                             <div>
                                 <label
                                     class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                                    for="admin-key-group">Group / Organization</label
+                                    for="admin-key-team">Team</label
                                 >
                                 <select
-                                    id="admin-key-group"
+                                    id="admin-key-team"
                                     class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
-                                    bind:value={selectedGroupId}
-                                    disabled={groupsLoading}
+                                    bind:value={selectedTeamId}
+                                    disabled={teamsLoading}
                                 >
                                     <option value="none">(not affiliated)</option>
-                                    {#each groups as group}
-                                        <option value={group.id}>{group.name}</option>
+                                    {#each teams as team}
+                                        <option value={team.id}>{team.name}</option>
                                     {/each}
                                 </select>
-                                {#if createKeysFieldErrors.group_id}
+                                {#if createKeysFieldErrors.team_id}
                                     <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                                        group_id: {createKeysFieldErrors.group_id}
+                                        team_id: {createKeysFieldErrors.team_id}
                                     </p>
                                 {/if}
-                                {#if groupsErrorMessage}
+                                {#if teamsErrorMessage}
                                     <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                                        {groupsErrorMessage}
+                                        {teamsErrorMessage}
                                     </p>
                                 {/if}
                             </div>
@@ -869,7 +871,7 @@
                                         <tr>
                                             <th class="py-2 pr-4">Code</th>
                                             <th class="py-2 pr-4">Created by</th>
-                                            <th class="py-2 pr-4">Group / Organization</th>
+                                            <th class="py-2 pr-4">Team</th>
                                             <th class="py-2 pr-4">Created at</th>
                                             <th class="py-2 pr-4">Used by</th>
                                             <th class="py-2 pr-4">Used IP</th>
@@ -883,7 +885,7 @@
                                                     {key.code}
                                                 </td>
                                                 <td class="py-3 pr-4">{key.created_by_username}</td>
-                                                <td class="py-3 pr-4">{key.group_name ?? '-'}</td>
+                                                <td class="py-3 pr-4">{key.team_name ?? '-'}</td>
                                                 <td class="py-3 pr-4">{formatDateTime(key.created_at)}</td>
                                                 <td class="py-3 pr-4">{key.used_by_username ?? '-'}</td>
                                                 <td class="py-3 pr-4 font-mono text-xs">{key.used_by_ip ?? '-'}</td>
@@ -896,7 +898,7 @@
                         {/if}
                     </div>
                 </div>
-            {:else if activeTab === 'groups'}
+            {:else if activeTab === 'teams'}
                 <div class="mt-6 space-y-6">
                     <div
                         class="rounded-3xl border border-slate-200 bg-white p-8 dark:border-slate-800/80 dark:bg-slate-900/40"
@@ -905,47 +907,47 @@
                             class="space-y-4"
                             onsubmit={(event) => {
                                 event.preventDefault()
-                                submitGroup()
+                                submitTeam()
                             }}
                         >
                             <div>
                                 <label
                                     class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                                    for="admin-group-name">Group / Organization Name</label
+                                    for="admin-team-name">Team Name</label
                                 >
                                 <input
-                                    id="admin-group-name"
+                                    id="admin-team-name"
                                     class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                                     type="text"
-                                    bind:value={groupName}
+                                    bind:value={teamName}
                                     placeholder="e.g., 세명컴퓨터고등학교 or Null4U"
                                 />
-                                {#if createGroupFieldErrors.name}
+                                {#if createTeamFieldErrors.name}
                                     <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                                        name: {createGroupFieldErrors.name}
+                                        name: {createTeamFieldErrors.name}
                                     </p>
                                 {/if}
                             </div>
-                            {#if createGroupErrorMessage}
+                            {#if createTeamErrorMessage}
                                 <p
                                     class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
                                 >
-                                    {createGroupErrorMessage}
+                                    {createTeamErrorMessage}
                                 </p>
                             {/if}
-                            {#if createGroupSuccessMessage}
+                            {#if createTeamSuccessMessage}
                                 <p
                                     class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
                                 >
-                                    {createGroupSuccessMessage}
+                                    {createTeamSuccessMessage}
                                 </p>
                             {/if}
                             <button
                                 class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
                                 type="submit"
-                                disabled={createGroupLoading}
+                                disabled={createTeamLoading}
                             >
-                                {createGroupLoading ? 'Creating...' : 'Create Group'}
+                                {createTeamLoading ? 'Creating...' : 'Create Team'}
                             </button>
                         </form>
                     </div>
@@ -954,28 +956,28 @@
                         class="rounded-3xl border border-slate-200 bg-white p-8 dark:border-slate-800/80 dark:bg-slate-900/40"
                     >
                         <div class="flex items-center justify-between">
-                            <h3 class="text-lg text-slate-900 dark:text-slate-100">Groups</h3>
+                            <h3 class="text-lg text-slate-900 dark:text-slate-100">Teams</h3>
                             <button
                                 class="text-xs uppercase tracking-wide text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                onclick={loadGroups}
-                                disabled={groupsLoading}
+                                onclick={loadTeams}
+                                disabled={teamsLoading}
                             >
-                                {groupsLoading ? 'Loading...' : 'Refresh'}
+                                {teamsLoading ? 'Loading...' : 'Refresh'}
                             </button>
                         </div>
 
-                        {#if groupsErrorMessage}
+                        {#if teamsErrorMessage}
                             <p
                                 class="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
                             >
-                                {groupsErrorMessage}
+                                {teamsErrorMessage}
                             </p>
                         {/if}
 
-                        {#if groupsLoading}
-                            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">Loading groups...</p>
-                        {:else if groups.length === 0}
-                            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">No groups created yet.</p>
+                        {#if teamsLoading}
+                            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">Loading teams...</p>
+                        {:else if teams.length === 0}
+                            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">No teams created yet.</p>
                         {:else}
                             <div class="mt-4 overflow-x-auto">
                                 <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
@@ -987,11 +989,11 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {#each groups as group}
+                                        {#each teams as team}
                                             <tr class="border-t border-slate-200/70 dark:border-slate-800/70">
-                                                <td class="py-3 pr-4">{group.id}</td>
-                                                <td class="py-3 pr-4">{group.name}</td>
-                                                <td class="py-3">{formatDateTime(group.created_at)}</td>
+                                                <td class="py-3 pr-4">{team.id}</td>
+                                                <td class="py-3 pr-4">{team.name}</td>
+                                                <td class="py-3">{formatDateTime(team.created_at)}</td>
                                             </tr>
                                         {/each}
                                     </tbody>

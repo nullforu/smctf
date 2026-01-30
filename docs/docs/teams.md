@@ -1,11 +1,11 @@
 ---
-title: Groups
+title: Teams
 nav_order: 4
 ---
 
-## List Groups
+## List Teams
 
-`GET /api/groups`
+`GET /api/teams`
 
 Response 200
 
@@ -23,9 +23,9 @@ Response 200
 
 ---
 
-## Get Group
+## Get Team
 
-`GET /api/groups/{id}`
+`GET /api/teams/{id}`
 
 Response 200
 
@@ -46,9 +46,9 @@ Errors:
 
 ---
 
-## Get Group Members
+## Get Team Members
 
-`GET /api/groups/{id}/members`
+`GET /api/teams/{id}/members`
 
 Response 200
 
@@ -69,9 +69,9 @@ Errors:
 
 ---
 
-## Get Group Solved Challenges
+## Get Team Solved Challenges
 
-`GET /api/groups/{id}/solved`
+`GET /api/teams/{id}/solved`
 
 Response 200
 

@@ -23,7 +23,7 @@ type repoEnv struct {
 	db             *bun.DB
 	userRepo       *UserRepo
 	regKeyRepo     *RegistrationKeyRepo
-	groupRepo      *GroupRepo
+	teamRepo       *TeamRepo
 	challengeRepo  *ChallengeRepo
 	submissionRepo *SubmissionRepo
 }
@@ -145,7 +145,7 @@ func setupRepoTest(t *testing.T) repoEnv {
 		db:             repoDB,
 		userRepo:       NewUserRepo(repoDB),
 		regKeyRepo:     NewRegistrationKeyRepo(repoDB),
-		groupRepo:      NewGroupRepo(repoDB),
+		teamRepo:       NewTeamRepo(repoDB),
 		challengeRepo:  NewChallengeRepo(repoDB),
 		submissionRepo: NewSubmissionRepo(repoDB),
 	}
@@ -153,7 +153,7 @@ func setupRepoTest(t *testing.T) repoEnv {
 
 func resetRepoState(t *testing.T) {
 	t.Helper()
-	if _, err := repoDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := repoDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 }
@@ -180,7 +180,7 @@ func createUser(t *testing.T, env repoEnv, email, username, password, role strin
 	return user
 }
 
-func createUserWithGroup(t *testing.T, env repoEnv, email, username, password, role string, groupID *int64) *models.User {
+func createUserWithTeam(t *testing.T, env repoEnv, email, username, password, role string, teamID *int64) *models.User {
 	t.Helper()
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
 	if err != nil {
@@ -192,7 +192,7 @@ func createUserWithGroup(t *testing.T, env repoEnv, email, username, password, r
 		Username:     username,
 		PasswordHash: hash,
 		Role:         role,
-		GroupID:      groupID,
+		TeamID:       teamID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -203,17 +203,17 @@ func createUserWithGroup(t *testing.T, env repoEnv, email, username, password, r
 	return user
 }
 
-func createGroup(t *testing.T, env repoEnv, name string) *models.Group {
+func createTeam(t *testing.T, env repoEnv, name string) *models.Team {
 	t.Helper()
-	group := &models.Group{
+	team := &models.Team{
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
 	}
-	if err := env.groupRepo.Create(context.Background(), group); err != nil {
-		t.Fatalf("create group: %v", err)
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
 	}
 
-	return group
+	return team
 }
 
 func createChallenge(t *testing.T, env repoEnv, title string, points int, flag string, active bool) *models.Challenge {

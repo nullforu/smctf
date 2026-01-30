@@ -39,12 +39,12 @@ type testEnv struct {
 	router         *gin.Engine
 	userRepo       *repo.UserRepo
 	regKeyRepo     *repo.RegistrationKeyRepo
-	groupRepo      *repo.GroupRepo
+	teamRepo       *repo.TeamRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	authSvc        *service.AuthService
 	ctfSvc         *service.CTFService
-	groupSvc       *service.GroupService
+	teamSvc        *service.TeamService
 }
 
 type errorResp struct {
@@ -58,8 +58,8 @@ type registrationKeyResp struct {
 	Code              string     `json:"code"`
 	CreatedBy         int64      `json:"created_by"`
 	CreatedByUsername string     `json:"created_by_username"`
-	GroupID           *int64     `json:"group_id"`
-	GroupName         *string    `json:"group_name"`
+	TeamID            *int64     `json:"team_id"`
+	TeamName          *string    `json:"team_name"`
 	UsedBy            *int64     `json:"used_by"`
 	UsedByUsername    *string    `json:"used_by_username"`
 	UsedByIP          *string    `json:"used_by_ip"`
@@ -244,32 +244,32 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 
 	userRepo := repo.NewUserRepo(testDB)
 	registrationKeyRepo := repo.NewRegistrationKeyRepo(testDB)
-	groupRepo := repo.NewGroupRepo(testDB)
+	teamRepo := repo.NewTeamRepo(testDB)
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
-	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, groupRepo, testRedis)
-	groupSvc := service.NewGroupService(groupRepo)
+	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
+	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, groupSvc, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, teamSvc, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
 		router:         router,
 		userRepo:       userRepo,
 		regKeyRepo:     registrationKeyRepo,
-		groupRepo:      groupRepo,
+		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
-		groupSvc:       groupSvc,
+		teamSvc:        teamSvc,
 	}
 }
 
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, groups RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -401,7 +401,7 @@ func createUser(t *testing.T, env testEnv, email, username, password, role strin
 	return user
 }
 
-func createUserWithGroup(t *testing.T, env testEnv, email, username, password, role string, groupID *int64) *models.User {
+func createUserWithTeam(t *testing.T, env testEnv, email, username, password, role string, teamID *int64) *models.User {
 	t.Helper()
 
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
@@ -414,7 +414,7 @@ func createUserWithGroup(t *testing.T, env testEnv, email, username, password, r
 		Username:     username,
 		PasswordHash: hash,
 		Role:         role,
-		GroupID:      groupID,
+		TeamID:       teamID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -426,19 +426,19 @@ func createUserWithGroup(t *testing.T, env testEnv, email, username, password, r
 	return user
 }
 
-func createGroup(t *testing.T, env testEnv, name string) *models.Group {
+func createTeam(t *testing.T, env testEnv, name string) *models.Team {
 	t.Helper()
 
-	group := &models.Group{
+	team := &models.Team{
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
 	}
 
-	if err := env.groupRepo.Create(context.Background(), group); err != nil {
-		t.Fatalf("create group: %v", err)
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
 	}
 
-	return group
+	return team
 }
 
 func loginUser(t *testing.T, router *gin.Engine, email, password string) (string, string, int64) {
@@ -498,13 +498,13 @@ func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.R
 	return key
 }
 
-func createRegistrationKeyWithGroup(t *testing.T, env testEnv, createdBy int64, groupID *int64) *models.RegistrationKey {
+func createRegistrationKeyWithTeam(t *testing.T, env testEnv, createdBy int64, teamID *int64) *models.RegistrationKey {
 	t.Helper()
 
 	key := &models.RegistrationKey{
 		Code:      nextRegistrationCode(),
 		CreatedBy: createdBy,
-		GroupID:   groupID,
+		TeamID:    teamID,
 		CreatedAt: time.Now().UTC(),
 	}
 

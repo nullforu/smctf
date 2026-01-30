@@ -47,15 +47,19 @@ func (r *UserRepo) GetByEmailOrUsername(ctx context.Context, email, username str
 	return user, nil
 }
 
+func (r *UserRepo) baseUserWithTeamQuery() *bun.SelectQuery {
+	return r.db.NewSelect().
+		TableExpr("users AS u").
+		ColumnExpr("u.*").
+		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
+		Join("LEFT JOIN teams AS g ON g.id = u.team_id")
+}
+
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) {
 	user := new(models.User)
 
-	if err := r.db.NewSelect().
+	if err := r.baseUserWithTeamQuery().
 		Model(user).
-		TableExpr("users AS u").
-		ColumnExpr("u.*").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
-		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
 		Where("u.id = ?", id).
 		Scan(ctx); err != nil {
 		return nil, wrapNotFound("userRepo.GetByID", err)
@@ -84,36 +88,29 @@ func (r *UserRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardEntry, 
 	return rows, nil
 }
 
-func (r *UserRepo) GroupLeaderboard(ctx context.Context) ([]models.GroupLeaderboardEntry, error) {
-	rows := make([]models.GroupLeaderboardEntry, 0)
+func (r *UserRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLeaderboardEntry, error) {
+	rows := make([]models.TeamLeaderboardEntry, 0)
 
 	q := r.db.NewSelect().
 		TableExpr("users AS u").
-		ColumnExpr("u.group_id AS group_id").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
+		ColumnExpr("u.team_id AS team_id").
+		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
 		ColumnExpr("COALESCE(SUM(c.points), 0) AS score").
-		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
+		Join("LEFT JOIN teams AS g ON g.id = u.team_id").
 		Join("LEFT JOIN submissions AS s ON s.user_id = u.id AND s.correct = true").
 		Join("LEFT JOIN challenges AS c ON c.id = s.challenge_id").
-		GroupExpr("u.group_id, g.name").
-		OrderExpr("score DESC, group_name ASC")
+		GroupExpr("u.team_id, g.name").
+		OrderExpr("score DESC, team_name ASC")
 
 	if err := q.Scan(ctx, &rows); err != nil {
-		return nil, wrapError("userRepo.GroupLeaderboard", err)
+		return nil, wrapError("userRepo.TeamLeaderboard", err)
 	}
 
 	return rows, nil
 }
 
-type RawSubmission struct {
-	SubmittedAt time.Time `bun:"submitted_at"`
-	UserID      int64     `bun:"user_id"`
-	Username    string    `bun:"username"`
-	Points      int       `bun:"points"`
-}
-
-func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]RawSubmission, error) {
-	rows := make([]RawSubmission, 0)
+func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]models.UserTimelineRow, error) {
+	rows := make([]models.UserTimelineRow, 0)
 
 	query := r.db.NewSelect().
 		TableExpr("submissions AS s").
@@ -125,59 +122,51 @@ func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([
 		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Where("s.correct = true")
 
-	if since != nil {
-		query = query.Where("s.submitted_at >= ?", *since)
-	}
+	query = applyTimelineWindow(query, since)
 
-	if err := query.OrderExpr("s.submitted_at ASC, s.id ASC").Scan(ctx, &rows); err != nil {
+	if err := query.Scan(ctx, &rows); err != nil {
 		return nil, wrapError("userRepo.TimelineSubmissions", err)
 	}
 
 	return rows, nil
 }
 
-type RawGroupSubmission struct {
-	SubmittedAt time.Time `bun:"submitted_at"`
-	GroupID     *int64    `bun:"group_id"`
-	GroupName   string    `bun:"group_name"`
-	Points      int       `bun:"points"`
-}
-
-func (r *UserRepo) TimelineGroupSubmissions(ctx context.Context, since *time.Time) ([]RawGroupSubmission, error) {
-	rows := make([]RawGroupSubmission, 0)
+func (r *UserRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time) ([]models.TeamTimelineRow, error) {
+	rows := make([]models.TeamTimelineRow, 0)
 
 	query := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("s.submitted_at AS submitted_at").
-		ColumnExpr("u.group_id AS group_id").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
+		ColumnExpr("u.team_id AS team_id").
+		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
 		ColumnExpr("c.points AS points").
 		Join("JOIN users AS u ON u.id = s.user_id").
-		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
+		Join("LEFT JOIN teams AS g ON g.id = u.team_id").
 		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Where("s.correct = true")
 
-	if since != nil {
-		query = query.Where("s.submitted_at >= ?", *since)
-	}
+	query = applyTimelineWindow(query, since)
 
-	if err := query.OrderExpr("s.submitted_at ASC, s.id ASC").Scan(ctx, &rows); err != nil {
-		return nil, wrapError("userRepo.TimelineGroupSubmissions", err)
+	if err := query.Scan(ctx, &rows); err != nil {
+		return nil, wrapError("userRepo.TimelineTeamSubmissions", err)
 	}
 
 	return rows, nil
 }
 
+func applyTimelineWindow(query *bun.SelectQuery, since *time.Time) *bun.SelectQuery {
+	if since != nil {
+		query = query.Where("s.submitted_at >= ?", *since)
+	}
+	return query.OrderExpr("s.submitted_at ASC, s.id ASC")
+}
+
 func (r *UserRepo) List(ctx context.Context) ([]models.User, error) {
 	users := make([]models.User, 0)
 
-	if err := r.db.NewSelect().
+	if err := r.baseUserWithTeamQuery().
 		Model(&users).
 		Distinct().
-		TableExpr("users AS u").
-		ColumnExpr("u.*").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS group_name").
-		Join("LEFT JOIN groups AS g ON g.id = u.group_id").
 		OrderExpr("u.id ASC").
 		Scan(ctx); err != nil {
 		return nil, wrapError("userRepo.List", err)

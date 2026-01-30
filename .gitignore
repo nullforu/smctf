@@ -35,5 +35,6 @@ go.work.sum
 
 **/.DS_Store
 *.log
+logs
 dummy.sql
 *.dummy.sql

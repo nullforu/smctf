@@ -16,7 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, groupSvc *service.GroupService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, teamSvc *service.TeamService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -32,7 +32,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
 	r.Use(middleware.CORS(cfg.AppEnv != "production", nil))
 
-	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, groupSvc, redis)
+	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, teamSvc, redis)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
@@ -47,13 +47,13 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 
 		api.GET("/challenges", h.ListChallenges)
 		api.GET("/leaderboard", h.Leaderboard)
-		api.GET("/leaderboard/groups", h.GroupLeaderboard)
+		api.GET("/leaderboard/teams", h.TeamLeaderboard)
 		api.GET("/timeline", h.Timeline)
-		api.GET("/timeline/groups", h.GroupTimeline)
-		api.GET("/groups", h.ListGroups)
-		api.GET("/groups/:id", h.GetGroup)
-		api.GET("/groups/:id/members", h.ListGroupMembers)
-		api.GET("/groups/:id/solved", h.ListGroupSolved)
+		api.GET("/timeline/teams", h.TeamTimeline)
+		api.GET("/teams", h.ListTeams)
+		api.GET("/teams/:id", h.GetTeam)
+		api.GET("/teams/:id/members", h.ListTeamMembers)
+		api.GET("/teams/:id/solved", h.ListTeamSolved)
 		api.GET("/users", h.ListUsers)
 		api.GET("/users/:id", h.GetUser)
 		api.GET("/users/:id/solved", h.GetUserSolved)
@@ -61,7 +61,6 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		auth := api.Group("")
 		auth.Use(middleware.Auth(cfg.JWT))
 		auth.GET("/me", h.Me)
-		auth.GET("/me/solved", h.MeSolved)
 		auth.PUT("/me", h.UpdateMe)
 		auth.POST("/challenges/:id/submit", h.SubmitFlag)
 
@@ -72,7 +71,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.DELETE("/challenges/:id", h.DeleteChallenge)
 		admin.POST("/registration-keys", h.CreateRegistrationKeys)
 		admin.GET("/registration-keys", h.ListRegistrationKeys)
-		admin.POST("/groups", h.CreateGroup)
+		admin.POST("/teams", h.CreateTeam)
 	}
 
 	attachFrontendRoutes(r)

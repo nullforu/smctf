@@ -3,12 +3,17 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"smctf/internal/config"
 	"smctf/internal/http/middleware"
+	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 
@@ -17,68 +22,97 @@ import (
 )
 
 type Handler struct {
-	cfg    config.Config
-	auth   *service.AuthService
-	ctf    *service.CTFService
-	users  *repo.UserRepo
-	groups *service.GroupService
-	redis  *redis.Client
+	cfg   config.Config
+	auth  *service.AuthService
+	ctf   *service.CTFService
+	users *repo.UserRepo
+	teams *service.TeamService
+	redis *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, groups *service.GroupService, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, groups: groups, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, teams *service.TeamService, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, teams: teams, redis: redis}
 }
 
-type meUpdateRequest struct {
-	Username *string `json:"username"`
+func windowStartFromMinutes(windowMinutes int) *time.Time {
+	if windowMinutes <= 0 {
+		return nil
+	}
+	start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
+	return &start
 }
 
-type registerRequest struct {
-	Email           string `json:"email" binding:"required"`
-	Username        string `json:"username" binding:"required"`
-	Password        string `json:"password" binding:"required"`
-	RegistrationKey string `json:"registration_key" binding:"required"`
+func (h *Handler) respondFromCache(ctx *gin.Context, cacheKey string) bool {
+	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
+	if err != nil {
+		return false
+	}
+
+	ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+	return true
 }
 
-type loginRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
+func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response any) {
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+
+	_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
 }
 
-type refreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
+func (h *Handler) invalidateTimelineCache() {
+	go func() {
+		bgCtx := context.Background()
+		keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
+		if err != nil || len(keys) == 0 {
+			return
+		}
+		_ = h.redis.Del(bgCtx, keys...).Err()
+	}()
 }
 
-type createChallengeRequest struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description" binding:"required"`
-	Category    string `json:"category" binding:"required"`
-	Points      int    `json:"points" binding:"required"`
-	Flag        string `json:"flag" binding:"required"`
-	IsActive    *bool  `json:"is_active"`
+func parseWindowQuery(ctx *gin.Context) (int, error) {
+	value := strings.TrimSpace(ctx.Query("window"))
+	if value == "" {
+		return 0, nil
+	}
+
+	window, err := strconv.Atoi(value)
+	if err != nil || window <= 0 {
+		return 0, errors.New("invalid window")
+	}
+
+	return window, nil
 }
 
-type updateChallengeRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Category    *string `json:"category"`
-	Points      *int    `json:"points"`
-	Flag        *string `json:"flag"`
-	IsActive    *bool   `json:"is_active"`
+func parseIDParam(ctx *gin.Context, name string) (int64, bool) {
+	value := strings.TrimSpace(ctx.Param(name))
+	if value == "" {
+		return 0, false
+	}
+
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || id <= 0 {
+		return 0, false
+	}
+
+	return id, true
 }
 
-type submitRequest struct {
-	Flag string `json:"flag" binding:"required"`
+func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
+	id, ok := parseIDParam(ctx, name)
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, errorResponse{
+			Error:   service.ErrInvalidInput.Error(),
+			Details: []service.FieldError{{Field: name, Reason: "invalid"}},
+		})
+		return 0, false
+	}
+	return id, true
 }
 
-type createRegistrationKeysRequest struct {
-	Count   *int   `json:"count" binding:"required"`
-	GroupID *int64 `json:"group_id"`
-}
-
-type createGroupRequest struct {
-	Name string `json:"name" binding:"required"`
-}
+// Auth Handlers
 
 func (h *Handler) Register(ctx *gin.Context) {
 	var req registerRequest
@@ -95,10 +129,10 @@ func (h *Handler) Register(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"id":       user.ID,
-		"email":    user.Email,
-		"username": user.Username,
+	ctx.JSON(http.StatusCreated, registerResponse{
+		ID:       user.ID,
+		Email:    user.Email,
+		Username: user.Username,
 	})
 }
 
@@ -113,14 +147,14 @@ func (h *Handler) Login(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"user": gin.H{
-			"id":       user.ID,
-			"email":    user.Email,
-			"username": user.Username,
-			"role":     user.Role,
+	ctx.JSON(http.StatusOK, loginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User: loginUserResponse{
+			ID:       user.ID,
+			Email:    user.Email,
+			Username: user.Username,
+			Role:     user.Role,
 		},
 	})
 }
@@ -136,9 +170,9 @@ func (h *Handler) Refresh(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+	ctx.JSON(http.StatusOK, refreshResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	})
 }
 
@@ -162,25 +196,7 @@ func (h *Handler) Me(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":         user.ID,
-		"email":      user.Email,
-		"username":   user.Username,
-		"role":       user.Role,
-		"group_id":   user.GroupID,
-		"group_name": user.GroupName,
-	})
-}
-
-func (h *Handler) MeSolved(ctx *gin.Context) {
-	userID := middleware.UserID(ctx)
-	rows, err := h.ctf.SolvedChallenges(ctx.Request.Context(), userID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, rows)
+	ctx.JSON(http.StatusOK, newUserMeResponse(user))
 }
 
 func (h *Handler) UpdateMe(ctx *gin.Context) {
@@ -207,15 +223,10 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":         user.ID,
-		"email":      user.Email,
-		"username":   user.Username,
-		"role":       user.Role,
-		"group_id":   user.GroupID,
-		"group_name": user.GroupName,
-	})
+	ctx.JSON(http.StatusOK, newUserMeResponse(user))
 }
+
+// Challenge Handlers
 
 func (h *Handler) ListChallenges(ctx *gin.Context) {
 	challenges, err := h.ctf.ListChallenges(ctx.Request.Context())
@@ -223,27 +234,17 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
-	resp := make([]gin.H, 0, len(challenges))
+	resp := make([]challengeResponse, 0, len(challenges))
 	for _, challenge := range challenges {
-		resp = append(resp, gin.H{
-			"id":          challenge.ID,
-			"title":       challenge.Title,
-			"description": challenge.Description,
-			"category":    challenge.Category,
-			"points":      challenge.Points,
-			"is_active":   challenge.IsActive,
-		})
+		ch := challenge
+		resp = append(resp, newChallengeResponse(&ch))
 	}
 	ctx.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) SubmitFlag(ctx *gin.Context) {
-	challengeID, ok := parseIDParam(ctx, "id")
+	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 	var req submitRequest
@@ -258,16 +259,7 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 	}
 
 	if correct {
-		go func() {
-			bgCtx := context.Background()
-			keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
-
-			if err == nil {
-				if len(keys) > 0 {
-					_ = h.redis.Del(bgCtx, keys...).Err()
-				}
-			}
-		}()
+		h.invalidateTimelineCache()
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -293,23 +285,12 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"id":          challenge.ID,
-		"title":       challenge.Title,
-		"description": challenge.Description,
-		"category":    challenge.Category,
-		"points":      challenge.Points,
-		"is_active":   challenge.IsActive,
-	})
+	ctx.JSON(http.StatusCreated, newChallengeResponse(challenge))
 }
 
 func (h *Handler) UpdateChallenge(ctx *gin.Context) {
-	challengeID, ok := parseIDParam(ctx, "id")
+	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -325,23 +306,12 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":          challenge.ID,
-		"title":       challenge.Title,
-		"description": challenge.Description,
-		"category":    challenge.Category,
-		"points":      challenge.Points,
-		"is_active":   challenge.IsActive,
-	})
+	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
 }
 
 func (h *Handler) DeleteChallenge(ctx *gin.Context) {
-	challengeID, ok := parseIDParam(ctx, "id")
+	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -352,6 +322,8 @@ func (h *Handler) DeleteChallenge(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
+
+// Registration Key Handlers
 
 func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 	var req createRegistrationKeysRequest
@@ -365,7 +337,7 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		count = *req.Count
 	}
 
-	groupID := req.GroupID
+	teamID := req.TeamID
 	adminID := middleware.UserID(ctx)
 	admin, err := h.users.GetByID(ctx.Request.Context(), adminID)
 	if err != nil {
@@ -373,37 +345,37 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		return
 	}
 
-	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count, groupID)
+	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count, teamID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	var groupName *string
-	if groupID != nil {
-		group, err := h.groups.GetGroup(ctx.Request.Context(), *groupID)
+	var teamName *string
+	if teamID != nil {
+		team, err := h.teams.GetTeam(ctx.Request.Context(), *teamID)
 		if err != nil {
 			writeError(ctx, err)
 			return
 		}
 
-		groupName = &group.Name
+		teamName = &team.Name
 	}
 
-	resp := make([]gin.H, 0, len(keys))
+	resp := make([]models.RegistrationKeySummary, 0, len(keys))
 	for _, key := range keys {
-		resp = append(resp, gin.H{
-			"id":                  key.ID,
-			"code":                key.Code,
-			"created_by":          key.CreatedBy,
-			"created_by_username": admin.Username,
-			"group_id":            key.GroupID,
-			"group_name":          groupName,
-			"used_by":             key.UsedBy,
-			"used_by_username":    nil,
-			"used_by_ip":          nil,
-			"created_at":          key.CreatedAt,
-			"used_at":             key.UsedAt,
+		resp = append(resp, models.RegistrationKeySummary{
+			ID:                key.ID,
+			Code:              key.Code,
+			CreatedBy:         key.CreatedBy,
+			CreatedByUsername: admin.Username,
+			TeamID:            key.TeamID,
+			TeamName:          teamName,
+			UsedBy:            key.UsedBy,
+			UsedByUsername:    nil,
+			UsedByIP:          nil,
+			CreatedAt:         key.CreatedAt,
+			UsedAt:            key.UsedAt,
 		})
 	}
 
@@ -420,102 +392,119 @@ func (h *Handler) ListRegistrationKeys(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) CreateGroup(ctx *gin.Context) {
-	var req createGroupRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		writeBindError(ctx, err)
-		return
+// Scoreboard Handlers
+
+func aggregateUserTimeline(raw []models.UserTimelineRow) []models.TimelineSubmission {
+	if len(raw) == 0 {
+		return []models.TimelineSubmission{}
 	}
 
-	group, err := h.groups.CreateGroup(ctx.Request.Context(), req.Name)
-	if err != nil {
-		writeError(ctx, err)
-		return
+	type teamKey struct {
+		userID int64
+		bucket time.Time
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"id":         group.ID,
-		"name":       group.Name,
-		"created_at": group.CreatedAt,
+	teams := make(map[teamKey]*models.TimelineSubmission)
+
+	for _, sub := range raw {
+		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
+		key := teamKey{userID: sub.UserID, bucket: bucket}
+
+		if team, exists := teams[key]; exists {
+			team.Points += sub.Points
+			team.ChallengeCount++
+		} else {
+			teams[key] = &models.TimelineSubmission{
+				Timestamp:      bucket,
+				UserID:         sub.UserID,
+				Username:       sub.Username,
+				Points:         sub.Points,
+				ChallengeCount: 1,
+			}
+		}
+	}
+
+	result := make([]models.TimelineSubmission, 0, len(teams))
+	for _, team := range teams {
+		result = append(result, *team)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Timestamp.Equal(result[j].Timestamp) {
+			return result[i].UserID < result[j].UserID
+		}
+
+		return result[i].Timestamp.Before(result[j].Timestamp)
 	})
+
+	return result
 }
 
-func (h *Handler) ListGroups(ctx *gin.Context) {
-	groups, err := h.groups.ListGroups(ctx.Request.Context())
+func aggregateTeamTimeline(raw []models.TeamTimelineRow) []models.TeamTimelineSubmission {
+	if len(raw) == 0 {
+		return []models.TeamTimelineSubmission{}
+	}
+
+	type teamKey struct {
+		teamID  int64
+		hasTeam bool
+		bucket  time.Time
+	}
+
+	teams := make(map[teamKey]*models.TeamTimelineSubmission)
+
+	for _, sub := range raw {
+		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
+		key := teamKey{bucket: bucket}
+		if sub.TeamID != nil {
+			key.teamID = *sub.TeamID
+			key.hasTeam = true
+		}
+
+		if team, exists := teams[key]; exists {
+			team.Points += sub.Points
+			team.ChallengeCount++
+		} else {
+			teams[key] = &models.TeamTimelineSubmission{
+				Timestamp:      bucket,
+				TeamID:         sub.TeamID,
+				TeamName:       sub.TeamName,
+				Points:         sub.Points,
+				ChallengeCount: 1,
+			}
+		}
+	}
+
+	result := make([]models.TeamTimelineSubmission, 0, len(teams))
+	for _, team := range teams {
+		result = append(result, *team)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Timestamp.Equal(result[j].Timestamp) {
+			if result[i].TeamName == result[j].TeamName {
+				return result[i].TeamID != nil && (result[j].TeamID == nil || *result[i].TeamID < *result[j].TeamID)
+			}
+
+			return result[i].TeamName < result[j].TeamName
+		}
+
+		return result[i].Timestamp.Before(result[j].Timestamp)
+	})
+
+	return result
+}
+
+func parseWindowOrError(ctx *gin.Context) (int, bool) {
+	windowMinutes, err := parseWindowQuery(ctx)
 	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	resp := make([]gin.H, 0, len(groups))
-	for _, group := range groups {
-		resp = append(resp, gin.H{
-			"id":           group.ID,
-			"name":         group.Name,
-			"created_at":   group.CreatedAt,
-			"member_count": group.MemberCount,
-			"total_score":  group.TotalScore,
-		})
-	}
-
-	ctx.JSON(http.StatusOK, resp)
-}
-
-func (h *Handler) GetGroup(ctx *gin.Context) {
-	groupID, ok := parseIDParam(ctx, "id")
-	if !ok {
 		ctx.JSON(http.StatusBadRequest, errorResponse{
 			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
+			Details: []service.FieldError{{Field: "window", Reason: "invalid"}},
 		})
-		return
+		return 0, false
 	}
-
-	group, err := h.groups.GetGroup(ctx.Request.Context(), groupID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, group)
-}
-
-func (h *Handler) ListGroupMembers(ctx *gin.Context) {
-	groupID, ok := parseIDParam(ctx, "id")
-	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
-		return
-	}
-
-	rows, err := h.groups.ListMembers(ctx.Request.Context(), groupID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, rows)
-}
-
-func (h *Handler) ListGroupSolved(ctx *gin.Context) {
-	groupID, ok := parseIDParam(ctx, "id")
-	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
-		return
-	}
-
-	rows, err := h.groups.ListSolvedChallenges(ctx.Request.Context(), groupID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, rows)
+	return windowMinutes, true
 }
 
 func (h *Handler) Leaderboard(ctx *gin.Context) {
@@ -528,8 +517,8 @@ func (h *Handler) Leaderboard(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
-func (h *Handler) GroupLeaderboard(ctx *gin.Context) {
-	rows, err := h.users.GroupLeaderboard(ctx.Request.Context())
+func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
+	rows, err := h.users.TeamLeaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -539,28 +528,18 @@ func (h *Handler) GroupLeaderboard(ctx *gin.Context) {
 }
 
 func (h *Handler) Timeline(ctx *gin.Context) {
-	windowMinutes, err := parseWindowQuery(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "window", Reason: "invalid"}},
-		})
+	windowMinutes, ok := parseWindowOrError(ctx)
+	if !ok {
 		return
 	}
 
 	cacheKey := fmt.Sprintf("timeline:%d", windowMinutes)
 
-	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
-	if err == nil {
-		ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	var windowStart *time.Time
-	if windowMinutes > 0 {
-		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
-		windowStart = &start
-	}
+	windowStart := windowStartFromMinutes(windowMinutes)
 
 	raw, err := h.users.TimelineSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
@@ -568,81 +547,116 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 		return
 	}
 
-	rawSubs := make([]rawSubmission, len(raw))
-	for i, r := range raw {
-		rawSubs[i] = rawSubmission{
-			SubmittedAt: r.SubmittedAt,
-			UserID:      r.UserID,
-			Username:    r.Username,
-			Points:      r.Points,
-		}
-	}
+	submissions := aggregateUserTimeline(raw)
+	response := timelineResponse{Submissions: submissions}
 
-	submissions := groupSubmissions(rawSubs)
-	response := gin.H{
-		"submissions": submissions,
-	}
-
-	responseJSON, err := json.Marshal(response)
-	if err == nil {
-		_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
-	}
+	h.storeCache(ctx, cacheKey, response)
 
 	ctx.JSON(http.StatusOK, response)
 }
 
-func (h *Handler) GroupTimeline(ctx *gin.Context) {
-	windowMinutes, err := parseWindowQuery(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "window", Reason: "invalid"}},
-		})
+func (h *Handler) TeamTimeline(ctx *gin.Context) {
+	windowMinutes, ok := parseWindowOrError(ctx)
+	if !ok {
 		return
 	}
 
-	cacheKey := fmt.Sprintf("timeline:groups:%d", windowMinutes)
+	cacheKey := fmt.Sprintf("timeline:teams:%d", windowMinutes)
 
-	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
-	if err == nil {
-		ctx.Data(http.StatusOK, "application/json; charset=utf-8", []byte(cached))
+	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	var windowStart *time.Time
-	if windowMinutes > 0 {
-		start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
-		windowStart = &start
-	}
+	windowStart := windowStartFromMinutes(windowMinutes)
 
-	raw, err := h.users.TimelineGroupSubmissions(ctx.Request.Context(), windowStart)
+	raw, err := h.users.TimelineTeamSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	rawSubs := make([]rawGroupSubmission, len(raw))
-	for i, r := range raw {
-		rawSubs[i] = rawGroupSubmission{
-			SubmittedAt: r.SubmittedAt,
-			GroupID:     r.GroupID,
-			GroupName:   r.GroupName,
-			Points:      r.Points,
-		}
-	}
+	submissions := aggregateTeamTimeline(raw)
+	response := teamTimelineResponse{Submissions: submissions}
 
-	submissions := groupGroupSubmissions(rawSubs)
-	response := gin.H{
-		"submissions": submissions,
-	}
-
-	responseJSON, err := json.Marshal(response)
-	if err == nil {
-		_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
-	}
+	h.storeCache(ctx, cacheKey, response)
 
 	ctx.JSON(http.StatusOK, response)
 }
+
+// Team Handlers
+
+func (h *Handler) CreateTeam(ctx *gin.Context) {
+	var req createTeamRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	team, err := h.teams.CreateTeam(ctx.Request.Context(), req.Name)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, newTeamResponse(team))
+}
+
+func (h *Handler) ListTeams(ctx *gin.Context) {
+	teams, err := h.teams.ListTeams(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, teams)
+}
+
+func (h *Handler) GetTeam(ctx *gin.Context) {
+	teamID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	team, err := h.teams.GetTeam(ctx.Request.Context(), teamID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, team)
+}
+
+func (h *Handler) ListTeamMembers(ctx *gin.Context) {
+	teamID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	rows, err := h.teams.ListMembers(ctx.Request.Context(), teamID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
+}
+
+func (h *Handler) ListTeamSolved(ctx *gin.Context) {
+	teamID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	rows, err := h.teams.ListSolvedChallenges(ctx.Request.Context(), teamID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
+}
+
+// User Handlers
 
 func (h *Handler) ListUsers(ctx *gin.Context) {
 	users, err := h.users.List(ctx.Request.Context())
@@ -651,27 +665,18 @@ func (h *Handler) ListUsers(ctx *gin.Context) {
 		return
 	}
 
-	resp := make([]gin.H, 0, len(users))
+	resp := make([]userDetailResponse, 0, len(users))
 	for _, user := range users {
-		resp = append(resp, gin.H{
-			"id":         user.ID,
-			"username":   user.Username,
-			"role":       user.Role,
-			"group_id":   user.GroupID,
-			"group_name": user.GroupName,
-		})
+		u := user
+		resp = append(resp, newUserDetailResponse(&u))
 	}
 
 	ctx.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) GetUser(ctx *gin.Context) {
-	userID, ok := parseIDParam(ctx, "id")
+	userID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 
@@ -681,22 +686,12 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":         user.ID,
-		"username":   user.Username,
-		"role":       user.Role,
-		"group_id":   user.GroupID,
-		"group_name": user.GroupName,
-	})
+	ctx.JSON(http.StatusOK, newUserDetailResponse(user))
 }
 
 func (h *Handler) GetUserSolved(ctx *gin.Context) {
-	userID, ok := parseIDParam(ctx, "id")
+	userID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "id", Reason: "invalid"}},
-		})
 		return
 	}
 

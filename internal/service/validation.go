@@ -56,3 +56,12 @@ func normalizeEmail(email string) string {
 func normalizeTrim(value string) string {
 	return strings.TrimSpace(value)
 }
+
+func normalizeOptional(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	normalized := normalizeTrim(*value)
+	return &normalized
+}

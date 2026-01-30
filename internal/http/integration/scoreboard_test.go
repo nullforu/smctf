@@ -36,12 +36,12 @@ func TestScoreboard(t *testing.T) {
 	}
 }
 
-func TestScoreboardGroups(t *testing.T) {
+func TestScoreboardTeams(t *testing.T) {
 	env := setupTest(t, testCfg)
-	groupA := createGroup(t, env, "Alpha")
-	groupB := createGroup(t, env, "Beta")
-	user1 := createUserWithGroup(t, env, "u1@example.com", "u1", "pass", "user", &groupA.ID)
-	user2 := createUserWithGroup(t, env, "u2@example.com", "u2", "pass", "user", &groupB.ID)
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &teamB.ID)
 	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 50, "flag{2}", true)
@@ -50,31 +50,31 @@ func TestScoreboardGroups(t *testing.T) {
 	createSubmission(t, env, user2.ID, challenge2.ID, true, time.Now().UTC())
 	createSubmission(t, env, user3.ID, challenge2.ID, true, time.Now().UTC())
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard/groups", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard/teams", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rows []models.GroupLeaderboardEntry
+	var rows []models.TeamLeaderboardEntry
 	decodeJSON(t, rec, &rows)
 
 	if len(rows) != 3 {
 		t.Fatalf("expected 3 rows, got %d", len(rows))
 	}
 
-	if rows[0].GroupName != "Alpha" || rows[0].Score != 100 {
+	if rows[0].TeamName != "Alpha" || rows[0].Score != 100 {
 		t.Fatalf("unexpected first row: %+v", rows[0])
 	}
 
-	if rows[2].GroupName != "not affiliated" || rows[2].Score != 50 {
+	if rows[2].TeamName != "not affiliated" || rows[2].Score != 50 {
 		t.Fatalf("unexpected last row: %+v", rows[2])
 	}
 }
 
-func TestScoreboardGroupTimeline(t *testing.T) {
+func TestScoreboardTeamTimeline(t *testing.T) {
 	env := setupTest(t, testCfg)
-	groupA := createGroup(t, env, "Alpha")
-	user1 := createUserWithGroup(t, env, "u1@example.com", "u1", "pass", "user", &groupA.ID)
+	teamA := createTeam(t, env, "Alpha")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &teamA.ID)
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
@@ -83,15 +83,15 @@ func TestScoreboardGroupTimeline(t *testing.T) {
 	createSubmission(t, env, user1.ID, challenge1.ID, true, base.Add(3*time.Minute))
 	createSubmission(t, env, user2.ID, challenge2.ID, true, base.Add(7*time.Minute))
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/timeline/groups", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, "/api/timeline/teams", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var resp struct {
 		Submissions []struct {
-			GroupID        *int64    `json:"group_id"`
-			GroupName      string    `json:"group_name"`
+			TeamID         *int64    `json:"team_id"`
+			TeamName       string    `json:"team_name"`
 			Timestamp      time.Time `json:"timestamp"`
 			Points         int       `json:"points"`
 			ChallengeCount int       `json:"challenge_count"`
@@ -103,7 +103,7 @@ func TestScoreboardGroupTimeline(t *testing.T) {
 		t.Fatalf("expected 2 submissions, got %d", len(resp.Submissions))
 	}
 
-	if resp.Submissions[0].GroupName == "" || resp.Submissions[1].GroupName == "" {
+	if resp.Submissions[0].TeamName == "" || resp.Submissions[1].TeamName == "" {
 		t.Fatalf("unexpected submissions: %+v", resp.Submissions)
 	}
 }

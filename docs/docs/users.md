@@ -13,6 +13,8 @@ Headers
 Authorization: Bearer <access_token>
 ```
 
+Returns only the user's own solved challenges (not team-shared).
+
 Response 200
 
 ```json
@@ -21,8 +23,8 @@ Response 200
     "email": "user@example.com",
     "username": "user1",
     "role": "user",
-    "group_id": 1,
-    "group_name": "서울고등학교"
+    "team_id": 1,
+    "team_name": "서울고등학교"
 }
 ```
 
@@ -58,8 +60,8 @@ Response 200
     "email": "user@example.com",
     "username": "new_username",
     "role": "user",
-    "group_id": 1,
-    "group_name": "서울고등학교"
+    "team_id": 1,
+    "team_name": "서울고등학교"
 }
 ```
 
@@ -72,32 +74,7 @@ Errors:
 
 ## Solved Challenges
 
-`GET /api/me/solved`
-
-Headers
-
-```
-Authorization: Bearer <access_token>
-```
-
-Response 200
-
-```json
-[
-    {
-        "challenge_id": 1,
-        "title": "Warmup",
-        "points": 100,
-        "solved_at": "2026-01-24T12:00:00Z"
-    }
-]
-```
-
-Errors:
-
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
-
----
+Use `GET /api/me` to fetch the current user ID, then call `GET /api/users/{id}/solved`.
 
 ## List Users
 
@@ -111,15 +88,15 @@ Response 200
         "id": 1,
         "username": "user1",
         "role": "user",
-        "group_id": 1,
-        "group_name": "서울고등학교"
+        "team_id": 1,
+        "team_name": "서울고등학교"
     },
     {
         "id": 2,
         "username": "admin",
         "role": "admin",
-        "group_id": null,
-        "group_name": "not affiliated"
+        "team_id": null,
+        "team_name": "not affiliated"
     }
 ]
 ```
@@ -137,8 +114,8 @@ Response 200
     "id": 1,
     "username": "user1",
     "role": "user",
-    "group_id": 1,
-    "group_name": "서울고등학교"
+    "team_id": 1,
+    "team_name": "서울고등학교"
 }
 ```
 
@@ -152,6 +129,8 @@ Errors:
 ## Get User Solved Challenges
 
 `GET /api/users/{id}/solved`
+
+Returns only the user's own solved challenges (not team-shared).
 
 Response 200
 
@@ -170,3 +149,9 @@ Errors:
 
 - 400 `invalid input`
 - 404 `not found`
+
+---
+
+## Team Solved Challenges (My Team)
+
+Use `GET /api/me` to fetch the current user's `team_id`, then call `GET /api/teams/{team_id}/solved`.

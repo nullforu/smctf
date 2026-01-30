@@ -94,17 +94,9 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 }
 
 func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, flag *string, active *bool) (*models.Challenge, error) {
-	normalizeOptionalString := func(value *string) *string {
-		if value == nil {
-			return nil
-		}
-		normalized := normalizeTrim(*value)
-		return &normalized
-	}
-
-	normalizedTitle := normalizeOptionalString(title)
-	normalizedDescription := normalizeOptionalString(description)
-	normalizedCategory := normalizeOptionalString(category)
+	normalizedTitle := normalizeOptional(title)
+	normalizedDescription := normalizeOptional(description)
+	normalizedCategory := normalizeOptional(category)
 
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
@@ -235,7 +227,16 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		SubmittedAt: time.Now().UTC(),
 	}
 
-	if err := s.submissionRepo.Create(ctx, sub); err != nil {
+	if correct {
+		inserted, err := s.submissionRepo.CreateCorrectIfNotSolvedByTeam(ctx, sub)
+		if err != nil {
+			return false, fmt.Errorf("ctf.SubmitFlag create: %w", err)
+		}
+
+		if !inserted {
+			return true, ErrAlreadySolved
+		}
+	} else if err := s.submissionRepo.Create(ctx, sub); err != nil {
 		return false, fmt.Errorf("ctf.SubmitFlag create: %w", err)
 	}
 

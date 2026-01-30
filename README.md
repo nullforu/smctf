@@ -40,7 +40,7 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 - User profile with statistics (Some implementations are still WIP)
 - Logging middleware with file logging and webhook support (e.g., Discord, Slack, etc.)
     - Supports queuing and batching for webhooks to prevent rate limiting issues, and splitting long messages.
-- User and Team/Group management (WIP)
+- User and Team management (WIP)
 
 ### Planned/Upcoming features:
 
@@ -177,6 +177,20 @@ go build -o smctf ./cmd/server
 >
 > Running in Docker environment will be supported in the future.
 > Currently, please use local installation for development and testing. Requires Go and NodeJS, NPM installation.
+
+## Testing
+
+To run the tests, use the following command:
+
+```shell
+go test -v ./internal/...
+# or with race detector, coverage options
+go test -v -race -cover -coverprofile=coverage.out ./internal/...
+```
+
+Check the Codecov report for test coverage:
+
+- https://codecov.io/github/nullforu/smctf
 
 ## Previews
 

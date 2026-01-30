@@ -42,7 +42,7 @@
                 (user) =>
                     user.username.toLowerCase().includes(query) ||
                     user.id.toString().includes(query) ||
-                    (user.group_name ?? '').toLowerCase().includes(query),
+                    (user.team_name ?? '').toLowerCase().includes(query),
             )
         }
     })
@@ -92,7 +92,7 @@
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
                                 >
-                                    Group / Organization
+                                    Team
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
@@ -119,7 +119,7 @@
                                         {user.username}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
-                                        {user.group_name === 'not affiliated' ? '-' : (user.group_name ?? '–')}
+                                        {user.team_name === 'not affiliated' ? '-' : (user.team_name ?? '–')}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm">
                                         <span

@@ -1,5 +1,16 @@
 # Contributing Guide
 
+## Standards
+
+- use formatting tools like Prettier and Go fmt to maintain consistent code style.
+- write clear and concise code with proper naming conventions.
+- include comments and documentation where necessary to explain complex logic.
+    - most of the main contributors to this project are Korean, but as an open source, please add English sentences as well.
+    - distinguish between `Ko` (Korean) and `En` (English) in the comments. (e.g., `// Ko: 설명`, `// En: Explanation`)
+- write unit tests/integration tests for new features and bug fixes.
+- ensure all tests pass before submitting a pull request. (with `-race` flag for Go tests)
+- adhere to the existing code structure and patterns used in the project.
+
 ## Branch Strategy
 
 - Always create a dedicated branch for development.

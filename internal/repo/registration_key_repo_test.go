@@ -11,7 +11,7 @@ import (
 
 func TestRegistrationKeyRepoCRUD(t *testing.T) {
 	env := setupRepoTest(t)
-	group := createGroup(t, env, "Alpha")
+	team := createTeam(t, env, "Alpha")
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	user := createUser(t, env, "user@example.com", "user", "pass", "user")
 
@@ -22,7 +22,7 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 	key := &models.RegistrationKey{
 		Code:      "123456",
 		CreatedBy: admin.ID,
-		GroupID:   &group.ID,
+		TeamID:    &team.ID,
 		CreatedAt: time.Now().UTC(),
 		UsedBy:    &usedBy,
 		UsedAt:    &usedAt,
@@ -58,8 +58,8 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 		t.Fatalf("expected used by username, got %+v", rows[0].UsedByUsername)
 	}
 
-	if rows[0].GroupID == nil || *rows[0].GroupID != group.ID || rows[0].GroupName == nil || *rows[0].GroupName != group.Name {
-		t.Fatalf("expected group in key view, got %+v", rows[0])
+	if rows[0].TeamID == nil || *rows[0].TeamID != team.ID || rows[0].TeamName == nil || *rows[0].TeamName != team.Name {
+		t.Fatalf("expected team in key summary, got %+v", rows[0])
 	}
 }
 

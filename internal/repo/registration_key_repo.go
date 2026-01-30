@@ -38,26 +38,29 @@ func (r *RegistrationKeyRepo) GetByCodeForUpdate(ctx context.Context, db bun.IDB
 	return key, nil
 }
 
-func (r *RegistrationKeyRepo) List(ctx context.Context) ([]models.RegistrationKeyView, error) {
-	keys := make([]models.RegistrationKeyView, 0)
-
-	query := r.db.NewSelect().
+func (r *RegistrationKeyRepo) baseRegistrationKeySummaryQuery() *bun.SelectQuery {
+	return r.db.NewSelect().
 		TableExpr("registration_keys AS rk").
 		ColumnExpr("rk.id AS id").
 		ColumnExpr("rk.code AS code").
 		ColumnExpr("rk.created_by AS created_by").
 		ColumnExpr("creator.username AS created_by_username").
-		ColumnExpr("rk.group_id AS group_id").
-		ColumnExpr("g.name AS group_name").
+		ColumnExpr("rk.team_id AS team_id").
+		ColumnExpr("g.name AS team_name").
 		ColumnExpr("rk.used_by AS used_by").
 		ColumnExpr("used.username AS used_by_username").
 		ColumnExpr("rk.used_by_ip AS used_by_ip").
 		ColumnExpr("rk.created_at AS created_at").
 		ColumnExpr("rk.used_at AS used_at").
 		Join("JOIN users AS creator ON creator.id = rk.created_by").
-		Join("LEFT JOIN groups AS g ON g.id = rk.group_id").
-		Join("LEFT JOIN users AS used ON used.id = rk.used_by").
-		OrderExpr("rk.id DESC")
+		Join("LEFT JOIN teams AS g ON g.id = rk.team_id").
+		Join("LEFT JOIN users AS used ON used.id = rk.used_by")
+}
+
+func (r *RegistrationKeyRepo) List(ctx context.Context) ([]models.RegistrationKeySummary, error) {
+	keys := make([]models.RegistrationKeySummary, 0)
+
+	query := r.baseRegistrationKeySummaryQuery().OrderExpr("rk.id DESC")
 
 	if err := query.Scan(ctx, &keys); err != nil {
 		return nil, wrapError("registrationKeyRepo.List", err)
