@@ -164,3 +164,17 @@ func TestCTFServiceSolvedChallenges(t *testing.T) {
 		t.Fatalf("unexpected solved rows: %+v", rows)
 	}
 }
+
+func TestCTFServiceSolvedChallengesEmpty(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
+
+	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("solved challenges: %v", err)
+	}
+
+	if len(rows) != 0 {
+		t.Fatalf("expected empty solved rows, got %+v", rows)
+	}
+}

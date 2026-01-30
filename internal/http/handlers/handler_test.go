@@ -452,6 +452,26 @@ func TestHandlerTimelineUsesCache(t *testing.T) {
 	}
 }
 
+func TestHandlerTeamTimelineUsesCache(t *testing.T) {
+	env := setupHandlerTest(t)
+	cacheKey := "timeline:teams:0"
+	payload := []byte(`{"submissions":[]}`)
+
+	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
+		t.Fatalf("set cache: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/timeline/teams", nil)
+	env.handler.TeamTimeline(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("team timeline cache status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if !bytes.Equal(rec.Body.Bytes(), payload) {
+		t.Fatalf("expected cached response")
+	}
+}
+
 func TestHandlerBindErrorDetails(t *testing.T) {
 	env := setupHandlerTest(t)
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/auth/register", "{")

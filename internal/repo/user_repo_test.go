@@ -81,6 +81,21 @@ func TestUserRepoNotFound(t *testing.T) {
 	}
 }
 
+func TestUserRepoGetByIDTeamName(t *testing.T) {
+	env := setupRepoTest(t)
+	team := createTeam(t, env, "Alpha")
+	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
+
+	got, err := env.userRepo.GetByID(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+
+	if got.TeamName == nil || *got.TeamName != team.Name {
+		t.Fatalf("expected team name %q, got %+v", team.Name, got.TeamName)
+	}
+}
+
 func TestUserRepoLeaderboardAndTimeline(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Alpha")
