@@ -25,14 +25,15 @@ type Handler struct {
 	cfg   config.Config
 	auth  *service.AuthService
 	ctf   *service.CTFService
+	app   *service.AppConfigService
 	users *repo.UserRepo
 	score *repo.ScoreboardRepo
 	teams *service.TeamService
 	redis *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, score: score, teams: teams, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, teams: teams, redis: redis}
 }
 
 func windowStartFromMinutes(windowMinutes int) *time.Time {
@@ -111,6 +112,78 @@ func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// App Config Handlers
+
+func (h *Handler) GetConfig(ctx *gin.Context) {
+	cfg, updatedAt, etag, err := h.app.Get(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	if match := ctx.GetHeader("If-None-Match"); match != "" && etagMatches(match, etag) {
+		ctx.Header("ETag", etag)
+		ctx.Header("Cache-Control", "public, max-age=60")
+		ctx.Status(http.StatusNotModified)
+		return
+	}
+
+	ctx.Header("ETag", etag)
+	if !updatedAt.IsZero() {
+		ctx.Header("Last-Modified", updatedAt.UTC().Format(http.TimeFormat))
+	}
+	ctx.Header("Cache-Control", "public, max-age=60")
+
+	ctx.JSON(http.StatusOK, appConfigResponse{
+		Title:       cfg.Title,
+		Description: cfg.Description,
+		UpdatedAt:   updatedAt.UTC(),
+	})
+}
+
+func etagMatches(ifNoneMatch, etag string) bool {
+	needle := normalizeETag(etag)
+	for _, token := range strings.Split(ifNoneMatch, ",") {
+		trimmed := strings.TrimSpace(token)
+		if trimmed == "*" {
+			return true
+		}
+		if normalizeETag(trimmed) == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeETag(tag string) string {
+	tag = strings.TrimSpace(tag)
+	if strings.HasPrefix(tag, "W/") {
+		tag = strings.TrimSpace(strings.TrimPrefix(tag, "W/"))
+	}
+	return strings.Trim(tag, "\"")
+}
+
+func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
+	var req adminConfigUpdateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.Header("Cache-Control", "no-store")
+	ctx.JSON(http.StatusOK, appConfigResponse{
+		Title:       cfg.Title,
+		Description: cfg.Description,
+		UpdatedAt:   updatedAt.UTC(),
+	})
 }
 
 // Auth Handlers

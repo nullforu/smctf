@@ -32,9 +32,11 @@ type handlerEnv struct {
 	teamRepo       *repo.TeamRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
+	appConfigRepo  *repo.AppConfigRepo
 	authSvc        *service.AuthService
 	ctfSvc         *service.CTFService
 	teamSvc        *service.TeamService
+	appConfigSvc   *service.AppConfigService
 	handler        *Handler
 }
 
@@ -186,10 +188,12 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	challengeRepo := repo.NewChallengeRepo(handlerDB)
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
 	scoreRepo := repo.NewScoreboardRepo(handlerDB)
+	appConfigRepo := repo.NewAppConfigRepo(handlerDB)
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, teamRepo, handlerRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
-	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, scoreRepo, teamSvc, handlerRedis)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, handlerRedis)
 
 	return handlerEnv{
 		cfg:            handlerCfg,
@@ -200,9 +204,11 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
+		appConfigRepo:  appConfigRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
 		teamSvc:        teamSvc,
+		appConfigSvc:   appConfigSvc,
 		handler:        handler,
 	}
 }
@@ -210,7 +216,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 func resetHandlerState(t *testing.T) {
 	t.Helper()
 
-	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 

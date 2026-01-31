@@ -78,6 +78,108 @@ func TestParseIDParam(t *testing.T) {
 	}
 }
 
+// App Config Tests
+
+func TestNormalizeETag(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "quoted", in: "\"abc\"", want: "abc"},
+		{name: "weak", in: "W/\"abc\"", want: "abc"},
+		{name: "spaced", in: "  \"abc\"  ", want: "abc"},
+		{name: "unquoted", in: "abc", want: "abc"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeETag(tc.in); got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestETagMatches(t *testing.T) {
+	cases := []struct {
+		name        string
+		ifNoneMatch string
+		etag        string
+		want        bool
+	}{
+		{name: "exact", ifNoneMatch: "\"abc\"", etag: "\"abc\"", want: true},
+		{name: "weak", ifNoneMatch: "W/\"abc\"", etag: "\"abc\"", want: true},
+		{name: "multiple", ifNoneMatch: "\"def\", \"abc\"", etag: "\"abc\"", want: true},
+		{name: "star", ifNoneMatch: "*", etag: "\"abc\"", want: true},
+		{name: "mismatch", ifNoneMatch: "\"def\"", etag: "\"abc\"", want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := etagMatches(tc.ifNoneMatch, tc.etag); got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestHandlerGetConfigETag(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/config", nil)
+	env.handler.GetConfig(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("config status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	etag := rec.Header().Get("ETag")
+	if etag == "" {
+		t.Fatalf("expected etag header")
+	}
+}
+
+func TestHandlerAdminConfigUpdate(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	body := map[string]string{"title": "My CTF", "description": "Hello"}
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", body)
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin config status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.Title != "My CTF" || resp.Description != "Hello" {
+		t.Fatalf("unexpected config: %+v", resp)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/config", nil)
+	env.handler.GetConfig(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("config status %d: %s", rec.Code, rec.Body.String())
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.Title != "My CTF" || resp.Description != "Hello" {
+		t.Fatalf("unexpected public config: %+v", resp)
+	}
+}
+
+func TestHandlerAdminConfigValidation(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	body := map[string]string{"title": ""}
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", body)
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
 // Auth Handler Tests
 
 func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
@@ -593,7 +695,7 @@ func TestHandlerTeamTimelineUsesCache(t *testing.T) {
 func TestHandlerLeaderboardError(t *testing.T) {
 	closedDB := newClosedHandlerDB(t)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
-	handler := New(handlerCfg, nil, nil, nil, scoreRepo, nil, handlerRedis)
+	handler := New(handlerCfg, nil, nil, nil, nil, scoreRepo, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/leaderboard", nil)
 	handler.Leaderboard(ctx)
@@ -609,7 +711,7 @@ func TestHandlerListChallengesError(t *testing.T) {
 	submissionRepo := repo.NewSubmissionRepo(closedDB)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
-	handler := New(handlerCfg, nil, ctfSvc, nil, scoreRepo, nil, handlerRedis)
+	handler := New(handlerCfg, nil, ctfSvc, nil, nil, scoreRepo, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
 	handler.ListChallenges(ctx)
