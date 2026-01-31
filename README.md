@@ -40,18 +40,21 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 - User profile with statistics (Some implementations are still WIP)
 - Logging middleware with file logging and webhook support (e.g., Discord, Slack, etc.)
     - Supports queuing and batching for webhooks to prevent rate limiting issues, and splitting long messages.
+    - Ref Issue: [#9](https://github.com/nullforu/smctf/issues/9), PR: [#10](https://github.com/nullforu/smctf/pull/10)
 - User and Team management (WIP)
+    - Ref Issue: [#11](https://github.com/nullforu/smctf/issues/11), PR: [#12](https://github.com/nullforu/smctf/pull/12), [#15](https://github.com/nullforu/smctf/pull/15)
+- Dynamic scoring (ref: [CTFd - Dynamic Value](https://docs.ctfd.io/docs/custom-challenges/dynamic-value/))
+    - Ref Issue: [#14](https://github.com/nullforu/smctf/issues/14), PR: [#16](https://github.com/nullforu/smctf/pull/16)
 
 ### Planned/Upcoming features:
 
 Also, the following features are planned to be implemented. see [issues](https://github.com/nullforu/smctf/issues) for more details.
 
 - Per challenge individual instance/VM provisioning support via AWS SDK (ECS Fargate or EC2 based)
-- Dynamic scoring (ref: [CTFd - Dynamic Value](https://docs.ctfd.io/docs/custom-challenges/dynamic-value/))
 - Challenge file upload/download support via AWS Presigned URL
 - UI customization and detailed configuration options
 - Multi language support (i18n) and RTL language support (for global service expansion)
-- (WIP) Systematized admin dashboard and log/monitoring system integration
+- (WIP) Systematized admin dashboard and behavior log/monitoring system integration
 - ... and more features to be added.
 
 ## Tech Stacks
