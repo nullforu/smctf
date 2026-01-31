@@ -3,6 +3,8 @@ import { authStore, clearAuth, setAuthTokens, setAuthUser } from './stores'
 import type {
     AuthResponse,
     AuthUser,
+    AppConfig,
+    AdminConfigUpdatePayload,
     Challenge,
     ChallengeCreatePayload,
     ChallengeCreateResponse,
@@ -188,6 +190,12 @@ const request = async <T>(
 }
 
 export const api = {
+    config: () => {
+        return request<AppConfig>(`/api/config`)
+    },
+    updateAdminConfig: (payload: AdminConfigUpdatePayload) => {
+        return request<AppConfig>(`/api/admin/config`, { method: 'PUT', body: payload, auth: true })
+    },
     register: (payload: RegisterPayload) => {
         return request<RegisterResponse>(`/api/auth/register`, { method: 'POST', body: payload })
     },

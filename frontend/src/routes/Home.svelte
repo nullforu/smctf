@@ -2,6 +2,7 @@
     import { get } from 'svelte/store'
     import { authStore } from '../lib/stores'
     import { navigate as _navigate } from '../lib/router'
+    import { configStore } from '../lib/config'
 
     const navigate = _navigate
 
@@ -12,10 +13,18 @@
     let { routeParams = {} }: Props = $props()
 
     let auth = $state(get(authStore))
+    let appConfig = $state(get(configStore))
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
             auth = value
+        })
+        return unsubscribe
+    })
+
+    $effect(() => {
+        const unsubscribe = configStore.subscribe((value) => {
+            appConfig = value
         })
         return unsubscribe
     })
@@ -30,10 +39,8 @@
             <div class="absolute -bottom-32 left-10 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl"></div>
         </div>
         <div class="relative z-10">
-            <h1 class="mt-4 text-xl font-semibold text-slate-950 dark:text-slate-100 md:text-3xl">Welcome to SMCTF.</h1>
-            <p class="mt-4 max-w-2xl text-sm text-slate-800 dark:text-slate-300">
-                Check out the <a href="https://github.com/nullforu/smctf" class="underline">repository</a> for setup instructions.
-            </p>
+            <h1 class="mt-4 text-xl font-semibold text-slate-950 dark:text-slate-100 md:text-3xl">{appConfig.title}</h1>
+            <p class="mt-4 max-w-2xl text-sm text-slate-800 dark:text-slate-300">{appConfig.description}</p>
             <div class="mt-8 flex flex-wrap gap-4">
                 <a
                     href="/challenges"
