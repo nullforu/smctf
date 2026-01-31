@@ -54,8 +54,9 @@
         <div class="mt-4 space-y-3">
             {#if mode === 'teams'}
                 {#each teamScores as entry, index}
-                    <div
-                        class="w-full flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800/70 dark:bg-slate-950/40"
+                    <button
+                        class="w-full flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800/70 dark:bg-slate-950/40 cursor-pointer"
+                        onclick={() => navigate(`/teams/${entry.team_id}`)}
                     >
                         <div class="flex min-w-0 items-center gap-3">
                             <span class="text-xs text-slate-500">#{index + 1}</span>
@@ -64,7 +65,7 @@
                             >
                         </div>
                         <span class="text-sm text-teal-600 dark:text-teal-200">{entry.score} pts</span>
-                    </div>
+                    </button>
                 {/each}
                 {#if teamScores.length === 0}
                     <p class="text-sm text-slate-600 dark:text-slate-400">No team scores registered yet.</p>

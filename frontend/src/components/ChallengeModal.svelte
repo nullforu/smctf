@@ -99,6 +99,7 @@
                         >{challenge.category}</span
                     >
                     <span class="text-slate-600 dark:text-slate-400">{challenge.points} pts</span>
+                    <span class="text-slate-600 dark:text-slate-400">Solved {challenge.solve_count}</span>
                 </div>
             </div>
             {#if isSolved}
