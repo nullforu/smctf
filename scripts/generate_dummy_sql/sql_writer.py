@@ -27,6 +27,9 @@ def write_sql_file(
             f"-- Admin credentials: {meta['admin_email']} / {meta['admin_password']}\n\n"
         )
 
+        f.write("-- App Config\n")
+        f.write("INSERT INTO app_config (key, value, updated_at) VALUES ('title', 'Welcome to My CTF!', NOW()), ('description', 'this is a sample CTF description.', NOW());\n\n")
+
         f.write("-- Clear existing data\n")
         f.write(
             "TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE;\n\n"
