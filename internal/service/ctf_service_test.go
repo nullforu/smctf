@@ -6,7 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"smctf/internal/db"
+	"smctf/internal/repo"
 	"smctf/internal/utils"
+
+	"github.com/uptrace/bun"
 )
 
 func TestCTFServiceCreateAndListChallenges(t *testing.T) {
@@ -224,4 +228,37 @@ func TestCTFServiceSolvedChallengesEmpty(t *testing.T) {
 	if len(rows) != 0 {
 		t.Fatalf("expected empty solved rows, got %+v", rows)
 	}
+}
+
+func TestCTFServiceListChallengesError(t *testing.T) {
+	closedDB := newClosedServiceDB(t)
+	challengeRepo := repo.NewChallengeRepo(closedDB)
+	submissionRepo := repo.NewSubmissionRepo(closedDB)
+	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
+
+	if _, err := ctfSvc.ListChallenges(context.Background()); err == nil {
+		t.Fatalf("expected error from ListChallenges")
+	}
+}
+
+func TestCTFServiceSubmitFlagError(t *testing.T) {
+	closedDB := newClosedServiceDB(t)
+	challengeRepo := repo.NewChallengeRepo(closedDB)
+	submissionRepo := repo.NewSubmissionRepo(closedDB)
+	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
+
+	if _, err := ctfSvc.SubmitFlag(context.Background(), 1, 1, "flag{err}"); err == nil {
+		t.Fatalf("expected error from SubmitFlag")
+	}
+}
+
+func newClosedServiceDB(t *testing.T) *bun.DB {
+	t.Helper()
+	conn, err := db.New(serviceCfg.DB, "test")
+	if err != nil {
+		t.Fatalf("new db: %v", err)
+	}
+
+	_ = conn.Close()
+	return conn
 }

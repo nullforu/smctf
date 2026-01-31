@@ -190,3 +190,12 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 		t.Fatalf("expected rows ordered by last_solved_at desc: %+v", rows)
 	}
 }
+
+func TestTeamRepoListWithStatsError(t *testing.T) {
+	closedDB := newClosedRepoDB(t)
+	repo := NewTeamRepo(closedDB)
+
+	if _, err := repo.ListWithStats(context.Background()); err == nil {
+		t.Fatalf("expected error from ListWithStats")
+	}
+}

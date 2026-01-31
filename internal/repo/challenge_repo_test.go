@@ -5,6 +5,10 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"smctf/internal/db"
+
+	"github.com/uptrace/bun"
 )
 
 func TestChallengeRepoCRUD(t *testing.T) {
@@ -105,4 +109,24 @@ func TestChallengeRepoDynamicPointsAndSolveCounts(t *testing.T) {
 	if _, ok := solveCounts[other.ID]; ok {
 		t.Fatalf("expected no solve count entry for unsolved challenge")
 	}
+}
+
+func TestChallengeRepoDynamicPointsError(t *testing.T) {
+	closedDB := newClosedRepoDB(t)
+	repo := NewChallengeRepo(closedDB)
+
+	if _, err := repo.DynamicPoints(context.Background()); err == nil {
+		t.Fatalf("expected error from DynamicPoints")
+	}
+}
+
+func newClosedRepoDB(t *testing.T) *bun.DB {
+	t.Helper()
+	conn, err := db.New(repoCfg.DB, "test")
+	if err != nil {
+		t.Fatalf("new db: %v", err)
+	}
+
+	_ = conn.Close()
+	return conn
 }

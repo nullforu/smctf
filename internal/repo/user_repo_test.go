@@ -142,3 +142,21 @@ func TestUserRepoCreateDuplicateEmail(t *testing.T) {
 		t.Fatalf("expected error for duplicate email")
 	}
 }
+
+func TestUserRepoCreateError(t *testing.T) {
+	closedDB := newClosedRepoDB(t)
+	repo := NewUserRepo(closedDB)
+
+	user := &models.User{
+		Email:        "err@example.com",
+		Username:     "erruser",
+		PasswordHash: "hash",
+		Role:         "user",
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+
+	if err := repo.Create(context.Background(), user); err == nil {
+		t.Fatalf("expected error from Create")
+	}
+}

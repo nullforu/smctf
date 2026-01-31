@@ -7,11 +7,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"smctf/internal/models"
 	"testing"
 	"time"
 
+	"smctf/internal/db"
+	"smctf/internal/models"
+	"smctf/internal/repo"
+	"smctf/internal/service"
+
 	"github.com/gin-gonic/gin"
+	"github.com/uptrace/bun"
 )
 
 func newJSONContext(t *testing.T, method, path string, body interface{}) (*gin.Context, *httptest.ResponseRecorder) {
@@ -583,6 +588,45 @@ func TestHandlerTeamTimelineUsesCache(t *testing.T) {
 	if !bytes.Equal(rec.Body.Bytes(), payload) {
 		t.Fatalf("expected cached response")
 	}
+}
+
+func TestHandlerLeaderboardError(t *testing.T) {
+	closedDB := newClosedHandlerDB(t)
+	scoreRepo := repo.NewScoreboardRepo(closedDB)
+	handler := New(handlerCfg, nil, nil, nil, scoreRepo, nil, handlerRedis)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/leaderboard", nil)
+	handler.Leaderboard(ctx)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("leaderboard status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandlerListChallengesError(t *testing.T) {
+	closedDB := newClosedHandlerDB(t)
+	challengeRepo := repo.NewChallengeRepo(closedDB)
+	submissionRepo := repo.NewSubmissionRepo(closedDB)
+	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
+	scoreRepo := repo.NewScoreboardRepo(closedDB)
+	handler := New(handlerCfg, nil, ctfSvc, nil, scoreRepo, nil, handlerRedis)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	handler.ListChallenges(ctx)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("list challenges status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func newClosedHandlerDB(t *testing.T) *bun.DB {
+	t.Helper()
+	conn, err := db.New(handlerCfg.DB, "test")
+	if err != nil {
+		t.Fatalf("new db: %v", err)
+	}
+	_ = conn.Close()
+	return conn
 }
 
 // Team Handler Tests
