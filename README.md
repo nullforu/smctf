@@ -317,16 +317,57 @@ Check the Codecov report for test coverage:
 For testing purposes, you can populate the database with dummy data using the following script:
 
 ```shell
-python3 ./scripts/generate_dummy_sql.py
+# python3 -m pip install -r ./scripts/generate_dummy_sql/requirements.txt
+python3 ./scripts/generate_dummy_sql/main.py
 ```
+
+You can also use the wrapper script:
+
+```shell
+./scripts/generate_dummy_sql.sh
+```
+
+Templates and YAML inputs are supported:
+
+```shell
+chmod +x ./scripts/generate_dummy_sql.sh
+
+./scripts/generate_dummy_sql.sh --list-templates
+./scripts/generate_dummy_sql.sh --template team_only.yaml --template high_solve_rate.yaml
+./scripts/generate_dummy_sql.sh --data ./scripts/generate_dummy_sql/defaults/data.yaml --settings ./scripts/generate_dummy_sql/defaults/settings.yaml
+```
+
+CLI options:
+
+- `--data`: path to data YAML (users/teams/challenges). Defaults to bundled `data.yaml`.
+- `--settings`: path to settings YAML. Merged over defaults. Defaults to bundled `settings.yaml`.
+- `--template`: template YAML to apply before settings (repeatable).
+- `--output`: override output SQL file path.
+- `--seed`: random seed for reproducible output.
+- `--list-templates`: list bundled templates.
+
+Available templates:
+
+- `solo_only.yaml`: force users to have no team (no team join / no team assignment for registration keys)
+- `team_only.yaml`: force users to always join a team and assign team on registration keys
+- `high_solve_rate.yaml`: increase solve probability and attempt counts
+- `low_solve_rate.yaml`: decrease solve probability and attempt counts
+- `few_attempts.yaml`: lower number of attempts per user
+- `many_attempts.yaml`: higher number of attempts per user
 
 This will generate a `dummy.sql` file. You can then import this file into your PostgreSQL database:
 
 ```shell
+# for docker-compose.db.yaml
 PGPASSWORD=app_password psql -U app_user -d app_db -h localhost -f dummy.sql
 ```
 
-It provides sample challenges, 50 users, and random submissions data from the last 48 hours.
+Defaults live in `./scripts/generate_dummy_sql/defaults/` and can be overridden with your own YAML.
+It provides sample challenges, 30 users (including admin), and random submissions data from the last ~48 hours.
+
+> [!WARNING]
+> 
+> **This will TRUNCATE all tables in the database! Use only in development/test environments.**
 
 ## FAQ, Troubleshooting
 

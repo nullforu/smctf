@@ -1,0 +1,5 @@
+probabilities:
+  submissions:
+    attempt_count:
+      min: 12
+      max: 25

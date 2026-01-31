@@ -38,3 +38,9 @@ go.work.sum
 logs
 dummy.sql
 *.dummy.sql
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.ruff_cache/

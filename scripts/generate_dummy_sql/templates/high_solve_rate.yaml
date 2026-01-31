@@ -1,0 +1,8 @@
+probabilities:
+  submissions:
+    solve_probability:
+      min: 0.35
+      skill_bias: 0.45
+    attempt_count:
+      min: 8
+      max: 20
