@@ -1,0 +1,61 @@
+output:
+  file: "dummy.sql"
+security:
+  flag_hmac_secret_default: "change-me-too"
+  bcrypt_cost: 12
+auth:
+  default_password: "password123"
+  admin:
+    email: "admin@smctf.com"
+    username: "admin"
+    password: "admin123!"
+    role: "admin"
+counts:
+  users: 30
+  registration_keys: 30
+constraints:
+  min_user_names: 30
+  min_points_ratio: 0.2
+  min_points_floor: 10
+timing:
+  teams_base_hours_ago: 50
+  users_base_hours_ago: 48
+  challenges_base_hours_ago: 47
+  registration_keys_base_hours_ago: 46
+  submissions_base_hours_ago: 42
+  team_created_minutes_step: 9
+  challenge_created_minutes_step: 18
+  registration_key_minutes_step: 7
+  user_created_hours_spread: 12
+probabilities:
+  user:
+    team_join_chance: 0.8
+  registration_keys:
+    team_assign_chance: 0.75
+    used_fraction: 0.6
+  submissions:
+    attempt_count:
+      min: 5
+      max: 15
+    skill_beta:
+      alpha: 2
+      beta: 5
+    challenge_weight:
+      min: 0.1
+      skill_bias: 0.3
+    solve_probability:
+      min: 0.1
+      skill_bias: 0.2
+    wrong_attempts:
+      values: [0, 1, 2]
+      weights: [0.4, 0.4, 0.2]
+    wrong_attempts_time:
+      min_minutes_before: 5
+      max_minutes_before: 60
+    failure_attempt_delay:
+      min_minutes: 0
+      max_minutes: 120
+    recent_submissions:
+      fraction: 0.05
+      max_minutes_ago: 60
+    team_unique_solve: true

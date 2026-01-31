@@ -1,0 +1,5 @@
+probabilities:
+  user:
+    team_join_chance: 0.0
+  registration_keys:
+    team_assign_chance: 0.0
