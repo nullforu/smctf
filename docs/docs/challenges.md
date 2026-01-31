@@ -17,10 +17,17 @@ Response 200
         "description": "...",
         "category": "Web",
         "points": 100,
+        "initial_points": 200,
+        "minimum_points": 50,
+        "solve_count": 12,
         "is_active": true
     }
 ]
 ```
+
+Notes:
+
+- `points` is dynamically calculated based on solves.
 
 ---
 

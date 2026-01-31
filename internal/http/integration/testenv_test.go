@@ -247,10 +247,11 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	teamRepo := repo.NewTeamRepo(testDB)
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
+	scoreRepo := repo.NewScoreboardRepo(testDB)
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, teamSvc, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, scoreRepo, teamSvc, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
@@ -519,13 +520,14 @@ func createChallenge(t *testing.T, env testEnv, title string, points int, flag s
 	t.Helper()
 
 	challenge := &models.Challenge{
-		Title:       title,
-		Description: "desc",
-		Category:    "Misc",
-		Points:      points,
-		FlagHash:    utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
-		IsActive:    active,
-		CreatedAt:   time.Now().UTC(),
+		Title:         title,
+		Description:   "desc",
+		Category:      "Misc",
+		Points:        points,
+		MinimumPoints: points,
+		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
+		IsActive:      active,
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {

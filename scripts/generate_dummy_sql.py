@@ -20,7 +20,6 @@ except ImportError:
     print("Error: bcrypt is required. Install it with: pip install bcrypt")
     sys.exit(1)
 
-
 def hmac_flag(secret: str, flag: str) -> str:
     h = hmac.new(secret.encode(), flag.encode(), hashlib.sha256)
     return h.hexdigest()
@@ -148,17 +147,19 @@ def generate_users(count: int, team_ids: List[int]) -> List[Tuple[str, str, str,
     return users
 
 
-def generate_challenges() -> List[Tuple[str, str, str, int, str, bool, str]]:
+def generate_challenges() -> List[Tuple[str, str, str, int, int, str, bool, str]]:
     challenges = []
     base_time = datetime.now(UTC) - timedelta(hours=47)
     
     for i, (title, description, points, flag, category) in enumerate(CHALLENGES):
         flag_hash = hmac_flag(FLAG_HMAC_SECRET, flag)
         is_active = True
+        # Set minimum_points to 20% of points, but at least 10
+        minimum_points = max(10, points // 5) 
         created_at = (base_time + timedelta(minutes=i * 18))
         created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
         
-        challenges.append((title, description, category, points, flag_hash, is_active, created_at_str))
+        challenges.append((title, description, category, points, minimum_points, flag_hash, is_active, created_at_str))
     
     return challenges
 
@@ -364,14 +365,16 @@ def generate_sql_file(output_file: str):
         f.write("\n")
 
         f.write("-- Insert challenges\n")
-        for title, description, category, points, flag_hash, is_active, created_at in challenges:
+        for title, description, category, points, minimum_points, flag_hash, is_active, created_at in challenges:
             title_esc = escape_sql_string(title)
             description_esc = escape_sql_string(description)
             category_esc = escape_sql_string(category)
             flag_hash_esc = escape_sql_string(flag_hash)
             
-            f.write(f"INSERT INTO challenges (title, description, category, points, flag_hash, is_active, created_at) VALUES ")
-            f.write(f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, '{flag_hash_esc}', {is_active}, '{created_at}');\n")
+            f.write("INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, is_active, created_at) VALUES ")
+            f.write(
+                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {is_active}, '{created_at}');\n"
+            )
         
         f.write("\n")
         
@@ -393,6 +396,9 @@ def generate_sql_file(output_file: str):
     print(f"\nGenerated {output_file}")
     print(f"\nTo load the data:")
     print(f"  psql -U app_user -d app_db -h localhost < {output_file}")
+    print("Or with password:")
+    print(f"  PGPASSWORD=app_password psql -U app_user -d app_db -h localhost < {output_file}")
+    
 
 
 if __name__ == "__main__":

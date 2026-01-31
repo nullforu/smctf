@@ -6,19 +6,27 @@ import (
 	"testing"
 	"time"
 
+	"smctf/internal/db"
+	"smctf/internal/repo"
 	"smctf/internal/utils"
+
+	"github.com/uptrace/bun"
 )
 
 func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 	env := setupServiceTest(t)
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, "FLAG{1}", true)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 80, "FLAG{1}", true)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
 
 	if challenge.ID == 0 || challenge.Title != "Title" || !challenge.IsActive {
 		t.Fatalf("unexpected challenge: %+v", challenge)
+	}
+
+	if challenge.MinimumPoints != 80 || challenge.InitialPoints != 100 {
+		t.Fatalf("unexpected points metadata: %+v", challenge)
 	}
 
 	if challenge.FlagHash != utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "FLAG{1}") {
@@ -37,11 +45,53 @@ func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 
 func TestCTFServiceCreateChallengeValidation(t *testing.T) {
 	env := setupServiceTest(t)
-	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, "", true)
+	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, 0, "", true)
 
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %v", err)
+	}
+
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 200, "FLAG{X}", true)
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error for minimum_points, got %v", err)
+	}
+}
+
+func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
+	env := setupServiceTest(t)
+	team := createTeam(t, env, "Alpha")
+	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
+	soloUser := createUser(t, env, "s1@example.com", "s1", "pass", "user")
+
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true)
+	if err != nil {
+		t.Fatalf("create challenge: %v", err)
+	}
+
+	createSubmission(t, env, teamUser.ID, challenge.ID, true, time.Now().UTC())
+
+	list, err := env.ctfSvc.ListChallenges(context.Background())
+	if err != nil {
+		t.Fatalf("list challenges: %v", err)
+	}
+
+	if len(list) != 1 {
+		t.Fatalf("expected 1 challenge, got %d", len(list))
+	}
+
+	if list[0].Points != 400 || list[0].InitialPoints != 500 || list[0].MinimumPoints != 100 {
+		t.Fatalf("unexpected dynamic points: %+v", list[0])
+	}
+
+	createSubmission(t, env, soloUser.ID, challenge.ID, true, time.Now().UTC())
+	list, err = env.ctfSvc.ListChallenges(context.Background())
+	if err != nil {
+		t.Fatalf("list challenges: %v", err)
+	}
+
+	if list[0].Points != 100 {
+		t.Fatalf("expected minimum after 2 solves, got %d", list[0].Points)
 	}
 }
 
@@ -55,26 +105,27 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	newPoints := 150
 	newActive := false
 
-	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &newTitle, &newDesc, &newCat, &newPoints, nil, &newActive)
+	newMin := 40
+	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &newTitle, &newDesc, &newCat, &newPoints, &newMin, nil, &newActive)
 	if err != nil {
 		t.Fatalf("update challenge: %v", err)
 	}
 
-	if updated.Title != newTitle || updated.Description != newDesc || updated.Category != newCat || updated.Points != newPoints || updated.IsActive != newActive {
+	if updated.Title != newTitle || updated.Description != newDesc || updated.Category != newCat || updated.Points != newPoints || updated.IsActive != newActive || updated.MinimumPoints != newMin {
 		t.Fatalf("unexpected updated challenge: %+v", updated)
 	}
 
 	flag := "FLAG{IMMUTABLE}"
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, &flag, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &flag, nil); err == nil {
 		t.Fatalf("expected flag immutable error")
 	}
 
 	badCat := "Bad"
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &badCat, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &badCat, nil, nil, nil, nil); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), 9999, &newTitle, nil, nil, nil, nil, nil); !errors.Is(err, ErrChallengeNotFound) {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), 9999, &newTitle, nil, nil, nil, nil, nil, nil); !errors.Is(err, ErrChallengeNotFound) {
 		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
 	}
 }
@@ -177,4 +228,37 @@ func TestCTFServiceSolvedChallengesEmpty(t *testing.T) {
 	if len(rows) != 0 {
 		t.Fatalf("expected empty solved rows, got %+v", rows)
 	}
+}
+
+func TestCTFServiceListChallengesError(t *testing.T) {
+	closedDB := newClosedServiceDB(t)
+	challengeRepo := repo.NewChallengeRepo(closedDB)
+	submissionRepo := repo.NewSubmissionRepo(closedDB)
+	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
+
+	if _, err := ctfSvc.ListChallenges(context.Background()); err == nil {
+		t.Fatalf("expected error from ListChallenges")
+	}
+}
+
+func TestCTFServiceSubmitFlagError(t *testing.T) {
+	closedDB := newClosedServiceDB(t)
+	challengeRepo := repo.NewChallengeRepo(closedDB)
+	submissionRepo := repo.NewSubmissionRepo(closedDB)
+	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
+
+	if _, err := ctfSvc.SubmitFlag(context.Background(), 1, 1, "flag{err}"); err == nil {
+		t.Fatalf("expected error from SubmitFlag")
+	}
+}
+
+func newClosedServiceDB(t *testing.T) *bun.DB {
+	t.Helper()
+	conn, err := db.New(serviceCfg.DB, "test")
+	if err != nil {
+		t.Fatalf("new db: %v", err)
+	}
+
+	_ = conn.Close()
+	return conn
 }

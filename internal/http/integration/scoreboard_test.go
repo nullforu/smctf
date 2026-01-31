@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"smctf/internal/models"
 	"smctf/internal/service"
@@ -208,5 +209,37 @@ func TestScoreboardTimelineInvalidWindow(t *testing.T) {
 
 	if resp.Error != service.ErrInvalidInput.Error() {
 		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+}
+
+func TestScoreboardDynamicScoring(t *testing.T) {
+	env := setupTest(t, testCfg)
+	team := createTeam(t, env, "Alpha")
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", &team.ID)
+	userSolo := createUser(t, env, "solo@example.com", "solo", "pass123", "user")
+
+	challenge := createChallenge(t, env, "Dynamic", 500, "flag{dynamic}", true)
+	challenge.MinimumPoints = 100
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge: %v", err)
+	}
+
+	createSubmission(t, env, userTeam.ID, challenge.ID, true, time.Now().UTC())
+	createSubmission(t, env, userSolo.ID, challenge.ID, true, time.Now().UTC())
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var rows []models.LeaderboardEntry
+	decodeJSON(t, rec, &rows)
+
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+
+	if rows[0].Score != 100 || rows[1].Score != 100 {
+		t.Fatalf("expected dynamic scores 100, got %+v", rows)
 	}
 }

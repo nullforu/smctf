@@ -185,10 +185,11 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	teamRepo := repo.NewTeamRepo(handlerDB)
 	challengeRepo := repo.NewChallengeRepo(handlerDB)
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
+	scoreRepo := repo.NewScoreboardRepo(handlerDB)
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, teamRepo, handlerRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
-	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, teamSvc, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, scoreRepo, teamSvc, handlerRedis)
 
 	return handlerEnv{
 		cfg:            handlerCfg,
@@ -326,13 +327,14 @@ func createHandlerTeam(t *testing.T, env handlerEnv, name string) *models.Team {
 func createHandlerChallenge(t *testing.T, env handlerEnv, title string, points int, flag string, active bool) *models.Challenge {
 	t.Helper()
 	challenge := &models.Challenge{
-		Title:       title,
-		Description: "desc",
-		Category:    "Misc",
-		Points:      points,
-		FlagHash:    utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
-		IsActive:    active,
-		CreatedAt:   time.Now().UTC(),
+		Title:         title,
+		Description:   "desc",
+		Category:      "Misc",
+		Points:        points,
+		MinimumPoints: points,
+		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
+		IsActive:      active,
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {

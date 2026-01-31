@@ -87,6 +87,10 @@ Response 200
 ]
 ```
 
+Notes:
+
+- `points` is dynamically calculated based on solves.
+
 Errors:
 
 - 400 `invalid input`

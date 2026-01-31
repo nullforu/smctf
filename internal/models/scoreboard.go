@@ -18,6 +18,7 @@ type UserTimelineRow struct {
 	SubmittedAt time.Time `bun:"submitted_at"`
 	UserID      int64     `bun:"user_id"`
 	Username    string    `bun:"username"`
+	ChallengeID int64     `bun:"challenge_id"`
 	Points      int       `bun:"points"`
 }
 
@@ -25,6 +26,7 @@ type TeamTimelineRow struct {
 	SubmittedAt time.Time `bun:"submitted_at"`
 	TeamID      *int64    `bun:"team_id"`
 	TeamName    string    `bun:"team_name"`
+	ChallengeID int64     `bun:"challenge_id"`
 	Points      int       `bun:"points"`
 }
 

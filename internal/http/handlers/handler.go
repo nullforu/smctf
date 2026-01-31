@@ -26,12 +26,13 @@ type Handler struct {
 	auth  *service.AuthService
 	ctf   *service.CTFService
 	users *repo.UserRepo
+	score *repo.ScoreboardRepo
 	teams *service.TeamService
 	redis *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, teams *service.TeamService, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, teams: teams, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, users: users, score: score, teams: teams, redis: redis}
 }
 
 func windowStartFromMinutes(windowMinutes int) *time.Time {
@@ -279,7 +280,12 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		active = *req.IsActive
 	}
 
-	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, req.Flag, active)
+	minimumPoints := req.Points
+	if req.MinimumPoints != nil {
+		minimumPoints = *req.MinimumPoints
+	}
+
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -300,7 +306,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.Flag, req.IsActive)
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.MinimumPoints, req.Flag, req.IsActive)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -508,7 +514,7 @@ func parseWindowOrError(ctx *gin.Context) (int, bool) {
 }
 
 func (h *Handler) Leaderboard(ctx *gin.Context) {
-	rows, err := h.users.Leaderboard(ctx.Request.Context())
+	rows, err := h.score.Leaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -518,7 +524,7 @@ func (h *Handler) Leaderboard(ctx *gin.Context) {
 }
 
 func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
-	rows, err := h.users.TeamLeaderboard(ctx.Request.Context())
+	rows, err := h.score.TeamLeaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -541,7 +547,7 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 
 	windowStart := windowStartFromMinutes(windowMinutes)
 
-	raw, err := h.users.TimelineSubmissions(ctx.Request.Context(), windowStart)
+	raw, err := h.score.TimelineSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -569,7 +575,7 @@ func (h *Handler) TeamTimeline(ctx *gin.Context) {
 
 	windowStart := windowStartFromMinutes(windowMinutes)
 
-	raw, err := h.users.TimelineTeamSubmissions(ctx.Request.Context(), windowStart)
+	raw, err := h.score.TimelineTeamSubmissions(ctx.Request.Context(), windowStart)
 	if err != nil {
 		writeError(ctx, err)
 		return

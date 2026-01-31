@@ -37,6 +37,9 @@ export interface Challenge {
     description: string
     category: string
     points: number
+    initial_points: number
+    minimum_points: number
+    solve_count: number
     is_active: boolean
 }
 
@@ -45,6 +48,7 @@ export interface ChallengeCreatePayload {
     description: string
     category: string
     points: number
+    minimum_points?: number
     flag: string
     is_active: boolean
 }
@@ -56,6 +60,7 @@ export interface ChallengeUpdatePayload {
     description?: string
     category?: string
     points?: number
+    minimum_points?: number
     is_active?: boolean
 }
 

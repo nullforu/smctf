@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"smctf/internal/service"
 	"testing"
@@ -259,4 +260,68 @@ func TestSubmitFlag(t *testing.T) {
 			t.Fatalf("missing rate limit headers")
 		}
 	})
+}
+
+func TestChallengesDynamicScoring(t *testing.T) {
+	env := setupTest(t, testCfg)
+	team := createTeam(t, env, "Alpha")
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", &team.ID)
+	userSolo := createUser(t, env, "solo@example.com", "solo", "pass123", "user")
+
+	challenge := createChallenge(t, env, "Dynamic", 500, "flag{dynamic}", true)
+	challenge.MinimumPoints = 100
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge: %v", err)
+	}
+
+	login := func(email, password string) string {
+		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/login", map[string]string{
+			"email":    email,
+			"password": password,
+		}, nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("login status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var resp struct {
+			AccessToken string `json:"access_token"`
+		}
+		decodeJSON(t, rec, &resp)
+
+		return resp.AccessToken
+	}
+
+	accessTeam := login(userTeam.Email, "pass123")
+	accessSolo := login(userSolo.Email, "pass123")
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{dynamic}"}, authHeader(accessTeam))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("team submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{dynamic}"}, authHeader(accessSolo))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("solo submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp []map[string]interface{}
+	decodeJSON(t, rec, &resp)
+
+	if len(resp) != 1 {
+		t.Fatalf("expected 1 challenge, got %d", len(resp))
+	}
+
+	row := resp[0]
+	if row["points"].(float64) != 100 {
+		t.Fatalf("expected dynamic points 100, got %v", row["points"])
+	}
+
+	if row["solve_count"].(float64) != 2 {
+		t.Fatalf("expected solve_count 2, got %v", row["solve_count"])
+	}
 }

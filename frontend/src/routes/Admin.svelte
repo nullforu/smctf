@@ -34,6 +34,7 @@
     ]
     let category = $state(categories[0])
     let points = $state(100)
+    let minimumPoints = $state(100)
     let flag = $state('')
     let isActive = $state(true)
 
@@ -62,6 +63,7 @@
     let editDescription = $state('')
     let editCategory = $state(categories[0])
     let editPoints = $state(100)
+    let editMinimumPoints = $state(100)
     let editIsActive = $state(true)
     let auth = $state(get(authStore))
     let teams: TeamSummary[] = $state([])
@@ -111,6 +113,7 @@
                 description,
                 category,
                 points: Number(points),
+                minimum_points: Number(minimumPoints),
                 flag,
                 is_active: isActive,
             })
@@ -120,6 +123,7 @@
             description = ''
             category = categories[0]
             points = 100
+            minimumPoints = 100
             flag = ''
             isActive = true
             challengesLoaded = false
@@ -190,7 +194,8 @@
         editTitle = challenge.title
         editDescription = challenge.description
         editCategory = challenge.category
-        editPoints = challenge.points
+        editPoints = challenge.initial_points
+        editMinimumPoints = challenge.minimum_points
         editIsActive = challenge.is_active
     }
 
@@ -206,6 +211,7 @@
                 description: editDescription,
                 category: editCategory,
                 points: Number(editPoints),
+                minimum_points: Number(editMinimumPoints),
                 is_active: editIsActive,
             })
 
@@ -215,7 +221,8 @@
             editTitle = updated.title
             editDescription = updated.description
             editCategory = updated.category
-            editPoints = updated.points
+            editPoints = updated.initial_points
+            editMinimumPoints = updated.minimum_points
             editIsActive = updated.is_active
         } catch (error) {
             const formatted = formatApiError(error)
@@ -402,7 +409,7 @@
                                 </p>
                             {/if}
                         </div>
-                        <div class="grid gap-4 md:grid-cols-2">
+                        <div class="grid gap-4 md:grid-cols-3">
                             <div>
                                 <label
                                     class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
@@ -438,6 +445,24 @@
                                 {#if fieldErrors.points}
                                     <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
                                         points: {fieldErrors.points}
+                                    </p>
+                                {/if}
+                            </div>
+                            <div>
+                                <label
+                                    class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                                    for="admin-minimum-points">Minimum</label
+                                >
+                                <input
+                                    id="admin-minimum-points"
+                                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                                    type="number"
+                                    min="0"
+                                    bind:value={minimumPoints}
+                                />
+                                {#if fieldErrors.minimum_points}
+                                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                        minimum_points: {fieldErrors.minimum_points}
                                     </p>
                                 {/if}
                             </div>
@@ -554,6 +579,21 @@
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
                                             >
+                                                Initial
+                                            </th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                            >
+                                                Minimum
+                                            </th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                            >
+                                                Solved
+                                            </th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                            >
                                                 Status
                                             </th>
                                             <th
@@ -579,6 +619,15 @@
                                                 </td>
                                                 <td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
                                                     {challenge.points}
+                                                </td>
+                                                <td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
+                                                    {challenge.initial_points}
+                                                </td>
+                                                <td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
+                                                    {challenge.minimum_points}
+                                                </td>
+                                                <td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
+                                                    {challenge.solve_count}
                                                 </td>
                                                 <td class="px-6 py-4 text-sm">
                                                     <span
@@ -614,7 +663,7 @@
                                             </tr>
                                             {#if expandedChallengeId === challenge.id}
                                                 <tr class="bg-slate-50/70 dark:bg-slate-900/40">
-                                                    <td colspan="6" class="px-6 py-6">
+                                                    <td colspan="9" class="px-6 py-6">
                                                         <form
                                                             class="space-y-5"
                                                             onsubmit={(event) => {
@@ -661,7 +710,7 @@
                                                                     </p>
                                                                 {/if}
                                                             </div>
-                                                            <div class="grid gap-4 md:grid-cols-2">
+                                                            <div class="grid gap-4 md:grid-cols-3">
                                                                 <div>
                                                                     <label
                                                                         class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
@@ -706,6 +755,27 @@
                                                                         </p>
                                                                     {/if}
                                                                 </div>
+                                                                <div>
+                                                                    <label
+                                                                        class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                                                                        for={`manage-minimum-points-${challenge.id}`}
+                                                                        >Minimum</label
+                                                                    >
+                                                                    <input
+                                                                        id={`manage-minimum-points-${challenge.id}`}
+                                                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                                                                        type="number"
+                                                                        min="0"
+                                                                        bind:value={editMinimumPoints}
+                                                                    />
+                                                                    {#if manageFieldErrors.minimum_points}
+                                                                        <p
+                                                                            class="mt-2 text-xs text-rose-600 dark:text-rose-300"
+                                                                        >
+                                                                            minimum_points: {manageFieldErrors.minimum_points}
+                                                                        </p>
+                                                                    {/if}
+                                                                </div>
                                                             </div>
                                                             <label
                                                                 class="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300"
@@ -743,7 +813,7 @@
                                         {#if challenges.length === 0}
                                             <tr>
                                                 <td
-                                                    colspan="6"
+                                                    colspan="9"
                                                     class="px-6 py-8 text-center text-sm text-slate-600 dark:text-slate-400"
                                                 >
                                                     No challenges found.

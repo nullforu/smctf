@@ -16,7 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, teamSvc *service.TeamService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, userRepo *repo.UserRepo, scoreRepo *repo.ScoreboardRepo, teamSvc *service.TeamService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -32,7 +32,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
 	r.Use(middleware.CORS(cfg.AppEnv != "production", nil))
 
-	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, teamSvc, redis)
+	h := handlers.New(cfg, authSvc, ctfSvc, userRepo, scoreRepo, teamSvc, redis)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
