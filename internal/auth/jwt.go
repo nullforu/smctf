@@ -57,7 +57,7 @@ func GenerateRefreshToken(cfg config.JWTConfig, userID int64, role, jti string) 
 }
 
 func parseTokenWithClaims(cfg config.JWTConfig, tokenStr string, claims jwt.Claims) (*jwt.Token, error) {
-	return jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+	return jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}

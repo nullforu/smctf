@@ -18,7 +18,7 @@ func TestListChallenges(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp []map[string]interface{}
+	var resp []map[string]any
 	decodeJSON(t, rec, &resp)
 
 	if len(resp) != 3 {
@@ -309,7 +309,7 @@ func TestChallengesDynamicScoring(t *testing.T) {
 		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp []map[string]interface{}
+	var resp []map[string]any
 	decodeJSON(t, rec, &resp)
 
 	if len(resp) != 1 {

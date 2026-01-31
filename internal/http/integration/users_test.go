@@ -112,7 +112,7 @@ func TestGetUserSolved(t *testing.T) {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var resp []interface{}
+		var resp []any
 		decodeJSON(t, rec, &resp)
 
 		if len(resp) != 0 {

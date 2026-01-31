@@ -293,7 +293,7 @@ func skipIfIntegrationDisabled(t *testing.T) {
 	}
 }
 
-func doRequest(t *testing.T, router *gin.Engine, method, path string, body interface{}, headers map[string]string) *httptest.ResponseRecorder {
+func doRequest(t *testing.T, router *gin.Engine, method, path string, body any, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var reader io.Reader
@@ -326,7 +326,7 @@ func doRequest(t *testing.T, router *gin.Engine, method, path string, body inter
 	return rec
 }
 
-func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest interface{}) {
+func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest any) {
 	t.Helper()
 
 	if err := json.Unmarshal(rec.Body.Bytes(), dest); err != nil {

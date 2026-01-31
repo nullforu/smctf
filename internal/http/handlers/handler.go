@@ -145,7 +145,7 @@ func (h *Handler) GetConfig(ctx *gin.Context) {
 
 func etagMatches(ifNoneMatch, etag string) bool {
 	needle := normalizeETag(etag)
-	for _, token := range strings.Split(ifNoneMatch, ",") {
+	for token := range strings.SplitSeq(ifNoneMatch, ",") {
 		trimmed := strings.TrimSpace(token)
 		if trimmed == "*" {
 			return true
@@ -159,8 +159,8 @@ func etagMatches(ifNoneMatch, etag string) bool {
 
 func normalizeETag(tag string) string {
 	tag = strings.TrimSpace(tag)
-	if strings.HasPrefix(tag, "W/") {
-		tag = strings.TrimSpace(strings.TrimPrefix(tag, "W/"))
+	if after, ok := strings.CutPrefix(tag, "W/"); ok {
+		tag = strings.TrimSpace(after)
 	}
 	return strings.Trim(tag, "\"")
 }

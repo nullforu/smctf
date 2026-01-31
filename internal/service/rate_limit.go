@@ -67,10 +67,7 @@ func (s *CTFService) ensureRateLimitTTL(ctx context.Context, key string, ttl tim
 }
 
 func (s *CTFService) evaluateRateLimit(count int64, ttl time.Duration) error {
-	remaining := s.cfg.Security.SubmissionMax - int(count)
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(s.cfg.Security.SubmissionMax-int(count), 0)
 
 	if count > int64(s.cfg.Security.SubmissionMax) {
 		resetSeconds := int(math.Ceil(ttl.Seconds()))

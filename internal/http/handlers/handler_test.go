@@ -19,7 +19,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func newJSONContext(t *testing.T, method, path string, body interface{}) (*gin.Context, *httptest.ResponseRecorder) {
+func newJSONContext(t *testing.T, method, path string, body any) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 
 	rec := httptest.NewRecorder()
@@ -52,7 +52,7 @@ func newJSONContext(t *testing.T, method, path string, body interface{}) (*gin.C
 	return ctx, rec
 }
 
-func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest interface{}) {
+func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest any) {
 	t.Helper()
 
 	if err := json.Unmarshal(rec.Body.Bytes(), dest); err != nil {
@@ -263,7 +263,7 @@ func TestHandlerBindErrorDetails(t *testing.T) {
 		t.Fatalf("bind invalid json status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/login", map[string]interface{}{"email": 123, "password": true})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/login", map[string]any{"email": 123, "password": true})
 	env.handler.Login(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("bind type status %d: %s", rec.Code, rec.Body.String())
@@ -344,7 +344,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 		t.Fatalf("submit wrong status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"title":       "Updated",
 		"description": "New",
 		"category":    "Crypto",
@@ -368,7 +368,7 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 		t.Fatalf("update challenge invalid id status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]interface{}{"flag": "new"})
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"flag": "new"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 
 	env.handler.UpdateChallenge(ctx)
@@ -399,7 +399,7 @@ func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 		t.Fatalf("create challenge bind status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	body := map[string]interface{}{
+	body := map[string]any{
 		"title":       "New Challenge",
 		"description": "desc",
 		"category":    "Misc",

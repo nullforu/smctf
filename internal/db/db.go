@@ -36,7 +36,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	modelsToCreate := []interface{}{
+	modelsToCreate := []any{
 		(*models.AppConfig)(nil),
 		(*models.Team)(nil),
 		(*models.User)(nil),
@@ -52,7 +52,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 	return createIndexes(ctx, db)
 }
 
-func createTables(ctx context.Context, db *bun.DB, modelsToCreate []interface{}) error {
+func createTables(ctx context.Context, db *bun.DB, modelsToCreate []any) error {
 	for _, m := range modelsToCreate {
 		if _, err := db.NewCreateTable().Model(m).IfNotExists().Exec(ctx); err != nil {
 			return fmt.Errorf("auto migrate create table %T: %w", m, err)
