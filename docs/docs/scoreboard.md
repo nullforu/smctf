@@ -74,6 +74,7 @@ Response 200
 
 Returns all submissions teamed by user and 10 minute intervals.
 If multiple challenges are solved by the same user within 10 minutes, they are teamed together with cumulative points and challenge count.
+`points` is dynamically calculated based on solves.
 
 Errors:
 
@@ -107,6 +108,8 @@ Response 200
 
 Returns all submissions teamed by team and 10 minute intervals.
 Users without a team are teamed under "not affiliated".
+
+`points` is dynamically calculated based on solves.
 
 Errors:
 

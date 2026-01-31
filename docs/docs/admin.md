@@ -143,10 +143,13 @@ Request
     "description": "...",
     "category": "Web",
     "points": 200,
+    "minimum_points": 50,
     "flag": "flag{...}",
     "is_active": true
 }
 ```
+
+If `minimum_points` is omitted, it defaults to the same value as `points`.
 
 Categories
 
@@ -164,9 +167,16 @@ Response 201
     "description": "...",
     "category": "Web",
     "points": 200,
+    "initial_points": 200,
+    "minimum_points": 50,
+    "solve_count": 0,
     "is_active": true
 }
 ```
+
+Notes:
+
+- `points` is dynamically calculated based on solves. `initial_points` is the configured starting value.
 
 Errors:
 
@@ -195,6 +205,7 @@ All fields are optional. Only provided fields are validated and updated.
 {
     "title": "Updated Challenge",
     "points": 250,
+    "minimum_points": 100,
     "is_active": false
 }
 ```
@@ -208,6 +219,9 @@ Response 200
     "description": "...",
     "category": "Crypto",
     "points": 250,
+    "initial_points": 250,
+    "minimum_points": 100,
+    "solve_count": 12,
     "is_active": false
 }
 ```
