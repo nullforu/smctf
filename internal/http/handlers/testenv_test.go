@@ -326,13 +326,14 @@ func createHandlerTeam(t *testing.T, env handlerEnv, name string) *models.Team {
 func createHandlerChallenge(t *testing.T, env handlerEnv, title string, points int, flag string, active bool) *models.Challenge {
 	t.Helper()
 	challenge := &models.Challenge{
-		Title:       title,
-		Description: "desc",
-		Category:    "Misc",
-		Points:      points,
-		FlagHash:    utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
-		IsActive:    active,
-		CreatedAt:   time.Now().UTC(),
+		Title:         title,
+		Description:   "desc",
+		Category:      "Misc",
+		Points:        points,
+		MinimumPoints: points,
+		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
+		IsActive:      active,
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {

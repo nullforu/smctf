@@ -27,21 +27,23 @@ type refreshRequest struct {
 }
 
 type createChallengeRequest struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description" binding:"required"`
-	Category    string `json:"category" binding:"required"`
-	Points      int    `json:"points" binding:"required"`
-	Flag        string `json:"flag" binding:"required"`
-	IsActive    *bool  `json:"is_active"`
+	Title         string `json:"title" binding:"required"`
+	Description   string `json:"description" binding:"required"`
+	Category      string `json:"category" binding:"required"`
+	Points        int    `json:"points" binding:"required"`
+	MinimumPoints *int   `json:"minimum_points"`
+	Flag          string `json:"flag" binding:"required"`
+	IsActive      *bool  `json:"is_active"`
 }
 
 type updateChallengeRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Category    *string `json:"category"`
-	Points      *int    `json:"points"`
-	Flag        *string `json:"flag"`
-	IsActive    *bool   `json:"is_active"`
+	Title         *string `json:"title"`
+	Description   *string `json:"description"`
+	Category      *string `json:"category"`
+	Points        *int    `json:"points"`
+	MinimumPoints *int    `json:"minimum_points"`
+	Flag          *string `json:"flag"`
+	IsActive      *bool   `json:"is_active"`
 }
 
 type submitRequest struct {
@@ -99,12 +101,15 @@ type userDetailResponse struct {
 }
 
 type challengeResponse struct {
-	ID          int64  `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Category    string `json:"category"`
-	Points      int    `json:"points"`
-	IsActive    bool   `json:"is_active"`
+	ID            int64  `json:"id"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	Category      string `json:"category"`
+	Points        int    `json:"points"`
+	InitialPoints int    `json:"initial_points"`
+	MinimumPoints int    `json:"minimum_points"`
+	SolveCount    int    `json:"solve_count"`
+	IsActive      bool   `json:"is_active"`
 }
 
 type teamResponse struct {
@@ -144,12 +149,15 @@ func newUserDetailResponse(user *models.User) userDetailResponse {
 
 func newChallengeResponse(challenge *models.Challenge) challengeResponse {
 	return challengeResponse{
-		ID:          challenge.ID,
-		Title:       challenge.Title,
-		Description: challenge.Description,
-		Category:    challenge.Category,
-		Points:      challenge.Points,
-		IsActive:    challenge.IsActive,
+		ID:            challenge.ID,
+		Title:         challenge.Title,
+		Description:   challenge.Description,
+		Category:      challenge.Category,
+		Points:        challenge.Points,
+		InitialPoints: challenge.InitialPoints,
+		MinimumPoints: challenge.MinimumPoints,
+		SolveCount:    challenge.SolveCount,
+		IsActive:      challenge.IsActive,
 	}
 }
 

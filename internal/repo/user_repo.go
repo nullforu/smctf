@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"smctf/internal/models"
@@ -69,57 +70,187 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) 
 }
 
 func (r *UserRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardEntry, error) {
-	rows := make([]models.LeaderboardEntry, 0)
+	pointsMap, err := dynamicPointsMap(ctx, r.db)
+	if err != nil {
+		return nil, wrapError("userRepo.Leaderboard", err)
+	}
 
-	q := r.db.NewSelect().
+	rows := make([]models.LeaderboardEntry, 0)
+	if err := r.db.NewSelect().
 		TableExpr("users AS u").
 		ColumnExpr("u.id AS user_id").
 		ColumnExpr("u.username AS username").
-		ColumnExpr("COALESCE(SUM(c.points), 0) AS score").
-		Join("LEFT JOIN submissions AS s ON s.user_id = u.id AND s.correct = true").
-		Join("LEFT JOIN challenges AS c ON c.id = s.challenge_id").
-		GroupExpr("u.id, u.username").
-		OrderExpr("score DESC, u.id ASC")
-
-	if err := q.Scan(ctx, &rows); err != nil {
+		OrderExpr("u.id ASC").
+		Scan(ctx, &rows); err != nil {
 		return nil, wrapError("userRepo.Leaderboard", err)
 	}
+
+	scores := make(map[int64]int, len(rows))
+
+	type submissionRow struct {
+		UserID      int64 `bun:"user_id"`
+		ChallengeID int64 `bun:"challenge_id"`
+	}
+
+	submissions := make([]submissionRow, 0)
+	if err := r.db.NewSelect().
+		TableExpr("submissions AS s").
+		ColumnExpr("s.user_id AS user_id").
+		ColumnExpr("s.challenge_id AS challenge_id").
+		Where("s.correct = true").
+		Scan(ctx, &submissions); err != nil {
+		return nil, wrapError("userRepo.Leaderboard submissions", err)
+	}
+
+	for _, sub := range submissions {
+		scores[sub.UserID] += pointsMap[sub.ChallengeID]
+	}
+
+	for i := range rows {
+		rows[i].Score = scores[rows[i].UserID]
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Score == rows[j].Score {
+			return rows[i].UserID < rows[j].UserID
+		}
+
+		return rows[i].Score > rows[j].Score
+	})
 
 	return rows, nil
 }
 
 func (r *UserRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLeaderboardEntry, error) {
-	rows := make([]models.TeamLeaderboardEntry, 0)
-
-	q := r.db.NewSelect().
-		TableExpr("users AS u").
-		ColumnExpr("u.team_id AS team_id").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
-		ColumnExpr("COALESCE(SUM(c.points), 0) AS score").
-		Join("LEFT JOIN teams AS g ON g.id = u.team_id").
-		Join("LEFT JOIN submissions AS s ON s.user_id = u.id AND s.correct = true").
-		Join("LEFT JOIN challenges AS c ON c.id = s.challenge_id").
-		GroupExpr("u.team_id, g.name").
-		OrderExpr("score DESC, team_name ASC")
-
-	if err := q.Scan(ctx, &rows); err != nil {
+	pointsMap, err := dynamicPointsMap(ctx, r.db)
+	if err != nil {
 		return nil, wrapError("userRepo.TeamLeaderboard", err)
 	}
+
+	type userRow struct {
+		UserID int64  `bun:"user_id"`
+		TeamID *int64 `bun:"team_id"`
+	}
+
+	users := make([]userRow, 0)
+
+	if err := r.db.NewSelect().
+		TableExpr("users AS u").
+		ColumnExpr("u.id AS user_id").
+		ColumnExpr("u.team_id AS team_id").
+		OrderExpr("u.id ASC").
+		Scan(ctx, &users); err != nil {
+		return nil, wrapError("userRepo.TeamLeaderboard users", err)
+	}
+
+	teamNames := make(map[int64]string)
+
+	var teamRows []struct {
+		ID   int64  `bun:"id"`
+		Name string `bun:"name"`
+	}
+
+	if err := r.db.NewSelect().
+		TableExpr("teams AS t").
+		ColumnExpr("t.id AS id").
+		ColumnExpr("t.name AS name").
+		Scan(ctx, &teamRows); err != nil {
+		return nil, wrapError("userRepo.TeamLeaderboard teams", err)
+	}
+
+	for _, row := range teamRows {
+		teamNames[row.ID] = row.Name
+	}
+
+	type teamKey struct {
+		hasTeam bool
+		teamID  int64
+	}
+
+	userTeams := make(map[int64]teamKey, len(users))
+	teamEntries := make(map[teamKey]*models.TeamLeaderboardEntry)
+	for _, user := range users {
+		var key teamKey
+		if user.TeamID != nil {
+			key = teamKey{hasTeam: true, teamID: *user.TeamID}
+		} else {
+			key = teamKey{}
+		}
+
+		userTeams[user.UserID] = key
+		if _, ok := teamEntries[key]; !ok {
+			entry := &models.TeamLeaderboardEntry{}
+			if key.hasTeam {
+				id := key.teamID
+				entry.TeamID = &id
+				entry.TeamName = teamNames[key.teamID]
+
+				if entry.TeamName == "" {
+					entry.TeamName = "unknown team"
+				}
+			} else {
+				entry.TeamName = "not affiliated"
+			}
+			teamEntries[key] = entry
+		}
+	}
+
+	type submissionRow struct {
+		UserID      int64 `bun:"user_id"`
+		ChallengeID int64 `bun:"challenge_id"`
+	}
+
+	submissions := make([]submissionRow, 0)
+
+	if err := r.db.NewSelect().
+		TableExpr("submissions AS s").
+		ColumnExpr("s.user_id AS user_id").
+		ColumnExpr("s.challenge_id AS challenge_id").
+		Where("s.correct = true").
+		Scan(ctx, &submissions); err != nil {
+		return nil, wrapError("userRepo.TeamLeaderboard submissions", err)
+	}
+
+	for _, sub := range submissions {
+		key, ok := userTeams[sub.UserID]
+		if !ok {
+			continue
+		}
+
+		entry := teamEntries[key]
+		entry.Score += pointsMap[sub.ChallengeID]
+	}
+
+	rows := make([]models.TeamLeaderboardEntry, 0, len(teamEntries))
+	for _, entry := range teamEntries {
+		rows = append(rows, *entry)
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Score == rows[j].Score {
+			return rows[i].TeamName < rows[j].TeamName
+		}
+
+		return rows[i].Score > rows[j].Score
+	})
 
 	return rows, nil
 }
 
 func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]models.UserTimelineRow, error) {
-	rows := make([]models.UserTimelineRow, 0)
+	pointsMap, err := dynamicPointsMap(ctx, r.db)
+	if err != nil {
+		return nil, wrapError("userRepo.TimelineSubmissions", err)
+	}
 
+	rows := make([]models.UserTimelineRow, 0)
 	query := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("s.submitted_at AS submitted_at").
 		ColumnExpr("u.id AS user_id").
 		ColumnExpr("u.username AS username").
-		ColumnExpr("c.points AS points").
+		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
-		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Where("s.correct = true")
 
 	query = applyTimelineWindow(query, since)
@@ -128,27 +259,38 @@ func (r *UserRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([
 		return nil, wrapError("userRepo.TimelineSubmissions", err)
 	}
 
+	for i := range rows {
+		rows[i].Points = pointsMap[rows[i].ChallengeID]
+	}
+
 	return rows, nil
 }
 
 func (r *UserRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time) ([]models.TeamTimelineRow, error) {
-	rows := make([]models.TeamTimelineRow, 0)
+	pointsMap, err := dynamicPointsMap(ctx, r.db)
+	if err != nil {
+		return nil, wrapError("userRepo.TimelineTeamSubmissions", err)
+	}
 
+	rows := make([]models.TeamTimelineRow, 0)
 	query := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("s.submitted_at AS submitted_at").
 		ColumnExpr("u.team_id AS team_id").
 		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
-		ColumnExpr("c.points AS points").
+		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("LEFT JOIN teams AS g ON g.id = u.team_id").
-		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Where("s.correct = true")
 
 	query = applyTimelineWindow(query, since)
 
 	if err := query.Scan(ctx, &rows); err != nil {
 		return nil, wrapError("userRepo.TimelineTeamSubmissions", err)
+	}
+
+	for i := range rows {
+		rows[i].Points = pointsMap[rows[i].ChallengeID]
 	}
 
 	return rows, nil

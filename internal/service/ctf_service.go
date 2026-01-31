@@ -54,10 +54,19 @@ func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, er
 		return nil, fmt.Errorf("ctf.ListChallenges: %w", err)
 	}
 
+	ptrs := make([]*models.Challenge, 0, len(challenges))
+	for i := range challenges {
+		ptrs = append(ptrs, &challenges[i])
+	}
+
+	if err := s.applyDynamicPoints(ctx, ptrs); err != nil {
+		return nil, fmt.Errorf("ctf.ListChallenges score: %w", err)
+	}
+
 	return challenges, nil
 }
 
-func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, flag string, active bool) (*models.Challenge, error) {
+func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool) (*models.Challenge, error) {
 	title = normalizeTrim(title)
 	description = normalizeTrim(description)
 	category = normalizeTrim(category)
@@ -68,6 +77,12 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	validator.Required("category", category)
 	validator.Required("flag", flag)
 	validator.NonNegative("points", points)
+	validator.NonNegative("minimum_points", minimumPoints)
+
+	if minimumPoints > points {
+		validator.fields = append(validator.fields, FieldError{Field: "minimum_points", Reason: "must be <= points"})
+	}
+
 	if _, ok := challengeCategories[category]; category != "" && !ok {
 		validator.fields = append(validator.fields, FieldError{Field: "category", Reason: "invalid"})
 	}
@@ -77,23 +92,28 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	}
 
 	challenge := &models.Challenge{
-		Title:       title,
-		Description: description,
-		Category:    category,
-		Points:      points,
-		FlagHash:    utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
-		IsActive:    active,
-		CreatedAt:   time.Now().UTC(),
+		Title:         title,
+		Description:   description,
+		Category:      category,
+		Points:        points,
+		MinimumPoints: minimumPoints,
+		FlagHash:      utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
+		IsActive:      active,
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	if err := s.challengeRepo.Create(ctx, challenge); err != nil {
 		return nil, fmt.Errorf("ctf.CreateChallenge: %w", err)
 	}
 
+	if err := s.applyDynamicPoints(ctx, []*models.Challenge{challenge}); err != nil {
+		return nil, fmt.Errorf("ctf.CreateChallenge score: %w", err)
+	}
+
 	return challenge, nil
 }
 
-func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, flag *string, active *bool) (*models.Challenge, error) {
+func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool) (*models.Challenge, error) {
 	normalizedTitle := normalizeOptional(title)
 	normalizedDescription := normalizeOptional(description)
 	normalizedCategory := normalizeOptional(category)
@@ -126,6 +146,10 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 		validator.NonNegative("points", *points)
 	}
 
+	if minimumPoints != nil {
+		validator.NonNegative("minimum_points", *minimumPoints)
+	}
+
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
@@ -153,13 +177,24 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	if points != nil {
 		challenge.Points = *points
 	}
+	if minimumPoints != nil {
+		challenge.MinimumPoints = *minimumPoints
+	}
 
 	if active != nil {
 		challenge.IsActive = *active
 	}
 
+	if challenge.MinimumPoints > challenge.Points {
+		return nil, NewValidationError(FieldError{Field: "minimum_points", Reason: "must be <= points"})
+	}
+
 	if err := s.challengeRepo.Update(ctx, challenge); err != nil {
 		return nil, fmt.Errorf("ctf.UpdateChallenge update: %w", err)
+	}
+
+	if err := s.applyDynamicPoints(ctx, []*models.Challenge{challenge}); err != nil {
+		return nil, fmt.Errorf("ctf.UpdateChallenge score: %w", err)
 	}
 
 	return challenge, nil
@@ -250,5 +285,37 @@ func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]mode
 		return nil, fmt.Errorf("ctf.SolvedChallenges: %w", err)
 	}
 
+	pointsMap, err := s.challengeRepo.DynamicPoints(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ctf.SolvedChallenges score: %w", err)
+	}
+
+	for i := range rows {
+		rows[i].Points = pointsMap[rows[i].ChallengeID]
+	}
+
 	return rows, nil
+}
+
+func (s *CTFService) applyDynamicPoints(ctx context.Context, challenges []*models.Challenge) error {
+	pointsMap, err := s.challengeRepo.DynamicPoints(ctx)
+	if err != nil {
+		return err
+	}
+
+	solveCounts, err := s.challengeRepo.SolveCounts(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, challenge := range challenges {
+		challenge.InitialPoints = challenge.Points
+		if points, ok := pointsMap[challenge.ID]; ok {
+			challenge.Points = points
+		}
+
+		challenge.SolveCount = solveCounts[challenge.ID]
+	}
+
+	return nil
 }

@@ -279,7 +279,12 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		active = *req.IsActive
 	}
 
-	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, req.Flag, active)
+	minimumPoints := req.Points
+	if req.MinimumPoints != nil {
+		minimumPoints = *req.MinimumPoints
+	}
+
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -300,7 +305,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.Flag, req.IsActive)
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.MinimumPoints, req.Flag, req.IsActive)
 	if err != nil {
 		writeError(ctx, err)
 		return

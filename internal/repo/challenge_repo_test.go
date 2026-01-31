@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestChallengeRepoCRUD(t *testing.T) {
@@ -57,5 +58,51 @@ func TestChallengeRepoNotFound(t *testing.T) {
 	_, err := env.challengeRepo.GetByID(context.Background(), 123)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestChallengeRepoDynamicPointsAndSolveCounts(t *testing.T) {
+	env := setupRepoTest(t)
+
+	team := createTeam(t, env, "Alpha")
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", "user", &team.ID)
+	userSolo := createUser(t, env, "solo@example.com", "solo", "pass", "user")
+
+	challenge := createChallenge(t, env, "Dynamic", 500, "FLAG{DYN}", true)
+	challenge.MinimumPoints = 100
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge minimum: %v", err)
+	}
+
+	other := createChallenge(t, env, "Static", 200, "FLAG{STATIC}", true)
+
+	now := time.Now().UTC()
+	createSubmission(t, env, userTeam.ID, challenge.ID, true, now.Add(-time.Minute))
+	createSubmission(t, env, userSolo.ID, challenge.ID, true, now)
+
+	points, err := env.challengeRepo.DynamicPoints(context.Background())
+	if err != nil {
+		t.Fatalf("DynamicPoints: %v", err)
+	}
+
+	if points[challenge.ID] != 100 {
+		t.Fatalf("expected dynamic challenge to be 100, got %d", points[challenge.ID])
+	}
+
+	if points[other.ID] != other.Points {
+		t.Fatalf("expected static challenge to be %d, got %d", other.Points, points[other.ID])
+	}
+
+	solveCounts, err := env.challengeRepo.SolveCounts(context.Background())
+	if err != nil {
+		t.Fatalf("SolveCounts: %v", err)
+	}
+
+	if solveCounts[challenge.ID] != 2 {
+		t.Fatalf("expected solve count 2, got %d", solveCounts[challenge.ID])
+	}
+
+	if _, ok := solveCounts[other.ID]; ok {
+		t.Fatalf("expected no solve count entry for unsolved challenge")
 	}
 }

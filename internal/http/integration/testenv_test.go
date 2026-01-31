@@ -519,13 +519,14 @@ func createChallenge(t *testing.T, env testEnv, title string, points int, flag s
 	t.Helper()
 
 	challenge := &models.Challenge{
-		Title:       title,
-		Description: "desc",
-		Category:    "Misc",
-		Points:      points,
-		FlagHash:    utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
-		IsActive:    active,
-		CreatedAt:   time.Now().UTC(),
+		Title:         title,
+		Description:   "desc",
+		Category:      "Misc",
+		Points:        points,
+		MinimumPoints: points,
+		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
+		IsActive:      active,
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
