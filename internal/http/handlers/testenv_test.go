@@ -185,10 +185,11 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	teamRepo := repo.NewTeamRepo(handlerDB)
 	challengeRepo := repo.NewChallengeRepo(handlerDB)
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
+	scoreRepo := repo.NewScoreboardRepo(handlerDB)
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, teamRepo, handlerRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
-	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, teamSvc, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, userRepo, scoreRepo, teamSvc, handlerRedis)
 
 	return handlerEnv{
 		cfg:            handlerCfg,

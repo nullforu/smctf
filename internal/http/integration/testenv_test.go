@@ -247,10 +247,11 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	teamRepo := repo.NewTeamRepo(testDB)
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
+	scoreRepo := repo.NewScoreboardRepo(testDB)
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, teamSvc, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, scoreRepo, teamSvc, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
