@@ -3,7 +3,9 @@
     import { authStore } from '../lib/stores'
     import { navigate as _navigate } from '../lib/router'
     import { configStore } from '../lib/config'
+    import _Markdown from '../components/Markdown.svelte'
 
+    const Markdown = _Markdown
     const navigate = _navigate
 
     interface Props {
@@ -31,26 +33,24 @@
 </script>
 
 <section class="fade-in">
-    <div
-        class="relative overflow-hidden rounded-3xl border border-slate-300 bg-slate-50 p-10 shadow-lg dark:border-slate-800/80 dark:bg-slate-900/40 dark:shadow-glass"
-    >
-        <div class="absolute inset-0 opacity-40 dark:opacity-40">
-            <div class="absolute -top-24 -right-10 h-64 w-64 rounded-full bg-teal-500/20 blur-3xl"></div>
-            <div class="absolute -bottom-32 left-10 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl"></div>
-        </div>
+    <div class="relative overflow-hidden p-4 sm:p-8 md:p-10">
         <div class="relative z-10">
-            <h1 class="mt-4 text-xl font-semibold text-slate-950 dark:text-slate-100 md:text-3xl">{appConfig.title}</h1>
-            <p class="mt-4 max-w-2xl text-sm text-slate-800 dark:text-slate-300">{appConfig.description}</p>
-            <div class="mt-8 flex flex-wrap gap-4">
+            <h1 class="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-100 sm:mt-4 md:text-3xl lg:text-4xl">
+                {appConfig.title}
+            </h1>
+            <div class="mt-3 max-w-2xl text-base text-slate-800 dark:text-slate-300 sm:mt-4 sm:text-base md:text-lg">
+                <Markdown content={appConfig.description} />
+            </div>
+            <div class="mt-6 flex flex-wrap gap-3 sm:mt-8 sm:gap-4">
                 <a
                     href="/challenges"
-                    class="rounded-full bg-teal-600 px-6 py-3 text-sm text-white transition hover:bg-teal-700 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
+                    class="rounded-full bg-teal-600 px-5 py-2.5 text-sm text-white transition hover:bg-teal-700 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40 sm:px-6 sm:py-3 sm:text-base"
                     onclick={(e) => navigate('/challenges', e)}>Challenges</a
                 >
                 {#if !auth.user}
                     <a
                         href="/register"
-                        class="rounded-full border border-slate-300 px-6 py-3 text-sm text-slate-700 transition hover:border-teal-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400"
+                        class="rounded-full border border-slate-300 px-5 py-2.5 text-sm text-slate-700 transition hover:border-teal-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 sm:px-6 sm:py-3 sm:text-base"
                         onclick={(e) => navigate('/register', e)}>Sign Up</a
                     >
                 {/if}
