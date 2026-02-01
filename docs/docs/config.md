@@ -13,6 +13,8 @@ Response 200
 {
     "title": "Welcome to SMCTF.",
     "description": "Check out the repository for setup instructions.",
+    "header_title": "CTF",
+    "header_description": "Capture The Flag",
     "updated_at": "2026-01-26T12:00:00Z"
 }
 ```
