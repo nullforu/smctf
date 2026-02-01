@@ -16,7 +16,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 
 	accessUser, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
 
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
 		"title":       "Ch1",
 		"description": "desc",
 		"category":    "Web",
@@ -29,7 +29,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 	}
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
 		"title":       "Ch1",
 		"description": "desc",
 		"category":    "Web",
@@ -42,14 +42,14 @@ func TestAdminCreateChallenge(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
 		"title": "Ch2",
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
 		"title":       "Ch3",
 		"description": "desc",
 		"category":    "Unknown",
@@ -74,7 +74,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 
-	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
 		"title":       "Ch1",
 		"description": "desc",
 		"category":    "Web",
@@ -91,7 +91,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	}
 	decodeJSON(t, rec, &created)
 
-	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
 		"title":     "Ch1 Updated",
 		"points":    150,
 		"is_active": false,
@@ -115,7 +115,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 		t.Fatalf("unexpected updated challenge: %+v", updated)
 	}
 
-	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
 		"category": "",
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
@@ -127,7 +127,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 
 	assertFieldErrors(t, errResp.Details, map[string]string{"category": "required"})
 
-	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
 		"category": "Unknown",
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
@@ -138,7 +138,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 
 	assertFieldErrors(t, errResp.Details, map[string]string{"category": "invalid"})
 
-	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
 		"flag": "flag{rotated}",
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
@@ -155,7 +155,7 @@ func TestAdminDeleteChallenge(t *testing.T) {
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
-	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]interface{}{
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
 		"title":       "Ch1",
 		"description": "desc",
 		"category":    "Web",
@@ -183,7 +183,7 @@ func TestAdminDeleteChallenge(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var challenges []map[string]interface{}
+	var challenges []map[string]any
 	decodeJSON(t, rec, &challenges)
 
 	if len(challenges) != 0 {

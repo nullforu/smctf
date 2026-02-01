@@ -167,7 +167,7 @@ func TestEnsureIndexes(t *testing.T) {
 
 func TestCreateTables(t *testing.T) {
 	db := setupDBTest(t)
-	tmp := []interface{}{
+	tmp := []any{
 		(*models.User)(nil),
 	}
 

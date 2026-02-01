@@ -6,6 +6,21 @@ import (
 	"smctf/internal/models"
 )
 
+type appConfigResponse struct {
+	Title             string    `json:"title"`
+	Description       string    `json:"description"`
+	HeaderTitle       string    `json:"header_title"`
+	HeaderDescription string    `json:"header_description"`
+	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type adminConfigUpdateRequest struct {
+	Title             *string `json:"title"`
+	Description       *string `json:"description"`
+	HeaderTitle       *string `json:"header_title"`
+	HeaderDescription *string `json:"header_description"`
+}
+
 type meUpdateRequest struct {
 	Username *string `json:"username"`
 }

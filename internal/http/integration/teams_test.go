@@ -54,7 +54,7 @@ func TestRegistrationKeyTeamAssignment(t *testing.T) {
 	team := createTeam(t, env, "Alpha")
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
-	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]interface{}{
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]any{
 		"count":   1,
 		"team_id": team.ID,
 	}, authHeader(adminAccess))
@@ -101,7 +101,7 @@ func TestRegistrationKeyTeamAssignment(t *testing.T) {
 		t.Fatalf("expected team assignment, got %+v", userResp)
 	}
 
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]interface{}{
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]any{
 		"count":   1,
 		"team_id": 9999,
 	}, authHeader(adminAccess))

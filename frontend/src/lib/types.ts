@@ -31,6 +31,21 @@ export interface AuthResponse {
     user: AuthUser
 }
 
+export interface AppConfig {
+    title: string
+    description: string
+    header_title: string
+    header_description: string
+    updated_at: string
+}
+
+export interface AdminConfigUpdatePayload {
+    title?: string
+    description?: string
+    header_title?: string
+    header_description?: string
+}
+
 export interface Challenge {
     id: number
     title: string

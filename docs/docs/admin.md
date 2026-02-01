@@ -3,6 +3,47 @@ title: Admin
 nav_order: 6
 ---
 
+## Update Site Configuration
+
+`PUT /api/admin/config`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Request
+
+```json
+{
+    "title": "My CTF",
+    "description": "Hello",
+    "header_title": "SM CTF",
+    "header_description": "Join the challenge"
+}
+```
+
+Response 200
+
+```json
+{
+    "title": "My CTF",
+    "description": "Hello",
+    "header_title": "SM CTF",
+    "header_description": "Join the challenge",
+    "updated_at": "2026-01-26T12:00:00Z"
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+
+---
+
 ## Create Registration Keys
 
 `POST /api/admin/registration-keys`

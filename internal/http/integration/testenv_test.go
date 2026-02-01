@@ -42,9 +42,11 @@ type testEnv struct {
 	teamRepo       *repo.TeamRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
+	appConfigRepo  *repo.AppConfigRepo
 	authSvc        *service.AuthService
 	ctfSvc         *service.CTFService
 	teamSvc        *service.TeamService
+	appConfigSvc   *service.AppConfigService
 }
 
 type errorResp struct {
@@ -248,10 +250,12 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
 	scoreRepo := repo.NewScoreboardRepo(testDB)
+	appConfigRepo := repo.NewAppConfigRepo(testDB)
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, userRepo, scoreRepo, teamSvc, testRedis, testLogger)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
@@ -261,16 +265,18 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
+		appConfigRepo:  appConfigRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
 		teamSvc:        teamSvc,
+		appConfigSvc:   appConfigSvc,
 	}
 }
 
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -287,7 +293,7 @@ func skipIfIntegrationDisabled(t *testing.T) {
 	}
 }
 
-func doRequest(t *testing.T, router *gin.Engine, method, path string, body interface{}, headers map[string]string) *httptest.ResponseRecorder {
+func doRequest(t *testing.T, router *gin.Engine, method, path string, body any, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var reader io.Reader
@@ -320,7 +326,7 @@ func doRequest(t *testing.T, router *gin.Engine, method, path string, body inter
 	return rec
 }
 
-func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest interface{}) {
+func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest any) {
 	t.Helper()
 
 	if err := json.Unmarshal(rec.Body.Bytes(), dest); err != nil {

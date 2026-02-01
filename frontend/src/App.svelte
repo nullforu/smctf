@@ -3,6 +3,7 @@
     import { get } from 'svelte/store'
     import { authStore, themeStore, setAuthUser, clearAuth } from './lib/stores'
     import { api } from './lib/api'
+    import { configStore, loadConfig } from './lib/config'
     import _Header from './components/Header.svelte'
     import Home from './routes/Home.svelte'
     import Login from './routes/Login.svelte'
@@ -68,6 +69,15 @@
     })
 
     $effect(() => {
+        const unsubscribe = configStore.subscribe((value) => {
+            if (typeof document !== 'undefined') {
+                document.title = value.title || 'SMCTF'
+            }
+        })
+        return unsubscribe
+    })
+
+    $effect(() => {
         const unsubscribe = themeStore.subscribe((value) => {
             theme = value
             if (typeof document !== 'undefined') {
@@ -126,6 +136,7 @@
     onMount(() => {
         updateRoute()
         window.addEventListener('popstate', updateRoute)
+        void loadConfig()
         loadSession()
         return () => window.removeEventListener('popstate', updateRoute)
     })
