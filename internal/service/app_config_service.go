@@ -16,11 +16,15 @@ import (
 const (
 	appConfigKeyTitle       = "title"
 	appConfigKeyDescription = "description"
+	appConfigKeyHeaderTitle = "header_title"
+	appConfigKeyHeaderDesc  = "header_description"
 )
 
 type AppConfig struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title             string `json:"title"`
+	Description       string `json:"description"`
+	HeaderTitle       string `json:"header_title"`
+	HeaderDescription string `json:"header_description"`
 }
 
 type appConfigField struct {
@@ -54,6 +58,28 @@ var appConfigFields = []appConfigField{
 			cfg.Description = value
 		},
 	},
+	{
+		key:          appConfigKeyHeaderTitle,
+		defaultValue: "CTF",
+		maxLen:       80,
+		get: func(cfg AppConfig) string {
+			return cfg.HeaderTitle
+		},
+		set: func(cfg *AppConfig, value string) {
+			cfg.HeaderTitle = value
+		},
+	},
+	{
+		key:          appConfigKeyHeaderDesc,
+		defaultValue: "Capture The Flag",
+		maxLen:       200,
+		get: func(cfg AppConfig) string {
+			return cfg.HeaderDescription
+		},
+		set: func(cfg *AppConfig, value string) {
+			cfg.HeaderDescription = value
+		},
+	},
 }
 
 type appConfigCache struct {
@@ -80,7 +106,7 @@ func (s *AppConfigService) Get(ctx context.Context) (AppConfig, time.Time, strin
 	return s.load(ctx)
 }
 
-func (s *AppConfigService) Update(ctx context.Context, title *string, description *string) (AppConfig, time.Time, string, error) {
+func (s *AppConfigService) Update(ctx context.Context, title *string, description *string, headerTitle *string, headerDescription *string) (AppConfig, time.Time, string, error) {
 	cfg, _, _, err := s.Get(ctx)
 	if err != nil {
 		return AppConfig{}, time.Time{}, "", err
@@ -89,6 +115,8 @@ func (s *AppConfigService) Update(ctx context.Context, title *string, descriptio
 	inputs := map[string]*string{
 		appConfigKeyTitle:       title,
 		appConfigKeyDescription: description,
+		appConfigKeyHeaderTitle: headerTitle,
+		appConfigKeyHeaderDesc:  headerDescription,
 	}
 
 	updates, err := applyAppConfigUpdates(&cfg, inputs)

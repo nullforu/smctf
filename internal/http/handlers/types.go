@@ -7,14 +7,18 @@ import (
 )
 
 type appConfigResponse struct {
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	Title             string    `json:"title"`
+	Description       string    `json:"description"`
+	HeaderTitle       string    `json:"header_title"`
+	HeaderDescription string    `json:"header_description"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type adminConfigUpdateRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
+	Title             *string `json:"title"`
+	Description       *string `json:"description"`
+	HeaderTitle       *string `json:"header_title"`
+	HeaderDescription *string `json:"header_description"`
 }
 
 type meUpdateRequest struct {

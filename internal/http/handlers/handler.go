@@ -137,9 +137,11 @@ func (h *Handler) GetConfig(ctx *gin.Context) {
 	ctx.Header("Cache-Control", "public, max-age=60")
 
 	ctx.JSON(http.StatusOK, appConfigResponse{
-		Title:       cfg.Title,
-		Description: cfg.Description,
-		UpdatedAt:   updatedAt.UTC(),
+		Title:             cfg.Title,
+		Description:       cfg.Description,
+		HeaderTitle:       cfg.HeaderTitle,
+		HeaderDescription: cfg.HeaderDescription,
+		UpdatedAt:         updatedAt.UTC(),
 	})
 }
 
@@ -172,7 +174,7 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 		return
 	}
 
-	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description)
+	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description, req.HeaderTitle, req.HeaderDescription)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -180,9 +182,11 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 
 	ctx.Header("Cache-Control", "no-store")
 	ctx.JSON(http.StatusOK, appConfigResponse{
-		Title:       cfg.Title,
-		Description: cfg.Description,
-		UpdatedAt:   updatedAt.UTC(),
+		Title:             cfg.Title,
+		Description:       cfg.Description,
+		HeaderTitle:       cfg.HeaderTitle,
+		HeaderDescription: cfg.HeaderDescription,
+		UpdatedAt:         updatedAt.UTC(),
 	})
 }
 

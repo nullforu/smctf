@@ -46,7 +46,7 @@ func TestAppConfigServiceUpdatePartial(t *testing.T) {
 	}
 
 	title := "New Title"
-	cfg, _, _, err := svc.Update(context.Background(), &title, nil)
+	cfg, _, _, err := svc.Update(context.Background(), &title, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestAppConfigServiceUpdateValidation(t *testing.T) {
 	svc := NewAppConfigService(appRepo)
 
 	empty := ""
-	_, _, _, err := svc.Update(context.Background(), &empty, nil)
+	_, _, _, err := svc.Update(context.Background(), &empty, nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
