@@ -70,7 +70,7 @@
     <div class="flex items-center justify-between">
         <div>
             <h3 class="text-lg text-slate-900 dark:text-slate-100">Site Configuration</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Customize the home and header text.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Customize the appearance and details of CTF.</p>
         </div>
         <button
             class="text-xs uppercase tracking-wide text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -88,6 +88,40 @@
             saveSiteConfig()
         }}
     >
+        <div>
+            <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-header-title"
+                >Header Title</label
+            >
+            <input
+                id="admin-header-title"
+                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                type="text"
+                bind:value={headerTitle}
+                placeholder="CTF"
+            />
+            {#if configFieldErrors.header_title}
+                <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                    header_title: {configFieldErrors.header_title}
+                </p>
+            {/if}
+        </div>
+        <div>
+            <label
+                class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                for="admin-header-description">Header Description</label
+            >
+            <textarea
+                id="admin-header-description"
+                class="mt-2 h-28 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                bind:value={headerDescription}
+                placeholder="Capture The Flag"
+            ></textarea>
+            {#if configFieldErrors.header_description}
+                <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                    header_description: {configFieldErrors.header_description}
+                </p>
+            {/if}
+        </div>
         <div>
             <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-site-title"
                 >Title</label
@@ -117,39 +151,6 @@
             {#if configFieldErrors.description}
                 <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
                     description: {configFieldErrors.description}
-                </p>
-            {/if}
-        </div>
-        <div>
-            <label
-                class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                for="admin-header-title">Header Title</label
-            >
-            <input
-                id="admin-header-title"
-                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
-                type="text"
-                bind:value={headerTitle}
-                placeholder="CTF"
-            />
-            {#if configFieldErrors.header_title}
-                <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">header_title: {configFieldErrors.header_title}</p>
-            {/if}
-        </div>
-        <div>
-            <label
-                class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                for="admin-header-description">Header Description</label
-            >
-            <textarea
-                id="admin-header-description"
-                class="mt-2 h-28 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
-                bind:value={headerDescription}
-                placeholder="Capture The Flag"
-            ></textarea>
-            {#if configFieldErrors.header_description}
-                <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                    header_description: {configFieldErrors.header_description}
                 </p>
             {/if}
         </div>
