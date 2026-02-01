@@ -1,6 +1,7 @@
 <script lang="ts">
     import { api } from '../lib/api'
     import { clearAuth, toggleTheme, themeStore } from '../lib/stores'
+    import { configStore } from '../lib/config'
     import { navigate } from '../lib/router'
     import type { AuthUser } from '../lib/types'
     import { get } from 'svelte/store'
@@ -14,11 +15,19 @@
 
     let { user }: Props = $props()
     let theme = $state(get(themeStore))
+    let appConfig = $state(get(configStore))
     let mobileMenuOpen = $state(false)
 
     $effect(() => {
         const unsubscribe = themeStore.subscribe((value) => {
             theme = value
+        })
+        return unsubscribe
+    })
+
+    $effect(() => {
+        const unsubscribe = configStore.subscribe((value) => {
+            appConfig = value
         })
         return unsubscribe
     })
@@ -89,8 +98,8 @@
                 </svg>
             </div>
             <div>
-                <p class="font-display text-xl text-slate-900 dark:text-slate-100">CTF</p>
-                <p class="text-xs text-slate-600 dark:text-slate-400">Capture The Flag</p>
+                <p class="font-display text-xl text-slate-900 dark:text-slate-100">{appConfig.header_title}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">{appConfig.header_description}</p>
             </div>
         </a>
 
@@ -244,7 +253,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="font-display text-xl text-slate-900 dark:text-slate-100">SMCTF</p>
+                    <p class="font-display text-xl text-slate-900 dark:text-slate-100">{appConfig.header_title}</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{appConfig.header_description}</p>
                 </div>
             </div>
             <button class="p-1 text-slate-700 dark:text-slate-200" onclick={closeMobileMenu} aria-label="Close menu">
