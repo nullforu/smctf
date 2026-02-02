@@ -23,4 +23,5 @@ ignore:
   - "assets/**"
   - "migrations/**"
   - "**/*.sql"
+  - "internal/storage/s3.go" # S3 storage is production only code. 
 
