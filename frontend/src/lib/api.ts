@@ -9,7 +9,9 @@ import type {
     ChallengeCreatePayload,
     ChallengeCreateResponse,
     ChallengeUpdatePayload,
+    ChallengeFileUploadResponse,
     FlagSubmissionResult,
+    PresignedURL,
     Team,
     TeamCreatePayload,
     TeamScoreEntry,
@@ -253,6 +255,19 @@ export const api = {
     deleteChallenge: (id: number) => {
         return request<void>(`/api/admin/challenges/${id}`, { method: 'DELETE', auth: true })
     },
+    requestChallengeFileUpload: (id: number, filename: string) => {
+        return request<ChallengeFileUploadResponse>(`/api/admin/challenges/${id}/file/upload`, {
+            method: 'POST',
+            body: { filename },
+            auth: true,
+        })
+    },
+    deleteChallengeFile: (id: number) => {
+        return request<Challenge>(`/api/admin/challenges/${id}/file`, { method: 'DELETE', auth: true })
+    },
+    requestChallengeFileDownload: (id: number) => {
+        return request<PresignedURL>(`/api/challenges/${id}/file/download`, { method: 'POST', auth: true })
+    },
     registrationKeys: () => {
         return request<RegistrationKey[]>(`/api/admin/registration-keys`, { auth: true })
     },
@@ -283,4 +298,17 @@ export const api = {
     userSolved: (id: number) => {
         return request<SolvedChallenge[]>(`/api/users/${id}/solved`)
     },
+}
+
+export const uploadPresignedPost = async (upload: { url: string; fields: Record<string, string> }, file: File) => {
+    const formData = new FormData()
+    Object.entries(upload.fields).forEach(([key, value]) => {
+        formData.append(key, value)
+    })
+    formData.append('file', file)
+
+    const response = await fetch(upload.url, { method: 'POST', body: formData })
+    if (!response.ok) {
+        throw new Error('file upload failed')
+    }
 }

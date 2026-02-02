@@ -66,6 +66,8 @@ func TestMapErrorSentinels(t *testing.T) {
 		{service.ErrInvalidCreds, http.StatusUnauthorized, service.ErrInvalidCreds.Error(), 0},
 		{service.ErrUserExists, http.StatusConflict, service.ErrUserExists.Error(), 0},
 		{service.ErrChallengeNotFound, http.StatusNotFound, service.ErrChallengeNotFound.Error(), 0},
+		{service.ErrChallengeFileNotFound, http.StatusNotFound, service.ErrChallengeFileNotFound.Error(), 0},
+		{service.ErrStorageUnavailable, http.StatusServiceUnavailable, service.ErrStorageUnavailable.Error(), 0},
 		{service.ErrAlreadySolved, http.StatusConflict, service.ErrAlreadySolved.Error(), 0},
 		{service.ErrRateLimited, http.StatusTooManyRequests, service.ErrRateLimited.Error(), 0},
 		{repo.ErrNotFound, http.StatusNotFound, "not found", 0},

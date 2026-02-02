@@ -61,6 +61,10 @@ type updateChallengeRequest struct {
 	IsActive      *bool   `json:"is_active"`
 }
 
+type challengeFileUploadRequest struct {
+	Filename string `json:"filename" binding:"required"`
+}
+
 type submitRequest struct {
 	Flag string `json:"flag" binding:"required"`
 }
@@ -116,15 +120,33 @@ type userDetailResponse struct {
 }
 
 type challengeResponse struct {
-	ID            int64  `json:"id"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	Category      string `json:"category"`
-	Points        int    `json:"points"`
-	InitialPoints int    `json:"initial_points"`
-	MinimumPoints int    `json:"minimum_points"`
-	SolveCount    int    `json:"solve_count"`
-	IsActive      bool   `json:"is_active"`
+	ID            int64   `json:"id"`
+	Title         string  `json:"title"`
+	Description   string  `json:"description"`
+	Category      string  `json:"category"`
+	Points        int     `json:"points"`
+	InitialPoints int     `json:"initial_points"`
+	MinimumPoints int     `json:"minimum_points"`
+	SolveCount    int     `json:"solve_count"`
+	IsActive      bool    `json:"is_active"`
+	HasFile       bool    `json:"has_file"`
+	FileName      *string `json:"file_name,omitempty"`
+}
+
+type presignedPostResponse struct {
+	URL       string            `json:"url"`
+	Fields    map[string]string `json:"fields"`
+	ExpiresAt time.Time         `json:"expires_at"`
+}
+
+type presignedURLResponse struct {
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+type challengeFileUploadResponse struct {
+	Challenge challengeResponse     `json:"challenge"`
+	Upload    presignedPostResponse `json:"upload"`
 }
 
 type teamResponse struct {
@@ -163,6 +185,7 @@ func newUserDetailResponse(user *models.User) userDetailResponse {
 }
 
 func newChallengeResponse(challenge *models.Challenge) challengeResponse {
+	hasFile := challenge.FileKey != nil && *challenge.FileKey != ""
 	return challengeResponse{
 		ID:            challenge.ID,
 		Title:         challenge.Title,
@@ -173,6 +196,8 @@ func newChallengeResponse(challenge *models.Challenge) challengeResponse {
 		MinimumPoints: challenge.MinimumPoints,
 		SolveCount:    challenge.SolveCount,
 		IsActive:      challenge.IsActive,
+		HasFile:       hasFile,
+		FileName:      challenge.FileName,
 	}
 }
 

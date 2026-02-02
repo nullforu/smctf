@@ -14,6 +14,7 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/storage"
 
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
@@ -388,6 +389,62 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	_ = other
 }
 
+func TestHandlerRequestChallengeFileUpload(t *testing.T) {
+	env := setupHandlerTest(t)
+	challenge := createHandlerChallenge(t, env, "ZipTest", 100, "FLAG{zip}", true)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges/1/file/upload", map[string]string{"filename": "bundle.zip"})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+
+	env.handler.RequestChallengeFileUpload(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("upload status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandlerRequestChallengeFileUploadBindError(t *testing.T) {
+	env := setupHandlerTest(t)
+	challenge := createHandlerChallenge(t, env, "ZipTest", 100, "FLAG{zip}", true)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges/1/file/upload", "")
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+
+	env.handler.RequestChallengeFileUpload(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("bind status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandlerRequestChallengeFileUploadInvalidID(t *testing.T) {
+	env := setupHandlerTest(t)
+	createHandlerChallenge(t, env, "ZipTest", 100, "FLAG{zip}", true)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges/bad/file/upload", map[string]string{"filename": "bundle.zip"})
+	ctx.Params = gin.Params{{Key: "id", Value: "bad"}}
+
+	env.handler.RequestChallengeFileUpload(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid id status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandlerRequestChallengeFileUploadStorageUnavailable(t *testing.T) {
+	env := setupHandlerTest(t)
+	challenge := createHandlerChallenge(t, env, "ZipTest", 100, "FLAG{zip}", true)
+
+	ctfSvc := service.NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
+	scoreRepo := repo.NewScoreboardRepo(env.db)
+	handler := New(env.cfg, env.authSvc, ctfSvc, env.appConfigSvc, env.userRepo, scoreRepo, env.teamSvc, env.redis)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges/1/file/upload", map[string]string{"filename": "bundle.zip"})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+
+	handler.RequestChallengeFileUpload(ctx)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("storage unavailable status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 	env := setupHandlerTest(t)
 
@@ -709,7 +766,8 @@ func TestHandlerListChallengesError(t *testing.T) {
 	closedDB := newClosedHandlerDB(t)
 	challengeRepo := repo.NewChallengeRepo(closedDB)
 	submissionRepo := repo.NewSubmissionRepo(closedDB)
-	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
+	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
+	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
 	handler := New(handlerCfg, nil, ctfSvc, nil, nil, scoreRepo, nil, handlerRedis)
 

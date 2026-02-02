@@ -25,6 +25,7 @@ type Config struct {
 	Security SecurityConfig
 	Cache    CacheConfig
 	Logging  LoggingConfig
+	S3       S3Config
 }
 
 type DBConfig struct {
@@ -74,6 +75,17 @@ type LoggingConfig struct {
 	WebhookBatchSize  int
 	WebhookBatchWait  time.Duration
 	WebhookMaxChars   int
+}
+
+type S3Config struct {
+	Enabled         bool
+	Region          string
+	Bucket          string
+	AccessKeyID     string
+	SecretAccessKey string
+	Endpoint        string
+	ForcePathStyle  bool
+	PresignTTL      time.Duration
 }
 
 const (
@@ -192,6 +204,21 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	s3Enabled, err := getEnvBool("S3_ENABLED", false)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	s3PresignTTL, err := getDuration("S3_PRESIGN_TTL", 15*time.Minute)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	s3ForcePathStyle, err := getEnvBool("S3_FORCE_PATH_STYLE", false)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	cfg := Config{
 		AppEnv:             appEnv,
 		HTTPAddr:           httpAddr,
@@ -240,6 +267,16 @@ func Load() (Config, error) {
 			WebhookBatchSize:  logWebhookBatchSize,
 			WebhookBatchWait:  logWebhookBatchWait,
 			WebhookMaxChars:   logWebhookMaxChars,
+		},
+		S3: S3Config{
+			Enabled:         s3Enabled,
+			Region:          getEnv("S3_REGION", "us-east-1"),
+			Bucket:          getEnv("S3_BUCKET", ""),
+			AccessKeyID:     getEnv("S3_ACCESS_KEY_ID", ""),
+			SecretAccessKey: getEnv("S3_SECRET_ACCESS_KEY", ""),
+			Endpoint:        getEnv("S3_ENDPOINT", ""),
+			ForcePathStyle:  s3ForcePathStyle,
+			PresignTTL:      s3PresignTTL,
 		},
 	}
 
@@ -398,6 +435,21 @@ func validateConfig(cfg Config) error {
 		errs = append(errs, errors.New("LOG_WEBHOOK_MAX_CHARS must be positive"))
 	}
 
+	if cfg.S3.Enabled {
+		if cfg.S3.Region == "" {
+			errs = append(errs, errors.New("S3_REGION must not be empty"))
+		}
+		if cfg.S3.Bucket == "" {
+			errs = append(errs, errors.New("S3_BUCKET must not be empty"))
+		}
+		if (cfg.S3.AccessKeyID == "") != (cfg.S3.SecretAccessKey == "") {
+			errs = append(errs, errors.New("S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must both be set"))
+		}
+		if cfg.S3.PresignTTL <= 0 {
+			errs = append(errs, errors.New("S3_PRESIGN_TTL must be positive"))
+		}
+	}
+
 	if len(errs) == 0 {
 		return nil
 	}
@@ -412,6 +464,8 @@ func Redact(cfg Config) Config {
 	cfg.Security.FlagHMACSecret = redact(cfg.Security.FlagHMACSecret)
 	cfg.Logging.DiscordWebhookURL = redact(cfg.Logging.DiscordWebhookURL)
 	cfg.Logging.SlackWebhookURL = redact(cfg.Logging.SlackWebhookURL)
+	cfg.S3.AccessKeyID = redact(cfg.S3.AccessKeyID)
+	cfg.S3.SecretAccessKey = redact(cfg.S3.SecretAccessKey)
 	return cfg
 }
 
@@ -474,5 +528,14 @@ func FormatForLog(cfg Config) string {
 	fmt.Fprintf(&b, "  WebhookBatchSize=%d\n", cfg.Logging.WebhookBatchSize)
 	fmt.Fprintf(&b, "  WebhookBatchWait=%s\n", cfg.Logging.WebhookBatchWait)
 	fmt.Fprintf(&b, "  WebhookMaxChars=%d\n", cfg.Logging.WebhookMaxChars)
+	fmt.Fprintln(&b, "S3:")
+	fmt.Fprintf(&b, "  Enabled=%t\n", cfg.S3.Enabled)
+	fmt.Fprintf(&b, "  Region=%s\n", cfg.S3.Region)
+	fmt.Fprintf(&b, "  Bucket=%s\n", cfg.S3.Bucket)
+	fmt.Fprintf(&b, "  AccessKeyID=%s\n", cfg.S3.AccessKeyID)
+	fmt.Fprintf(&b, "  SecretAccessKey=%s\n", cfg.S3.SecretAccessKey)
+	fmt.Fprintf(&b, "  Endpoint=%s\n", cfg.S3.Endpoint)
+	fmt.Fprintf(&b, "  ForcePathStyle=%t\n", cfg.S3.ForcePathStyle)
+	fmt.Fprintf(&b, "  PresignTTL=%s\n", cfg.S3.PresignTTL)
 	return b.String()
 }

@@ -65,6 +65,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		auth.GET("/me", h.Me)
 		auth.PUT("/me", h.UpdateMe)
 		auth.POST("/challenges/:id/submit", h.SubmitFlag)
+		auth.POST("/challenges/:id/file/download", h.RequestChallengeFileDownload)
 
 		admin := api.Group("/admin")
 		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireRole("admin"))
@@ -72,6 +73,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.POST("/challenges", h.CreateChallenge)
 		admin.PUT("/challenges/:id", h.UpdateChallenge)
 		admin.DELETE("/challenges/:id", h.DeleteChallenge)
+		admin.POST("/challenges/:id/file/upload", h.RequestChallengeFileUpload)
+		admin.DELETE("/challenges/:id/file", h.DeleteChallengeFile)
 		admin.POST("/registration-keys", h.CreateRegistrationKeys)
 		admin.GET("/registration-keys", h.ListRegistrationKeys)
 		admin.POST("/teams", h.CreateTeam)

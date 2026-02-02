@@ -406,6 +406,67 @@ func (h *Handler) DeleteChallenge(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+func (h *Handler) RequestChallengeFileUpload(ctx *gin.Context) {
+	challengeID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	var req challengeFileUploadRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	challenge, upload, err := h.ctf.RequestChallengeFileUpload(ctx.Request.Context(), challengeID, req.Filename)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, challengeFileUploadResponse{
+		Challenge: newChallengeResponse(challenge),
+		Upload: presignedPostResponse{
+			URL:       upload.URL,
+			Fields:    upload.Fields,
+			ExpiresAt: upload.ExpiresAt,
+		},
+	})
+}
+
+func (h *Handler) RequestChallengeFileDownload(ctx *gin.Context) {
+	challengeID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	download, err := h.ctf.RequestChallengeFileDownload(ctx.Request.Context(), challengeID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, presignedURLResponse{
+		URL:       download.URL,
+		ExpiresAt: download.ExpiresAt,
+	})
+}
+
+func (h *Handler) DeleteChallengeFile(ctx *gin.Context) {
+	challengeID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	challenge, err := h.ctf.DeleteChallengeFile(ctx.Request.Context(), challengeID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
+}
+
 // Registration Key Handlers
 
 func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {

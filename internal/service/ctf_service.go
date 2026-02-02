@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"smctf/internal/config"
 	"smctf/internal/models"
 	"smctf/internal/repo"
+	"smctf/internal/storage"
 	"smctf/internal/utils"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -41,10 +44,11 @@ type CTFService struct {
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	redis          *redis.Client
+	fileStore      storage.ChallengeFileStore
 }
 
-func NewCTFService(cfg config.Config, challengeRepo *repo.ChallengeRepo, submissionRepo *repo.SubmissionRepo, redis *redis.Client) *CTFService {
-	return &CTFService{cfg: cfg, challengeRepo: challengeRepo, submissionRepo: submissionRepo, redis: redis}
+func NewCTFService(cfg config.Config, challengeRepo *repo.ChallengeRepo, submissionRepo *repo.SubmissionRepo, redis *redis.Client, fileStore storage.ChallengeFileStore) *CTFService {
+	return &CTFService{cfg: cfg, challengeRepo: challengeRepo, submissionRepo: submissionRepo, redis: redis, fileStore: fileStore}
 }
 
 func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, error) {
@@ -276,6 +280,130 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 	}
 
 	return correct, nil
+}
+
+func (s *CTFService) RequestChallengeFileUpload(ctx context.Context, id int64, filename string) (*models.Challenge, storage.PresignedPost, error) {
+	filename = normalizeTrim(filename)
+	validator := newFieldValidator()
+	validator.PositiveID("id", id)
+	validator.Required("filename", filename)
+
+	if !strings.HasSuffix(strings.ToLower(filename), ".zip") {
+		validator.fields = append(validator.fields, FieldError{Field: "filename", Reason: "must be a .zip file"})
+	}
+
+	if err := validator.Error(); err != nil {
+		return nil, storage.PresignedPost{}, err
+	}
+
+	if s.fileStore == nil {
+		return nil, storage.PresignedPost{}, ErrStorageUnavailable
+	}
+
+	challenge, err := s.challengeRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, storage.PresignedPost{}, ErrChallengeNotFound
+		}
+		return nil, storage.PresignedPost{}, fmt.Errorf("ctf.RequestChallengeFileUpload lookup: %w", err)
+	}
+
+	key := uuid.NewString() + ".zip"
+	upload, err := s.fileStore.PresignUpload(ctx, key, "application/zip")
+	if err != nil {
+		return nil, storage.PresignedPost{}, fmt.Errorf("ctf.RequestChallengeFileUpload presign: %w", err)
+	}
+
+	previousKey := challenge.FileKey
+	now := time.Now().UTC()
+	challenge.FileKey = &key
+	challenge.FileName = &filename
+	challenge.FileUploadedAt = &now
+
+	if err := s.challengeRepo.Update(ctx, challenge); err != nil {
+		return nil, storage.PresignedPost{}, fmt.Errorf("ctf.RequestChallengeFileUpload update: %w", err)
+	}
+
+	if previousKey != nil && *previousKey != "" && s.fileStore != nil {
+		if err := s.fileStore.Delete(ctx, *previousKey); err != nil {
+			return nil, storage.PresignedPost{}, fmt.Errorf("ctf.RequestChallengeFileUpload delete: %w", err)
+		}
+	}
+
+	return challenge, upload, nil
+}
+
+func (s *CTFService) RequestChallengeFileDownload(ctx context.Context, id int64) (storage.PresignedURL, error) {
+	validator := newFieldValidator()
+	validator.PositiveID("id", id)
+	if err := validator.Error(); err != nil {
+		return storage.PresignedURL{}, err
+	}
+
+	if s.fileStore == nil {
+		return storage.PresignedURL{}, ErrStorageUnavailable
+	}
+
+	challenge, err := s.challengeRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return storage.PresignedURL{}, ErrChallengeNotFound
+		}
+		return storage.PresignedURL{}, fmt.Errorf("ctf.RequestChallengeFileDownload lookup: %w", err)
+	}
+
+	if challenge.FileKey == nil || *challenge.FileKey == "" {
+		return storage.PresignedURL{}, ErrChallengeFileNotFound
+	}
+
+	filename := ""
+	if challenge.FileName != nil {
+		filename = *challenge.FileName
+	}
+	download, err := s.fileStore.PresignDownload(ctx, *challenge.FileKey, filename)
+	if err != nil {
+		return storage.PresignedURL{}, fmt.Errorf("ctf.RequestChallengeFileDownload presign: %w", err)
+	}
+
+	return download, nil
+}
+
+func (s *CTFService) DeleteChallengeFile(ctx context.Context, id int64) (*models.Challenge, error) {
+	validator := newFieldValidator()
+	validator.PositiveID("id", id)
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	if s.fileStore == nil {
+		return nil, ErrStorageUnavailable
+	}
+
+	challenge, err := s.challengeRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrChallengeNotFound
+		}
+		return nil, fmt.Errorf("ctf.DeleteChallengeFile lookup: %w", err)
+	}
+
+	if challenge.FileKey == nil || *challenge.FileKey == "" {
+		return nil, ErrChallengeFileNotFound
+	}
+
+	if err := s.fileStore.Delete(ctx, *challenge.FileKey); err != nil {
+		return nil, fmt.Errorf("ctf.DeleteChallengeFile delete: %w", err)
+	}
+
+	challenge.FileKey = nil
+	challenge.FileName = nil
+	challenge.FileUploadedAt = nil
+
+	if err := s.challengeRepo.Update(ctx, challenge); err != nil {
+		return nil, fmt.Errorf("ctf.DeleteChallengeFile update: %w", err)
+	}
+
+	return challenge, nil
 }
 
 func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {

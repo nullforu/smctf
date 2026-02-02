@@ -26,6 +26,8 @@
     let flagInput = $state('')
     let submission = $state<SubmissionState>({ status: 'idle' })
     let isSuccessful = $derived(submission.status === 'success')
+    let downloadLoading = $state(false)
+    let downloadMessage = $state('')
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -64,6 +66,23 @@
 
             const formatted = formatApiError(error)
             submission = { status: 'error', message: formatted.message }
+        }
+    }
+
+    const downloadFile = async () => {
+        if (!challenge.has_file || downloadLoading) return
+
+        downloadLoading = true
+        downloadMessage = ''
+
+        try {
+            const result = await api.requestChallengeFileDownload(challenge.id)
+            window.open(result.url, '_blank', 'noopener')
+        } catch (error) {
+            const formatted = formatApiError(error)
+            downloadMessage = formatted.message
+        } finally {
+            downloadLoading = false
         }
     }
 
@@ -117,6 +136,41 @@
         <div class="mt-6 text-slate-700 dark:text-slate-300">
             <p class="whitespace-pre-wrap">{challenge.description}</p>
         </div>
+
+        {#if challenge.has_file}
+            <div class="mt-6">
+                <div
+                    class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/50 dark:text-slate-200"
+                >
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p class="font-medium">Challenge File</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                {challenge.file_name ?? 'challenge.zip'}
+                            </p>
+                        </div>
+                        {#if auth.user}
+                            <button
+                                class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+                                type="button"
+                                onclick={downloadFile}
+                                disabled={downloadLoading}
+                            >
+                                {downloadLoading ? 'Preparing...' : 'Download'}
+                            </button>
+                        {/if}
+                    </div>
+                    {#if !auth.user}
+                        <p class="mt-2 text-xs text-amber-700 dark:text-amber-200">
+                            Login required to download this file.
+                        </p>
+                    {/if}
+                    {#if downloadMessage}
+                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">{downloadMessage}</p>
+                    {/if}
+                </div>
+            </div>
+        {/if}
 
         <div class="mt-8">
             {#if !auth.user}

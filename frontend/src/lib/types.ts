@@ -56,6 +56,8 @@ export interface Challenge {
     minimum_points: number
     solve_count: number
     is_active: boolean
+    has_file: boolean
+    file_name?: string | null
 }
 
 export interface ChallengeCreatePayload {
@@ -77,6 +79,22 @@ export interface ChallengeUpdatePayload {
     points?: number
     minimum_points?: number
     is_active?: boolean
+}
+
+export interface PresignedPost {
+    url: string
+    fields: Record<string, string>
+    expires_at: string
+}
+
+export interface PresignedURL {
+    url: string
+    expires_at: string
+}
+
+export interface ChallengeFileUploadResponse {
+    challenge: Challenge
+    upload: PresignedPost
 }
 
 export interface FlagSubmissionPayload {
