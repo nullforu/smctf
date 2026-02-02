@@ -14,6 +14,7 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/storage"
 
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
@@ -709,7 +710,8 @@ func TestHandlerListChallengesError(t *testing.T) {
 	closedDB := newClosedHandlerDB(t)
 	challengeRepo := repo.NewChallengeRepo(closedDB)
 	submissionRepo := repo.NewSubmissionRepo(closedDB)
-	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
+	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
+	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
 	handler := New(handlerCfg, nil, ctfSvc, nil, nil, scoreRepo, nil, handlerRedis)
 

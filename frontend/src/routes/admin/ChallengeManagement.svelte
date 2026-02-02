@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { api } from '../../lib/api'
-    import { formatApiError, type FieldErrors } from '../../lib/utils'
+    import { api, uploadPresignedPost } from '../../lib/api'
+    import { formatApiError, isZipFile, type FieldErrors } from '../../lib/utils'
     import type { Challenge } from '../../lib/types'
     import { onMount } from 'svelte'
 
@@ -34,6 +34,10 @@
     let editPoints = $state(100)
     let editMinimumPoints = $state(100)
     let editIsActive = $state(true)
+    let editFile = $state<File | null>(null)
+    let editFileError = $state('')
+    let editFileUploading = $state(false)
+    let editFileSuccess = $state('')
 
     onMount(() => {
         loadChallenges()
@@ -57,6 +61,9 @@
         manageFieldErrors = {}
         errorMessage = ''
         successMessage = ''
+        editFileError = ''
+        editFileSuccess = ''
+        editFile = null
 
         if (expandedChallengeId === challenge.id) {
             expandedChallengeId = null
@@ -103,6 +110,58 @@
             manageFieldErrors = formatted.fieldErrors
         } finally {
             manageLoading = false
+        }
+    }
+
+    const uploadEditFile = async (challenge: Challenge) => {
+        editFileError = ''
+        editFileSuccess = ''
+
+        if (!editFile) {
+            editFileError = 'Select a .zip file to upload.'
+            return
+        }
+
+        if (!isZipFile(editFile)) {
+            editFileError = 'Only .zip files are allowed.'
+            return
+        }
+
+        editFileUploading = true
+
+        try {
+            const uploadResponse = await api.requestChallengeFileUpload(challenge.id, editFile.name)
+            await uploadPresignedPost(uploadResponse.upload, editFile)
+            challenges = challenges.map((item) =>
+                item.id === uploadResponse.challenge.id ? uploadResponse.challenge : item,
+            )
+            editFileSuccess = 'Challenge file uploaded.'
+            editFile = null
+        } catch (error) {
+            const formatted = formatApiError(error)
+            editFileError = formatted.message
+        } finally {
+            editFileUploading = false
+        }
+    }
+
+    const deleteEditFile = async (challenge: Challenge) => {
+        const confirmed = window.confirm(`Delete challenge file for "${challenge.title}" (ID ${challenge.id})?`)
+        if (!confirmed) return
+
+        editFileError = ''
+        editFileSuccess = ''
+        editFileUploading = true
+
+        try {
+            const updated = await api.deleteChallengeFile(challenge.id)
+            challenges = challenges.map((item) => (item.id === updated.id ? updated : item))
+            editFileSuccess = 'Challenge file deleted.'
+        } catch (error) {
+            const formatted = formatApiError(error)
+            editFileError = formatted.message
+        } finally {
+            editFileUploading = false
         }
     }
 
@@ -380,6 +439,62 @@
                                                 />
                                                 Active
                                             </label>
+
+                                            <div
+                                                class="rounded-xl border border-slate-200 bg-white/60 p-4 text-sm text-slate-700 dark:border-slate-800/70 dark:bg-slate-950/40 dark:text-slate-200"
+                                            >
+                                                <p
+                                                    class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                                                >
+                                                    Challenge File
+                                                </p>
+                                                <p class="mt-2 text-sm text-slate-700 dark:text-slate-200">
+                                                    {challenge.has_file
+                                                        ? (challenge.file_name ?? 'challenge.zip')
+                                                        : 'No file uploaded'}
+                                                </p>
+                                                <div class="mt-3 flex flex-wrap items-center gap-3">
+                                                    <input
+                                                        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 sm:w-auto"
+                                                        type="file"
+                                                        accept=".zip"
+                                                        oninput={(event) => {
+                                                            const target = event.currentTarget as HTMLInputElement
+                                                            editFile = target.files?.[0] ?? null
+                                                            editFileError = ''
+                                                            editFileSuccess = ''
+                                                        }}
+                                                    />
+                                                    <button
+                                                        class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+                                                        type="button"
+                                                        onclick={() => uploadEditFile(challenge)}
+                                                        disabled={editFileUploading || manageLoading}
+                                                    >
+                                                        {editFileUploading ? 'Uploading...' : 'Upload .zip'}
+                                                    </button>
+                                                    {#if challenge.has_file}
+                                                        <button
+                                                            class="rounded-lg border border-rose-200 px-4 py-2 text-xs font-medium text-rose-700 transition hover:border-rose-300 hover:text-rose-800 disabled:opacity-60 dark:border-rose-500/40 dark:text-rose-200 dark:hover:border-rose-400"
+                                                            type="button"
+                                                            onclick={() => deleteEditFile(challenge)}
+                                                            disabled={editFileUploading || manageLoading}
+                                                        >
+                                                            Delete File
+                                                        </button>
+                                                    {/if}
+                                                </div>
+                                                {#if editFileError}
+                                                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                                        {editFileError}
+                                                    </p>
+                                                {/if}
+                                                {#if editFileSuccess}
+                                                    <p class="mt-2 text-xs text-teal-600 dark:text-teal-300">
+                                                        {editFileSuccess}
+                                                    </p>
+                                                {/if}
+                                            </div>
 
                                             <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
                                                 <button

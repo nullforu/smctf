@@ -48,6 +48,14 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if cfg.JWT.AccessTTL != 24*time.Hour {
 		t.Errorf("expected JWT.AccessTTL 24h, got %v", cfg.JWT.AccessTTL)
 	}
+
+	if cfg.S3.Enabled {
+		t.Errorf("expected S3.Enabled false by default")
+	}
+
+	if cfg.S3.Region != "us-east-1" {
+		t.Errorf("expected S3.Region us-east-1, got %s", cfg.S3.Region)
+	}
 }
 
 func TestLoadConfig_CustomValues(t *testing.T) {
@@ -79,6 +87,14 @@ func TestLoadConfig_CustomValues(t *testing.T) {
 	os.Setenv("LOG_WEBHOOK_BATCH_SIZE", "5")
 	os.Setenv("LOG_WEBHOOK_BATCH_WAIT", "1s")
 	os.Setenv("LOG_WEBHOOK_MAX_CHARS", "1900")
+	os.Setenv("S3_ENABLED", "true")
+	os.Setenv("S3_REGION", "ap-northeast-2")
+	os.Setenv("S3_BUCKET", "smctf-test")
+	os.Setenv("S3_ACCESS_KEY_ID", "access-key")
+	os.Setenv("S3_SECRET_ACCESS_KEY", "secret-key")
+	os.Setenv("S3_ENDPOINT", "https://s3.example.com")
+	os.Setenv("S3_FORCE_PATH_STYLE", "true")
+	os.Setenv("S3_PRESIGN_TTL", "20m")
 
 	defer os.Clearenv()
 
@@ -137,6 +153,31 @@ func TestLoadConfig_CustomValues(t *testing.T) {
 	}
 	if cfg.Logging.SlackWebhookURL != "https://slack.example/hook" {
 		t.Errorf("expected Logging.SlackWebhookURL, got %s", cfg.Logging.SlackWebhookURL)
+	}
+
+	if !cfg.S3.Enabled {
+		t.Errorf("expected S3.Enabled true")
+	}
+	if cfg.S3.Region != "ap-northeast-2" {
+		t.Errorf("expected S3.Region ap-northeast-2, got %s", cfg.S3.Region)
+	}
+	if cfg.S3.Bucket != "smctf-test" {
+		t.Errorf("expected S3.Bucket smctf-test, got %s", cfg.S3.Bucket)
+	}
+	if cfg.S3.AccessKeyID != "access-key" {
+		t.Errorf("expected S3.AccessKeyID access-key, got %s", cfg.S3.AccessKeyID)
+	}
+	if cfg.S3.SecretAccessKey != "secret-key" {
+		t.Errorf("expected S3.SecretAccessKey secret-key, got %s", cfg.S3.SecretAccessKey)
+	}
+	if cfg.S3.Endpoint != "https://s3.example.com" {
+		t.Errorf("expected S3.Endpoint https://s3.example.com, got %s", cfg.S3.Endpoint)
+	}
+	if !cfg.S3.ForcePathStyle {
+		t.Errorf("expected S3.ForcePathStyle true")
+	}
+	if cfg.S3.PresignTTL != 20*time.Minute {
+		t.Errorf("expected S3.PresignTTL 20m, got %v", cfg.S3.PresignTTL)
 	}
 	if cfg.Logging.MaxBodyBytes != 2048 {
 		t.Errorf("expected Logging.MaxBodyBytes 2048, got %d", cfg.Logging.MaxBodyBytes)
@@ -531,6 +572,10 @@ func TestRedact(t *testing.T) {
 			DiscordWebhookURL: "https://discord.example/hook",
 			SlackWebhookURL:   "https://slack.example/hook",
 		},
+		S3: S3Config{
+			AccessKeyID:     "access-key",
+			SecretAccessKey: "secret-key",
+		},
 	}
 
 	redacted := Redact(cfg)
@@ -556,6 +601,14 @@ func TestRedact(t *testing.T) {
 
 	if redacted.Logging.SlackWebhookURL == cfg.Logging.SlackWebhookURL {
 		t.Fatalf("expected slack webhook redacted")
+	}
+
+	if redacted.S3.AccessKeyID == cfg.S3.AccessKeyID {
+		t.Fatalf("expected s3 access key redacted")
+	}
+
+	if redacted.S3.SecretAccessKey == cfg.S3.SecretAccessKey {
+		t.Fatalf("expected s3 secret key redacted")
 	}
 }
 
@@ -626,6 +679,16 @@ func TestFormatForLog(t *testing.T) {
 			WebhookBatchSize:  5,
 			WebhookBatchWait:  time.Second,
 			WebhookMaxChars:   100,
+		},
+		S3: S3Config{
+			Enabled:         true,
+			Region:          "us-east-1",
+			Bucket:          "smctf",
+			AccessKeyID:     "access-key",
+			SecretAccessKey: "secret-key",
+			Endpoint:        "https://s3.example.com",
+			ForcePathStyle:  true,
+			PresignTTL:      10 * time.Minute,
 		},
 	}
 

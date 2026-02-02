@@ -17,6 +17,7 @@ import (
 	"smctf/internal/logging"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/storage"
 )
 
 func main() {
@@ -68,9 +69,18 @@ func main() {
 	scoreRepo := repo.NewScoreboardRepo(database)
 	appConfigRepo := repo.NewAppConfigRepo(database)
 
+	var fileStore storage.ChallengeFileStore
+	if cfg.S3.Enabled {
+		store, err := storage.NewS3ChallengeFileStore(ctx, cfg.S3)
+		if err != nil {
+			log.Fatalf("s3 init error: %v", err)
+		}
+		fileStore = store
+	}
+
 	authSvc := service.NewAuthService(cfg, database, userRepo, registrationKeyRepo, teamRepo, redisClient)
 	teamSvc := service.NewTeamService(teamRepo)
-	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient)
+	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo)
 
 	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, redisClient, logger)

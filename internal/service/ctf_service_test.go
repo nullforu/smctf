@@ -8,10 +8,22 @@ import (
 
 	"smctf/internal/db"
 	"smctf/internal/repo"
+	"smctf/internal/storage"
 	"smctf/internal/utils"
 
 	"github.com/uptrace/bun"
 )
+
+func newClosedServiceDB(t *testing.T) *bun.DB {
+	t.Helper()
+	conn, err := db.New(serviceCfg.DB, "test")
+	if err != nil {
+		t.Fatalf("new db: %v", err)
+	}
+
+	_ = conn.Close()
+	return conn
+}
 
 func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 	env := setupServiceTest(t)
@@ -234,7 +246,8 @@ func TestCTFServiceListChallengesError(t *testing.T) {
 	closedDB := newClosedServiceDB(t)
 	challengeRepo := repo.NewChallengeRepo(closedDB)
 	submissionRepo := repo.NewSubmissionRepo(closedDB)
-	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
+	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
+	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis, fileStore)
 
 	if _, err := ctfSvc.ListChallenges(context.Background()); err == nil {
 		t.Fatalf("expected error from ListChallenges")
@@ -245,20 +258,154 @@ func TestCTFServiceSubmitFlagError(t *testing.T) {
 	closedDB := newClosedServiceDB(t)
 	challengeRepo := repo.NewChallengeRepo(closedDB)
 	submissionRepo := repo.NewSubmissionRepo(closedDB)
-	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis)
+	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
+	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis, fileStore)
 
 	if _, err := ctfSvc.SubmitFlag(context.Background(), 1, 1, "flag{err}"); err == nil {
 		t.Fatalf("expected error from SubmitFlag")
 	}
 }
 
-func newClosedServiceDB(t *testing.T) *bun.DB {
-	t.Helper()
-	conn, err := db.New(serviceCfg.DB, "test")
-	if err != nil {
-		t.Fatalf("new db: %v", err)
+func TestChallengeFileUploadValidation(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)
+
+	_, _, err := env.ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "file.txt")
+	if err == nil {
+		t.Fatalf("expected error")
 	}
 
-	_ = conn.Close()
-	return conn
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestChallengeFileUploadValidationBadID(t *testing.T) {
+	env := setupServiceTest(t)
+	_ = createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)
+
+	_, _, err := env.ctfSvc.RequestChallengeFileUpload(context.Background(), -1, "bundle.zip")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestChallengeFileUploadAndDownload(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)
+
+	updated, upload, err := env.ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "bundle.zip")
+	if err != nil {
+		t.Fatalf("upload request: %v", err)
+	}
+
+	if upload.URL == "" || len(upload.Fields) == 0 {
+		t.Fatalf("expected upload data")
+	}
+
+	if updated.FileKey == nil || *updated.FileKey == "" {
+		t.Fatalf("expected file key set")
+	}
+
+	if updated.FileName == nil || *updated.FileName != "bundle.zip" {
+		t.Fatalf("expected file name set")
+	}
+
+	download, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), challenge.ID)
+	if err != nil {
+		t.Fatalf("download request: %v", err)
+	}
+
+	if download.URL == "" {
+		t.Fatalf("expected download url")
+	}
+}
+
+func TestChallengeFileUploadStorageUnavailable(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)
+
+	ctfSvc := NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
+
+	_, _, err := ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "bundle.zip")
+	if !errors.Is(err, ErrStorageUnavailable) {
+		t.Fatalf("expected ErrStorageUnavailable, got %v", err)
+	}
+}
+
+func TestChallengeFileDownloadStorageUnavailable(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)
+	_, _, err := env.ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "bundle.zip")
+	if err != nil {
+		t.Fatalf("upload request: %v", err)
+	}
+
+	ctfSvc := NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
+
+	_, err = ctfSvc.RequestChallengeFileDownload(context.Background(), challenge.ID)
+	if !errors.Is(err, ErrStorageUnavailable) {
+		t.Fatalf("expected ErrStorageUnavailable, got %v", err)
+	}
+}
+
+func TestChallengeFileDelete(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)
+
+	_, _, err := env.ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "bundle.zip")
+	if err != nil {
+		t.Fatalf("upload request: %v", err)
+	}
+
+	updated, err := env.ctfSvc.DeleteChallengeFile(context.Background(), challenge.ID)
+	if err != nil {
+		t.Fatalf("delete file: %v", err)
+	}
+
+	if updated.FileKey != nil || updated.FileName != nil {
+		t.Fatalf("expected file cleared")
+	}
+}
+
+func TestChallengeFileDeleteStorageUnavailable(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)
+	_, _, err := env.ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "bundle.zip")
+	if err != nil {
+		t.Fatalf("upload request: %v", err)
+	}
+
+	ctfSvc := NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
+
+	_, err = ctfSvc.DeleteChallengeFile(context.Background(), challenge.ID)
+	if !errors.Is(err, ErrStorageUnavailable) {
+		t.Fatalf("expected ErrStorageUnavailable, got %v", err)
+	}
+}
+
+func TestChallengeFileDownloadMissing(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "NoFile", 100, "flag{zip}", true)
+
+	_, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), challenge.ID)
+	if !errors.Is(err, ErrChallengeFileNotFound) {
+		t.Fatalf("expected ErrChallengeFileNotFound, got %v", err)
+	}
+}
+
+func TestChallengeFileDeleteMissing(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "NoFile", 100, "flag{zip}", true)
+
+	_, err := env.ctfSvc.DeleteChallengeFile(context.Background(), challenge.ID)
+	if !errors.Is(err, ErrChallengeFileNotFound) {
+		t.Fatalf("expected ErrChallengeFileNotFound, got %v", err)
+	}
 }

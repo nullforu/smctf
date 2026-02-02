@@ -211,7 +211,8 @@ Response 201
     "initial_points": 200,
     "minimum_points": 50,
     "solve_count": 0,
-    "is_active": true
+    "is_active": true,
+    "has_file": false
 }
 ```
 
@@ -263,7 +264,9 @@ Response 200
     "initial_points": 250,
     "minimum_points": 100,
     "solve_count": 12,
-    "is_active": false
+    "is_active": false,
+    "has_file": true,
+    "file_name": "challenge.zip"
 }
 ```
 
@@ -299,3 +302,99 @@ Errors:
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 403 `forbidden`
 - 404 `challenge not found`
+
+---
+
+## Upload Challenge File
+
+`POST /api/admin/challenges/{id}/file/upload`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Request
+
+```json
+{
+    "filename": "challenge.zip"
+}
+```
+
+Response 200
+
+```json
+{
+    "challenge": {
+        "id": 2,
+        "title": "New Challenge",
+        "description": "...",
+        "category": "Web",
+        "points": 200,
+        "initial_points": 200,
+        "minimum_points": 50,
+        "solve_count": 0,
+        "is_active": true,
+        "has_file": true,
+        "file_name": "challenge.zip"
+    },
+    "upload": {
+        "url": "https://s3.example.com/...",
+        "fields": {
+            "key": "uuid.zip",
+            "Content-Type": "application/zip"
+        },
+        "expires_at": "2025-01-01T00:00:00Z"
+    }
+}
+```
+
+Notes:
+
+- The upload target expects a `.zip` file. The server stores it as `UUID.zip` in the configured bucket.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `challenge not found`
+- 503 `storage unavailable`
+
+---
+
+## Delete Challenge File
+
+`DELETE /api/admin/challenges/{id}/file`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Response 200
+
+```json
+{
+    "id": 2,
+    "title": "New Challenge",
+    "description": "...",
+    "category": "Web",
+    "points": 200,
+    "initial_points": 200,
+    "minimum_points": 50,
+    "solve_count": 0,
+    "is_active": true,
+    "has_file": false
+}
+```
+
+Errors:
+
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `challenge not found` or `challenge file not found`
+- 503 `storage unavailable`

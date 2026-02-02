@@ -47,13 +47,14 @@ As a result, we decided to develop our own CTF platform as a long term project. 
     - Ref Issue: [#14](https://github.com/nullforu/smctf/issues/14), PR: [#16](https://github.com/nullforu/smctf/pull/16)
 - UI customization and detailed configuration options (WIP)
     - Ref Issue: [#18](https://github.com/nullforu/smctf/issues/18), PR: [#19](https://github.com/nullforu/smctf/pull/19)
+- Challenge file upload/download support via AWS Presigned URL
+    - Ref Issue: [#20](https://github.com/nullforu/smctf/issues/20), PR: [#21](https://github.com/nullforu/smctf/pull/21)
 
 ### Planned/Upcoming features:
 
 Also, the following features are planned to be implemented. see [issues](https://github.com/nullforu/smctf/issues) for more details.
 
 - Per challenge individual instance/VM provisioning support via AWS SDK (ECS Fargate or EC2 based)
-- Challenge file upload/download support via AWS Presigned URL
 - Multi language support (i18n) and RTL language support (for global service expansion)
 - (WIP) Systematized admin dashboard and behavior log/monitoring system integration
 - ... and more features to be added.
@@ -154,6 +155,16 @@ LOG_WEBHOOK_BATCH_WAIT=2s
 LOG_WEBHOOK_MAX_CHARS=1800
 LOG_DISCORD_WEBHOOK_URL=
 LOG_SLACK_WEBHOOK_URL=
+
+# S3 Challenge Files
+S3_ENABLED=false
+S3_REGION=ap-northeast-2
+S3_BUCKET=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+S3_ENDPOINT=
+S3_FORCE_PATH_STYLE=false
+S3_PRESIGN_TTL=15m
 ```
 
 </details>

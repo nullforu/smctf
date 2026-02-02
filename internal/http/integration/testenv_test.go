@@ -23,6 +23,7 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/storage"
 	"smctf/internal/utils"
 
 	"github.com/alicebob/miniredis/v2"
@@ -251,10 +252,14 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	submissionRepo := repo.NewSubmissionRepo(testDB)
 	scoreRepo := repo.NewScoreboardRepo(testDB)
 	appConfigRepo := repo.NewAppConfigRepo(testDB)
+
+	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
+
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	teamSvc := service.NewTeamService(teamRepo)
-	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis)
+	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+
 	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, testRedis, testLogger)
 
 	return testEnv{

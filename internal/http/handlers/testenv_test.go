@@ -12,6 +12,7 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/storage"
 	"smctf/internal/utils"
 
 	"github.com/alicebob/miniredis/v2"
@@ -189,10 +190,14 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
 	scoreRepo := repo.NewScoreboardRepo(handlerDB)
 	appConfigRepo := repo.NewAppConfigRepo(handlerDB)
+
+	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
+
+	appConfigSvc := service.NewAppConfigService(appConfigRepo)
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, teamRepo, handlerRedis)
 	teamSvc := service.NewTeamService(teamRepo)
-	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis)
-	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
+
 	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, handlerRedis)
 
 	return handlerEnv{

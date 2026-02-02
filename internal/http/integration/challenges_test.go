@@ -325,3 +325,122 @@ func TestChallengesDynamicScoring(t *testing.T) {
 		t.Fatalf("expected solve_count 2, got %v", row["solve_count"])
 	}
 }
+
+func TestChallengeFileUploadDownloadDelete(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	access, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	challenge := createChallenge(t, env, "FileChallenge", 100, "flag{file}", true)
+
+	uploadRec := doRequest(
+		t,
+		env.router,
+		http.MethodPost,
+		"/api/admin/challenges/"+itoa(challenge.ID)+"/file/upload",
+		map[string]string{"filename": "bundle.zip"},
+		authHeader(access),
+	)
+	if uploadRec.Code != http.StatusOK {
+		t.Fatalf("upload status %d: %s", uploadRec.Code, uploadRec.Body.String())
+	}
+
+	var uploadResp struct {
+		Challenge struct {
+			ID       int64   `json:"id"`
+			HasFile  bool    `json:"has_file"`
+			FileName *string `json:"file_name"`
+		} `json:"challenge"`
+		Upload struct {
+			URL    string            `json:"url"`
+			Fields map[string]string `json:"fields"`
+		} `json:"upload"`
+	}
+
+	decodeJSON(t, uploadRec, &uploadResp)
+	if !uploadResp.Challenge.HasFile {
+		t.Fatalf("expected has_file true")
+	}
+
+	if uploadResp.Challenge.FileName == nil || *uploadResp.Challenge.FileName != "bundle.zip" {
+		t.Fatalf("expected file_name bundle.zip, got %v", uploadResp.Challenge.FileName)
+	}
+
+	if uploadResp.Upload.URL == "" || len(uploadResp.Upload.Fields) == 0 {
+		t.Fatalf("expected upload payload")
+	}
+
+	downloadRec := doRequest(
+		t,
+		env.router,
+		http.MethodPost,
+		"/api/challenges/"+itoa(challenge.ID)+"/file/download",
+		nil,
+		authHeader(access),
+	)
+	if downloadRec.Code != http.StatusOK {
+		t.Fatalf("download status %d: %s", downloadRec.Code, downloadRec.Body.String())
+	}
+
+	deleteRec := doRequest(
+		t,
+		env.router,
+		http.MethodDelete,
+		"/api/admin/challenges/"+itoa(challenge.ID)+"/file",
+		nil,
+		authHeader(access),
+	)
+
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("delete status %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
+
+	var deleteResp struct {
+		HasFile bool `json:"has_file"`
+	}
+	decodeJSON(t, deleteRec, &deleteResp)
+
+	if deleteResp.HasFile {
+		t.Fatalf("expected has_file false after delete")
+	}
+}
+
+func TestChallengeFileUploadRejectsNonZip(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	access, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	challenge := createChallenge(t, env, "FileChallenge", 100, "flag{file}", true)
+
+	rec := doRequest(
+		t,
+		env.router,
+		http.MethodPost,
+		"/api/admin/challenges/"+itoa(challenge.ID)+"/file/upload",
+		map[string]string{"filename": "bundle.txt"},
+		authHeader(access),
+	)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestChallengeFileDownloadMissing(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	access, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	challenge := createChallenge(t, env, "FileChallenge", 100, "flag{file}", true)
+
+	rec := doRequest(
+		t,
+		env.router,
+		http.MethodPost,
+		"/api/challenges/"+itoa(challenge.ID)+"/file/download",
+		nil,
+		authHeader(access),
+	)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

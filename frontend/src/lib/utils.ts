@@ -44,3 +44,5 @@ export const formatDateTime = (value: string) => {
         timeZone: 'UTC',
     })
 }
+
+export const isZipFile = (file: File) => file.name.toLowerCase().endsWith('.zip')
