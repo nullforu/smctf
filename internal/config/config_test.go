@@ -218,6 +218,9 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 		{"invalid log batch size", "LOG_WEBHOOK_BATCH_SIZE", "bad"},
 		{"invalid log batch wait", "LOG_WEBHOOK_BATCH_WAIT", "bad"},
 		{"invalid log max chars", "LOG_WEBHOOK_MAX_CHARS", "bad"},
+		{"invalid s3 enabled", "S3_ENABLED", "not-a-bool"},
+		{"invalid s3 presign ttl", "S3_PRESIGN_TTL", "bad-duration"},
+		{"invalid s3 force path", "S3_FORCE_PATH_STYLE", "bad-bool"},
 	}
 
 	for _, tt := range tests {
@@ -231,6 +234,107 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 				t.Error("expected error, got nil")
 			}
 		})
+	}
+}
+
+func TestLoadConfig_S3ValidationErrors(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func()
+	}{
+		{
+			name: "missing bucket",
+			setup: func() {
+				os.Setenv("S3_ENABLED", "true")
+				os.Setenv("S3_REGION", "us-east-1")
+				os.Setenv("S3_BUCKET", "")
+			},
+		},
+		{
+			name: "partial credentials",
+			setup: func() {
+				os.Setenv("S3_ENABLED", "true")
+				os.Setenv("S3_REGION", "us-east-1")
+				os.Setenv("S3_BUCKET", "bucket")
+				os.Setenv("S3_ACCESS_KEY_ID", "access")
+				os.Setenv("S3_SECRET_ACCESS_KEY", "")
+			},
+		},
+		{
+			name: "invalid presign ttl",
+			setup: func() {
+				os.Setenv("S3_ENABLED", "true")
+				os.Setenv("S3_REGION", "us-east-1")
+				os.Setenv("S3_BUCKET", "bucket")
+				os.Setenv("S3_PRESIGN_TTL", "0s")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Clearenv()
+			tt.setup()
+			defer os.Clearenv()
+
+			_, err := Load()
+			if err == nil {
+				t.Fatalf("expected error")
+			}
+		})
+	}
+}
+
+func TestValidateConfig_InvalidS3(t *testing.T) {
+	cfg := Config{
+		HTTPAddr:           ":8080",
+		PasswordBcryptCost: bcrypt.DefaultCost,
+		DB: DBConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "user",
+			Name:            "db",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			PoolSize: 10,
+		},
+		JWT: JWTConfig{
+			Secret:     "secret",
+			Issuer:     "issuer",
+			AccessTTL:  time.Hour,
+			RefreshTTL: 24 * time.Hour,
+		},
+		Security: SecurityConfig{
+			FlagHMACSecret:   "flag-secret",
+			SubmissionWindow: time.Minute,
+			SubmissionMax:    10,
+		},
+		Logging: LoggingConfig{
+			Dir:              "logs",
+			FilePrefix:       "app",
+			MaxBodyBytes:     1024,
+			WebhookQueueSize: 10,
+			WebhookTimeout:   time.Second,
+			WebhookBatchSize: 5,
+			WebhookBatchWait: time.Second,
+			WebhookMaxChars:  100,
+		},
+		S3: S3Config{
+			Enabled:         true,
+			Region:          "",
+			Bucket:          "",
+			AccessKeyID:     "access",
+			SecretAccessKey: "",
+			PresignTTL:      0,
+		},
+	}
+
+	if err := validateConfig(cfg); err == nil {
+		t.Fatalf("expected s3 validation error")
 	}
 }
 
