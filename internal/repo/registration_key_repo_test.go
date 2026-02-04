@@ -22,7 +22,7 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 	key := &models.RegistrationKey{
 		Code:      "123456",
 		CreatedBy: admin.ID,
-		TeamID:    &team.ID,
+		TeamID:    team.ID,
 		CreatedAt: time.Now().UTC(),
 		UsedBy:    &usedBy,
 		UsedAt:    &usedAt,
@@ -58,7 +58,7 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 		t.Fatalf("expected used by username, got %+v", rows[0].UsedByUsername)
 	}
 
-	if rows[0].TeamID == nil || *rows[0].TeamID != team.ID || rows[0].TeamName == nil || *rows[0].TeamName != team.Name {
+	if rows[0].TeamID != team.ID || rows[0].TeamName != team.Name {
 		t.Fatalf("expected team in key summary, got %+v", rows[0])
 	}
 }

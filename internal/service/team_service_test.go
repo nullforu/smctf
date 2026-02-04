@@ -39,9 +39,9 @@ func TestTeamServiceStatsMembersSolved(t *testing.T) {
 	env := setupServiceTest(t)
 	team := createTeam(t, env, "Alpha")
 	other := createTeam(t, env, "Beta")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
-	_ = createUserWithTeam(t, env, "u3@example.com", "u3", "pass", "user", &other.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
+	_ = createUserWithTeam(t, env, "u3@example.com", "u3", "pass", "user", other.ID)
 
 	ch1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	ch2 := createChallenge(t, env, "Ch2", 50, "flag{2}", true)

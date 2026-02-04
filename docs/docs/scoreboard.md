@@ -35,16 +35,11 @@ Response 200
         "team_id": 1,
         "team_name": "서울고등학교",
         "score": 1200
-    },
-    {
-        "team_id": null,
-        "team_name": "not affiliated",
-        "score": 200
     }
 ]
 ```
 
-Returns all teams sorted by score (descending). Users without a team are shown as "not affiliated".
+Returns all teams sorted by score (descending).
 
 ---
 
@@ -107,7 +102,6 @@ Response 200
 ```
 
 Returns all submissions teamed by team and 10 minute intervals.
-Users without a team are teamed under "not affiliated".
 
 `points` is dynamically calculated based on solves.
 

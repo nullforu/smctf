@@ -37,8 +37,8 @@ func TestSubmissionRepoCreateAndHasCorrect(t *testing.T) {
 func TestSubmissionRepoHasCorrectTeam(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 
 	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().UTC())
@@ -93,8 +93,8 @@ func TestSubmissionRepoSolvedChallengesEmpty(t *testing.T) {
 func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 
 	now := time.Now().UTC()
@@ -146,7 +146,7 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 	}
 }
 
-func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamNoTeam(t *testing.T) {
+func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamSameUser(t *testing.T) {
 	env := setupRepoTest(t)
 	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)

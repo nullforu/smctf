@@ -42,12 +42,12 @@ As a result, we decided to develop our own CTF platform as a long term project. 
     - Supports queuing and batching for webhooks to prevent rate limiting issues, and splitting long messages.
     - Ref Issue: [#9](https://github.com/nullforu/smctf/issues/9), PR: [#10](https://github.com/nullforu/smctf/pull/10)
 - User and Team management (WIP)
-    - Ref Issue: [#11](https://github.com/nullforu/smctf/issues/11), PR: [#12](https://github.com/nullforu/smctf/pull/12), [#15](https://github.com/nullforu/smctf/pull/15)
+    - Ref Issue: [#11](https://github.com/nullforu/smctf/issues/11), [#22](https://github.com/nullforu/smctf/issues/22), PR: [#12](https://github.com/nullforu/smctf/pull/12), [#15](https://github.com/nullforu/smctf/pull/15), [#23](https://github.com/nullforu/smctf/pull/23)
 - Dynamic scoring (ref: [CTFd - Dynamic Value](https://docs.ctfd.io/docs/custom-challenges/dynamic-value/))
     - Ref Issue: [#14](https://github.com/nullforu/smctf/issues/14), PR: [#16](https://github.com/nullforu/smctf/pull/16)
 - UI customization and detailed configuration options (WIP)
     - Ref Issue: [#18](https://github.com/nullforu/smctf/issues/18), PR: [#19](https://github.com/nullforu/smctf/pull/19)
-- Challenge file upload/download support via AWS Presigned URL
+- Challenge file upload/download support via AWS S3 Presigned URL
     - Ref Issue: [#20](https://github.com/nullforu/smctf/issues/20), PR: [#21](https://github.com/nullforu/smctf/pull/21)
 
 ### Planned/Upcoming features:

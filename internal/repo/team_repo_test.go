@@ -55,10 +55,9 @@ func TestTeamRepoListWithStats(t *testing.T) {
 	teamA := createTeam(t, env, "Alpha School")
 	teamB := createTeam(t, env, "Beta School")
 
-	userA1 := createUserWithTeam(t, env, "a1@example.com", "alpha1", "pass", "user", &teamA.ID)
-	userA2 := createUserWithTeam(t, env, "a2@example.com", "alpha2", "pass", "user", &teamA.ID)
-	_ = createUserWithTeam(t, env, "b1@example.com", "beta1", "pass", "user", &teamB.ID)
-	_ = createUser(t, env, "noteam@example.com", "noteam", "pass", "user")
+	userA1 := createUserWithTeam(t, env, "a1@example.com", "alpha1", "pass", "user", teamA.ID)
+	userA2 := createUserWithTeam(t, env, "a2@example.com", "alpha2", "pass", "user", teamA.ID)
+	_ = createUserWithTeam(t, env, "b1@example.com", "beta1", "pass", "user", teamB.ID)
 
 	chal1 := createChallenge(t, env, "Basic", 100, "flag{basic}", true)
 	chal2 := createChallenge(t, env, "Hard", 200, "flag{hard}", true)
@@ -104,7 +103,7 @@ func TestTeamRepoGetStats(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Gamma School")
-	user := createUserWithTeam(t, env, "g1@example.com", "gamma1", "pass", "user", &team.ID)
+	user := createUserWithTeam(t, env, "g1@example.com", "gamma1", "pass", "user", team.ID)
 	chal := createChallenge(t, env, "Gamma", 150, "flag{gamma}", true)
 	createSubmission(t, env, user.ID, chal.ID, true, time.Now().UTC())
 
@@ -131,8 +130,8 @@ func TestTeamRepoListMembers(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Members School")
-	user1 := createUserWithTeam(t, env, "m1@example.com", "member1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "m2@example.com", "member2", "pass", "admin", &team.ID)
+	user1 := createUserWithTeam(t, env, "m1@example.com", "member1", "pass", "user", team.ID)
+	user2 := createUserWithTeam(t, env, "m2@example.com", "member2", "pass", "admin", team.ID)
 	_ = createUser(t, env, "other@example.com", "other", "pass", "user")
 
 	rows, err := env.teamRepo.ListMembers(context.Background(), team.ID)
@@ -157,8 +156,8 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Solves School")
-	user1 := createUserWithTeam(t, env, "s1@example.com", "solver1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "s2@example.com", "solver2", "pass", "user", &team.ID)
+	user1 := createUserWithTeam(t, env, "s1@example.com", "solver1", "pass", "user", team.ID)
+	user2 := createUserWithTeam(t, env, "s2@example.com", "solver2", "pass", "user", team.ID)
 
 	chal1 := createChallenge(t, env, "Intro", 50, "flag{intro}", true)
 	chal2 := createChallenge(t, env, "Advanced", 250, "flag{adv}", true)

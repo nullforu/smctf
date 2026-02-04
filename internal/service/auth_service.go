@@ -126,28 +126,24 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 	return user, nil
 }
 
-func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int, teamID *int64) ([]models.RegistrationKey, error) {
+func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int, teamID int64) ([]models.RegistrationKey, error) {
 	validator := newFieldValidator()
 	if count < 1 {
 		validator.fields = append(validator.fields, FieldError{Field: "count", Reason: "must be >= 1"})
 	}
 
-	if teamID != nil {
-		validator.PositiveID("team_id", *teamID)
-	}
+	validator.PositiveID("team_id", teamID)
 
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
 
-	if teamID != nil {
-		if _, err := s.teamRepo.GetByID(ctx, *teamID); err != nil {
-			if errors.Is(err, repo.ErrNotFound) {
-				return nil, NewValidationError(FieldError{Field: "team_id", Reason: "invalid"})
-			}
-
-			return nil, fmt.Errorf("auth.CreateRegistrationKeys team lookup: %w", err)
+	if _, err := s.teamRepo.GetByID(ctx, teamID); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, NewValidationError(FieldError{Field: "team_id", Reason: "invalid"})
 		}
+
+		return nil, fmt.Errorf("auth.CreateRegistrationKeys team lookup: %w", err)
 	}
 
 	created := make([]models.RegistrationKey, 0, count)

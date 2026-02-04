@@ -52,7 +52,10 @@ def generate_users(
     probabilities: Dict[str, Any],
     auth: Dict[str, Any],
     bcrypt_cost: int,
-) -> List[Tuple[str, str, str, str, str, Optional[int]]]:
+) -> List[Tuple[str, str, str, str, str, int]]:
+    if not team_ids:
+        raise ValueError("team_ids must not be empty")
+
     users = []
     selected_names = random.sample(user_names, count - 1)
 
@@ -68,11 +71,10 @@ def generate_users(
             admin_password_hash,
             admin["role"],
             admin_time,
-            None,
+            team_ids[0],
         )
     )
 
-    team_join_chance = probabilities["user"]["team_join_chance"]
     spread_hours = timing["user_created_hours_spread"]
 
     for korean_name in selected_names:
@@ -81,9 +83,7 @@ def generate_users(
         password_hash = hash_password(auth["default_password"], bcrypt_cost)
         created_at = base_time + timedelta(hours=random.random() * spread_hours)
         created_at_str = created_at.strftime("%Y-%m-%d %H:%M:%S")
-        team_id = None
-        if team_ids and random.random() < team_join_chance:
-            team_id = random.choice(team_ids)
+        team_id = random.choice(team_ids)
 
         users.append((email, username, password_hash, "user", created_at_str, team_id))
 
@@ -128,9 +128,10 @@ def generate_registration_keys(
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
     count: int,
-) -> List[
-    Tuple[str, int, Optional[int], Optional[int], Optional[str], str, Optional[str]]
-]:
+) -> List[Tuple[str, int, int, Optional[int], Optional[str], str, Optional[str]]]:
+    if not team_ids:
+        raise ValueError("team_ids must not be empty")
+
     keys = []
     base_time = datetime.now(UTC) - timedelta(
         hours=timing["registration_keys_base_hours_ago"]
@@ -140,8 +141,6 @@ def generate_registration_keys(
         1, int(count * probabilities["registration_keys"]["used_fraction"])
     )
     seen_codes = set()
-
-    team_assign_chance = probabilities["registration_keys"]["team_assign_chance"]
 
     for i in range(count):
         code = f"{random.randint(0, 999999):06d}"
@@ -154,10 +153,7 @@ def generate_registration_keys(
         used_by = None
         used_by_ip = None
         used_at_str = None
-        team_id = None
-
-        if team_ids and random.random() < team_assign_chance:
-            team_id = random.choice(team_ids)
+        team_id = random.choice(team_ids)
 
         if i < used_limit and user_count > 1:
             used_by = random.randint(2, user_count)
@@ -185,9 +181,7 @@ def generate_submissions(
     )
 
     user_team_map = {idx + 1: user[5] for idx, user in enumerate(users)}
-    team_solved = {
-        team_id: set() for team_id in set(user_team_map.values()) if team_id is not None
-    }
+    team_solved = {team_id: set() for team_id in set(user_team_map.values())}
 
     prob = probabilities["submissions"]
     attempts_min = prob["attempt_count"]["min"]
@@ -235,11 +229,7 @@ def generate_submissions(
             will_solve = random.random() < solve_probability
             team_id = user_team_map.get(user_id)
 
-            if (
-                unique_team_solve
-                and team_id is not None
-                and chal_id in team_solved.get(team_id, set())
-            ):
+            if unique_team_solve and chal_id in team_solved.get(team_id, set()):
                 will_solve = False
 
             if will_solve:
@@ -271,7 +261,7 @@ def generate_submissions(
                         submission_time.strftime("%Y-%m-%d %H:%M:%S"),
                     )
                 )
-                if unique_team_solve and team_id is not None:
+                if unique_team_solve:
                     team_solved.setdefault(team_id, set()).add(chal_id)
             else:
                 attempt_time = submission_time + timedelta(

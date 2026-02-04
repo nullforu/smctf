@@ -41,8 +41,12 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("unexpected email: %s", got.Email)
 	}
 
-	if got.TeamName == nil || *got.TeamName != "not affiliated" {
-		t.Fatalf("expected default team name, got %+v", got.TeamName)
+	team, err := env.teamRepo.GetByID(context.Background(), got.TeamID)
+	if err != nil {
+		t.Fatalf("expected team lookup: %v", err)
+	}
+	if got.TeamName != team.Name {
+		t.Fatalf("expected team name %q, got %+v", team.Name, got.TeamName)
 	}
 
 	got.Username = "user2"
@@ -68,8 +72,12 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("expected 1 user, got %d", len(users))
 	}
 
-	if users[0].TeamName == nil || *users[0].TeamName != "not affiliated" {
-		t.Fatalf("expected default team name, got %+v", users[0].TeamName)
+	team, err = env.teamRepo.GetByID(context.Background(), users[0].TeamID)
+	if err != nil {
+		t.Fatalf("expected team lookup: %v", err)
+	}
+	if users[0].TeamName != team.Name {
+		t.Fatalf("expected team name %q, got %+v", team.Name, users[0].TeamName)
 	}
 }
 
@@ -84,14 +92,14 @@ func TestUserRepoNotFound(t *testing.T) {
 func TestUserRepoGetByIDTeamName(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Alpha")
-	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
+	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
 
 	got, err := env.userRepo.GetByID(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
 
-	if got.TeamName == nil || *got.TeamName != team.Name {
+	if got.TeamName != team.Name {
 		t.Fatalf("expected team name %q, got %+v", team.Name, got.TeamName)
 	}
 }
@@ -117,11 +125,13 @@ func TestUserRepoListOrdering(t *testing.T) {
 
 func TestUserRepoCreateDuplicateEmail(t *testing.T) {
 	env := setupRepoTest(t)
+	team := createTeam(t, env, "Dup Team")
 	user := &models.User{
 		Email:        "dup@example.com",
 		Username:     "dup1",
 		PasswordHash: "hash",
 		Role:         "user",
+		TeamID:       team.ID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -134,6 +144,7 @@ func TestUserRepoCreateDuplicateEmail(t *testing.T) {
 		Username:     "dup2",
 		PasswordHash: "hash",
 		Role:         "user",
+		TeamID:       team.ID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -147,11 +158,16 @@ func TestUserRepoCreateError(t *testing.T) {
 	closedDB := newClosedRepoDB(t)
 	repo := NewUserRepo(closedDB)
 
+	team := &models.Team{
+		ID:   1,
+		Name: "Err Team",
+	}
 	user := &models.User{
 		Email:        "err@example.com",
 		Username:     "erruser",
 		PasswordHash: "hash",
 		Role:         "user",
+		TeamID:       team.ID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}

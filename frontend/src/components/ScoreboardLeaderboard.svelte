@@ -61,7 +61,7 @@
                         <div class="flex min-w-0 items-center gap-3">
                             <span class="text-xs text-slate-500">#{index + 1}</span>
                             <span class="truncate text-sm text-slate-900 dark:text-slate-100"
-                                >{entry.team_name === 'not affiliated' ? '-' : (entry.team_name ?? '–')}</span
+                                >{entry.team_name}</span
                             >
                         </div>
                         <span class="text-sm text-teal-600 dark:text-teal-200">{entry.score} pts</span>

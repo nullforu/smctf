@@ -194,20 +194,21 @@ func TestAdminDeleteChallenge(t *testing.T) {
 func TestAdminRegistrationKeys(t *testing.T) {
 	env := setupTest(t, testCfg)
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	team := createTeam(t, env, "Alpha")
 
-	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1}, nil)
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1, "team_id": int(team.ID)}, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	accessUser, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1}, authHeader(accessUser))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1, "team_id": int(team.ID)}, authHeader(accessUser))
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0}, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0, "team_id": int(team.ID)}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -216,7 +217,7 @@ func TestAdminRegistrationKeys(t *testing.T) {
 	decodeJSON(t, rec, &errResp)
 	assertFieldErrors(t, errResp.Details, map[string]string{"count": "must be >= 1"})
 
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2}, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2, "team_id": int(team.ID)}, authHeader(adminAccess))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

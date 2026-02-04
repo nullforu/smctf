@@ -71,7 +71,7 @@ type submitRequest struct {
 
 type createRegistrationKeysRequest struct {
 	Count  *int   `json:"count" binding:"required"`
-	TeamID *int64 `json:"team_id"`
+	TeamID *int64 `json:"team_id" binding:"required"`
 }
 
 type createTeamRequest struct {
@@ -103,20 +103,20 @@ type refreshResponse struct {
 }
 
 type userMeResponse struct {
-	ID       int64   `json:"id"`
-	Email    string  `json:"email"`
-	Username string  `json:"username"`
-	Role     string  `json:"role"`
-	TeamID   *int64  `json:"team_id"`
-	TeamName *string `json:"team_name"`
+	ID       int64  `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	TeamID   int64  `json:"team_id"`
+	TeamName string `json:"team_name"`
 }
 
 type userDetailResponse struct {
-	ID       int64   `json:"id"`
-	Username string  `json:"username"`
-	Role     string  `json:"role"`
-	TeamID   *int64  `json:"team_id"`
-	TeamName *string `json:"team_name"`
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	TeamID   int64  `json:"team_id"`
+	TeamName string `json:"team_name"`
 }
 
 type challengeResponse struct {

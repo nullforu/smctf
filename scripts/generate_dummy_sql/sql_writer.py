@@ -9,10 +9,10 @@ def escape_sql_string(s: str) -> str:
 def write_sql_file(
     output_file: str,
     teams: List[Tuple[str, str]],
-    users: List[Tuple[str, str, str, str, str, Optional[int]]],
+    users: List[Tuple[str, str, str, str, str, int]],
     challenges: List[Tuple[str, str, str, int, int, str, bool, str]],
     registration_keys: List[
-        Tuple[str, int, Optional[int], Optional[int], Optional[str], str, Optional[str]]
+        Tuple[str, int, int, Optional[int], Optional[str], str, Optional[str]]
     ],
     submissions: List[Tuple[int, int, str, bool, str]],
     meta: Dict[str, Any],
@@ -48,13 +48,12 @@ def write_sql_file(
             username_esc = escape_sql_string(username)
             password_hash_esc = escape_sql_string(password_hash)
             role_esc = escape_sql_string(role)
-            team_id_value = "NULL" if team_id is None else str(team_id)
 
             f.write(
                 "INSERT INTO users (email, username, password_hash, role, team_id, created_at, updated_at) VALUES "
             )
             f.write(
-                f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', {team_id_value}, '{created_at}', '{created_at}');\n"
+                f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', {team_id}, '{created_at}', '{created_at}');\n"
             )
 
         f.write("\n")
@@ -70,7 +69,6 @@ def write_sql_file(
             used_at,
         ) in registration_keys:
             code_esc = escape_sql_string(code)
-            team_id_value = "NULL" if team_id is None else str(team_id)
             used_by_value = "NULL" if used_by is None else str(used_by)
             used_at_value = "NULL" if used_at is None else f"'{used_at}'"
             used_by_ip_value = (
@@ -81,7 +79,7 @@ def write_sql_file(
                 "INSERT INTO registration_keys (code, created_by, team_id, used_by, used_by_ip, created_at, used_at) VALUES "
             )
             f.write(
-                f"('{code_esc}', {created_by}, {team_id_value}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n"
+                f"('{code_esc}', {created_by}, {team_id}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n"
             )
 
         f.write("\n")

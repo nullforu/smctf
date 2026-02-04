@@ -9,7 +9,7 @@ type LeaderboardEntry struct {
 }
 
 type TeamLeaderboardEntry struct {
-	TeamID   *int64 `bun:"team_id" json:"team_id,omitempty"`
+	TeamID   int64  `bun:"team_id" json:"team_id"`
 	TeamName string `bun:"team_name" json:"team_name"`
 	Score    int    `bun:"score" json:"score"`
 }
@@ -24,7 +24,7 @@ type UserTimelineRow struct {
 
 type TeamTimelineRow struct {
 	SubmittedAt time.Time `bun:"submitted_at"`
-	TeamID      *int64    `bun:"team_id"`
+	TeamID      int64     `bun:"team_id"`
 	TeamName    string    `bun:"team_name"`
 	ChallengeID int64     `bun:"challenge_id"`
 	Points      int       `bun:"points"`
@@ -40,7 +40,7 @@ type TimelineSubmission struct {
 
 type TeamTimelineSubmission struct {
 	Timestamp      time.Time `json:"timestamp"`
-	TeamID         *int64    `json:"team_id,omitempty"`
+	TeamID         int64     `json:"team_id"`
 	TeamName       string    `json:"team_name"`
 	Points         int       `json:"points"`
 	ChallengeCount int       `json:"challenge_count"`

@@ -314,8 +314,8 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	}
 
 	team := createHandlerTeam(t, env, "Alpha")
-	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
-	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
+	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
+	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", team.ID)
 	teamChallenge := createHandlerChallenge(t, env, "Team", 120, "FLAG{TEAM}", true)
 
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/3/submit", map[string]string{"flag": "FLAG{TEAM}"})
@@ -478,8 +478,9 @@ func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 func TestHandlerRegistrationKeys(t *testing.T) {
 	env := setupHandlerTest(t)
 	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	team := createHandlerTeam(t, env, "Alpha")
 
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0})
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0, "team_id": int(team.ID)})
 	ctx.Set("userID", admin.ID)
 
 	env.handler.CreateRegistrationKeys(ctx)
@@ -487,7 +488,7 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 		t.Fatalf("create keys invalid status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2, "team_id": int(team.ID)})
 	ctx.Set("userID", admin.ID)
 
 	env.handler.CreateRegistrationKeys(ctx)
@@ -538,11 +539,12 @@ func TestTeamSubmissions(t *testing.T) {
 func TestTeamTeamSubmissions(t *testing.T) {
 	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
 	teamID := int64(10)
+	teamID2 := int64(11)
 
 	raw := []models.TeamTimelineRow{
-		{SubmittedAt: base.Add(2 * time.Minute), TeamID: &teamID, TeamName: "Alpha", Points: 100},
-		{SubmittedAt: base.Add(7 * time.Minute), TeamID: &teamID, TeamName: "Alpha", Points: 50},
-		{SubmittedAt: base.Add(12 * time.Minute), TeamID: nil, TeamName: "not affiliated", Points: 30},
+		{SubmittedAt: base.Add(2 * time.Minute), TeamID: teamID, TeamName: "Alpha", Points: 100},
+		{SubmittedAt: base.Add(7 * time.Minute), TeamID: teamID, TeamName: "Alpha", Points: 50},
+		{SubmittedAt: base.Add(12 * time.Minute), TeamID: teamID2, TeamName: "Beta", Points: 30},
 	}
 
 	result := aggregateTeamTimeline(raw)
@@ -555,7 +557,7 @@ func TestTeamTeamSubmissions(t *testing.T) {
 		t.Fatalf("unexpected first team: %+v", result[0])
 	}
 
-	if result[1].TeamName != "not affiliated" || result[1].Points != 30 || result[1].ChallengeCount != 1 {
+	if result[1].TeamName != "Beta" || result[1].Points != 30 || result[1].ChallengeCount != 1 {
 		t.Fatalf("unexpected second team: %+v", result[1])
 	}
 }
@@ -612,8 +614,8 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 	}
 
 	team := createHandlerTeam(t, env, "Alpha")
-	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
-	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
+	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
+	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", team.ID)
 	teamChallenge := createHandlerChallenge(t, env, "TeamSolved", 120, "FLAG{TEAM}", true)
 
 	createHandlerSubmission(t, env, teamUser1.ID, teamChallenge.ID, true, time.Now().Add(-time.Minute))
@@ -648,18 +650,10 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 	env := setupHandlerTest(t)
 	teamA := createHandlerTeam(t, env, "Alpha")
 	teamB := createHandlerTeam(t, env, "Beta")
-	user1 := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
-	user2 := createHandlerUser(t, env, "u2@example.com", "u2", "pass", "user")
-	user3 := createHandlerUser(t, env, "u3@example.com", "u3", "pass", "user")
-
-	user1.TeamID = &teamA.ID
-	user2.TeamID = &teamB.ID
-	if err := env.userRepo.Update(context.Background(), user1); err != nil {
-		t.Fatalf("update user1: %v", err)
-	}
-	if err := env.userRepo.Update(context.Background(), user2); err != nil {
-		t.Fatalf("update user2: %v", err)
-	}
+	teamC := createHandlerTeam(t, env, "Gamma")
+	user1 := createHandlerUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
+	user2 := createHandlerUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
+	user3 := createHandlerUserWithTeam(t, env, "u3@example.com", "u3", "pass", "user", teamC.ID)
 
 	ch1 := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
 	ch2 := createHandlerChallenge(t, env, "Ch2", 50, "FLAG{2}", true)
@@ -682,7 +676,7 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 		t.Fatalf("decode leaderboard: %v", err)
 	}
 
-	if len(leaderboard) != 3 || leaderboard[0].TeamName != "Alpha" || leaderboard[2].TeamName != "not affiliated" {
+	if len(leaderboard) != 3 || leaderboard[0].TeamName != "Alpha" || leaderboard[2].TeamName != "Gamma" {
 		t.Fatalf("unexpected leaderboard: %+v", leaderboard)
 	}
 
@@ -794,12 +788,7 @@ func newClosedHandlerDB(t *testing.T) *bun.DB {
 func TestHandlerTeams(t *testing.T) {
 	env := setupHandlerTest(t)
 	team := createHandlerTeam(t, env, "Alpha")
-	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
-
-	user.TeamID = &team.ID
-	if err := env.userRepo.Update(context.Background(), user); err != nil {
-		t.Fatalf("update user: %v", err)
-	}
+	user := createHandlerUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
 
 	challenge := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
 	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().Add(-time.Minute))

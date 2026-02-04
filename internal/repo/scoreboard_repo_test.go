@@ -11,7 +11,7 @@ func TestScoreboardRepoLeaderboardAndTimeline(t *testing.T) {
 	scoreRepo := NewScoreboardRepo(env.db)
 
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
 
 	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
@@ -59,8 +59,8 @@ func TestScoreboardRepoTeamLeaderboardAndTimeline(t *testing.T) {
 
 	teamA := createTeam(t, env, "Alpha")
 	teamB := createTeam(t, env, "Beta")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &teamA.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &teamB.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
 	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
 
 	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
@@ -83,7 +83,7 @@ func TestScoreboardRepoTeamLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("unexpected team leaderboard first row: %+v", leaderboard[0])
 	}
 
-	if leaderboard[2].TeamName != "not affiliated" || leaderboard[2].Score != 50 {
+	if leaderboard[2].TeamName != "team-u3" || leaderboard[2].Score != 50 {
 		t.Fatalf("unexpected team leaderboard last row: %+v", leaderboard[2])
 	}
 

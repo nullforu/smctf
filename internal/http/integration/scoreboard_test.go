@@ -41,8 +41,8 @@ func TestScoreboardTeams(t *testing.T) {
 	env := setupTest(t, testCfg)
 	teamA := createTeam(t, env, "Alpha")
 	teamB := createTeam(t, env, "Beta")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &teamA.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &teamB.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
 	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 50, "flag{2}", true)
@@ -67,7 +67,7 @@ func TestScoreboardTeams(t *testing.T) {
 		t.Fatalf("unexpected first row: %+v", rows[0])
 	}
 
-	if rows[2].TeamName != "not affiliated" || rows[2].Score != 50 {
+	if rows[2].TeamName != "team-u3" || rows[2].Score != 50 {
 		t.Fatalf("unexpected last row: %+v", rows[2])
 	}
 }
@@ -75,7 +75,7 @@ func TestScoreboardTeams(t *testing.T) {
 func TestScoreboardTeamTimeline(t *testing.T) {
 	env := setupTest(t, testCfg)
 	teamA := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &teamA.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
@@ -91,7 +91,7 @@ func TestScoreboardTeamTimeline(t *testing.T) {
 
 	var resp struct {
 		Submissions []struct {
-			TeamID         *int64    `json:"team_id"`
+			TeamID         int64     `json:"team_id"`
 			TeamName       string    `json:"team_name"`
 			Timestamp      time.Time `json:"timestamp"`
 			Points         int       `json:"points"`
@@ -215,7 +215,7 @@ func TestScoreboardTimelineInvalidWindow(t *testing.T) {
 func TestScoreboardDynamicScoring(t *testing.T) {
 	env := setupTest(t, testCfg)
 	team := createTeam(t, env, "Alpha")
-	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", &team.ID)
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", team.ID)
 	userSolo := createUser(t, env, "solo@example.com", "solo", "pass123", "user")
 
 	challenge := createChallenge(t, env, "Dynamic", 500, "flag{dynamic}", true)

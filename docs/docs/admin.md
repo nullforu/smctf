@@ -63,7 +63,7 @@ Request
 }
 ```
 
-`team_id` is optional. Omit or set to null for unassigned (not affiliated).
+`team_id` is required.
 
 Response 201
 

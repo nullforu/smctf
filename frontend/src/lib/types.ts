@@ -3,8 +3,8 @@ export interface AuthUser {
     email: string
     username: string
     role: string
-    team_id?: number | null
-    team_name?: string | null
+    team_id: number
+    team_name: string
 }
 
 export interface RegisterPayload {
@@ -119,7 +119,7 @@ export interface ScoreEntry {
 }
 
 export interface TeamScoreEntry {
-    team_id?: number | null
+    team_id: number
     team_name: string
     score: number
 }
@@ -138,7 +138,7 @@ export interface TimelineResponse {
 
 export interface TeamTimelineSubmission {
     timestamp: string
-    team_id?: number | null
+    team_id: number
     team_name: string
     points: number
     challenge_count: number
@@ -152,16 +152,16 @@ export interface UserListItem {
     id: number
     username: string
     role: string
-    team_id?: number | null
-    team_name?: string | null
+    team_id: number
+    team_name: string
 }
 
 export interface UserDetail {
     id: number
     username: string
     role: string
-    team_id?: number | null
-    team_name?: string | null
+    team_id: number
+    team_name: string
 }
 
 export interface RegistrationKey {
@@ -169,8 +169,8 @@ export interface RegistrationKey {
     code: string
     created_by: number
     created_by_username: string
-    team_id?: number | null
-    team_name?: string | null
+    team_id: number
+    team_name: string
     used_by?: number
     used_by_username?: string
     used_by_ip?: string
@@ -180,7 +180,7 @@ export interface RegistrationKey {
 
 export interface RegistrationKeyCreatePayload {
     count: number
-    team_id?: number | null
+    team_id: number
 }
 
 export interface Team {
