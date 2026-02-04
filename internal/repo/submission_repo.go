@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"database/sql"
 
 	"smctf/internal/models"
 
@@ -25,8 +24,8 @@ func (r *SubmissionRepo) Create(ctx context.Context, sub *models.Submission) err
 	return nil
 }
 
-func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID int64) (sql.NullInt64, error) {
-	var teamID sql.NullInt64
+func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID int64) (int64, error) {
+	var teamID int64
 	if err := db.NewSelect().
 		TableExpr("users AS u").
 		ColumnExpr("u.team_id").
@@ -36,15 +35,13 @@ func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID i
 		return teamID, err
 	}
 
-	if teamID.Valid {
-		if _, err := db.NewSelect().
-			TableExpr("teams AS t").
-			ColumnExpr("t.id").
-			Where("t.id = ?", teamID.Int64).
-			For("UPDATE").
-			Exec(ctx); err != nil {
-			return teamID, err
-		}
+	if _, err := db.NewSelect().
+		TableExpr("teams AS t").
+		ColumnExpr("t.id").
+		Where("t.id = ?", teamID).
+		For("UPDATE").
+		Exec(ctx); err != nil {
+		return teamID, err
 	}
 
 	return teamID, nil
@@ -53,18 +50,13 @@ func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID i
 func (r *SubmissionRepo) correctSubmissionCount(
 	ctx context.Context,
 	db bun.IDB,
-	userID int64,
 	challengeID int64,
-	teamID sql.NullInt64,
+	teamID int64,
 ) (int, error) {
 	query := r.baseCorrectSubmissionsQuery(db).
 		Where("s.challenge_id = ?", challengeID)
 
-	if teamID.Valid {
-		query = query.Where("u.team_id = ?", teamID.Int64)
-	} else {
-		query = query.Where("u.id = ?", userID)
-	}
+	query = query.Where("u.team_id = ?", teamID)
 
 	return query.Count(ctx)
 }
@@ -107,7 +99,7 @@ func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam lock user", err)
 	}
 
-	count, err := r.correctSubmissionCount(ctx, tx, sub.UserID, sub.ChallengeID, teamID)
+	count, err := r.correctSubmissionCount(ctx, tx, sub.ChallengeID, teamID)
 	if err != nil {
 		_ = tx.Rollback()
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam check", err)
@@ -134,7 +126,7 @@ func (r *SubmissionRepo) HasCorrect(ctx context.Context, userID, challengeID int
 	count, err := r.baseCorrectSubmissionsQuery(r.db).
 		Join("JOIN users AS me ON me.id = ?", userID).
 		Where("s.challenge_id = ?", challengeID).
-		Where("(me.team_id IS NULL AND u.id = me.id) OR (me.team_id IS NOT NULL AND u.team_id = me.team_id)").
+		Where("u.team_id = me.team_id").
 		Count(ctx)
 
 	if err != nil {

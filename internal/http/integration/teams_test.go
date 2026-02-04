@@ -8,7 +8,8 @@ import (
 
 func TestAdminTeams(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	adminTeam := createTeam(t, env, "Admins")
+	_ = createUserWithTeam(t, env, "admin@example.com", "admin", "adminpass", "admin", adminTeam.ID)
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"}, nil)
 	if rec.Code != http.StatusUnauthorized {
@@ -43,7 +44,15 @@ func TestAdminTeams(t *testing.T) {
 	}
 	decodeJSON(t, rec, &teams)
 
-	if len(teams) != 1 || teams[0].Name != "Alpha" {
+	foundAlpha := false
+	for _, team := range teams {
+		if team.Name == "Alpha" {
+			foundAlpha = true
+			break
+		}
+	}
+
+	if !foundAlpha {
 		t.Fatalf("unexpected teams: %+v", teams)
 	}
 }
@@ -65,7 +74,7 @@ func TestRegistrationKeyTeamAssignment(t *testing.T) {
 	var created []registrationKeyResp
 	decodeJSON(t, rec, &created)
 
-	if len(created) != 1 || created[0].TeamID == nil || *created[0].TeamID != team.ID {
+	if len(created) != 1 || created[0].TeamID != team.ID {
 		t.Fatalf("expected team id in key, got %+v", created)
 	}
 
@@ -92,12 +101,12 @@ func TestRegistrationKeyTeamAssignment(t *testing.T) {
 	}
 
 	var userResp struct {
-		TeamID   *int64 `json:"team_id"`
+		TeamID   int64  `json:"team_id"`
 		TeamName string `json:"team_name"`
 	}
 	decodeJSON(t, rec, &userResp)
 
-	if userResp.TeamID == nil || *userResp.TeamID != team.ID || userResp.TeamName != "Alpha" {
+	if userResp.TeamID != team.ID || userResp.TeamName != "Alpha" {
 		t.Fatalf("expected team assignment, got %+v", userResp)
 	}
 
@@ -113,8 +122,8 @@ func TestRegistrationKeyTeamAssignment(t *testing.T) {
 func TestTeamsDetailMembersSolved(t *testing.T) {
 	env := setupTest(t, testCfg)
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
 	ch1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	ch2 := createChallenge(t, env, "Ch2", 50, "flag{2}", true)
 

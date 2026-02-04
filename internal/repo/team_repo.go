@@ -77,7 +77,6 @@ func (r *TeamRepo) ListWithStats(ctx context.Context) ([]models.TeamSummary, err
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
-		Where("u.team_id IS NOT NULL").
 		Scan(ctx, &submissions); err != nil {
 		return nil, wrapError("teamRepo.ListWithStats submissions", err)
 	}

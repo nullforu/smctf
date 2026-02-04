@@ -42,7 +42,7 @@
                 (user) =>
                     user.username.toLowerCase().includes(query) ||
                     user.id.toString().includes(query) ||
-                    (user.team_name ?? '').toLowerCase().includes(query),
+                    user.team_name.toLowerCase().includes(query),
             )
         }
     })
@@ -119,7 +119,7 @@
                                         {user.username}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
-                                        {user.team_name === 'not affiliated' ? '-' : (user.team_name ?? '–')}
+                                        {user.team_name}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm">
                                         <span

@@ -89,8 +89,8 @@
                     ? {
                           submissions: rawTeamTimeline.submissions.map((sub) => ({
                               timestamp: sub.timestamp,
-                              user_id: sub.team_id ?? 0,
-                              username: sub.team_name === 'not affiliated' ? '-' : (sub.team_name ?? '–'),
+                              user_id: sub.team_id,
+                              username: sub.team_name,
                               points: sub.points,
                               challenge_count: sub.challenge_count,
                           })),

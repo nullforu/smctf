@@ -61,8 +61,8 @@ type registrationKeyResp struct {
 	Code              string     `json:"code"`
 	CreatedBy         int64      `json:"created_by"`
 	CreatedByUsername string     `json:"created_by_username"`
-	TeamID            *int64     `json:"team_id"`
-	TeamName          *string    `json:"team_name"`
+	TeamID            int64      `json:"team_id"`
+	TeamName          string     `json:"team_name"`
 	UsedBy            *int64     `json:"used_by"`
 	UsedByUsername    *string    `json:"used_by_username"`
 	UsedByIP          *string    `json:"used_by_ip"`
@@ -391,29 +391,11 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 
 func createUser(t *testing.T, env testEnv, email, username, password, role string) *models.User {
 	t.Helper()
-
-	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
-	if err != nil {
-		t.Fatalf("hash password: %v", err)
-	}
-
-	user := &models.User{
-		Email:        email,
-		Username:     username,
-		PasswordHash: hash,
-		Role:         role,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-	}
-
-	if err := env.userRepo.Create(context.Background(), user); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-
-	return user
+	team := createTeam(t, env, "team-"+username)
+	return createUserWithTeam(t, env, email, username, password, role, team.ID)
 }
 
-func createUserWithTeam(t *testing.T, env testEnv, email, username, password, role string, teamID *int64) *models.User {
+func createUserWithTeam(t *testing.T, env testEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
@@ -496,10 +478,12 @@ func nextRegistrationCode() string {
 
 func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.RegistrationKey {
 	t.Helper()
+	team := createTeam(t, env, "reg-"+nextRegistrationCode())
 
 	key := &models.RegistrationKey{
 		Code:      nextRegistrationCode(),
 		CreatedBy: createdBy,
+		TeamID:    team.ID,
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -510,7 +494,7 @@ func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.R
 	return key
 }
 
-func createRegistrationKeyWithTeam(t *testing.T, env testEnv, createdBy int64, teamID *int64) *models.RegistrationKey {
+func createRegistrationKeyWithTeam(t *testing.T, env testEnv, createdBy int64, teamID int64) *models.RegistrationKey {
 	t.Helper()
 
 	key := &models.RegistrationKey{

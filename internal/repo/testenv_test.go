@@ -160,27 +160,11 @@ func resetRepoState(t *testing.T) {
 
 func createUser(t *testing.T, env repoEnv, email, username, password, role string) *models.User {
 	t.Helper()
-	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
-	if err != nil {
-		t.Fatalf("hash password: %v", err)
-	}
-
-	user := &models.User{
-		Email:        email,
-		Username:     username,
-		PasswordHash: hash,
-		Role:         role,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-	}
-	if err := env.userRepo.Create(context.Background(), user); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-
-	return user
+	team := createTeam(t, env, "team-"+username)
+	return createUserWithTeam(t, env, email, username, password, role, team.ID)
 }
 
-func createUserWithTeam(t *testing.T, env repoEnv, email, username, password, role string, teamID *int64) *models.User {
+func createUserWithTeam(t *testing.T, env repoEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
 	if err != nil {

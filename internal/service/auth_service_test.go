@@ -69,12 +69,13 @@ func TestAuthServiceRegisterUserExists(t *testing.T) {
 func TestAuthServiceCreateRegistrationKeys(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	team := createTeam(t, env, "Alpha")
 
-	if _, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 0, nil); err == nil {
+	if _, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 0, team.ID); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 2, nil)
+	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 2, team.ID)
 	if err != nil {
 		t.Fatalf("create keys: %v", err)
 	}
@@ -93,13 +94,24 @@ func TestAuthServiceCreateRegistrationKeysWithTeam(t *testing.T) {
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	team := createTeam(t, env, "Alpha")
 
-	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, &team.ID)
+	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, team.ID)
 	if err != nil {
 		t.Fatalf("create keys: %v", err)
 	}
 
-	if len(keys) != 1 || keys[0].TeamID == nil || *keys[0].TeamID != team.ID {
+	if len(keys) != 1 || keys[0].TeamID != team.ID {
 		t.Fatalf("expected team on key, got %+v", keys)
+	}
+}
+
+func TestAuthServiceCreateRegistrationKeysInvalidTeam(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+
+	_, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, 9999)
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
 	}
 }
 
@@ -107,14 +119,14 @@ func TestAuthServiceRegisterAssignsTeam(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	team := createTeam(t, env, "Alpha")
-	key := createRegistrationKeyWithTeam(t, env, "654321", admin.ID, &team.ID)
+	key := createRegistrationKeyWithTeam(t, env, "654321", admin.ID, team.ID)
 
 	user, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass1", key.Code, "")
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
-	if user.TeamID == nil || *user.TeamID != team.ID {
+	if user.TeamID != team.ID {
 		t.Fatalf("expected user team assigned, got %+v", user.TeamID)
 	}
 }
@@ -130,6 +142,7 @@ func TestAuthServiceListRegistrationKeys(t *testing.T) {
 	key := &models.RegistrationKey{
 		Code:      "222222",
 		CreatedBy: admin.ID,
+		TeamID:    createTeam(t, env, "Key Team").ID,
 		CreatedAt: time.Now().UTC(),
 		UsedBy:    &usedBy,
 		UsedAt:    &usedAt,

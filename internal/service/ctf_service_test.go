@@ -101,7 +101,7 @@ func TestCTFServiceCreateChallengeValidation(t *testing.T) {
 func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	env := setupServiceTest(t)
 	team := createTeam(t, env, "Alpha")
-	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
+	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
 	soloUser := createUser(t, env, "s1@example.com", "s1", "pass", "user")
 
 	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true)
@@ -220,8 +220,8 @@ func TestCTFServiceSubmitFlag(t *testing.T) {
 	}
 
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", &team.ID)
-	user2 := createUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", &team.ID)
+	user1 := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
+	user2 := createUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", team.ID)
 	teamChallenge := createChallenge(t, env, "Team", 120, "FLAG{TEAM}", true)
 
 	if _, err := env.ctfSvc.SubmitFlag(context.Background(), user1.ID, teamChallenge.ID, "FLAG{TEAM}"); err != nil {

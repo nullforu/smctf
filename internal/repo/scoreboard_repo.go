@@ -75,23 +75,6 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLead
 		return nil, wrapError("scoreboardRepo.TeamLeaderboard", err)
 	}
 
-	type userRow struct {
-		UserID int64  `bun:"user_id"`
-		TeamID *int64 `bun:"team_id"`
-	}
-
-	users := make([]userRow, 0)
-	if err := r.db.NewSelect().
-		TableExpr("users AS u").
-		ColumnExpr("u.id AS user_id").
-		ColumnExpr("u.team_id AS team_id").
-		OrderExpr("u.id ASC").
-		Scan(ctx, &users); err != nil {
-		return nil, wrapError("scoreboardRepo.TeamLeaderboard users", err)
-	}
-
-	teamNames := make(map[int64]string)
-
 	var teamRows []struct {
 		ID   int64  `bun:"id"`
 		Name string `bun:"name"`
@@ -105,64 +88,36 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLead
 		return nil, wrapError("scoreboardRepo.TeamLeaderboard teams", err)
 	}
 
+	teamEntries := make(map[int64]*models.TeamLeaderboardEntry, len(teamRows))
 	for _, row := range teamRows {
-		teamNames[row.ID] = row.Name
-	}
-
-	type teamKey struct {
-		hasTeam bool
-		teamID  int64
-	}
-
-	userTeams := make(map[int64]teamKey, len(users))
-	teamEntries := make(map[teamKey]*models.TeamLeaderboardEntry)
-	for _, user := range users {
-		var key teamKey
-		if user.TeamID != nil {
-			key = teamKey{hasTeam: true, teamID: *user.TeamID}
-		} else {
-			key = teamKey{}
-		}
-
-		userTeams[user.UserID] = key
-		if _, ok := teamEntries[key]; !ok {
-			entry := &models.TeamLeaderboardEntry{}
-			if key.hasTeam {
-				id := key.teamID
-				entry.TeamID = &id
-				entry.TeamName = teamNames[key.teamID]
-				if entry.TeamName == "" {
-					entry.TeamName = "unknown team"
-				}
-			} else {
-				entry.TeamName = "not affiliated"
-			}
-			teamEntries[key] = entry
+		teamEntries[row.ID] = &models.TeamLeaderboardEntry{
+			TeamID:   row.ID,
+			TeamName: row.Name,
 		}
 	}
 
 	type submissionRow struct {
-		UserID      int64 `bun:"user_id"`
+		TeamID      int64 `bun:"team_id"`
 		ChallengeID int64 `bun:"challenge_id"`
 	}
 
 	submissions := make([]submissionRow, 0)
 	if err := r.db.NewSelect().
 		TableExpr("submissions AS s").
-		ColumnExpr("s.user_id AS user_id").
+		ColumnExpr("u.team_id AS team_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
+		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
 		Scan(ctx, &submissions); err != nil {
 		return nil, wrapError("scoreboardRepo.TeamLeaderboard submissions", err)
 	}
 
 	for _, sub := range submissions {
-		key, ok := userTeams[sub.UserID]
+		entry, ok := teamEntries[sub.TeamID]
 		if !ok {
 			continue
 		}
 
-		entry := teamEntries[key]
 		entry.Score += pointsMap[sub.ChallengeID]
 	}
 
@@ -222,10 +177,10 @@ func (r *ScoreboardRepo) TimelineTeamSubmissions(ctx context.Context, since *tim
 		TableExpr("submissions AS s").
 		ColumnExpr("s.submitted_at AS submitted_at").
 		ColumnExpr("u.team_id AS team_id").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
+		ColumnExpr("g.name AS team_name").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
-		Join("LEFT JOIN teams AS g ON g.id = u.team_id").
+		Join("JOIN teams AS g ON g.id = u.team_id").
 		Where("s.correct = true")
 
 	query = applyTimelineWindow(query, since)

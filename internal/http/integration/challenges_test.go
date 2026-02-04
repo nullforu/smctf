@@ -176,8 +176,8 @@ func TestSubmitFlag(t *testing.T) {
 	t.Run("team already solved", func(t *testing.T) {
 		env := setupTest(t, testCfg)
 		team := createTeam(t, env, "Alpha")
-		user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", &team.ID)
-		user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", &team.ID)
+		user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
+		user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
 		access1, _, _ := loginUser(t, env.router, user1.Email, "pass")
 		access2, _, _ := loginUser(t, env.router, user2.Email, "pass")
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
@@ -265,7 +265,7 @@ func TestSubmitFlag(t *testing.T) {
 func TestChallengesDynamicScoring(t *testing.T) {
 	env := setupTest(t, testCfg)
 	team := createTeam(t, env, "Alpha")
-	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", &team.ID)
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", team.ID)
 	userSolo := createUser(t, env, "solo@example.com", "solo", "pass123", "user")
 
 	challenge := createChallenge(t, env, "Dynamic", 500, "flag{dynamic}", true)

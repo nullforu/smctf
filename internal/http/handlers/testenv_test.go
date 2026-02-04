@@ -240,29 +240,12 @@ func skipIfHandlerDisabled(t *testing.T) {
 
 func createHandlerUser(t *testing.T, env handlerEnv, email, username, password, role string) *models.User {
 	t.Helper()
+	team := createHandlerTeam(t, env, "team-"+username)
 
-	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
-	if err != nil {
-		t.Fatalf("hash password: %v", err)
-	}
-
-	user := &models.User{
-		Email:        email,
-		Username:     username,
-		PasswordHash: hash,
-		Role:         role,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-	}
-
-	if err := env.userRepo.Create(context.Background(), user); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-
-	return user
+	return createHandlerUserWithTeam(t, env, email, username, password, role, team.ID)
 }
 
-func createHandlerUserWithTeam(t *testing.T, env handlerEnv, email, username, password, role string, teamID *int64) *models.User {
+func createHandlerUserWithTeam(t *testing.T, env handlerEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
@@ -290,9 +273,11 @@ func createHandlerUserWithTeam(t *testing.T, env handlerEnv, email, username, pa
 func createHandlerRegistrationKey(t *testing.T, env handlerEnv, code string, createdBy int64) *models.RegistrationKey {
 	t.Helper()
 
+	team := createHandlerTeam(t, env, "reg-"+code)
 	key := &models.RegistrationKey{
 		Code:      code,
 		CreatedBy: createdBy,
+		TeamID:    team.ID,
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -303,7 +288,7 @@ func createHandlerRegistrationKey(t *testing.T, env handlerEnv, code string, cre
 	return key
 }
 
-func createHandlerRegistrationKeyWithTeam(t *testing.T, env handlerEnv, code string, createdBy int64, teamID *int64) *models.RegistrationKey {
+func createHandlerRegistrationKeyWithTeam(t *testing.T, env handlerEnv, code string, createdBy int64, teamID int64) *models.RegistrationKey {
 	t.Helper()
 
 	key := &models.RegistrationKey{

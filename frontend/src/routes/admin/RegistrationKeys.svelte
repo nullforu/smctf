@@ -17,7 +17,7 @@
     let createKeysFieldErrors: FieldErrors = $state({})
     let createKeysSuccessMessage = $state('')
     let keyCount = $state(1)
-    let selectedTeamId = $state<string>('none')
+    let selectedTeamId = $state<string>('')
 
     onMount(() => {
         loadKeys()
@@ -44,6 +44,9 @@
 
         try {
             teams = await api.teams()
+            if (!selectedTeamId && teams.length > 0) {
+                selectedTeamId = String(teams[0].id)
+            }
         } catch (error) {
             const formatted = formatApiError(error)
             teamsErrorMessage = formatted.message
@@ -59,9 +62,14 @@
         createKeysFieldErrors = {}
 
         try {
+            if (!selectedTeamId) {
+                createKeysFieldErrors = { team_id: 'required' }
+                createKeysLoading = false
+                return
+            }
             const payload = {
                 count: Number(keyCount),
-                team_id: selectedTeamId === 'none' ? null : Number(selectedTeamId),
+                team_id: Number(selectedTeamId),
             }
             const created = await api.createRegistrationKeys(payload)
             createKeysSuccessMessage = `${created.length} keys created`
@@ -111,7 +119,6 @@
                     bind:value={selectedTeamId}
                     disabled={teamsLoading}
                 >
-                    <option value="none">(not affiliated)</option>
                     {#each teams as team}
                         <option value={team.id}>{team.name}</option>
                     {/each}
@@ -199,7 +206,7 @@
                                     {key.code}
                                 </td>
                                 <td class="py-3 pr-4">{key.created_by_username}</td>
-                                <td class="py-3 pr-4">{key.team_name ?? '-'}</td>
+                                <td class="py-3 pr-4">{key.team_name}</td>
                                 <td class="py-3 pr-4">{formatDateTime(key.created_at)}</td>
                                 <td class="py-3 pr-4">{key.used_by_username ?? '-'}</td>
                                 <td class="py-3 pr-4 font-mono text-xs">{key.used_by_ip ?? '-'}</td>

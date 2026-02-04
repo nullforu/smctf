@@ -14,8 +14,8 @@ type User struct {
 	Username      string    `bun:",unique,notnull"`
 	PasswordHash  string    `bun:",notnull"`
 	Role          string    `bun:",notnull"`
-	TeamID        *int64    `bun:"team_id,nullzero"`
-	TeamName      *string   `bun:"team_name,scanonly"`
+	TeamID        int64     `bun:"team_id,notnull"`
+	TeamName      string    `bun:"team_name,scanonly"`
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 }

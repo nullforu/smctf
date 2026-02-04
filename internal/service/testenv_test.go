@@ -228,29 +228,11 @@ func skipIfServiceDisabled(t *testing.T) {
 
 func createUser(t *testing.T, env serviceEnv, email, username, password, role string) *models.User {
 	t.Helper()
-
-	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
-	if err != nil {
-		t.Fatalf("hash password: %v", err)
-	}
-
-	user := &models.User{
-		Email:        email,
-		Username:     username,
-		PasswordHash: hash,
-		Role:         role,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-	}
-
-	if err := env.userRepo.Create(context.Background(), user); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-
-	return user
+	team := createTeam(t, env, "team-"+username)
+	return createUserWithTeam(t, env, email, username, password, role, team.ID)
 }
 
-func createUserWithTeam(t *testing.T, env serviceEnv, email, username, password, role string, teamID *int64) *models.User {
+func createUserWithTeam(t *testing.T, env serviceEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
@@ -290,7 +272,7 @@ func createTeam(t *testing.T, env serviceEnv, name string) *models.Team {
 	return team
 }
 
-func createRegistrationKeyWithTeam(t *testing.T, env serviceEnv, code string, createdBy int64, teamID *int64) *models.RegistrationKey {
+func createRegistrationKeyWithTeam(t *testing.T, env serviceEnv, code string, createdBy int64, teamID int64) *models.RegistrationKey {
 	t.Helper()
 
 	key := &models.RegistrationKey{
@@ -310,7 +292,8 @@ func createRegistrationKeyWithTeam(t *testing.T, env serviceEnv, code string, cr
 func createRegistrationKey(t *testing.T, env serviceEnv, code string, createdBy int64) *models.RegistrationKey {
 	t.Helper()
 
-	return createRegistrationKeyWithTeam(t, env, code, createdBy, nil)
+	team := createTeam(t, env, "reg-"+code)
+	return createRegistrationKeyWithTeam(t, env, code, createdBy, team.ID)
 }
 
 func createChallenge(t *testing.T, env serviceEnv, title string, points int, flag string, active bool) *models.Challenge {

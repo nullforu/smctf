@@ -53,7 +53,7 @@ func (r *RegistrationKeyRepo) baseRegistrationKeySummaryQuery() *bun.SelectQuery
 		ColumnExpr("rk.created_at AS created_at").
 		ColumnExpr("rk.used_at AS used_at").
 		Join("JOIN users AS creator ON creator.id = rk.created_by").
-		Join("LEFT JOIN teams AS g ON g.id = rk.team_id").
+		Join("JOIN teams AS g ON g.id = rk.team_id").
 		Join("LEFT JOIN users AS used ON used.id = rk.used_by")
 }
 

@@ -50,8 +50,8 @@ func (r *UserRepo) baseUserWithTeamQuery() *bun.SelectQuery {
 	return r.db.NewSelect().
 		TableExpr("users AS u").
 		ColumnExpr("u.*").
-		ColumnExpr("COALESCE(g.name, 'not affiliated') AS team_name").
-		Join("LEFT JOIN teams AS g ON g.id = u.team_id")
+		ColumnExpr("g.name AS team_name").
+		Join("JOIN teams AS g ON g.id = u.team_id")
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*models.User, error) {

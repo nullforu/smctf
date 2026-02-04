@@ -13,8 +13,6 @@ Headers
 Authorization: Bearer <access_token>
 ```
 
-Returns only the user's own solved challenges (not team-shared).
-
 Response 200
 
 ```json
@@ -95,8 +93,8 @@ Response 200
         "id": 2,
         "username": "admin",
         "role": "admin",
-        "team_id": null,
-        "team_name": "not affiliated"
+        "team_id": 2,
+        "team_name": "운영팀"
     }
 ]
 ```

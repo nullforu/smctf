@@ -43,14 +43,8 @@
                 return
             }
 
-            if (me.team_id) {
-                const teamSolved = await api.teamSolved(me.team_id)
-                solvedIds = new Set(teamSolved.map((item) => item.challenge_id))
-                return
-            }
-
-            const solved = await api.userSolved(me.id)
-            solvedIds = new Set(solved.map((item) => item.challenge_id))
+            const teamSolved = await api.teamSolved(me.team_id)
+            solvedIds = new Set(teamSolved.map((item) => item.challenge_id))
         } catch {
             solvedIds = new Set()
         }

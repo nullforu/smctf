@@ -481,7 +481,12 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		count = *req.Count
 	}
 
-	teamID := req.TeamID
+	if req.TeamID == nil {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "team_id", Reason: "required"}))
+		return
+	}
+
+	teamID := *req.TeamID
 	adminID := middleware.UserID(ctx)
 	admin, err := h.users.GetByID(ctx.Request.Context(), adminID)
 	if err != nil {
@@ -495,15 +500,10 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		return
 	}
 
-	var teamName *string
-	if teamID != nil {
-		team, err := h.teams.GetTeam(ctx.Request.Context(), *teamID)
-		if err != nil {
-			writeError(ctx, err)
-			return
-		}
-
-		teamName = &team.Name
+	team, err := h.teams.GetTeam(ctx.Request.Context(), teamID)
+	if err != nil {
+		writeError(ctx, err)
+		return
 	}
 
 	resp := make([]models.RegistrationKeySummary, 0, len(keys))
@@ -514,7 +514,7 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 			CreatedBy:         key.CreatedBy,
 			CreatedByUsername: admin.Username,
 			TeamID:            key.TeamID,
-			TeamName:          teamName,
+			TeamName:          team.Name,
 			UsedBy:            key.UsedBy,
 			UsedByUsername:    nil,
 			UsedByIP:          nil,
@@ -590,20 +590,15 @@ func aggregateTeamTimeline(raw []models.TeamTimelineRow) []models.TeamTimelineSu
 	}
 
 	type teamKey struct {
-		teamID  int64
-		hasTeam bool
-		bucket  time.Time
+		teamID int64
+		bucket time.Time
 	}
 
 	teams := make(map[teamKey]*models.TeamTimelineSubmission)
 
 	for _, sub := range raw {
 		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
-		key := teamKey{bucket: bucket}
-		if sub.TeamID != nil {
-			key.teamID = *sub.TeamID
-			key.hasTeam = true
-		}
+		key := teamKey{teamID: sub.TeamID, bucket: bucket}
 
 		if team, exists := teams[key]; exists {
 			team.Points += sub.Points
@@ -627,7 +622,7 @@ func aggregateTeamTimeline(raw []models.TeamTimelineRow) []models.TeamTimelineSu
 	sort.Slice(result, func(i, j int) bool {
 		if result[i].Timestamp.Equal(result[j].Timestamp) {
 			if result[i].TeamName == result[j].TeamName {
-				return result[i].TeamID != nil && (result[j].TeamID == nil || *result[i].TeamID < *result[j].TeamID)
+				return result[i].TeamID < result[j].TeamID
 			}
 
 			return result[i].TeamName < result[j].TeamName

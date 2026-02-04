@@ -6,11 +6,11 @@ import (
 	"time"
 )
 
-func TestDynamicPointsMapUsesTeamAndSoloDecay(t *testing.T) {
+func TestDynamicPointsMapUsesTeamDecay(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Alpha")
-	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", "user", &team.ID)
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", "user", team.ID)
 	_ = createUser(t, env, "solo@example.com", "solo", "pass", "user")
 
 	challenge := createChallenge(t, env, "Dynamic", 500, "FLAG{DYN}", true)

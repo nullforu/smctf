@@ -96,15 +96,5 @@ func decayFactor(ctx context.Context, db *bun.DB) (int, error) {
 		return 0, wrapError("score.teamCount", err)
 	}
 
-	var soloCount int
-	if err := db.NewSelect().
-		TableExpr("users").
-		ColumnExpr("COUNT(*)").
-		Where("team_id IS NULL").
-		Where("role = 'user'").
-		Scan(ctx, &soloCount); err != nil {
-		return 0, wrapError("score.soloCount", err)
-	}
-
-	return teamCount + soloCount, nil
+	return teamCount, nil
 }
