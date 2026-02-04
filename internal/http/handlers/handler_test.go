@@ -480,7 +480,15 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	team := createHandlerTeam(t, env, "Alpha")
 
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0, "team_id": int(team.ID)})
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1})
+	ctx.Set("userID", admin.ID)
+
+	env.handler.CreateRegistrationKeys(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("create keys missing team status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 0, "team_id": int(team.ID)})
 	ctx.Set("userID", admin.ID)
 
 	env.handler.CreateRegistrationKeys(ctx)

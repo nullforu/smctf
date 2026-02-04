@@ -54,6 +54,7 @@ func TestTeamRepoListWithStats(t *testing.T) {
 
 	teamA := createTeam(t, env, "Alpha School")
 	teamB := createTeam(t, env, "Beta School")
+	teamC := createTeam(t, env, "Gamma School")
 
 	userA1 := createUserWithTeam(t, env, "a1@example.com", "alpha1", "pass", "user", teamA.ID)
 	userA2 := createUserWithTeam(t, env, "a2@example.com", "alpha2", "pass", "user", teamA.ID)
@@ -72,21 +73,23 @@ func TestTeamRepoListWithStats(t *testing.T) {
 		t.Fatalf("ListWithStats: %v", err)
 	}
 
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 teams, got %d", len(rows))
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 teams, got %d", len(rows))
 	}
 
-	var gotA, gotB *models.TeamSummary
+	var gotA, gotB, gotC *models.TeamSummary
 	for i := range rows {
 		switch rows[i].ID {
 		case teamA.ID:
 			gotA = &rows[i]
 		case teamB.ID:
 			gotB = &rows[i]
+		case teamC.ID:
+			gotC = &rows[i]
 		}
 	}
 
-	if gotA == nil || gotB == nil {
+	if gotA == nil || gotB == nil || gotC == nil {
 		t.Fatalf("missing team rows: %+v", rows)
 	}
 
@@ -96,6 +99,10 @@ func TestTeamRepoListWithStats(t *testing.T) {
 
 	if gotB.MemberCount != 1 || gotB.TotalScore != 0 {
 		t.Fatalf("unexpected beta stats: %+v", *gotB)
+	}
+
+	if gotC.MemberCount != 0 || gotC.TotalScore != 0 {
+		t.Fatalf("unexpected gamma stats: %+v", *gotC)
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"smctf/internal/models"
 )
 
 func TestScoreboardRepoLeaderboardAndTimeline(t *testing.T) {
@@ -186,5 +188,43 @@ func TestScoreboardRepoTimelineIncludesUsername(t *testing.T) {
 
 	if rows[0].Username == "" {
 		t.Fatalf("expected username in row")
+	}
+}
+
+func TestScoreboardRepoTeamLeaderboardIncludesEmptyTeam(t *testing.T) {
+	env := setupRepoTest(t)
+	scoreRepo := NewScoreboardRepo(env.db)
+
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+	createSubmission(t, env, user.ID, ch.ID, true, time.Now().UTC())
+
+	rows, err := scoreRepo.TeamLeaderboard(context.Background())
+	if err != nil {
+		t.Fatalf("TeamLeaderboard: %v", err)
+	}
+
+	var alpha, beta *models.TeamLeaderboardEntry
+	for i := range rows {
+		switch rows[i].TeamName {
+		case teamA.Name:
+			alpha = &rows[i]
+		case teamB.Name:
+			beta = &rows[i]
+		}
+	}
+
+	if alpha == nil || beta == nil {
+		t.Fatalf("expected both teams in leaderboard, got %+v", rows)
+	}
+
+	if alpha.Score != 100 {
+		t.Fatalf("expected alpha score 100, got %d", alpha.Score)
+	}
+
+	if beta.Score != 0 {
+		t.Fatalf("expected beta score 0, got %d", beta.Score)
 	}
 }

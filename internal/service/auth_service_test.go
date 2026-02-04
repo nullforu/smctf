@@ -104,6 +104,17 @@ func TestAuthServiceCreateRegistrationKeysWithTeam(t *testing.T) {
 	}
 }
 
+func TestAuthServiceCreateRegistrationKeysInvalidTeam(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+
+	_, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, 9999)
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
 func TestAuthServiceRegisterAssignsTeam(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")

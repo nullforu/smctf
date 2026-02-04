@@ -50,6 +50,23 @@ func TestSubmissionRepoHasCorrectTeam(t *testing.T) {
 	}
 }
 
+func TestSubmissionRepoHasCorrectDifferentTeam(t *testing.T) {
+	env := setupRepoTest(t)
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+
+	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().UTC())
+
+	if ok, err := env.submissionRepo.HasCorrect(context.Background(), user2.ID, ch.ID); err != nil {
+		t.Fatalf("HasCorrect different team: %v", err)
+	} else if ok {
+		t.Fatalf("expected different team to be unsolved")
+	}
+}
+
 func TestSubmissionRepoSolvedChallenges(t *testing.T) {
 	env := setupRepoTest(t)
 	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
