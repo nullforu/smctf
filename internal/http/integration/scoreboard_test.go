@@ -25,15 +25,15 @@ func TestScoreboard(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rows []models.LeaderboardEntry
-	decodeJSON(t, rec, &rows)
+	var resp models.LeaderboardResponse
+	decodeJSON(t, rec, &resp)
 
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(rows))
+	if len(resp.Entries) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(resp.Entries))
 	}
 
-	if rows[0].UserID != user2.ID || rows[0].Score != 300 {
-		t.Fatalf("unexpected first row: %+v", rows[0])
+	if resp.Entries[0].UserID != user2.ID || resp.Entries[0].Score != 300 {
+		t.Fatalf("unexpected first row: %+v", resp.Entries[0])
 	}
 }
 
@@ -56,19 +56,19 @@ func TestScoreboardTeams(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rows []models.TeamLeaderboardEntry
-	decodeJSON(t, rec, &rows)
+	var resp models.TeamLeaderboardResponse
+	decodeJSON(t, rec, &resp)
 
-	if len(rows) != 3 {
-		t.Fatalf("expected 3 rows, got %d", len(rows))
+	if len(resp.Entries) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(resp.Entries))
 	}
 
-	if rows[0].TeamName != "Alpha" || rows[0].Score != 100 {
-		t.Fatalf("unexpected first row: %+v", rows[0])
+	if resp.Entries[0].TeamName != "Alpha" || resp.Entries[0].Score != 100 {
+		t.Fatalf("unexpected first row: %+v", resp.Entries[0])
 	}
 
-	if rows[2].TeamName != "team-u3" || rows[2].Score != 50 {
-		t.Fatalf("unexpected last row: %+v", rows[2])
+	if resp.Entries[2].TeamName != "team-u3" || resp.Entries[2].Score != 50 {
+		t.Fatalf("unexpected last row: %+v", resp.Entries[2])
 	}
 }
 
@@ -232,14 +232,14 @@ func TestScoreboardDynamicScoring(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rows []models.LeaderboardEntry
-	decodeJSON(t, rec, &rows)
+	var resp models.LeaderboardResponse
+	decodeJSON(t, rec, &resp)
 
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(rows))
+	if len(resp.Entries) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(resp.Entries))
 	}
 
-	if rows[0].Score != 100 || rows[1].Score != 100 {
-		t.Fatalf("expected dynamic scores 100, got %+v", rows)
+	if resp.Entries[0].Score != 100 || resp.Entries[1].Score != 100 {
+		t.Fatalf("expected dynamic scores 100, got %+v", resp.Entries)
 	}
 }

@@ -61,7 +61,8 @@ type SecurityConfig struct {
 }
 
 type CacheConfig struct {
-	TimelineTTL time.Duration
+	TimelineTTL    time.Duration
+	LeaderboardTTL time.Duration
 }
 
 type LoggingConfig struct {
@@ -172,6 +173,11 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	leaderboardCacheTTL, err := getDuration("LEADERBOARD_CACHE_TTL", 60*time.Second)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	logDir := getEnv("LOG_DIR", "logs")
 	logPrefix := getEnv("LOG_FILE_PREFIX", "app")
 	logMaxBodyBytes, err := getEnvInt("LOG_MAX_BODY_BYTES", 1024*1024)
@@ -254,7 +260,8 @@ func Load() (Config, error) {
 			SubmissionMax:    submitMax,
 		},
 		Cache: CacheConfig{
-			TimelineTTL: timelineCacheTTL,
+			TimelineTTL:    timelineCacheTTL,
+			LeaderboardTTL: leaderboardCacheTTL,
 		},
 		Logging: LoggingConfig{
 			Dir:               logDir,
@@ -517,6 +524,7 @@ func FormatForLog(cfg Config) string {
 	fmt.Fprintf(&b, "  SubmissionMax=%d\n", cfg.Security.SubmissionMax)
 	fmt.Fprintln(&b, "Cache:")
 	fmt.Fprintf(&b, "  TimelineTTL=%s\n", cfg.Cache.TimelineTTL)
+	fmt.Fprintf(&b, "  LeaderboardTTL=%s\n", cfg.Cache.LeaderboardTTL)
 	fmt.Fprintln(&b, "Logging:")
 	fmt.Fprintf(&b, "  Dir=%s\n", cfg.Logging.Dir)
 	fmt.Fprintf(&b, "  FilePrefix=%s\n", cfg.Logging.FilePrefix)

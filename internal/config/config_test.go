@@ -642,7 +642,8 @@ func TestValidateConfig_AdditionalValidation(t *testing.T) {
 			SubmissionMax:    0,
 		},
 		Cache: CacheConfig{
-			TimelineTTL: time.Minute,
+			TimelineTTL:    time.Minute,
+			LeaderboardTTL: time.Minute,
 		},
 		Logging: LoggingConfig{
 			Dir:              "logs",
@@ -770,7 +771,8 @@ func TestFormatForLog(t *testing.T) {
 			SubmissionMax:    10,
 		},
 		Cache: CacheConfig{
-			TimelineTTL: time.Minute,
+			TimelineTTL:    time.Minute,
+			LeaderboardTTL: time.Minute,
 		},
 		Logging: LoggingConfig{
 			Dir:               "logs",

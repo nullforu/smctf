@@ -14,6 +14,7 @@ type Submission struct {
 	ChallengeID   int64     `bun:",notnull"`
 	Provided      string    `bun:",notnull"`
 	Correct       bool      `bun:",notnull,default:false"`
+	IsFirstBlood  bool      `bun:"is_first_blood,notnull,default:false"`
 	SubmittedAt   time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 }
 

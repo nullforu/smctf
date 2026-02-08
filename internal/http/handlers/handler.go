@@ -54,19 +54,30 @@ func (h *Handler) respondFromCache(ctx *gin.Context, cacheKey string) bool {
 	return true
 }
 
-func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response any) {
+func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response any, ttl time.Duration) {
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
 		return
 	}
 
-	_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, h.cfg.Cache.TimelineTTL).Err()
+	_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, ttl).Err()
 }
 
 func (h *Handler) invalidateTimelineCache() {
 	go func() {
 		bgCtx := context.Background()
 		keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
+		if err != nil || len(keys) == 0 {
+			return
+		}
+		_ = h.redis.Del(bgCtx, keys...).Err()
+	}()
+}
+
+func (h *Handler) invalidateLeaderboardCache() {
+	go func() {
+		bgCtx := context.Background()
+		keys, err := h.redis.Keys(bgCtx, "leaderboard:*").Result()
 		if err != nil || len(keys) == 0 {
 			return
 		}
@@ -338,6 +349,7 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 
 	if correct {
 		h.invalidateTimelineCache()
+		h.invalidateLeaderboardCache()
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -368,6 +380,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		return
 	}
 
+	h.invalidateLeaderboardCache()
 	ctx.JSON(http.StatusCreated, newChallengeResponse(challenge))
 }
 
@@ -389,6 +402,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
+	h.invalidateLeaderboardCache()
 	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
 }
 
@@ -403,6 +417,7 @@ func (h *Handler) DeleteChallenge(ctx *gin.Context) {
 		return
 	}
 
+	h.invalidateLeaderboardCache()
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -647,22 +662,34 @@ func parseWindowOrError(ctx *gin.Context) (int, bool) {
 }
 
 func (h *Handler) Leaderboard(ctx *gin.Context) {
+	cacheKey := "leaderboard:users"
+	if h.respondFromCache(ctx, cacheKey) {
+		return
+	}
+
 	rows, err := h.score.Leaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
+	h.storeCache(ctx, cacheKey, rows, h.cfg.Cache.LeaderboardTTL)
 	ctx.JSON(http.StatusOK, rows)
 }
 
 func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
+	cacheKey := "leaderboard:teams"
+	if h.respondFromCache(ctx, cacheKey) {
+		return
+	}
+
 	rows, err := h.score.TeamLeaderboard(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
+	h.storeCache(ctx, cacheKey, rows, h.cfg.Cache.LeaderboardTTL)
 	ctx.JSON(http.StatusOK, rows)
 }
 
@@ -689,7 +716,7 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 	submissions := aggregateUserTimeline(raw)
 	response := timelineResponse{Submissions: submissions}
 
-	h.storeCache(ctx, cacheKey, response)
+	h.storeCache(ctx, cacheKey, response, h.cfg.Cache.TimelineTTL)
 
 	ctx.JSON(http.StatusOK, response)
 }
@@ -717,7 +744,7 @@ func (h *Handler) TeamTimeline(ctx *gin.Context) {
 	submissions := aggregateTeamTimeline(raw)
 	response := teamTimelineResponse{Submissions: submissions}
 
-	h.storeCache(ctx, cacheKey, response)
+	h.storeCache(ctx, cacheKey, response, h.cfg.Cache.TimelineTTL)
 
 	ctx.JSON(http.StatusOK, response)
 }

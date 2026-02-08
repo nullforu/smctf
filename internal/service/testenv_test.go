@@ -102,7 +102,8 @@ func TestMain(m *testing.M) {
 			SubmissionMax:    5,
 		},
 		Cache: config.CacheConfig{
-			TimelineTTL: 2 * time.Minute,
+			TimelineTTL:    2 * time.Minute,
+			LeaderboardTTL: 2 * time.Minute,
 		},
 	}
 

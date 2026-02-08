@@ -47,6 +47,20 @@ func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID i
 	return teamID, nil
 }
 
+func (r *SubmissionRepo) lockChallengeScope(ctx context.Context, db bun.IDB, challengeID int64) error {
+	var lockedID int64
+	if err := db.NewSelect().
+		TableExpr("challenges AS c").
+		ColumnExpr("c.id").
+		Where("c.id = ?", challengeID).
+		For("UPDATE").
+		Scan(ctx, &lockedID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *SubmissionRepo) correctSubmissionCount(
 	ctx context.Context,
 	db bun.IDB,
@@ -59,6 +73,18 @@ func (r *SubmissionRepo) correctSubmissionCount(
 	query = query.Where("u.team_id = ?", teamID)
 
 	return query.Count(ctx)
+}
+
+func (r *SubmissionRepo) correctSubmissionCountForChallenge(
+	ctx context.Context,
+	db bun.IDB,
+	challengeID int64,
+) (int, error) {
+	return db.NewSelect().
+		TableExpr("submissions AS s").
+		Where("s.correct = true").
+		Where("s.challenge_id = ?", challengeID).
+		Count(ctx)
 }
 
 func (r *SubmissionRepo) baseCorrectSubmissionsQuery(db bun.IDB) *bun.SelectQuery {
@@ -99,6 +125,11 @@ func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam lock user", err)
 	}
 
+	if err := r.lockChallengeScope(ctx, tx, sub.ChallengeID); err != nil {
+		_ = tx.Rollback()
+		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam lock challenge", err)
+	}
+
 	count, err := r.correctSubmissionCount(ctx, tx, sub.ChallengeID, teamID)
 	if err != nil {
 		_ = tx.Rollback()
@@ -109,6 +140,14 @@ func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub
 		_ = tx.Rollback()
 		return false, nil
 	}
+
+	challengeCount, err := r.correctSubmissionCountForChallenge(ctx, tx, sub.ChallengeID)
+	if err != nil {
+		_ = tx.Rollback()
+		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam first blood check", err)
+	}
+
+	sub.IsFirstBlood = challengeCount == 0
 
 	if _, err := tx.NewInsert().Model(sub).Exec(ctx); err != nil {
 		_ = tx.Rollback()

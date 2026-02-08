@@ -10,16 +10,34 @@ nav_order: 5
 Response 200
 
 ```json
-[
-    {
-        "user_id": 1,
-        "username": "user1",
-        "score": 300
-    }
-]
+{
+    "challenges": [
+        {
+            "id": 1,
+            "title": "pwn-101",
+            "category": "Pwn",
+            "points": 300
+        }
+    ],
+    "entries": [
+        {
+            "user_id": 1,
+            "username": "user1",
+            "score": 300,
+            "solves": [
+                {
+                    "challenge_id": 1,
+                    "solved_at": "2026-01-24T12:00:00Z",
+                    "is_first_blood": true
+                }
+            ]
+        }
+    ]
+}
 ```
 
 Returns all users sorted by score (descending).
+`solves` includes earliest solve timestamp per challenge and `is_first_blood` for the first solver.
 
 ---
 
@@ -30,16 +48,34 @@ Returns all users sorted by score (descending).
 Response 200
 
 ```json
-[
-    {
-        "team_id": 1,
-        "team_name": "서울고등학교",
-        "score": 1200
-    }
-]
+{
+    "challenges": [
+        {
+            "id": 1,
+            "title": "pwn-101",
+            "category": "Pwn",
+            "points": 300
+        }
+    ],
+    "entries": [
+        {
+            "team_id": 1,
+            "team_name": "서울고등학교",
+            "score": 1200,
+            "solves": [
+                {
+                    "challenge_id": 1,
+                    "solved_at": "2026-01-24T12:00:00Z",
+                    "is_first_blood": true
+                }
+            ]
+        }
+    ]
+}
 ```
 
 Returns all teams sorted by score (descending).
+`solves` includes earliest solve timestamp per challenge and `is_first_blood` for the first solver.
 
 ---
 

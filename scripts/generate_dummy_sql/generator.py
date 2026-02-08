@@ -174,7 +174,7 @@ def generate_submissions(
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
     secret: str,
-) -> List[Tuple[int, int, str, bool, str]]:
+) -> List[Tuple[int, int, str, bool, str, bool]]:
     submissions = []
     base_time = datetime.now(UTC) - timedelta(
         hours=timing["submissions_base_hours_ago"]
@@ -295,4 +295,23 @@ def generate_submissions(
         )
 
     submissions.sort(key=lambda x: x[4])
-    return submissions
+
+    first_blood_seen = set()
+    flagged = []
+    for user_id, chal_id, provided, correct, submitted_at in submissions:
+        is_first_blood = False
+        if correct and chal_id not in first_blood_seen:
+            is_first_blood = True
+            first_blood_seen.add(chal_id)
+        flagged.append(
+            (
+                user_id,
+                chal_id,
+                provided,
+                correct,
+                submitted_at,
+                is_first_blood,
+            )
+        )
+
+    return flagged

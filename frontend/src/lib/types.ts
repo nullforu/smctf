@@ -112,16 +112,41 @@ export interface SolvedChallenge {
     solved_at: string
 }
 
+export interface LeaderboardChallenge {
+    id: number
+    title: string
+    category: string
+    points: number
+}
+
+export interface LeaderboardSolve {
+    challenge_id: number
+    solved_at: string
+    is_first_blood: boolean
+}
+
 export interface ScoreEntry {
     user_id: number
     username: string
     score: number
+    solves: LeaderboardSolve[]
 }
 
 export interface TeamScoreEntry {
     team_id: number
     team_name: string
     score: number
+    solves: LeaderboardSolve[]
+}
+
+export interface LeaderboardResponse {
+    challenges: LeaderboardChallenge[]
+    entries: ScoreEntry[]
+}
+
+export interface TeamLeaderboardResponse {
+    challenges: LeaderboardChallenge[]
+    entries: TeamScoreEntry[]
 }
 
 export interface TimelineSubmission {

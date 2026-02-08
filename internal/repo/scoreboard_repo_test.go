@@ -28,16 +28,24 @@ func TestScoreboardRepoLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("Leaderboard: %v", err)
 	}
 
-	if len(leaderboard) != 2 {
-		t.Fatalf("expected 2 leaderboard rows, got %d", len(leaderboard))
+	if len(leaderboard.Entries) != 2 {
+		t.Fatalf("expected 2 leaderboard rows, got %d", len(leaderboard.Entries))
 	}
 
-	if leaderboard[0].UserID != user1.ID || leaderboard[0].Score != 150 {
-		t.Fatalf("unexpected leaderboard first row: %+v", leaderboard[0])
+	if leaderboard.Entries[0].UserID != user1.ID || leaderboard.Entries[0].Score != 150 {
+		t.Fatalf("unexpected leaderboard first row: %+v", leaderboard.Entries[0])
 	}
 
-	if leaderboard[1].UserID != user2.ID || leaderboard[1].Score != 0 {
-		t.Fatalf("unexpected leaderboard second row: %+v", leaderboard[1])
+	if leaderboard.Entries[1].UserID != user2.ID || leaderboard.Entries[1].Score != 0 {
+		t.Fatalf("unexpected leaderboard second row: %+v", leaderboard.Entries[1])
+	}
+
+	if len(leaderboard.Challenges) != 2 {
+		t.Fatalf("expected 2 challenges, got %d", len(leaderboard.Challenges))
+	}
+
+	if len(leaderboard.Entries[0].Solves) != 2 {
+		t.Fatalf("expected 2 solves for first entry, got %d", len(leaderboard.Entries[0].Solves))
 	}
 
 	since := time.Now().Add(-2*time.Minute - time.Second)
@@ -77,16 +85,16 @@ func TestScoreboardRepoTeamLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("TeamLeaderboard: %v", err)
 	}
 
-	if len(leaderboard) != 3 {
-		t.Fatalf("expected 3 team rows, got %d", len(leaderboard))
+	if len(leaderboard.Entries) != 3 {
+		t.Fatalf("expected 3 team rows, got %d", len(leaderboard.Entries))
 	}
 
-	if leaderboard[0].TeamName != "Alpha" || leaderboard[0].Score != 100 {
-		t.Fatalf("unexpected team leaderboard first row: %+v", leaderboard[0])
+	if leaderboard.Entries[0].TeamName != "Alpha" || leaderboard.Entries[0].Score != 100 {
+		t.Fatalf("unexpected team leaderboard first row: %+v", leaderboard.Entries[0])
 	}
 
-	if leaderboard[2].TeamName != "team-u3" || leaderboard[2].Score != 50 {
-		t.Fatalf("unexpected team leaderboard last row: %+v", leaderboard[2])
+	if leaderboard.Entries[2].TeamName != "team-u3" || leaderboard.Entries[2].Score != 50 {
+		t.Fatalf("unexpected team leaderboard last row: %+v", leaderboard.Entries[2])
 	}
 
 	rows, err := scoreRepo.TimelineTeamSubmissions(context.Background(), nil)
@@ -163,12 +171,12 @@ func TestScoreboardRepoLeaderboardTieBreak(t *testing.T) {
 		t.Fatalf("Leaderboard: %v", err)
 	}
 
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(rows))
+	if len(rows.Entries) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows.Entries))
 	}
 
-	if rows[0].UserID != user1.ID {
-		t.Fatalf("expected lower id first in tie, got %+v", rows[0])
+	if rows.Entries[0].UserID != user1.ID {
+		t.Fatalf("expected lower id first in tie, got %+v", rows.Entries[0])
 	}
 }
 
@@ -207,12 +215,12 @@ func TestScoreboardRepoTeamLeaderboardIncludesEmptyTeam(t *testing.T) {
 	}
 
 	var alpha, beta *models.TeamLeaderboardEntry
-	for i := range rows {
-		switch rows[i].TeamName {
+	for i := range rows.Entries {
+		switch rows.Entries[i].TeamName {
 		case teamA.Name:
-			alpha = &rows[i]
+			alpha = &rows.Entries[i]
 		case teamB.Name:
-			beta = &rows[i]
+			beta = &rows.Entries[i]
 		}
 	}
 

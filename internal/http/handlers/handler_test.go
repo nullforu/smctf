@@ -676,16 +676,28 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 		t.Fatalf("team leaderboard status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var leaderboard []struct {
-		TeamName string `json:"team_name"`
-		Score    int    `json:"score"`
+	var leaderboard struct {
+		Challenges []struct {
+			ID int64 `json:"id"`
+		} `json:"challenges"`
+		Entries []struct {
+			TeamName string `json:"team_name"`
+			Score    int    `json:"score"`
+			Solves   []struct {
+				ChallengeID int64 `json:"challenge_id"`
+			} `json:"solves"`
+		} `json:"entries"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &leaderboard); err != nil {
 		t.Fatalf("decode leaderboard: %v", err)
 	}
 
-	if len(leaderboard) != 3 || leaderboard[0].TeamName != "Alpha" || leaderboard[2].TeamName != "Gamma" {
+	if len(leaderboard.Entries) != 3 || leaderboard.Entries[0].TeamName != "Alpha" || leaderboard.Entries[2].TeamName != "Gamma" {
 		t.Fatalf("unexpected leaderboard: %+v", leaderboard)
+	}
+
+	if len(leaderboard.Challenges) != 2 {
+		t.Fatalf("expected 2 challenges, got %d", len(leaderboard.Challenges))
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/timeline/teams", nil)
@@ -744,6 +756,46 @@ func TestHandlerTeamTimelineUsesCache(t *testing.T) {
 	env.handler.TeamTimeline(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("team timeline cache status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if !bytes.Equal(rec.Body.Bytes(), payload) {
+		t.Fatalf("expected cached response")
+	}
+}
+
+func TestHandlerLeaderboardUsesCache(t *testing.T) {
+	env := setupHandlerTest(t)
+	cacheKey := "leaderboard:users"
+	payload := []byte(`{"challenges":[],"entries":[]}`)
+
+	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
+		t.Fatalf("set cache: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/leaderboard", nil)
+	env.handler.Leaderboard(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("leaderboard cache status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if !bytes.Equal(rec.Body.Bytes(), payload) {
+		t.Fatalf("expected cached response")
+	}
+}
+
+func TestHandlerTeamLeaderboardUsesCache(t *testing.T) {
+	env := setupHandlerTest(t)
+	cacheKey := "leaderboard:teams"
+	payload := []byte(`{"challenges":[],"entries":[]}`)
+
+	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
+		t.Fatalf("set cache: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/leaderboard/teams", nil)
+	env.handler.TeamLeaderboard(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("leaderboard teams cache status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	if !bytes.Equal(rec.Body.Bytes(), payload) {

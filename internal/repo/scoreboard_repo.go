@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"smctf/internal/models"
+	"smctf/internal/scoring"
 
 	"github.com/uptrace/bun"
 )
@@ -18,10 +19,59 @@ func NewScoreboardRepo(db *bun.DB) *ScoreboardRepo {
 	return &ScoreboardRepo{db: db}
 }
 
-func (r *ScoreboardRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardEntry, error) {
-	pointsMap, err := dynamicPointsMap(ctx, r.db)
+type leaderboardChallengeRow struct {
+	ID            int64  `bun:"id"`
+	Title         string `bun:"title"`
+	Category      string `bun:"category"`
+	Points        int    `bun:"points"`
+	MinimumPoints int    `bun:"minimum_points"`
+}
+
+func (r *ScoreboardRepo) leaderboardChallenges(ctx context.Context) ([]models.LeaderboardChallenge, map[int64]int, error) {
+	rows := make([]leaderboardChallengeRow, 0)
+	if err := r.db.NewSelect().
+		TableExpr("challenges AS c").
+		ColumnExpr("c.id AS id").
+		ColumnExpr("c.title AS title").
+		ColumnExpr("c.category AS category").
+		ColumnExpr("c.points AS points").
+		ColumnExpr("c.minimum_points AS minimum_points").
+		OrderExpr("c.id ASC").
+		Scan(ctx, &rows); err != nil {
+		return nil, nil, wrapError("scoreboardRepo.leaderboardChallenges", err)
+	}
+
+	solveCounts, err := solveCountsByChallenge(ctx, r.db)
 	if err != nil {
-		return nil, wrapError("scoreboardRepo.Leaderboard", err)
+		return nil, nil, wrapError("scoreboardRepo.leaderboardChallenges solve counts", err)
+	}
+
+	decay, err := decayFactor(ctx, r.db)
+	if err != nil {
+		return nil, nil, wrapError("scoreboardRepo.leaderboardChallenges decay", err)
+	}
+
+	pointsMap := make(map[int64]int, len(rows))
+	challenges := make([]models.LeaderboardChallenge, 0, len(rows))
+
+	for _, row := range rows {
+		points := scoring.DynamicPoints(row.Points, row.MinimumPoints, solveCounts[row.ID], decay)
+		pointsMap[row.ID] = points
+		challenges = append(challenges, models.LeaderboardChallenge{
+			ID:       row.ID,
+			Title:    row.Title,
+			Category: row.Category,
+			Points:   points,
+		})
+	}
+
+	return challenges, pointsMap, nil
+}
+
+func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardResponse, error) {
+	challenges, pointsMap, err := r.leaderboardChallenges(ctx)
+	if err != nil {
+		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard", err)
 	}
 
 	rows := make([]models.LeaderboardEntry, 0)
@@ -31,7 +81,7 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardE
 		ColumnExpr("u.username AS username").
 		OrderExpr("u.id ASC").
 		Scan(ctx, &rows); err != nil {
-		return nil, wrapError("scoreboardRepo.Leaderboard", err)
+		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard", err)
 	}
 
 	scores := make(map[int64]int, len(rows))
@@ -48,7 +98,7 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardE
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Where("s.correct = true").
 		Scan(ctx, &submissions); err != nil {
-		return nil, wrapError("scoreboardRepo.Leaderboard submissions", err)
+		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard submissions", err)
 	}
 
 	for _, sub := range submissions {
@@ -66,13 +116,56 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) ([]models.LeaderboardE
 		return rows[i].Score > rows[j].Score
 	})
 
-	return rows, nil
+	type solveRow struct {
+		UserID       int64     `bun:"user_id"`
+		ChallengeID  int64     `bun:"challenge_id"`
+		SolvedAt     time.Time `bun:"solved_at"`
+		IsFirstBlood bool      `bun:"is_first_blood"`
+	}
+
+	solvedRows := make([]solveRow, 0)
+	if err := r.db.NewSelect().
+		TableExpr("submissions AS s").
+		ColumnExpr("s.user_id AS user_id").
+		ColumnExpr("s.challenge_id AS challenge_id").
+		ColumnExpr("MIN(s.submitted_at) AS solved_at").
+		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
+		Where("s.correct = true").
+		GroupExpr("s.user_id, s.challenge_id").
+		Scan(ctx, &solvedRows); err != nil {
+		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard solves", err)
+	}
+
+	solvedByUser := make(map[int64][]models.LeaderboardSolve)
+	for _, row := range solvedRows {
+		solvedByUser[row.UserID] = append(solvedByUser[row.UserID], models.LeaderboardSolve{
+			ChallengeID:  row.ChallengeID,
+			SolvedAt:     row.SolvedAt,
+			IsFirstBlood: row.IsFirstBlood,
+		})
+	}
+
+	for i := range rows {
+		rows[i].Solves = solvedByUser[rows[i].UserID]
+		if rows[i].Solves == nil {
+			rows[i].Solves = []models.LeaderboardSolve{}
+		}
+
+		sort.Slice(rows[i].Solves, func(a, b int) bool {
+			return rows[i].Solves[a].ChallengeID < rows[i].Solves[b].ChallengeID
+		})
+	}
+
+	return models.LeaderboardResponse{
+		Challenges: challenges,
+		Entries:    rows,
+	}, nil
 }
 
-func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLeaderboardEntry, error) {
-	pointsMap, err := dynamicPointsMap(ctx, r.db)
+func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeaderboardResponse, error) {
+	challenges, pointsMap, err := r.leaderboardChallenges(ctx)
 	if err != nil {
-		return nil, wrapError("scoreboardRepo.TeamLeaderboard", err)
+		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard", err)
 	}
 
 	var teamRows []struct {
@@ -85,7 +178,7 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLead
 		ColumnExpr("t.id AS id").
 		ColumnExpr("t.name AS name").
 		Scan(ctx, &teamRows); err != nil {
-		return nil, wrapError("scoreboardRepo.TeamLeaderboard teams", err)
+		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard teams", err)
 	}
 
 	teamEntries := make(map[int64]*models.TeamLeaderboardEntry, len(teamRows))
@@ -109,7 +202,7 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLead
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
 		Scan(ctx, &submissions); err != nil {
-		return nil, wrapError("scoreboardRepo.TeamLeaderboard submissions", err)
+		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard submissions", err)
 	}
 
 	for _, sub := range submissions {
@@ -134,7 +227,51 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) ([]models.TeamLead
 		return rows[i].Score > rows[j].Score
 	})
 
-	return rows, nil
+	type solveRow struct {
+		TeamID       int64     `bun:"team_id"`
+		ChallengeID  int64     `bun:"challenge_id"`
+		SolvedAt     time.Time `bun:"solved_at"`
+		IsFirstBlood bool      `bun:"is_first_blood"`
+	}
+
+	solvedRows := make([]solveRow, 0)
+	if err := r.db.NewSelect().
+		TableExpr("submissions AS s").
+		ColumnExpr("u.team_id AS team_id").
+		ColumnExpr("s.challenge_id AS challenge_id").
+		ColumnExpr("MIN(s.submitted_at) AS solved_at").
+		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
+		Join("JOIN users AS u ON u.id = s.user_id").
+		Where("s.correct = true").
+		GroupExpr("u.team_id, s.challenge_id").
+		Scan(ctx, &solvedRows); err != nil {
+		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard solves", err)
+	}
+
+	solvedByTeam := make(map[int64][]models.LeaderboardSolve)
+	for _, row := range solvedRows {
+		solvedByTeam[row.TeamID] = append(solvedByTeam[row.TeamID], models.LeaderboardSolve{
+			ChallengeID:  row.ChallengeID,
+			SolvedAt:     row.SolvedAt,
+			IsFirstBlood: row.IsFirstBlood,
+		})
+	}
+
+	for i := range rows {
+		rows[i].Solves = solvedByTeam[rows[i].TeamID]
+		if rows[i].Solves == nil {
+			rows[i].Solves = []models.LeaderboardSolve{}
+		}
+
+		sort.Slice(rows[i].Solves, func(a, b int) bool {
+			return rows[i].Solves[a].ChallengeID < rows[i].Solves[b].ChallengeID
+		})
+	}
+
+	return models.TeamLeaderboardResponse{
+		Challenges: challenges,
+		Entries:    rows,
+	}, nil
 }
 
 func (r *ScoreboardRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]models.UserTimelineRow, error) {
