@@ -14,7 +14,7 @@ def write_sql_file(
     registration_keys: List[
         Tuple[str, int, int, Optional[int], Optional[str], str, Optional[str]]
     ],
-    submissions: List[Tuple[int, int, str, bool, str]],
+    submissions: List[Tuple[int, int, str, bool, str, bool]],
     meta: Dict[str, Any],
 ) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
@@ -110,14 +110,14 @@ def write_sql_file(
         f.write("\n")
 
         f.write("-- Insert submissions\n")
-        for user_id, challenge_id, provided, correct, submitted_at in submissions:
+        for user_id, challenge_id, provided, correct, submitted_at, is_first_blood in submissions:
             provided_esc = escape_sql_string(provided)
 
             f.write(
-                "INSERT INTO submissions (user_id, challenge_id, provided, correct, submitted_at) VALUES "
+                "INSERT INTO submissions (user_id, challenge_id, provided, correct, is_first_blood, submitted_at) VALUES "
             )
             f.write(
-                f"({user_id}, {challenge_id}, '{provided_esc}', {correct}, '{submitted_at}');\n"
+                f"({user_id}, {challenge_id}, '{provided_esc}', {correct}, {is_first_blood}, '{submitted_at}');\n"
             )
 
         f.write("\n")
