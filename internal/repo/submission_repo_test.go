@@ -132,6 +132,10 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 		t.Fatalf("expected first insert to succeed")
 	}
 
+	if !sub1.IsFirstBlood {
+		t.Fatalf("expected first solve to be first blood")
+	}
+
 	sub2 := &models.Submission{
 		UserID:      user2.ID,
 		ChallengeID: ch.ID,
@@ -160,6 +164,64 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 
 	if count != 1 {
 		t.Fatalf("expected 1 correct submission, got %d", count)
+	}
+}
+
+func TestSubmissionRepoFirstBloodAcrossTeams(t *testing.T) {
+	env := setupRepoTest(t)
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+
+	sub1 := &models.Submission{
+		UserID:      user1.ID,
+		ChallengeID: ch.ID,
+		Provided:    "flag{1}",
+		Correct:     true,
+		SubmittedAt: time.Now().UTC(),
+	}
+
+	inserted, err := env.submissionRepo.CreateCorrectIfNotSolvedByTeam(context.Background(), sub1)
+	if err != nil {
+		t.Fatalf("CreateCorrectIfNotSolvedByTeam: %v", err)
+	}
+
+	if !inserted || !sub1.IsFirstBlood {
+		t.Fatalf("expected first solve to be first blood, got %+v", sub1)
+	}
+
+	sub2 := &models.Submission{
+		UserID:      user2.ID,
+		ChallengeID: ch.ID,
+		Provided:    "flag{1}",
+		Correct:     true,
+		SubmittedAt: time.Now().UTC().Add(time.Second),
+	}
+	inserted, err = env.submissionRepo.CreateCorrectIfNotSolvedByTeam(context.Background(), sub2)
+	if err != nil {
+		t.Fatalf("CreateCorrectIfNotSolvedByTeam second: %v", err)
+	}
+
+	if !inserted {
+		t.Fatalf("expected second team solve to be inserted")
+	}
+
+	if sub2.IsFirstBlood {
+		t.Fatalf("expected second solve to not be first blood")
+	}
+
+	count, err := env.db.NewSelect().
+		Model((*models.Submission)(nil)).
+		Where("challenge_id = ?", ch.ID).
+		Where("is_first_blood = true").
+		Count(context.Background())
+	if err != nil {
+		t.Fatalf("count first blood: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 first blood entry, got %d", count)
 	}
 }
 
