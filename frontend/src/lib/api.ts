@@ -11,10 +11,11 @@ import type {
     ChallengeUpdatePayload,
     ChallengeFileUploadResponse,
     FlagSubmissionResult,
+    LeaderboardResponse,
+    TeamLeaderboardResponse,
     PresignedURL,
     Team,
     TeamCreatePayload,
-    TeamScoreEntry,
     TeamSummary,
     TeamDetail,
     TeamMember,
@@ -25,7 +26,6 @@ import type {
     RegistrationKeyCreatePayload,
     RegisterPayload,
     RegisterResponse,
-    ScoreEntry,
     SolvedChallenge,
     TimelineResponse,
     UserListItem,
@@ -233,10 +233,10 @@ export const api = {
         })
     },
     leaderboard: () => {
-        return request<ScoreEntry[]>(`/api/leaderboard`)
+        return request<LeaderboardResponse>(`/api/leaderboard`)
     },
     leaderboardTeams: () => {
-        return request<TeamScoreEntry[]>(`/api/leaderboard/teams`)
+        return request<TeamLeaderboardResponse>(`/api/leaderboard/teams`)
     },
     timeline: (windowMinutes?: number) => {
         const windowParam = typeof windowMinutes === 'number' ? `?window=${windowMinutes}` : ''
