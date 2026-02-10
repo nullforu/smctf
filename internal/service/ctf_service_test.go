@@ -141,6 +141,28 @@ func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	}
 }
 
+func TestCTFServiceGetChallengeByID(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createChallenge(t, env, "Lookup", 100, "FLAG{LOOK}", true)
+
+	found, err := env.ctfSvc.GetChallengeByID(context.Background(), challenge.ID)
+	if err != nil {
+		t.Fatalf("GetChallengeByID: %v", err)
+	}
+
+	if found.ID != challenge.ID || found.Title != challenge.Title {
+		t.Fatalf("unexpected challenge: %+v", found)
+	}
+
+	if _, err := env.ctfSvc.GetChallengeByID(context.Background(), 0); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+
+	if _, err := env.ctfSvc.GetChallengeByID(context.Background(), 99999); !errors.Is(err, ErrChallengeNotFound) {
+		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
+	}
+}
+
 func TestCTFServiceUpdateChallenge(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge := createChallenge(t, env, "Old", 50, "FLAG{2}", true)
