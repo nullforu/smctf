@@ -637,6 +637,70 @@ func TestValidateConfig_InvalidDBConfig(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_InvalidStackConfig(t *testing.T) {
+	cfg := Config{
+		AppEnv:             "local",
+		HTTPAddr:           ":8080",
+		PasswordBcryptCost: bcrypt.DefaultCost,
+		DB: DBConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "user",
+			Name:            "db",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			PoolSize: 10,
+		},
+		JWT: JWTConfig{
+			Secret:     "secret",
+			Issuer:     "issuer",
+			AccessTTL:  time.Hour,
+			RefreshTTL: 24 * time.Hour,
+		},
+		Security: SecurityConfig{
+			FlagHMACSecret:   "flag-secret",
+			SubmissionWindow: time.Minute,
+			SubmissionMax:    10,
+		},
+		Cache: CacheConfig{
+			TimelineTTL:    time.Minute,
+			LeaderboardTTL: time.Minute,
+		},
+		Logging: LoggingConfig{
+			Dir:              "logs",
+			FilePrefix:       "app",
+			MaxBodyBytes:     1024,
+			WebhookQueueSize: 10,
+			WebhookTimeout:   time.Second,
+			WebhookBatchSize: 5,
+			WebhookBatchWait: time.Second,
+			WebhookMaxChars:  100,
+		},
+		Stack: StackConfig{
+			Enabled:            true,
+			MaxPerUser:         0,
+			ProvisionerBaseURL: "",
+			ProvisionerAPIKey:  "",
+			ProvisionerTimeout: 0,
+			CreateWindow:       0,
+			CreateMax:          0,
+		},
+	}
+
+	err := validateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected stack validation error")
+	}
+
+	if !strings.Contains(err.Error(), "STACKS_MAX_PER_USER") {
+		t.Fatalf("expected stack error, got %v", err)
+	}
+}
+
 func TestValidateConfig_AdditionalValidation(t *testing.T) {
 	cfg := Config{
 		AppEnv:             "local",

@@ -21,11 +21,11 @@ type StackService struct {
 	stackRepo      *repo.StackRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
-	client         *stack.Client
+	client         stack.API
 	redis          *redis.Client
 }
 
-func NewStackService(cfg config.StackConfig, stackRepo *repo.StackRepo, challengeRepo *repo.ChallengeRepo, submissionRepo *repo.SubmissionRepo, client *stack.Client, redisClient *redis.Client) *StackService {
+func NewStackService(cfg config.StackConfig, stackRepo *repo.StackRepo, challengeRepo *repo.ChallengeRepo, submissionRepo *repo.SubmissionRepo, client stack.API, redisClient *redis.Client) *StackService {
 	return &StackService{
 		cfg:            cfg,
 		stackRepo:      stackRepo,

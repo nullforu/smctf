@@ -10,11 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"smctf/internal/config"
 	"smctf/internal/db"
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
+	"smctf/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
@@ -470,6 +473,204 @@ func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 	env.handler.CreateChallenge(ctx)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create challenge status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func createHandlerStackChallenge(t *testing.T, env handlerEnv, title string) *models.Challenge {
+	t.Helper()
+	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: handler\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	challenge := &models.Challenge{
+		Title:           title,
+		Description:     "desc",
+		Category:        "Web",
+		Points:          100,
+		MinimumPoints:   100,
+		FlagHash:        utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag"),
+		StackEnabled:    true,
+		StackTargetPort: 80,
+		StackPodSpec:    &podSpec,
+		IsActive:        true,
+		CreatedAt:       time.Now().UTC(),
+	}
+
+	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
+		t.Fatalf("create challenge: %v", err)
+	}
+
+	return challenge
+}
+
+func setupHandlerStackService(t *testing.T, env handlerEnv, client stack.API) (*service.StackService, *repo.StackRepo) {
+	t.Helper()
+	stackRepo := repo.NewStackRepo(env.db)
+	stackCfg := config.StackConfig{
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	}
+
+	stackSvc := service.NewStackService(stackCfg, stackRepo, env.challengeRepo, env.submissionRepo, client, env.redis)
+	return stackSvc, stackRepo
+}
+
+func TestStackHandlersCRUD(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
+	challenge := createHandlerStackChallenge(t, env, "stack")
+
+	deleteCalls := 0
+	mock := &stack.MockClient{
+		CreateStackFn: func(ctx context.Context, targetPort int, podSpec string) (*stack.StackInfo, error) {
+			return &stack.StackInfo{StackID: "stack-1", Status: "running", TargetPort: targetPort}, nil
+		},
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running", TargetPort: 80}, nil
+		},
+		DeleteStackFn: func(ctx context.Context, stackID string) error {
+			deleteCalls++
+			return nil
+		},
+	}
+
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+
+	env.handler.CreateStack(ctx)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
+	}
+
+	var created stackResponse
+	decodeJSON(t, rec, &created)
+	if created.StackID == "" || created.TargetPort != 80 {
+		t.Fatalf("unexpected response: %+v", created)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+
+	env.handler.GetStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+
+	env.handler.DeleteStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	if deleteCalls != 1 {
+		t.Fatalf("expected delete call, got %d", deleteCalls)
+	}
+}
+
+func TestStackHandlersList(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "u2@example.com", "u2", "pass", "user")
+	challenge1 := createHandlerStackChallenge(t, env, "stack-1")
+	challenge2 := createHandlerStackChallenge(t, env, "stack-2")
+
+	mock := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running", TargetPort: 80}, nil
+		},
+	}
+
+	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	stack1 := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "stack-1", Status: "running", TargetPort: 80, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	stack2 := &models.Stack{UserID: user.ID, ChallengeID: challenge2.ID, StackID: "stack-2", Status: "running", TargetPort: 80, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	if err := stackRepo.Create(context.Background(), stack1); err != nil {
+		t.Fatalf("create stack1: %v", err)
+	}
+
+	if err := stackRepo.Create(context.Background(), stack2); err != nil {
+		t.Fatalf("create stack2: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/stacks", nil)
+	ctx.Set("userID", user.ID)
+	env.handler.ListStacks(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp []stackResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if len(resp) != 2 {
+		t.Fatalf("expected 2 stacks, got %d", len(resp))
+	}
+}
+
+func TestAdminGetChallengeIncludesStackSpec(t *testing.T) {
+	env := setupHandlerTest(t)
+	challenge := createHandlerStackChallenge(t, env, "stack")
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/challenges/"+fmt.Sprint(challenge.ID), nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	env.handler.AdminGetChallenge(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp["stack_pod_spec"] == nil {
+		t.Fatalf("expected stack_pod_spec in response")
+	}
+}
+
+func TestSubmitFlagDeletesStack(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", "user")
+	challenge := createHandlerStackChallenge(t, env, "stack")
+
+	stackRepo := repo.NewStackRepo(env.db)
+	stackModel := &models.Stack{UserID: user.ID, ChallengeID: challenge.ID, StackID: "stack-sub", Status: "running", TargetPort: 80, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	deleted := false
+	mock := &stack.MockClient{
+		DeleteStackFn: func(ctx context.Context, stackID string) error {
+			if stackID == "stack-sub" {
+				deleted = true
+			}
+			return nil
+		},
+	}
+	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPerUser: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/submit", submitRequest{Flag: "flag"})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+	env.handler.SubmitFlag(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	if !deleted {
+		t.Fatalf("expected stack delete call")
 	}
 }
 

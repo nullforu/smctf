@@ -25,6 +25,12 @@ type Client struct {
 	httpClient *http.Client
 }
 
+type API interface {
+	CreateStack(ctx context.Context, targetPort int, podSpec string) (*StackInfo, error)
+	GetStackStatus(ctx context.Context, stackID string) (*StackStatus, error)
+	DeleteStack(ctx context.Context, stackID string) error
+}
+
 type CreateRequest struct {
 	TargetPort int    `json:"target_port"`
 	PodSpec    string `json:"pod_spec"`

@@ -536,6 +536,46 @@ func TestChallengeFileDeleteMissing(t *testing.T) {
 	}
 }
 
+func TestCTFServiceStackFields(t *testing.T) {
+	env := setupServiceTest(t)
+	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{STACK}", true, true, 80, &podSpec)
+	if err != nil {
+		t.Fatalf("create challenge: %v", err)
+	}
+
+	if !challenge.StackEnabled || challenge.StackTargetPort != 80 || challenge.StackPodSpec == nil {
+		t.Fatalf("unexpected stack fields: %+v", challenge)
+	}
+
+	disable := false
+	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &disable, nil, nil)
+	if err != nil {
+		t.Fatalf("disable stack: %v", err)
+	}
+
+	if updated.StackEnabled || updated.StackTargetPort != 0 || updated.StackPodSpec != nil {
+		t.Fatalf("expected stack cleared, got %+v", updated)
+	}
+
+	newPort := 80
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, &newPort, nil); err == nil {
+		t.Fatalf("expected validation error when stack disabled")
+	}
+
+	enable := true
+	empty := ""
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &newPort, &empty); err == nil {
+		t.Fatalf("expected validation error for empty pod spec")
+	} else {
+		var ve *ValidationError
+		if !errors.As(err, &ve) {
+			t.Fatalf("expected validation error, got %v", err)
+		}
+	}
+}
+
 func ptrString(value string) *string {
 	return &value
 }
