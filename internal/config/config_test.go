@@ -11,6 +11,8 @@ import (
 
 func TestLoadConfig_Defaults(t *testing.T) {
 	os.Clearenv()
+	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
+	defer os.Clearenv()
 
 	cfg, err := Load()
 	if err != nil {
@@ -56,6 +58,14 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if cfg.S3.Region != "us-east-1" {
 		t.Errorf("expected S3.Region us-east-1, got %s", cfg.S3.Region)
 	}
+
+	if cfg.Stack.CreateWindow != time.Minute {
+		t.Errorf("expected Stack.CreateWindow 1m, got %v", cfg.Stack.CreateWindow)
+	}
+
+	if cfg.Stack.CreateMax != 1 {
+		t.Errorf("expected Stack.CreateMax 1, got %d", cfg.Stack.CreateMax)
+	}
 }
 
 func TestLoadConfig_CustomValues(t *testing.T) {
@@ -95,6 +105,13 @@ func TestLoadConfig_CustomValues(t *testing.T) {
 	os.Setenv("S3_ENDPOINT", "https://s3.example.com")
 	os.Setenv("S3_FORCE_PATH_STYLE", "true")
 	os.Setenv("S3_PRESIGN_TTL", "20m")
+	os.Setenv("STACKS_ENABLED", "true")
+	os.Setenv("STACKS_MAX_PER_USER", "5")
+	os.Setenv("STACKS_PROVISIONER_BASE_URL", "http://localhost:18081")
+	os.Setenv("STACKS_PROVISIONER_API_KEY", "custom-key")
+	os.Setenv("STACKS_PROVISIONER_TIMEOUT", "9s")
+	os.Setenv("STACKS_CREATE_WINDOW", "2m")
+	os.Setenv("STACKS_CREATE_MAX", "2")
 
 	defer os.Clearenv()
 
@@ -196,6 +213,12 @@ func TestLoadConfig_CustomValues(t *testing.T) {
 	}
 	if cfg.Logging.WebhookMaxChars != 1900 {
 		t.Errorf("expected Logging.WebhookMaxChars 1900, got %d", cfg.Logging.WebhookMaxChars)
+	}
+	if cfg.Stack.CreateWindow != 2*time.Minute {
+		t.Errorf("expected Stack.CreateWindow 2m, got %v", cfg.Stack.CreateWindow)
+	}
+	if cfg.Stack.CreateMax != 2 {
+		t.Errorf("expected Stack.CreateMax 2, got %d", cfg.Stack.CreateMax)
 	}
 }
 
@@ -341,6 +364,7 @@ func TestValidateConfig_InvalidS3(t *testing.T) {
 func TestLoadConfig_ProductionValidation(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("APP_ENV", "production")
+	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
 	defer os.Clearenv()
 
 	_, err := Load()
@@ -350,6 +374,7 @@ func TestLoadConfig_ProductionValidation(t *testing.T) {
 
 	os.Setenv("JWT_SECRET", "production-secret-123")
 	os.Setenv("FLAG_HMAC_SECRET", "production-flag-secret-456")
+	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
 
 	cfg, err := Load()
 	if err != nil {
@@ -612,6 +637,70 @@ func TestValidateConfig_InvalidDBConfig(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_InvalidStackConfig(t *testing.T) {
+	cfg := Config{
+		AppEnv:             "local",
+		HTTPAddr:           ":8080",
+		PasswordBcryptCost: bcrypt.DefaultCost,
+		DB: DBConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "user",
+			Name:            "db",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			PoolSize: 10,
+		},
+		JWT: JWTConfig{
+			Secret:     "secret",
+			Issuer:     "issuer",
+			AccessTTL:  time.Hour,
+			RefreshTTL: 24 * time.Hour,
+		},
+		Security: SecurityConfig{
+			FlagHMACSecret:   "flag-secret",
+			SubmissionWindow: time.Minute,
+			SubmissionMax:    10,
+		},
+		Cache: CacheConfig{
+			TimelineTTL:    time.Minute,
+			LeaderboardTTL: time.Minute,
+		},
+		Logging: LoggingConfig{
+			Dir:              "logs",
+			FilePrefix:       "app",
+			MaxBodyBytes:     1024,
+			WebhookQueueSize: 10,
+			WebhookTimeout:   time.Second,
+			WebhookBatchSize: 5,
+			WebhookBatchWait: time.Second,
+			WebhookMaxChars:  100,
+		},
+		Stack: StackConfig{
+			Enabled:            true,
+			MaxPerUser:         0,
+			ProvisionerBaseURL: "",
+			ProvisionerAPIKey:  "",
+			ProvisionerTimeout: 0,
+			CreateWindow:       0,
+			CreateMax:          0,
+		},
+	}
+
+	err := validateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected stack validation error")
+	}
+
+	if !strings.Contains(err.Error(), "STACKS_MAX_PER_USER") {
+		t.Fatalf("expected stack error, got %v", err)
+	}
+}
+
 func TestValidateConfig_AdditionalValidation(t *testing.T) {
 	cfg := Config{
 		AppEnv:             "local",
@@ -681,6 +770,9 @@ func TestRedact(t *testing.T) {
 			AccessKeyID:     "access-key",
 			SecretAccessKey: "secret-key",
 		},
+		Stack: StackConfig{
+			ProvisionerAPIKey: "stack-key",
+		},
 	}
 
 	redacted := Redact(cfg)
@@ -714,6 +806,10 @@ func TestRedact(t *testing.T) {
 
 	if redacted.S3.SecretAccessKey == cfg.S3.SecretAccessKey {
 		t.Fatalf("expected s3 secret key redacted")
+	}
+
+	if redacted.Stack.ProvisionerAPIKey == cfg.Stack.ProvisionerAPIKey {
+		t.Fatalf("expected stack api key redacted")
 	}
 }
 
@@ -796,6 +892,13 @@ func TestFormatForLog(t *testing.T) {
 			ForcePathStyle:  true,
 			PresignTTL:      10 * time.Minute,
 		},
+		Stack: StackConfig{
+			Enabled:            true,
+			MaxPerUser:         3,
+			ProvisionerBaseURL: "http://localhost:8081",
+			ProvisionerAPIKey:  "stack-key",
+			ProvisionerTimeout: 5 * time.Second,
+		},
 	}
 
 	out := FormatForLog(cfg)
@@ -803,7 +906,7 @@ func TestFormatForLog(t *testing.T) {
 		t.Fatalf("expected output")
 	}
 
-	if strings.Contains(out, "dbpass") || strings.Contains(out, "redispass") || strings.Contains(out, "jwtsecret") || strings.Contains(out, "flagsecret") {
+	if strings.Contains(out, "dbpass") || strings.Contains(out, "redispass") || strings.Contains(out, "jwtsecret") || strings.Contains(out, "flagsecret") || strings.Contains(out, "stack-key") {
 		t.Fatalf("expected secrets redacted")
 	}
 

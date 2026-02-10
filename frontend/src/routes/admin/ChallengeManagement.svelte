@@ -34,6 +34,9 @@
     let editPoints = $state(100)
     let editMinimumPoints = $state(100)
     let editIsActive = $state(true)
+    let editStackEnabled = $state(false)
+    let editStackTargetPort = $state(80)
+    let editStackPodSpec = $state('')
     let editFile = $state<File | null>(null)
     let editFileError = $state('')
     let editFileUploading = $state(false)
@@ -57,7 +60,7 @@
         }
     }
 
-    const openEditor = (challenge: Challenge) => {
+    const openEditor = async (challenge: Challenge) => {
         manageFieldErrors = {}
         errorMessage = ''
         successMessage = ''
@@ -77,6 +80,23 @@
         editPoints = challenge.initial_points
         editMinimumPoints = challenge.minimum_points
         editIsActive = challenge.is_active
+        editStackEnabled = challenge.stack_enabled
+        editStackTargetPort = challenge.stack_target_port || 80
+        editStackPodSpec = ''
+
+        if (editStackEnabled) {
+            try {
+                manageLoading = true
+                const detail = await api.adminChallenge(challenge.id)
+                editStackTargetPort = detail.stack_target_port || editStackTargetPort
+                editStackPodSpec = detail.stack_pod_spec ?? ''
+            } catch (error) {
+                const formatted = formatApiError(error)
+                errorMessage = formatted.message
+            } finally {
+                manageLoading = false
+            }
+        }
     }
 
     const submitEdit = async (challenge: Challenge) => {
@@ -93,6 +113,9 @@
                 points: Number(editPoints),
                 minimum_points: Number(editMinimumPoints),
                 is_active: editIsActive,
+                stack_enabled: editStackEnabled,
+                stack_target_port: editStackEnabled ? Number(editStackTargetPort) : undefined,
+                stack_pod_spec: editStackEnabled && editStackPodSpec.trim() ? editStackPodSpec : undefined,
             })
 
             challenges = challenges.map((item) => (item.id === updated.id ? updated : item))
@@ -104,6 +127,9 @@
             editPoints = updated.initial_points
             editMinimumPoints = updated.minimum_points
             editIsActive = updated.is_active
+            editStackEnabled = updated.stack_enabled
+            editStackTargetPort = updated.stack_target_port || 80
+            editStackPodSpec = ''
         } catch (error) {
             const formatted = formatApiError(error)
             errorMessage = formatted.message
@@ -439,6 +465,67 @@
                                                 />
                                                 Active
                                             </label>
+                                            <div
+                                                class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800/80 dark:bg-slate-950/40"
+                                            >
+                                                <label
+                                                    class="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        bind:checked={editStackEnabled}
+                                                        class="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
+                                                    />
+                                                    Provide stack (container instance)
+                                                </label>
+                                                {#if editStackEnabled}
+                                                    <div class="mt-4 grid gap-4">
+                                                        <div>
+                                                            <label
+                                                                class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                                                                for={`manage-stack-target-port-${challenge.id}`}
+                                                                >Target Port</label
+                                                            >
+                                                            <input
+                                                                id={`manage-stack-target-port-${challenge.id}`}
+                                                                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                                                                type="number"
+                                                                min="1"
+                                                                max="65535"
+                                                                bind:value={editStackTargetPort}
+                                                            />
+                                                            {#if manageFieldErrors.stack_target_port}
+                                                                <p
+                                                                    class="mt-2 text-xs text-rose-600 dark:text-rose-300"
+                                                                >
+                                                                    stack_target_port: {manageFieldErrors.stack_target_port}
+                                                                </p>
+                                                            {/if}
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                                                                for={`manage-stack-pod-spec-${challenge.id}`}
+                                                                >Pod Spec (YAML)</label
+                                                            >
+                                                            <textarea
+                                                                id={`manage-stack-pod-spec-${challenge.id}`}
+                                                                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-mono text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                                                                rows="7"
+                                                                placeholder="Leave empty to keep existing spec"
+                                                                bind:value={editStackPodSpec}
+                                                            ></textarea>
+                                                            {#if manageFieldErrors.stack_pod_spec}
+                                                                <p
+                                                                    class="mt-2 text-xs text-rose-600 dark:text-rose-300"
+                                                                >
+                                                                    stack_pod_spec: {manageFieldErrors.stack_pod_spec}
+                                                                </p>
+                                                            {/if}
+                                                        </div>
+                                                    </div>
+                                                {/if}
+                                            </div>
 
                                             <div
                                                 class="rounded-xl border border-slate-200 bg-white/60 p-4 text-sm text-slate-700 dark:border-slate-800/70 dark:bg-slate-950/40 dark:text-slate-200"

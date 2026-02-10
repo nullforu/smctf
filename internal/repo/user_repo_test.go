@@ -159,8 +159,7 @@ func TestUserRepoCreateError(t *testing.T) {
 	repo := NewUserRepo(closedDB)
 
 	team := &models.Team{
-		ID:   1,
-		Name: "Err Team",
+		ID: 1,
 	}
 	user := &models.User{
 		Email:        "err@example.com",

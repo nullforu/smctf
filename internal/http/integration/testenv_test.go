@@ -260,7 +260,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, nil, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
@@ -281,7 +281,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 

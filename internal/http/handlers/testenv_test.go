@@ -199,7 +199,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 
-	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, nil, handlerRedis)
 
 	return handlerEnv{
 		cfg:            handlerCfg,
@@ -222,7 +222,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 func resetHandlerState(t *testing.T) {
 	t.Helper()
 
-	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 

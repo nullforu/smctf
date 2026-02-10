@@ -83,11 +83,7 @@ const formatTime = (value: string) => {
     })
 }
 
-export const buildChartModel = (
-    data: TimelineResponse,
-    windowMinutesValue: number,
-    widthValue: number,
-): ChartModel | null => {
+export const buildChartModel = (data: TimelineResponse, widthValue: number): ChartModel | null => {
     const baseWidth = Math.floor(widthValue || chartLayout.width)
     const resolvedWidth = Math.max(chartLayout.width, baseWidth)
 

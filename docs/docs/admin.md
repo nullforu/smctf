@@ -186,11 +186,15 @@ Request
     "points": 200,
     "minimum_points": 50,
     "flag": "flag{...}",
-    "is_active": true
+    "is_active": true,
+    "stack_enabled": false,
+    "stack_target_port": 80,
+    "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
 
 If `minimum_points` is omitted, it defaults to the same value as `points`.
+If `stack_enabled` is true, both `stack_target_port` and `stack_pod_spec` are required.
 
 Categories
 
@@ -248,7 +252,10 @@ All fields are optional. Only provided fields are validated and updated.
     "title": "Updated Challenge",
     "points": 250,
     "minimum_points": 100,
-    "is_active": false
+    "is_active": false,
+    "stack_enabled": true,
+    "stack_target_port": 80,
+    "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
 
@@ -266,13 +273,58 @@ Response 200
     "solve_count": 12,
     "is_active": false,
     "has_file": true,
-    "file_name": "challenge.zip"
+    "file_name": "challenge.zip",
+    "stack_enabled": true,
+    "stack_target_port": 80
 }
 ```
 
 Errors:
 
 - 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `challenge not found`
+
+---
+
+## Get Challenge Detail (Admin)
+
+`GET /api/admin/challenges/{id}`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Response 200
+
+```json
+{
+    "id": 2,
+    "title": "Updated Challenge",
+    "description": "...",
+    "category": "Crypto",
+    "points": 250,
+    "initial_points": 250,
+    "minimum_points": 100,
+    "solve_count": 12,
+    "is_active": false,
+    "has_file": true,
+    "file_name": "challenge.zip",
+    "stack_enabled": true,
+    "stack_target_port": 80,
+    "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
+}
+```
+
+Notes:
+
+- `stack_pod_spec` is only returned via this admin-only endpoint.
+
+Errors:
+
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 403 `forbidden`
 - 404 `challenge not found`

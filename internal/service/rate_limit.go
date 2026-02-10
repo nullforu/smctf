@@ -17,25 +17,33 @@ func (s *CTFService) rateLimit(ctx context.Context, userID int64) error {
 	}
 
 	key := rateLimitKey(userID)
-	count, ttl, err := s.rateLimitState(ctx, key)
-	if err != nil {
-		return fmt.Errorf("ctf.rateLimit state: %w", err)
+	if err := rateLimit(ctx, s.redis, key, s.cfg.Security.SubmissionWindow, s.cfg.Security.SubmissionMax); err != nil {
+		return fmt.Errorf("ctf.rateLimit: %w", err)
 	}
 
-	ttl, err = s.ensureRateLimitTTL(ctx, key, ttl)
-	if err != nil {
-		return fmt.Errorf("ctf.rateLimit ttl: %w", err)
-	}
-
-	return s.evaluateRateLimit(count, ttl)
+	return nil
 }
 
 func rateLimitKey(userID int64) string {
 	return redisSubmitPrefix + strconv.FormatInt(userID, 10)
 }
 
-func (s *CTFService) rateLimitState(ctx context.Context, key string) (int64, time.Duration, error) {
-	pipe := s.redis.TxPipeline()
+func rateLimit(ctx context.Context, redisClient *redis.Client, key string, window time.Duration, max int) error {
+	count, ttl, err := rateLimitState(ctx, redisClient, key)
+	if err != nil {
+		return err
+	}
+
+	ttl, err = ensureRateLimitTTL(ctx, redisClient, key, ttl, window)
+	if err != nil {
+		return err
+	}
+
+	return evaluateRateLimit(count, ttl, max, window)
+}
+
+func rateLimitState(ctx context.Context, redisClient *redis.Client, key string) (int64, time.Duration, error) {
+	pipe := redisClient.TxPipeline()
 	cntCmd := pipe.Incr(ctx, key)
 	ttlCmd := pipe.TTL(ctx, key)
 
@@ -54,29 +62,29 @@ func (s *CTFService) rateLimitState(ctx context.Context, key string) (int64, tim
 	return cntCmd.Val(), ttlCmd.Val(), nil
 }
 
-func (s *CTFService) ensureRateLimitTTL(ctx context.Context, key string, ttl time.Duration) (time.Duration, error) {
+func ensureRateLimitTTL(ctx context.Context, redisClient *redis.Client, key string, ttl time.Duration, window time.Duration) (time.Duration, error) {
 	if ttl > 0 {
 		return ttl, nil
 	}
 
-	if err := s.redis.Expire(ctx, key, s.cfg.Security.SubmissionWindow).Err(); err != nil {
+	if err := redisClient.Expire(ctx, key, window).Err(); err != nil {
 		return 0, err
 	}
 
-	return s.cfg.Security.SubmissionWindow, nil
+	return window, nil
 }
 
-func (s *CTFService) evaluateRateLimit(count int64, ttl time.Duration) error {
-	remaining := max(s.cfg.Security.SubmissionMax-int(count), 0)
+func evaluateRateLimit(count int64, ttl time.Duration, maxAllowed int, window time.Duration) error {
+	remaining := max(maxAllowed-int(count), 0)
 
-	if count > int64(s.cfg.Security.SubmissionMax) {
+	if count > int64(maxAllowed) {
 		resetSeconds := int(math.Ceil(ttl.Seconds()))
 		if resetSeconds <= 0 {
-			resetSeconds = int(s.cfg.Security.SubmissionWindow.Seconds())
+			resetSeconds = int(window.Seconds())
 		}
 
 		return &RateLimitError{Info: RateLimitInfo{
-			Limit:        s.cfg.Security.SubmissionMax,
+			Limit:        maxAllowed,
 			Remaining:    remaining,
 			ResetSeconds: resetSeconds,
 		}}

@@ -17,6 +17,7 @@ import (
 	"smctf/internal/logging"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
 )
 
@@ -68,6 +69,7 @@ func main() {
 	submissionRepo := repo.NewSubmissionRepo(database)
 	scoreRepo := repo.NewScoreboardRepo(database)
 	appConfigRepo := repo.NewAppConfigRepo(database)
+	stackRepo := repo.NewStackRepo(database)
 
 	var fileStore storage.ChallengeFileStore
 	if cfg.S3.Enabled {
@@ -82,8 +84,10 @@ func main() {
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	stackClient := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, redisClient, logger)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, redisClient, logger)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,

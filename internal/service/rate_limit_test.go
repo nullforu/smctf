@@ -48,7 +48,7 @@ func TestRateLimitStateIncrements(t *testing.T) {
 	ctx := context.Background()
 	key := rateLimitKey(11)
 
-	count, ttl, err := svc.rateLimitState(ctx, key)
+	count, ttl, err := rateLimitState(ctx, svc.redis, key)
 	if err != nil {
 		t.Fatalf("rateLimitState: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestRateLimitStateIncrements(t *testing.T) {
 		t.Fatalf("expected no ttl yet, got %v", ttl)
 	}
 
-	count, ttl, err = svc.rateLimitState(ctx, key)
+	count, ttl, err = rateLimitState(ctx, svc.redis, key)
 	if err != nil {
 		t.Fatalf("rateLimitState second: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestEnsureRateLimitTTLWhenMissing(t *testing.T) {
 		t.Fatalf("expected missing ttl, got %v", initialTTL)
 	}
 
-	gotTTL, err := svc.ensureRateLimitTTL(ctx, key, initialTTL)
+	gotTTL, err := ensureRateLimitTTL(ctx, svc.redis, key, initialTTL, svc.cfg.Security.SubmissionWindow)
 	if err != nil {
 		t.Fatalf("ensureRateLimitTTL: %v", err)
 	}
@@ -107,11 +107,11 @@ func TestEnsureRateLimitTTLWhenMissing(t *testing.T) {
 func TestEvaluateRateLimit(t *testing.T) {
 	svc := newRateLimitService(t, 10*time.Second, 2)
 
-	if err := svc.evaluateRateLimit(2, 3*time.Second); err != nil {
+	if err := evaluateRateLimit(2, 3*time.Second, svc.cfg.Security.SubmissionMax, svc.cfg.Security.SubmissionWindow); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	err := svc.evaluateRateLimit(3, 1500*time.Millisecond)
+	err := evaluateRateLimit(3, 1500*time.Millisecond, svc.cfg.Security.SubmissionMax, svc.cfg.Security.SubmissionWindow)
 	var rlErr *RateLimitError
 	if !errors.As(err, &rlErr) {
 		t.Fatalf("expected rate limit error, got %v", err)
@@ -129,7 +129,7 @@ func TestEvaluateRateLimit(t *testing.T) {
 		t.Fatalf("expected reset 2, got %d", rlErr.Info.ResetSeconds)
 	}
 
-	err = svc.evaluateRateLimit(3, 0)
+	err = evaluateRateLimit(3, 0, svc.cfg.Security.SubmissionMax, svc.cfg.Security.SubmissionWindow)
 	if !errors.As(err, &rlErr) {
 		t.Fatalf("expected rate limit error, got %v", err)
 	}

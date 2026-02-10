@@ -71,6 +71,8 @@ export const themeStore = writable<Theme>(loadTheme())
 
 themeStore.subscribe(persistTheme)
 
+export const toggleThemeValue = (theme: Theme): Theme => (theme === 'light' ? 'dark' : 'light')
+
 export const toggleTheme = () => {
-    themeStore.update((current) => (current === 'light' ? 'dark' : 'light'))
+    themeStore.update(toggleThemeValue)
 }

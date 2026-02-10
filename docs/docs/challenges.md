@@ -22,7 +22,9 @@ Response 200
         "solve_count": 12,
         "is_active": true,
         "has_file": true,
-        "file_name": "challenge.zip"
+        "file_name": "challenge.zip",
+        "stack_enabled": false,
+        "stack_target_port": 0
     }
 ]
 ```
@@ -31,6 +33,7 @@ Notes:
 
 - `points` is dynamically calculated based on solves.
 - `has_file` indicates whether a challenge file is available.
+- `stack_enabled` indicates if a per-user stack instance is supported for this challenge.
 
 ---
 

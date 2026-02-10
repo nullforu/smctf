@@ -1,11 +1,12 @@
 <script lang="ts">
     import { api } from '../lib/api'
-    import { clearAuth, toggleTheme, themeStore } from '../lib/stores'
+    import { clearAuth, toggleTheme, themeStore, toggleThemeValue } from '../lib/stores'
     import { configStore } from '../lib/config'
     import { navigate } from '../lib/router'
     import type { AuthUser } from '../lib/types'
     import { get } from 'svelte/store'
 
+    const toggleThemeValueCallback = toggleThemeValue
     const toggleThemeCallback = toggleTheme
     const clearAuthCallback = clearAuth
 
@@ -75,28 +76,8 @@
             </svg>
         </button>
 
-        <a href="/" class="hidden items-center gap-3 lg:flex" onclick={(event) => navigate('/', event)}>
-            <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-300"
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                >
-                    <g transform="rotate(15 12 12)">
-                        <path d="M6 3v18" />
-                        <path d="M6 4h10l-2 3 2 3H6" />
-                    </g>
-                </svg>
-            </div>
+        <a href="/" class="hidden items-center gap-4 lg:flex" onclick={(event) => navigate('/', event)}>
+            <img src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`} alt="Logo" class="h-6 w-auto" />
             <div>
                 <p class="font-display text-xl text-slate-900 dark:text-slate-100">{appConfig.header_title}</p>
                 <p class="text-xs text-slate-600 dark:text-slate-400">{appConfig.header_description}</p>
@@ -232,26 +213,7 @@
     <div class="flex h-full flex-col">
         <div class="flex items-center justify-between border-b border-slate-200 p-6 dark:border-slate-800">
             <div class="flex items-center gap-3">
-                <div
-                    class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-300"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <g transform="rotate(15 12 12)">
-                            <path d="M6 3v18" />
-                            <path d="M6 4h10l-2 3 2 3H6" />
-                        </g>
-                    </svg>
-                </div>
+                <img src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`} alt="Logo" class="h-4 w-auto" />
                 <div>
                     <p class="font-display text-xl text-slate-900 dark:text-slate-100">{appConfig.header_title}</p>
                     <p class="text-xs text-slate-600 dark:text-slate-400">{appConfig.header_description}</p>

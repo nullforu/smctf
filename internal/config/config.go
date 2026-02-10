@@ -26,6 +26,7 @@ type Config struct {
 	Cache    CacheConfig
 	Logging  LoggingConfig
 	S3       S3Config
+	Stack    StackConfig
 }
 
 type DBConfig struct {
@@ -87,6 +88,16 @@ type S3Config struct {
 	Endpoint        string
 	ForcePathStyle  bool
 	PresignTTL      time.Duration
+}
+
+type StackConfig struct {
+	Enabled            bool
+	MaxPerUser         int
+	ProvisionerBaseURL string
+	ProvisionerAPIKey  string
+	ProvisionerTimeout time.Duration
+	CreateWindow       time.Duration
+	CreateMax          int
 }
 
 const (
@@ -225,6 +236,31 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	stackEnabled, err := getEnvBool("STACKS_ENABLED", true)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	stackMaxPerUser, err := getEnvInt("STACKS_MAX_PER_USER", 3)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	stackTimeout, err := getDuration("STACKS_PROVISIONER_TIMEOUT", 5*time.Second)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	stackCreateWindow, err := getDuration("STACKS_CREATE_WINDOW", time.Minute)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	stackCreateMax, err := getEnvInt("STACKS_CREATE_MAX", 1)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	cfg := Config{
 		AppEnv:             appEnv,
 		HTTPAddr:           httpAddr,
@@ -284,6 +320,15 @@ func Load() (Config, error) {
 			Endpoint:        getEnv("S3_ENDPOINT", ""),
 			ForcePathStyle:  s3ForcePathStyle,
 			PresignTTL:      s3PresignTTL,
+		},
+		Stack: StackConfig{
+			Enabled:            stackEnabled,
+			MaxPerUser:         stackMaxPerUser,
+			ProvisionerBaseURL: getEnv("STACKS_PROVISIONER_BASE_URL", "http://localhost:8081"),
+			ProvisionerAPIKey:  getEnv("STACKS_PROVISIONER_API_KEY", ""),
+			ProvisionerTimeout: stackTimeout,
+			CreateWindow:       stackCreateWindow,
+			CreateMax:          stackCreateMax,
 		},
 	}
 
@@ -457,6 +502,27 @@ func validateConfig(cfg Config) error {
 		}
 	}
 
+	if cfg.Stack.Enabled {
+		if cfg.Stack.MaxPerUser <= 0 {
+			errs = append(errs, errors.New("STACKS_MAX_PER_USER must be positive"))
+		}
+		if cfg.Stack.ProvisionerBaseURL == "" {
+			errs = append(errs, errors.New("STACKS_PROVISIONER_BASE_URL must not be empty"))
+		}
+		if cfg.Stack.ProvisionerTimeout <= 0 {
+			errs = append(errs, errors.New("STACKS_PROVISIONER_TIMEOUT must be positive"))
+		}
+		if cfg.Stack.ProvisionerAPIKey == "" {
+			errs = append(errs, errors.New("STACKS_PROVISIONER_API_KEY must not be empty"))
+		}
+		if cfg.Stack.CreateWindow <= 0 {
+			errs = append(errs, errors.New("STACKS_CREATE_WINDOW must be positive"))
+		}
+		if cfg.Stack.CreateMax <= 0 {
+			errs = append(errs, errors.New("STACKS_CREATE_MAX must be positive"))
+		}
+	}
+
 	if len(errs) == 0 {
 		return nil
 	}
@@ -473,6 +539,7 @@ func Redact(cfg Config) Config {
 	cfg.Logging.SlackWebhookURL = redact(cfg.Logging.SlackWebhookURL)
 	cfg.S3.AccessKeyID = redact(cfg.S3.AccessKeyID)
 	cfg.S3.SecretAccessKey = redact(cfg.S3.SecretAccessKey)
+	cfg.Stack.ProvisionerAPIKey = redact(cfg.Stack.ProvisionerAPIKey)
 	return cfg
 }
 
@@ -545,5 +612,13 @@ func FormatForLog(cfg Config) string {
 	fmt.Fprintf(&b, "  Endpoint=%s\n", cfg.S3.Endpoint)
 	fmt.Fprintf(&b, "  ForcePathStyle=%t\n", cfg.S3.ForcePathStyle)
 	fmt.Fprintf(&b, "  PresignTTL=%s\n", cfg.S3.PresignTTL)
+	fmt.Fprintln(&b, "Stack:")
+	fmt.Fprintf(&b, "  Enabled=%t\n", cfg.Stack.Enabled)
+	fmt.Fprintf(&b, "  MaxPerUser=%d\n", cfg.Stack.MaxPerUser)
+	fmt.Fprintf(&b, "  ProvisionerBaseURL=%s\n", cfg.Stack.ProvisionerBaseURL)
+	fmt.Fprintf(&b, "  ProvisionerAPIKey=%s\n", cfg.Stack.ProvisionerAPIKey)
+	fmt.Fprintf(&b, "  ProvisionerTimeout=%s\n", cfg.Stack.ProvisionerTimeout)
+	fmt.Fprintf(&b, "  CreateWindow=%s\n", cfg.Stack.CreateWindow)
+	fmt.Fprintf(&b, "  CreateMax=%d\n", cfg.Stack.CreateMax)
 	return b.String()
 }
