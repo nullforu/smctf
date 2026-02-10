@@ -58,6 +58,12 @@ export interface Challenge {
     is_active: boolean
     has_file: boolean
     file_name?: string | null
+    stack_enabled: boolean
+    stack_target_port: number
+}
+
+export interface AdminChallengeDetail extends Challenge {
+    stack_pod_spec?: string | null
 }
 
 export interface ChallengeCreatePayload {
@@ -68,6 +74,9 @@ export interface ChallengeCreatePayload {
     minimum_points?: number
     flag: string
     is_active: boolean
+    stack_enabled?: boolean
+    stack_target_port?: number
+    stack_pod_spec?: string
 }
 
 export interface ChallengeCreateResponse extends Challenge {}
@@ -79,6 +88,21 @@ export interface ChallengeUpdatePayload {
     points?: number
     minimum_points?: number
     is_active?: boolean
+    stack_enabled?: boolean
+    stack_target_port?: number
+    stack_pod_spec?: string
+}
+
+export interface Stack {
+    stack_id: string
+    challenge_id: number
+    status: string
+    node_public_ip?: string | null
+    node_port?: number | null
+    target_port: number
+    ttl_expires_at?: string | null
+    created_at: string
+    updated_at: string
 }
 
 export interface PresignedPost {

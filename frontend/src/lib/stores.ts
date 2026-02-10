@@ -76,4 +76,3 @@ export const toggleThemeValue = (theme: Theme): Theme => (theme === 'light' ? 'd
 export const toggleTheme = () => {
     themeStore.update(toggleThemeValue)
 }
-

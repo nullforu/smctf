@@ -4,7 +4,7 @@
     import { api, ApiError } from '../lib/api'
     import { formatApiError } from '../lib/utils'
     import { navigate as _navigate } from '../lib/router'
-    import type { Challenge } from '../lib/types'
+    import type { Challenge, Stack } from '../lib/types'
 
     const navigate = _navigate
 
@@ -28,6 +28,11 @@
     let isSuccessful = $derived(submission.status === 'success')
     let downloadLoading = $state(false)
     let downloadMessage = $state('')
+    let stackInfo = $state<Stack | null>(null)
+    let stackLoading = $state(false)
+    let stackMessage = $state('')
+    let stackPolling = $state(false)
+    let stackNextInterval = $state(10000)
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -91,6 +96,109 @@
             onClose()
         }
     }
+
+    const formatTimestamp = (value?: string | null) => {
+        if (!value) return 'N/A'
+        const date = new Date(value)
+        if (Number.isNaN(date.getTime())) return value
+        return date.toLocaleString()
+    }
+
+    const loadStack = async () => {
+        if (!auth.user || !challenge.stack_enabled) return
+
+        try {
+            const result = await api.getStack(challenge.id)
+            stackInfo = result
+            stackNextInterval = stackInfo?.status === 'running' ? 60000 : 10000
+            stackMessage = ''
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 404) {
+                stackInfo = null
+                stackNextInterval = 10000
+                stackMessage = ''
+                return
+            }
+            const formatted = formatApiError(error)
+            stackMessage = formatted.message
+        }
+    }
+
+    const createStack = async () => {
+        if (isSolved) {
+            stackMessage = 'Solved challenges cannot create new stacks.'
+            return
+        }
+        if (stackLoading || !auth.user) return
+        stackLoading = true
+        stackMessage = ''
+
+        try {
+            stackInfo = await api.createStack(challenge.id)
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 429) {
+                stackMessage = 'Too many stack requests. Please wait about 1 minute before trying again.'
+            } else {
+                const formatted = formatApiError(error)
+                stackMessage = formatted.message
+            }
+        } finally {
+            stackLoading = false
+        }
+    }
+
+    const deleteStack = async () => {
+        if (stackLoading || !auth.user) return
+        stackLoading = true
+        stackMessage = ''
+
+        try {
+            await api.deleteStack(challenge.id)
+            stackInfo = null
+        } catch (error) {
+            const formatted = formatApiError(error)
+            stackMessage = formatted.message
+        } finally {
+            stackLoading = false
+        }
+    }
+
+    $effect(() => {
+        if (!auth.user || !challenge.stack_enabled) {
+            stackInfo = null
+            stackMessage = ''
+            stackPolling = false
+            stackNextInterval = 10000
+            return
+        }
+
+        if (isSolved) {
+            stackMessage = 'This challenge is already solved. New stacks cannot be created.'
+        }
+
+        loadStack()
+    })
+
+    $effect(() => {
+        if (!auth.user || !challenge.stack_enabled || !stackInfo) {
+            stackPolling = false
+            return
+        }
+
+        stackPolling = true
+        let timeoutId: ReturnType<typeof setTimeout>
+
+        const poll = async () => {
+            await loadStack()
+            timeoutId = setTimeout(poll, stackNextInterval)
+        }
+
+        timeoutId = setTimeout(poll, stackNextInterval)
+        return () => {
+            clearTimeout(timeoutId)
+            stackPolling = false
+        }
+    })
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -172,7 +280,95 @@
             </div>
         {/if}
 
-        <div class="mt-8">
+        <div class="mt-8 space-y-6">
+            {#if challenge.stack_enabled}
+                <div
+                    class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/50 dark:text-slate-200"
+                >
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p class="font-medium">Stack Instance</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                {stackPolling
+                                    ? stackNextInterval === 60000
+                                        ? 'Refreshing every 60s'
+                                        : 'Refreshing every 10s'
+                                    : 'Refresh paused'}
+                            </p>
+                        </div>
+                        {#if auth.user}
+                            <div class="flex flex-wrap items-center gap-2">
+                                {#if stackInfo}
+                                    <button
+                                        class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-800 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                                        type="button"
+                                        onclick={loadStack}
+                                        disabled={stackLoading}
+                                    >
+                                        {stackLoading ? 'Refreshing...' : 'Refresh'}
+                                    </button>
+                                    <button
+                                        class="rounded-lg border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 transition hover:border-rose-300 hover:text-rose-800 disabled:opacity-60 dark:border-rose-500/40 dark:text-rose-200 dark:hover:border-rose-400"
+                                        type="button"
+                                        onclick={deleteStack}
+                                        disabled={stackLoading}
+                                    >
+                                        {stackLoading ? 'Working...' : 'Delete Stack'}
+                                    </button>
+                                {:else}
+                                    <button
+                                        class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+                                        type="button"
+                                        onclick={createStack}
+                                        disabled={stackLoading || isSolved}
+                                    >
+                                        {stackLoading ? 'Creating...' : 'Create Stack'}
+                                    </button>
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
+
+                    {#if !auth.user}
+                        <p class="mt-2 text-xs text-amber-700 dark:text-amber-200">
+                            Login required to manage stack instances.
+                        </p>
+                    {:else if isSolved}
+                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                            This challenge is already solved. New stacks cannot be created.
+                        </p>
+                    {:else if stackInfo}
+                        <div class="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-400">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-medium text-slate-700 dark:text-slate-200">Status:</span>
+                                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] dark:bg-slate-800">
+                                    {stackInfo.status}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-slate-700 dark:text-slate-200">Endpoint:</span>
+                                <span class="ml-2">
+                                    {stackInfo.node_public_ip && stackInfo.node_port
+                                        ? `${stackInfo.node_public_ip}:${stackInfo.node_port}`
+                                        : 'Pending'}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-slate-700 dark:text-slate-200">TTL:</span>
+                                <span class="ml-2">{formatTimestamp(stackInfo.ttl_expires_at)}</span>
+                            </div>
+                        </div>
+                    {:else}
+                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                            No active stack. Create one to get your instance details.
+                        </p>
+                    {/if}
+
+                    {#if stackMessage}
+                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">{stackMessage}</p>
+                    {/if}
+                </div>
+            {/if}
             {#if !auth.user}
                 <div
                     class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-100"

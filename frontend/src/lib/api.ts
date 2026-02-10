@@ -10,10 +10,12 @@ import type {
     ChallengeCreateResponse,
     ChallengeUpdatePayload,
     ChallengeFileUploadResponse,
+    AdminChallengeDetail,
     FlagSubmissionResult,
     LeaderboardResponse,
     TeamLeaderboardResponse,
     PresignedURL,
+    Stack,
     Team,
     TeamCreatePayload,
     TeamSummary,
@@ -249,6 +251,9 @@ export const api = {
     createChallenge: (payload: ChallengeCreatePayload) => {
         return request<ChallengeCreateResponse>(`/api/admin/challenges`, { method: 'POST', body: payload, auth: true })
     },
+    adminChallenge: (id: number) => {
+        return request<AdminChallengeDetail>(`/api/admin/challenges/${id}`, { auth: true })
+    },
     updateChallenge: (id: number, payload: ChallengeUpdatePayload) => {
         return request<Challenge>(`/api/admin/challenges/${id}`, { method: 'PUT', body: payload, auth: true })
     },
@@ -267,6 +272,18 @@ export const api = {
     },
     requestChallengeFileDownload: (id: number) => {
         return request<PresignedURL>(`/api/challenges/${id}/file/download`, { method: 'POST', auth: true })
+    },
+    createStack: (challengeID: number) => {
+        return request<Stack>(`/api/challenges/${challengeID}/stack`, { method: 'POST', auth: true })
+    },
+    getStack: (challengeID: number) => {
+        return request<Stack>(`/api/challenges/${challengeID}/stack`, { auth: true })
+    },
+    deleteStack: (challengeID: number) => {
+        return request<void>(`/api/challenges/${challengeID}/stack`, { method: 'DELETE', auth: true })
+    },
+    stacks: () => {
+        return request<Stack[]>(`/api/stacks`, { auth: true })
     },
     registrationKeys: () => {
         return request<RegistrationKey[]>(`/api/admin/registration-keys`, { auth: true })

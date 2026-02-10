@@ -29,6 +29,9 @@
     let minimumPoints = $state(100)
     let flag = $state('')
     let isActive = $state(true)
+    let stackEnabled = $state(false)
+    let stackTargetPort = $state(80)
+    let stackPodSpec = $state('')
     let challengeFile = $state<File | null>(null)
     let challengeFileError = $state('')
     let challengeFileUploading = $state(false)
@@ -56,6 +59,9 @@
                 minimum_points: Number(minimumPoints),
                 flag,
                 is_active: isActive,
+                stack_enabled: stackEnabled,
+                stack_target_port: stackEnabled ? Number(stackTargetPort) : undefined,
+                stack_pod_spec: stackEnabled ? stackPodSpec : undefined,
             })
 
             successMessage = `Challenge "${created.title}" (ID ${created.id}) created successfully`
@@ -82,6 +88,9 @@
             flag = ''
             isActive = true
             challengeFile = null
+            stackEnabled = false
+            stackTargetPort = 80
+            stackPodSpec = ''
         } catch (error) {
             const formatted = formatApiError(error)
 
@@ -230,6 +239,58 @@
             />
             Create as active
         </label>
+        <div
+            class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800/80 dark:bg-slate-950/40"
+        >
+            <label class="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+                <input
+                    type="checkbox"
+                    bind:checked={stackEnabled}
+                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
+                />
+                Provide stack (container instance)
+            </label>
+            {#if stackEnabled}
+                <div class="mt-4 grid gap-4">
+                    <div>
+                        <label
+                            class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                            for="admin-stack-target-port">Target Port</label
+                        >
+                        <input
+                            id="admin-stack-target-port"
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                            type="number"
+                            min="1"
+                            max="65535"
+                            bind:value={stackTargetPort}
+                        />
+                        {#if fieldErrors.stack_target_port}
+                            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                stack_target_port: {fieldErrors.stack_target_port}
+                            </p>
+                        {/if}
+                    </div>
+                    <div>
+                        <label
+                            class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                            for="admin-stack-pod-spec">Pod Spec (YAML)</label
+                        >
+                        <textarea
+                            id="admin-stack-pod-spec"
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-mono text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                            rows="7"
+                            bind:value={stackPodSpec}
+                        ></textarea>
+                        {#if fieldErrors.stack_pod_spec}
+                            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                                stack_pod_spec: {fieldErrors.stack_pod_spec}
+                            </p>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
+        </div>
 
         {#if errorMessage}
             <p
