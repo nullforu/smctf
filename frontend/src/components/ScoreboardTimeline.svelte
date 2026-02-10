@@ -9,7 +9,6 @@
     const navigate = _navigate
 
     interface Props {
-        windowMinutes: number
         mode?: 'users' | 'teams'
     }
 
@@ -20,7 +19,7 @@
         username: string
     }
 
-    let { windowMinutes, mode = 'users' }: Props = $props()
+    let { mode = 'users' }: Props = $props()
 
     let timeline: TimelineResponse | null = $state(null)
     let rawTeamTimeline: TeamTimelineResponse | null = $state(null)
@@ -68,7 +67,7 @@
         if (!chartContainer) return
         chartWidth = Math.floor(chartContainer.clientWidth || chartLayout.width)
 
-        if (timeline) chartModel = buildChartModel(timeline, windowMinutes, chartWidth)
+        if (timeline) chartModel = buildChartModel(timeline, chartWidth)
 
         if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
             resizeObserver = new ResizeObserver(syncChartSize)
@@ -84,7 +83,7 @@
 
         try {
             if (mode === 'teams') {
-                rawTeamTimeline = await api.timelineTeams(windowMinutes)
+                rawTeamTimeline = await api.timelineTeams()
                 timeline = rawTeamTimeline
                     ? {
                           submissions: rawTeamTimeline.submissions.map((sub) => ({
@@ -97,10 +96,10 @@
                       }
                     : null
             } else {
-                timeline = await api.timeline(windowMinutes)
+                timeline = await api.timeline()
                 rawTeamTimeline = null
             }
-            chartModel = timeline ? buildChartModel(timeline, windowMinutes, chartWidth) : null
+            chartModel = timeline ? buildChartModel(timeline, chartWidth) : null
 
             await tick()
             syncChartSize()
@@ -132,8 +131,6 @@
         <p class="mt-4 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
     {:else if timeline}
         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-500">
-            <span>Last {windowMinutes} minutes</span>
-            <span>·</span>
             <span>
                 Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)}
                 {mode === 'teams' ? 'teams' : 'users'}

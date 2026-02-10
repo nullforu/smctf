@@ -85,7 +85,6 @@ const formatTime = (value: string) => {
 
 export const buildChartModel = (
     data: TimelineResponse,
-    windowMinutesValue: number,
     widthValue: number,
 ): ChartModel | null => {
     const baseWidth = Math.floor(widthValue || chartLayout.width)
