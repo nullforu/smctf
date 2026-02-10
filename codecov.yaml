@@ -24,4 +24,5 @@ ignore:
   - "migrations/**"
   - "**/*.sql"
   - "internal/storage/s3.go" # S3 storage is production only code. 
-
+  - "internal/service/stack_service.go" # production only code.
+  - "internal/stack/**" # production only code.

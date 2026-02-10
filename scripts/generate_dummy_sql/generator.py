@@ -95,7 +95,7 @@ def generate_challenges(
     timing: Dict[str, Any],
     constraints: Dict[str, Any],
     secret: str,
-) -> List[Tuple[str, str, str, int, int, str, bool, str]]:
+) -> List[Tuple[str, str, str, int, int, str, bool, str, bool, int, str]]:
     generated = []
     base_time = datetime.now(UTC) - timedelta(hours=timing["challenges_base_hours_ago"])
     step_minutes = timing["challenge_created_minutes_step"]
@@ -106,6 +106,10 @@ def generate_challenges(
         flag_hash = hmac_flag(secret, chal["flag"])
         minimum_points = max(floor, int(chal["points"] * ratio))
         created_at = base_time + timedelta(minutes=i * step_minutes)
+        stack_enabled = bool(chal.get("stack_enabled", False))
+        stack_target_port = int(chal.get("stack_target_port", 0)) if stack_enabled else 0
+        stack_pod_spec = str(chal.get("stack_pod_spec", "")) if stack_enabled else ""
+
         generated.append(
             (
                 chal["title"],
@@ -116,6 +120,9 @@ def generate_challenges(
                 flag_hash,
                 True,
                 created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                stack_enabled,
+                stack_target_port,
+                stack_pod_spec,
             )
         )
 
