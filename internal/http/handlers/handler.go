@@ -22,18 +22,19 @@ import (
 )
 
 type Handler struct {
-	cfg   config.Config
-	auth  *service.AuthService
-	ctf   *service.CTFService
-	app   *service.AppConfigService
-	users *repo.UserRepo
-	score *repo.ScoreboardRepo
-	teams *service.TeamService
-	redis *redis.Client
+	cfg    config.Config
+	auth   *service.AuthService
+	ctf    *service.CTFService
+	app    *service.AppConfigService
+	users  *repo.UserRepo
+	score  *repo.ScoreboardRepo
+	teams  *service.TeamService
+	stacks *service.StackService
+	redis  *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, teams: teams, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, teams: teams, stacks: stacks, redis: redis}
 }
 
 func windowStartFromMinutes(windowMinutes int) *time.Time {
@@ -350,11 +351,94 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 	if correct {
 		h.invalidateTimelineCache()
 		h.invalidateLeaderboardCache()
+		if h.stacks != nil {
+			_ = h.stacks.DeleteStackByUserAndChallenge(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+		}
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"correct": correct,
 	})
+}
+
+func (h *Handler) CreateStack(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	challengeID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	stackModel, err := h.stacks.GetOrCreateStack(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, newStackResponse(stackModel))
+}
+
+func (h *Handler) GetStack(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	challengeID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	stackModel, err := h.stacks.GetStack(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newStackResponse(stackModel))
+}
+
+func (h *Handler) DeleteStack(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	challengeID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	if err := h.stacks.DeleteStack(ctx.Request.Context(), middleware.UserID(ctx), challengeID); err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *Handler) ListStacks(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	stacks, err := h.stacks.ListUserStacks(ctx.Request.Context(), middleware.UserID(ctx))
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	resp := make([]stackResponse, 0, len(stacks))
+	for i := range stacks {
+		stackModel := stacks[i]
+		resp = append(resp, newStackResponse(&stackModel))
+	}
+
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) CreateChallenge(ctx *gin.Context) {
@@ -374,7 +458,17 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		minimumPoints = *req.MinimumPoints
 	}
 
-	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active)
+	stackEnabled := false
+	if req.StackEnabled != nil {
+		stackEnabled = *req.StackEnabled
+	}
+
+	stackTargetPort := 0
+	if req.StackTargetPort != nil {
+		stackTargetPort = *req.StackTargetPort
+	}
+
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active, stackEnabled, stackTargetPort, req.StackPodSpec)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -396,7 +490,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.MinimumPoints, req.Flag, req.IsActive)
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.MinimumPoints, req.Flag, req.IsActive, req.StackEnabled, req.StackTargetPort, req.StackPodSpec)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -404,6 +498,26 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 
 	h.invalidateLeaderboardCache()
 	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
+}
+
+func (h *Handler) AdminGetChallenge(ctx *gin.Context) {
+	challengeID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	challenge, err := h.ctf.GetChallengeByID(ctx.Request.Context(), challengeID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	resp := adminChallengeResponse{
+		challengeResponse: newChallengeResponse(challenge),
+		StackPodSpec:      challenge.StackPodSpec,
+	}
+
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) DeleteChallenge(ctx *gin.Context) {

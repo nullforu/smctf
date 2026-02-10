@@ -82,6 +82,24 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	case errors.Is(err, service.ErrRateLimited):
 		status = http.StatusTooManyRequests
 		resp.Error = service.ErrRateLimited.Error()
+	case errors.Is(err, service.ErrStackDisabled):
+		status = http.StatusServiceUnavailable
+		resp.Error = service.ErrStackDisabled.Error()
+	case errors.Is(err, service.ErrStackNotEnabled):
+		status = http.StatusBadRequest
+		resp.Error = service.ErrStackNotEnabled.Error()
+	case errors.Is(err, service.ErrStackLimitReached):
+		status = http.StatusConflict
+		resp.Error = service.ErrStackLimitReached.Error()
+	case errors.Is(err, service.ErrStackNotFound):
+		status = http.StatusNotFound
+		resp.Error = service.ErrStackNotFound.Error()
+	case errors.Is(err, service.ErrStackProvisionerDown):
+		status = http.StatusServiceUnavailable
+		resp.Error = service.ErrStackProvisionerDown.Error()
+	case errors.Is(err, service.ErrStackInvalidSpec):
+		status = http.StatusBadRequest
+		resp.Error = service.ErrStackInvalidSpec.Error()
 	case errors.Is(err, repo.ErrNotFound):
 		status = http.StatusNotFound
 		resp.Error = "not found"

@@ -70,7 +70,24 @@ func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, er
 	return challenges, nil
 }
 
-func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool) (*models.Challenge, error) {
+func (s *CTFService) GetChallengeByID(ctx context.Context, id int64) (*models.Challenge, error) {
+	if id <= 0 {
+		return nil, ErrInvalidInput
+	}
+
+	challenge, err := s.challengeRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrChallengeNotFound
+		}
+
+		return nil, fmt.Errorf("ctf.GetChallengeByID: %w", err)
+	}
+
+	return challenge, nil
+}
+
+func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool, stackEnabled bool, stackTargetPort int, stackPodSpec *string) (*models.Challenge, error) {
 	title = normalizeTrim(title)
 	description = normalizeTrim(description)
 	category = normalizeTrim(category)
@@ -91,19 +108,40 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		validator.fields = append(validator.fields, FieldError{Field: "category", Reason: "invalid"})
 	}
 
+	if stackEnabled {
+		if stackTargetPort <= 0 || stackTargetPort > 65535 {
+			validator.fields = append(validator.fields, FieldError{Field: "stack_target_port", Reason: "invalid"})
+		}
+
+		if stackPodSpec == nil || normalizeTrim(*stackPodSpec) == "" {
+			validator.fields = append(validator.fields, FieldError{Field: "stack_pod_spec", Reason: "required"})
+		}
+	}
+
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
 
+	podSpec := (*string)(nil)
+	if stackEnabled && stackPodSpec != nil {
+		trimmed := normalizeTrim(*stackPodSpec)
+		podSpec = &trimmed
+	} else if !stackEnabled {
+		stackTargetPort = 0
+	}
+
 	challenge := &models.Challenge{
-		Title:         title,
-		Description:   description,
-		Category:      category,
-		Points:        points,
-		MinimumPoints: minimumPoints,
-		FlagHash:      utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
-		IsActive:      active,
-		CreatedAt:     time.Now().UTC(),
+		Title:           title,
+		Description:     description,
+		Category:        category,
+		Points:          points,
+		MinimumPoints:   minimumPoints,
+		FlagHash:        utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
+		StackEnabled:    stackEnabled,
+		StackTargetPort: stackTargetPort,
+		StackPodSpec:    podSpec,
+		IsActive:        active,
+		CreatedAt:       time.Now().UTC(),
 	}
 
 	if err := s.challengeRepo.Create(ctx, challenge); err != nil {
@@ -117,10 +155,11 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	return challenge, nil
 }
 
-func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool) (*models.Challenge, error) {
+func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPort *int, stackPodSpec *string) (*models.Challenge, error) {
 	normalizedTitle := normalizeOptional(title)
 	normalizedDescription := normalizeOptional(description)
 	normalizedCategory := normalizeOptional(category)
+	normalizedPodSpec := normalizeOptional(stackPodSpec)
 
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
@@ -187,6 +226,48 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 
 	if active != nil {
 		challenge.IsActive = *active
+	}
+
+	if stackEnabled != nil {
+		challenge.StackEnabled = *stackEnabled
+		if !*stackEnabled {
+			challenge.StackTargetPort = 0
+			challenge.StackPodSpec = nil
+		}
+	}
+
+	if stackTargetPort != nil {
+		if !challenge.StackEnabled {
+			return nil, NewValidationError(FieldError{Field: "stack_target_port", Reason: "stack disabled"})
+		}
+
+		if *stackTargetPort <= 0 || *stackTargetPort > 65535 {
+			return nil, NewValidationError(FieldError{Field: "stack_target_port", Reason: "invalid"})
+		}
+
+		challenge.StackTargetPort = *stackTargetPort
+	}
+
+	if normalizedPodSpec != nil {
+		if !challenge.StackEnabled {
+			return nil, NewValidationError(FieldError{Field: "stack_pod_spec", Reason: "stack disabled"})
+		}
+
+		if *normalizedPodSpec == "" {
+			challenge.StackPodSpec = nil
+		} else {
+			challenge.StackPodSpec = normalizedPodSpec
+		}
+	}
+
+	if challenge.StackEnabled {
+		if challenge.StackTargetPort <= 0 {
+			return nil, NewValidationError(FieldError{Field: "stack_target_port", Reason: "required"})
+		}
+
+		if challenge.StackPodSpec == nil || normalizeTrim(*challenge.StackPodSpec) == "" {
+			return nil, NewValidationError(FieldError{Field: "stack_pod_spec", Reason: "required"})
+		}
 	}
 
 	if challenge.MinimumPoints > challenge.Points {

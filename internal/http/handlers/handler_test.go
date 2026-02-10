@@ -434,7 +434,7 @@ func TestHandlerRequestChallengeFileUploadStorageUnavailable(t *testing.T) {
 
 	ctfSvc := service.NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
 	scoreRepo := repo.NewScoreboardRepo(env.db)
-	handler := New(env.cfg, env.authSvc, ctfSvc, env.appConfigSvc, env.userRepo, scoreRepo, env.teamSvc, env.redis)
+	handler := New(env.cfg, env.authSvc, ctfSvc, env.appConfigSvc, env.userRepo, scoreRepo, env.teamSvc, nil, env.redis)
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges/1/file/upload", map[string]string{"filename": "bundle.zip"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
@@ -806,7 +806,7 @@ func TestHandlerTeamLeaderboardUsesCache(t *testing.T) {
 func TestHandlerLeaderboardError(t *testing.T) {
 	closedDB := newClosedHandlerDB(t)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
-	handler := New(handlerCfg, nil, nil, nil, nil, scoreRepo, nil, handlerRedis)
+	handler := New(handlerCfg, nil, nil, nil, nil, scoreRepo, nil, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/leaderboard", nil)
 	handler.Leaderboard(ctx)
@@ -823,7 +823,7 @@ func TestHandlerListChallengesError(t *testing.T) {
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
-	handler := New(handlerCfg, nil, ctfSvc, nil, nil, scoreRepo, nil, handlerRedis)
+	handler := New(handlerCfg, nil, ctfSvc, nil, nil, scoreRepo, nil, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
 	handler.ListChallenges(ctx)

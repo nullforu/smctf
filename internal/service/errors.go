@@ -11,6 +11,12 @@ var (
 	ErrStorageUnavailable    = errors.New("storage unavailable")
 	ErrAlreadySolved         = errors.New("challenge already solved")
 	ErrRateLimited           = errors.New("too many submissions")
+	ErrStackDisabled         = errors.New("stack feature disabled")
+	ErrStackNotEnabled       = errors.New("stack not enabled for challenge")
+	ErrStackLimitReached     = errors.New("stack limit reached")
+	ErrStackNotFound         = errors.New("stack not found")
+	ErrStackProvisionerDown  = errors.New("stack provisioner unavailable")
+	ErrStackInvalidSpec      = errors.New("stack spec invalid")
 )
 
 type FieldError struct {

@@ -56,7 +56,7 @@ func newClosedServiceDB(t *testing.T) *bun.DB {
 func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 	env := setupServiceTest(t)
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 80, "FLAG{1}", true)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 80, "FLAG{1}", true, false, 0, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -85,16 +85,22 @@ func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 
 func TestCTFServiceCreateChallengeValidation(t *testing.T) {
 	env := setupServiceTest(t)
-	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, 0, "", true)
+	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, 0, "", true, false, 0, nil)
 
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
 
-	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 200, "FLAG{X}", true)
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 200, "FLAG{X}", true, false, 0, nil)
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error for minimum_points, got %v", err)
+	}
+
+	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{S}", true, true, 0, &podSpec)
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error for stack_target_port, got %v", err)
 	}
 }
 
@@ -104,7 +110,7 @@ func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
 	soloUser := createUser(t, env, "s1@example.com", "s1", "pass", "user")
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true, false, 0, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -146,7 +152,7 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	newActive := false
 
 	newMin := 40
-	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &newTitle, &newDesc, &newCat, &newPoints, &newMin, nil, &newActive)
+	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &newTitle, &newDesc, &newCat, &newPoints, &newMin, nil, &newActive, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("update challenge: %v", err)
 	}
@@ -156,16 +162,16 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	}
 
 	flag := "FLAG{IMMUTABLE}"
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &flag, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &flag, nil, nil, nil, nil); err == nil {
 		t.Fatalf("expected flag immutable error")
 	}
 
 	badCat := "Bad"
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &badCat, nil, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &badCat, nil, nil, nil, nil, nil, nil, nil); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), 9999, &newTitle, nil, nil, nil, nil, nil, nil); !errors.Is(err, ErrChallengeNotFound) {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), 9999, &newTitle, nil, nil, nil, nil, nil, nil, nil, nil, nil); !errors.Is(err, ErrChallengeNotFound) {
 		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
 	}
 }

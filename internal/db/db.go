@@ -41,6 +41,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 		(*models.Team)(nil),
 		(*models.User)(nil),
 		(*models.Challenge)(nil),
+		(*models.Stack)(nil),
 		(*models.Submission)(nil),
 		(*models.RegistrationKey)(nil),
 	}
@@ -91,6 +92,18 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 			name:  "idx_registration_keys_team_id",
 			query: "CREATE INDEX IF NOT EXISTS idx_registration_keys_team_id ON registration_keys (team_id)",
 		},
+		{
+			name:  "idx_stacks_user_id",
+			query: "CREATE INDEX IF NOT EXISTS idx_stacks_user_id ON stacks (user_id)",
+		},
+		{
+			name:  "idx_stacks_user_challenge",
+			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_stacks_user_challenge ON stacks (user_id, challenge_id)",
+		},
+		{
+			name:  "idx_stacks_stack_id",
+			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_stacks_stack_id ON stacks (stack_id)",
+		},
 	}
 
 	for _, idx := range indexes {
@@ -98,5 +111,6 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 			return fmt.Errorf("auto migrate create index %s: %w", idx.name, err)
 		}
 	}
+
 	return nil
 }

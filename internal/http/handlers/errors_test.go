@@ -70,6 +70,12 @@ func TestMapErrorSentinels(t *testing.T) {
 		{service.ErrStorageUnavailable, http.StatusServiceUnavailable, service.ErrStorageUnavailable.Error(), 0},
 		{service.ErrAlreadySolved, http.StatusConflict, service.ErrAlreadySolved.Error(), 0},
 		{service.ErrRateLimited, http.StatusTooManyRequests, service.ErrRateLimited.Error(), 0},
+		{service.ErrStackDisabled, http.StatusServiceUnavailable, service.ErrStackDisabled.Error(), 0},
+		{service.ErrStackNotEnabled, http.StatusBadRequest, service.ErrStackNotEnabled.Error(), 0},
+		{service.ErrStackLimitReached, http.StatusConflict, service.ErrStackLimitReached.Error(), 0},
+		{service.ErrStackNotFound, http.StatusNotFound, service.ErrStackNotFound.Error(), 0},
+		{service.ErrStackProvisionerDown, http.StatusServiceUnavailable, service.ErrStackProvisionerDown.Error(), 0},
+		{service.ErrStackInvalidSpec, http.StatusBadRequest, service.ErrStackInvalidSpec.Error(), 0},
 		{repo.ErrNotFound, http.StatusNotFound, "not found", 0},
 	}
 

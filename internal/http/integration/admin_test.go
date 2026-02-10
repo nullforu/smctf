@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -148,6 +149,32 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	decodeJSON(t, rec, &errResp)
 
 	assertFieldErrors(t, errResp.Details, map[string]string{"flag": "immutable"})
+}
+
+func TestAdminGetChallengeDetail(t *testing.T) {
+	env := setupTest(t, testCfg)
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
+
+	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	challenge := createChallenge(t, env, "Stacked", 100, "flag{stack}", true)
+	challenge.StackEnabled = true
+	challenge.StackTargetPort = 80
+	challenge.StackPodSpec = &podSpec
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/admin/challenges/"+itoa(challenge.ID), nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["stack_pod_spec"] == nil {
+		t.Fatalf("expected stack_pod_spec")
+	}
 }
 
 func TestAdminDeleteChallenge(t *testing.T) {
