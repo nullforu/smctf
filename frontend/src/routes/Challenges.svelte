@@ -5,14 +5,7 @@
     import type { Challenge } from '../lib/types'
     import ChallengeCard from '../components/ChallengeCard.svelte'
     import ChallengeModal from '../components/ChallengeModal.svelte'
-
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
-
-    const ChallengeModalComponent = ChallengeModal
+    import { t } from '../lib/i18n'
 
     let challenges: Challenge[] = $state([])
     let loading = $state(true)
@@ -20,7 +13,9 @@
     let solvedIds = $state(new Set<number>())
     let selectedChallenge: Challenge | null = $state(null)
 
-    const ChallengeCardComponent = ChallengeCard
+    const activeChallenges = $derived(challenges.filter((challenge) => challenge.is_active))
+    const inactiveChallenges = $derived(challenges.filter((challenge) => !challenge.is_active))
+    const solvedCount = $derived(solvedIds.size)
 
     const loadChallenges = async () => {
         loading = true
@@ -58,43 +53,40 @@
         selectedChallenge = null
     }
 
-    onMount(async () => {
-        await loadChallenges()
-        await loadSolved()
+    onMount(() => {
+        void Promise.all([loadChallenges(), loadSolved()])
     })
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 </script>
 
 <section class="fade-in">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Challenges</h2>
+            <h2 class="text-3xl text-text">{$t('challenges.title')}</h2>
         </div>
-        <div
-            class="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-300"
-        >
-            Solved {solvedIds.size} / {challenges.filter((c) => c.is_active).length}
-            {challenges.filter((c) => !c.is_active).length > 0
-                ? `(${challenges.filter((c) => !c.is_active).length} inactive)`
-                : ''}
+        <div class="rounded-full border border-border bg-surface px-4 py-2 text-xs text-text">
+            {$t('challenges.solvedSummary', { solved: solvedCount, total: activeChallenges.length })}
+            {inactiveChallenges.length > 0 ? $t('challenges.inactiveCount', { count: inactiveChallenges.length }) : ''}
         </div>
     </div>
 
     {#if loading}
-        <div
-            class="mt-6 rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400"
-        >
-            Loading challenges...
+        <div class="mt-6 rounded-2xl border border-border bg-surface p-8 text-center text-text-muted">
+            {$t('challenges.loading')}
         </div>
     {:else if errorMessage}
-        <div
-            class="mt-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-700 dark:text-rose-200"
-        >
+        <div class="mt-6 rounded-2xl border border-danger/40 bg-danger/10 p-6 text-sm text-danger">
             {errorMessage}
         </div>
     {:else}
         <div class="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {#each challenges as challenge}
-                <ChallengeCardComponent
+                <ChallengeCard
                     {challenge}
                     isSolved={solvedIds.has(challenge.id)}
                     onClick={() => openChallenge(challenge)}
@@ -105,7 +97,7 @@
 </section>
 
 {#if selectedChallenge}
-    <ChallengeModalComponent
+    <ChallengeModal
         challenge={selectedChallenge}
         isSolved={solvedIds.has(selectedChallenge.id)}
         onClose={closeModal}

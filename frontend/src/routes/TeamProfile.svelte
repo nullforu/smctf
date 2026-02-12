@@ -1,11 +1,9 @@
 <script lang="ts">
-    import { onMount } from 'svelte'
     import { api } from '../lib/api'
     import type { TeamDetail, TeamMember, TeamSolvedChallenge } from '../lib/types'
-    import { formatApiError, formatDateTime } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
+    import { formatApiError, formatDateTime, parseRouteId } from '../lib/utils'
+    import { navigate } from '../lib/router'
+    import { getRoleKey, t } from '../lib/i18n'
 
     interface Props {
         routeParams?: Record<string, string>
@@ -18,6 +16,7 @@
     let solved: TeamSolvedChallenge[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
+    let lastLoadedTeamId = $state<number | null>(null)
 
     const formatDateTimeLocal = formatDateTime
 
@@ -44,23 +43,21 @@
         }
     }
 
-    $effect(() => {
-        if (routeParams.id) {
-            loadTeam(parseInt(routeParams.id))
-        }
-    })
+    const routeTeamId = $derived(parseRouteId(routeParams.id))
 
-    onMount(() => {
-        if (routeParams.id) {
-            loadTeam(parseInt(routeParams.id))
-        }
+    $effect(() => {
+        if (routeTeamId === null) return
+        if (lastLoadedTeamId === routeTeamId) return
+
+        lastLoadedTeamId = routeTeamId
+        loadTeam(routeTeamId)
     })
 </script>
 
 <section class="fade-in">
     <div class="mb-6">
         <button
-            class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400"
+            class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent"
             onclick={() => navigate('/teams')}
         >
             <svg
@@ -76,69 +73,65 @@
             >
                 <path d="m15 18-6-6 6-6" />
             </svg>
-            Back to Teams
+            {$t('team.backToTeams')}
         </button>
     </div>
 
     {#if loading}
-        <div class="rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800/70 dark:bg-slate-900/40">
-            <p class="text-center text-sm text-slate-600 dark:text-slate-400">Loading...</p>
+        <div class="rounded-2xl border border-border bg-surface p-8">
+            <p class="text-center text-sm text-text-muted">{$t('common.loading')}</p>
         </div>
     {:else if errorMessage}
-        <div class="rounded-2xl border border-rose-200 bg-rose-50 p-8 dark:border-rose-900/50 dark:bg-rose-950/20">
-            <p class="text-center text-sm text-rose-700 dark:text-rose-300">{errorMessage}</p>
+        <div class="rounded-2xl border border-danger/30 bg-danger/10 p-8">
+            <p class="text-center text-sm text-danger">{errorMessage}</p>
         </div>
     {:else if team}
         <div>
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h2 class="text-3xl text-slate-900 dark:text-slate-100">{team.name}</h2>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Team ID: {team.id}</p>
+                    <h2 class="text-3xl text-text">{team.name}</h2>
+                    <p class="mt-1 text-sm text-text-muted">{$t('team.teamId', { id: team.id })}</p>
                 </div>
                 <div class="flex flex-wrap gap-2 text-xs">
-                    <span
-                        class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/60 dark:text-slate-300"
-                    >
-                        Members: {team.member_count}
+                    <span class="rounded-full border border-border bg-surface-muted px-3 py-1 text-text">
+                        {$t('team.membersLabel', { count: team.member_count })}
                     </span>
-                    <span
-                        class="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-teal-700 dark:border-teal-800/40 dark:bg-teal-900/20 dark:text-teal-200"
-                    >
-                        Total Score: {team.total_score} pts
+                    <span class="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent-strong">
+                        {$t('team.totalScoreLabel', { points: team.total_score })}
                     </span>
                 </div>
             </div>
 
             <div class="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-                <div
-                    class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
-                >
+                <div class="rounded-2xl border border-border bg-surface p-6">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-lg text-slate-900 dark:text-slate-100">Members</h3>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">{members.length} total</span>
+                        <h3 class="text-lg text-text">{$t('team.members')}</h3>
+                        <span class="text-xs text-text-subtle">
+                            {$t('common.totalCount', { count: members.length })}
+                        </span>
                     </div>
 
                     {#if members.length === 0}
-                        <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">No members registered.</p>
+                        <p class="mt-4 text-sm text-text-subtle">{$t('team.noMembers')}</p>
                     {:else}
                         <div class="mt-4 overflow-x-auto">
-                            <table class="w-full pl-4 text-left text-sm text-slate-700 dark:text-slate-300">
-                                <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            <table class="w-full pl-4 text-left text-sm text-text">
+                                <thead class="text-xs uppercase tracking-wide text-text-subtle">
                                     <tr>
-                                        <th class="py-2 px-4">ID</th>
-                                        <th class="py-2 pr-4">Username</th>
-                                        <th class="py-2">Role</th>
+                                        <th class="py-2 px-4">{$t('common.id')}</th>
+                                        <th class="py-2 pr-4">{$t('common.username')}</th>
+                                        <th class="py-2">{$t('common.role')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {#each members as member}
                                         <tr
-                                            class="border-t border-slate-200/70 dark:border-slate-800/70 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/60"
+                                            class="border-t border-border/70 cursor-pointer hover:bg-surface-muted"
                                             onclick={() => navigate(`/users/${member.id}`)}
                                         >
                                             <td class="py-3 px-4">{member.id}</td>
                                             <td class="py-3 pr-4">{member.username}</td>
-                                            <td class="py-3">{member.role}</td>
+                                            <td class="py-3">{$t(getRoleKey(member.role))}</td>
                                         </tr>
                                     {/each}
                                 </tbody>
@@ -147,33 +140,35 @@
                     {/if}
                 </div>
 
-                <div
-                    class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
-                >
+                <div class="rounded-2xl border border-border bg-surface p-6">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-lg text-slate-900 dark:text-slate-100">Solved Challenges</h3>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">{solved.length} total</span>
+                        <h3 class="text-lg text-text">{$t('team.solvedChallenges')}</h3>
+                        <span class="text-xs text-text-subtle">
+                            {$t('common.totalCount', { count: solved.length })}
+                        </span>
                     </div>
 
                     {#if solved.length === 0}
-                        <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">No challenges solved yet.</p>
+                        <p class="mt-4 text-sm text-text-subtle">{$t('team.noSolved')}</p>
                     {:else}
                         <div class="mt-4 space-y-3">
                             {#each solved as entry}
-                                <div
-                                    class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/70 dark:bg-slate-950/40"
-                                >
+                                <div class="rounded-xl border border-border bg-surface-muted p-4">
                                     <div class="flex items-center justify-between gap-3">
                                         <div>
-                                            <p class="text-sm text-slate-900 dark:text-slate-100">{entry.title}</p>
-                                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                Last solved: {formatDateTimeLocal(entry.last_solved_at)}
+                                            <p class="text-sm text-text">{entry.title}</p>
+                                            <p class="mt-1 text-xs text-text-subtle">
+                                                {$t('team.lastSolved', {
+                                                    time: formatDateTimeLocal(entry.last_solved_at),
+                                                })}
                                             </p>
                                         </div>
                                         <div class="text-right">
-                                            <p class="text-sm text-teal-600 dark:text-teal-200">{entry.points} pts</p>
-                                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                {entry.solve_count} solves
+                                            <p class="text-sm text-accent">
+                                                {$t('common.pointsShort', { points: entry.points })}
+                                            </p>
+                                            <p class="mt-1 text-xs text-text-subtle">
+                                                {$t('team.solves', { count: entry.solve_count })}
                                             </p>
                                         </div>
                                     </div>

@@ -1,5 +1,6 @@
 import { get } from 'svelte/store'
 import { authStore, clearAuth, setAuthTokens, setAuthUser } from './stores'
+import { t } from './i18n'
 import type {
     AuthResponse,
     AuthUser,
@@ -94,7 +95,7 @@ const buildHeaders = (withAuth: boolean, tokenOverride?: string) => {
 
 const refreshToken = async () => {
     const refreshTokenValue = get(authStore).refreshToken
-    if (!refreshTokenValue) throw new ApiError('missing refresh token', 401)
+    if (!refreshTokenValue) throw new ApiError(get(t)('errors.missingRefreshToken'), 401)
 
     const response = await fetch(`${API_BASE}/api/auth/refresh`, {
         method: 'POST',
@@ -110,7 +111,7 @@ const refreshToken = async () => {
         clearAuth()
 
         throw new ApiError(
-            data?.error ?? 'invalid credentials',
+            data?.error ?? get(t)('errors.invalidCredentials'),
             response.status,
             data?.details,
             extractRateLimit(response, data),
@@ -121,6 +122,20 @@ const refreshToken = async () => {
     setAuthTokens(data.access_token, data.refresh_token)
 
     return data.access_token as string
+}
+
+let refreshInFlight: Promise<string> | null = null
+
+const getFreshToken = async () => {
+    if (refreshInFlight) return refreshInFlight
+    refreshInFlight = (async () => {
+        try {
+            return await refreshToken()
+        } finally {
+            refreshInFlight = null
+        }
+    })()
+    return refreshInFlight
 }
 
 const request = async <T>(
@@ -154,7 +169,7 @@ const request = async <T>(
 
     if (response.status === 401 && auth && retryOnAuth) {
         try {
-            const newToken = await refreshToken()
+            const newToken = await getFreshToken()
             const retryHeaders = buildHeaders(true, newToken)
             if (body !== undefined) retryHeaders['Content-Type'] = 'application/json'
 
@@ -171,7 +186,7 @@ const request = async <T>(
 
             const retryData = await parseJson(retryResponse)
             throw new ApiError(
-                retryData?.error ?? 'request failed',
+                retryData?.error ?? get(t)('errors.requestFailed'),
                 retryResponse.status,
                 retryData?.details,
                 extractRateLimit(retryResponse, retryData),
@@ -179,14 +194,14 @@ const request = async <T>(
         } catch (error) {
             if (error instanceof ApiError) throw error
             clearAuth()
-            throw new ApiError('invalid credentials', 401)
+            throw new ApiError(get(t)('errors.invalidCredentials'), 401)
         }
     }
 
     const data = await parseJson(response)
 
     throw new ApiError(
-        data?.error ?? 'request failed',
+        data?.error ?? get(t)('errors.requestFailed'),
         response.status,
         data?.details,
         extractRateLimit(response, data),
@@ -326,6 +341,6 @@ export const uploadPresignedPost = async (upload: { url: string; fields: Record<
 
     const response = await fetch(upload.url, { method: 'POST', body: formData })
     if (!response.ok) {
-        throw new Error('file upload failed')
+        throw new Error(get(t)('errors.fileUploadFailed'))
     }
 }

@@ -1,12 +1,17 @@
 <script lang="ts">
-    import { onDestroy, onMount, tick } from 'svelte'
+    import { onDestroy, tick, untrack } from 'svelte'
     import { api } from '../lib/api'
     import { formatApiError, formatDateTime } from '../lib/utils'
-    import { buildChartModel, chartLayout, type ChartSubmissionPoint, type ChartModel } from '../routes/scoreboardChart'
-    import type { TeamTimelineResponse, TimelineSubmission, TimelineResponse } from '../lib/types'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
+    import {
+        buildChartModel,
+        chartLayout,
+        chartUserLimit,
+        type ChartSubmissionPoint,
+        type ChartModel,
+    } from '../routes/scoreboardChart'
+    import type { TimelineSubmission, TimelineResponse } from '../lib/types'
+    import { navigate } from '../lib/router'
+    import { t } from '../lib/i18n'
 
     interface Props {
         mode?: 'users' | 'teams'
@@ -22,7 +27,6 @@
     let { mode = 'users' }: Props = $props()
 
     let timeline: TimelineResponse | null = $state(null)
-    let rawTeamTimeline: TeamTimelineResponse | null = $state(null)
     let chartModel: ChartModel | null = $state(null)
     let hoveredUserId: number | null = $state(null)
     let tooltip: TooltipState | null = $state(null)
@@ -31,10 +35,9 @@
     let resizeObserver: ResizeObserver | null = null
     let tooltipBox: HTMLDivElement | null = $state(null)
 
-    const chartUserLimit = 10
-
     let loading = $state(true)
     let errorMessage = $state('')
+    let requestId = $state(0)
 
     const formatDateTimeLocal = formatDateTime
 
@@ -65,9 +68,13 @@
 
     const syncChartSize = () => {
         if (!chartContainer) return
-        chartWidth = Math.floor(chartContainer.clientWidth || chartLayout.width)
+        const nextWidth = Math.floor(chartContainer.clientWidth || chartLayout.width)
+        const widthChanged = nextWidth !== chartWidth
 
-        if (timeline) chartModel = buildChartModel(timeline, chartWidth)
+        if (widthChanged) {
+            chartWidth = nextWidth
+            if (timeline) chartModel = buildChartModel(timeline, nextWidth)
+        }
 
         if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
             resizeObserver = new ResizeObserver(syncChartSize)
@@ -75,15 +82,18 @@
         }
     }
 
-    const loadTimeline = async () => {
+    const loadTimeline = async (modeValue: 'users' | 'teams') => {
+        requestId += 1
+        const currentRequest = requestId
         loading = true
         errorMessage = ''
         chartModel = null
         tooltip = null
 
         try {
-            if (mode === 'teams') {
-                rawTeamTimeline = await api.timelineTeams()
+            if (modeValue === 'teams') {
+                const rawTeamTimeline = await api.timelineTeams()
+                if (currentRequest !== requestId) return
                 timeline = rawTeamTimeline
                     ? {
                           submissions: rawTeamTimeline.submissions.map((sub) => ({
@@ -97,21 +107,32 @@
                     : null
             } else {
                 timeline = await api.timeline()
-                rawTeamTimeline = null
+                if (currentRequest !== requestId) return
             }
             chartModel = timeline ? buildChartModel(timeline, chartWidth) : null
 
             await tick()
             syncChartSize()
         } catch (error) {
-            errorMessage = formatApiError(error).message
+            if (currentRequest === requestId) {
+                errorMessage = formatApiError(error).message
+            }
         } finally {
-            loading = false
+            if (currentRequest === requestId) {
+                loading = false
+            }
         }
     }
 
-    onMount(async () => {
-        await loadTimeline()
+    $effect(() => {
+        const selectedMode = mode
+        untrack(() => {
+            loadTimeline(selectedMode)
+        })
+    })
+
+    $effect(() => {
+        if (!chartContainer) return
         syncChartSize()
     })
 
@@ -121,30 +142,31 @@
     })
 </script>
 
-<div
-    class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
->
-    <h3 class="text-lg text-slate-900 dark:text-slate-100">Timeline</h3>
+<div class="min-w-0 rounded-2xl border border-border bg-surface p-4 sm:p-6">
+    <h3 class="text-lg text-text">{$t('timeline.title')}</h3>
     {#if loading}
-        <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">Calculating timeline...</p>
+        <p class="mt-4 text-sm text-text-muted">{$t('timeline.calculating')}</p>
     {:else if errorMessage}
-        <p class="mt-4 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
+        <p class="mt-4 text-sm text-danger">{errorMessage}</p>
     {:else if timeline}
-        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-500">
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
             <span>
-                Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)}
-                {mode === 'teams' ? 'teams' : 'users'}
+                {mode === 'teams'
+                    ? $t('timeline.topTeams', {
+                          count: Math.min(chartUserLimit, chartModel?.series?.length || 0),
+                      })
+                    : $t('timeline.topUsers', {
+                          count: Math.min(chartUserLimit, chartModel?.series?.length || 0),
+                      })}
             </span>
         </div>
         {#if chartModel}
-            <div
-                class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/70 dark:bg-slate-950/40"
-            >
+            <div class="mt-4 rounded-xl border border-border bg-surface-muted p-4">
                 <div
                     class="relative min-w-0 w-full overflow-hidden"
                     bind:this={chartContainer}
                     role="group"
-                    aria-label="score timeline chart"
+                    aria-label={$t('timeline.ariaLabel')}
                     onmouseleave={() => {
                         hoveredUserId = null
                         clearTooltip()
@@ -156,7 +178,7 @@
                                 class="block h-72 w-full"
                                 viewBox={`0 0 ${chartModel.width} ${chartModel.height}`}
                                 role="img"
-                                aria-label="score timeline chart"
+                                aria-label={$t('timeline.ariaLabel')}
                             >
                                 <rect
                                     x="0"
@@ -172,7 +194,7 @@
                                             x2={chartModel.width - chartModel.padding.right}
                                             y1={tick.y}
                                             y2={tick.y}
-                                            class="stroke-slate-300 dark:stroke-slate-800/60"
+                                            class="stroke-border"
                                             stroke-width="1"
                                         />
                                         <text
@@ -181,7 +203,7 @@
                                             text-anchor="end"
                                             fill="currentColor"
                                             style="font-size: 10px"
-                                            class="text-slate-500"
+                                            class="text-text-subtle"
                                         >
                                             {tick.value}
                                         </text>
@@ -194,7 +216,7 @@
                                             x2={tick.x}
                                             y1={chartModel.height - chartModel.padding.bottom}
                                             y2={chartModel.height - chartModel.padding.bottom + 6}
-                                            class="stroke-slate-300 dark:stroke-slate-800/70"
+                                            class="stroke-border"
                                             stroke-width="1"
                                         />
                                         <text
@@ -203,7 +225,7 @@
                                             text-anchor="middle"
                                             fill="currentColor"
                                             style="font-size: 10px"
-                                            class="text-slate-500"
+                                            class="text-text-subtle"
                                         >
                                             {tick.label}
                                         </text>
@@ -237,7 +259,7 @@
                                             fill={series.color}
                                             stroke="currentColor"
                                             stroke-width="1.4"
-                                            class="text-white dark:text-slate-950"
+                                            class="text-contrast-foreground"
                                             class:opacity-30={hoveredUserId && hoveredUserId !== series.user_id}
                                             role="presentation"
                                             aria-hidden="true"
@@ -259,36 +281,41 @@
                         </div>
                     </div>
                     <div
-                        class="pointer-events-none absolute z-10 w-60 max-w-[70vw] rounded-lg border border-slate-300 bg-white/95 p-3 text-xs text-slate-800 shadow-xl dark:border-slate-700/80 dark:bg-slate-950/90 dark:text-slate-200"
+                        class="pointer-events-none absolute z-10 w-60 max-w-[70vw] rounded-lg border border-border bg-surface/95 p-3 text-xs text-text shadow-xl"
                         bind:this={tooltipBox}
                         style={`left: ${tooltip?.left ?? 0}px; top: ${tooltip?.top ?? 0}px`}
                         class:hidden={!tooltip}
                     >
                         {#if tooltip}
-                            <p class="text-slate-700 dark:text-slate-300">
-                                {mode === 'teams' ? 'Team' : 'User'}: {tooltip.username}
+                            <p class="text-text">
+                                {mode === 'teams'
+                                    ? $t('timeline.tooltipTeam', { name: tooltip.username })
+                                    : $t('timeline.tooltipUser', { name: tooltip.username })}
                             </p>
-                            <p class="mt-1 text-sm text-slate-900 dark:text-slate-100">
+                            <p class="mt-1 text-sm text-text">
                                 {tooltip.submission.challenge_count > 1
-                                    ? `Solved ${tooltip.submission.challenge_count} challenges`
-                                    : 'Challenge solved'}
+                                    ? $t('timeline.tooltipSolvedMany', {
+                                          count: tooltip.submission.challenge_count,
+                                      })
+                                    : $t('timeline.tooltipSolvedOne')}
                             </p>
-                            <p class="mt-1 text-slate-600 dark:text-slate-400">
+                            <p class="mt-1 text-text-muted">
                                 {formatDateTimeLocal(tooltip.submission.timestamp)}
                             </p>
-                            <p class="mt-1 text-teal-600 dark:text-teal-200">+{tooltip.submission.points} pts</p>
+                            <p class="mt-1 text-accent">
+                                {$t('timeline.tooltipPoints', { points: tooltip.submission.points })}
+                            </p>
                         {/if}
                     </div>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
+                <div class="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
                     {#each chartModel.series as series}
                         {#if mode === 'teams'}
                             <button
                                 class="flex items-center gap-2"
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
-                                class:text-slate-900={hoveredUserId === series.user_id}
-                                class:dark:text-slate-100={hoveredUserId === series.user_id}
-                                aria-label={`${series.username} highlight`}
+                                class:text-text={hoveredUserId === series.user_id}
+                                aria-label={$t('timeline.highlight', { name: series.username })}
                                 onmouseenter={() => {
                                     hoveredUserId = series.user_id
                                 }}
@@ -303,10 +330,9 @@
                             <button
                                 class="flex items-center gap-2 transition"
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
-                                class:text-slate-900={hoveredUserId === series.user_id}
-                                class:dark:text-slate-100={hoveredUserId === series.user_id}
+                                class:text-text={hoveredUserId === series.user_id}
                                 tabindex="0"
-                                aria-label={`${series.username} highlight`}
+                                aria-label={$t('timeline.highlight', { name: series.username })}
                                 onmouseenter={() => {
                                     hoveredUserId = series.user_id
                                 }}
@@ -321,13 +347,13 @@
                         {/if}
                     {/each}
                 </div>
-                <div class="mt-2 flex justify-between text-xs text-slate-600 dark:text-slate-500">
+                <div class="mt-2 flex justify-between text-xs text-text-muted">
                     <span>{formatDateTimeLocal(chartModel.startLabel)}</span>
                     <span>{formatDateTimeLocal(chartModel.endLabel)}</span>
                 </div>
             </div>
         {:else}
-            <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">No timeline data available.</p>
+            <p class="mt-4 text-sm text-text-muted">{$t('timeline.noData')}</p>
         {/if}
     {/if}
 </div>

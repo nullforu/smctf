@@ -3,18 +3,10 @@
     import { api } from '../lib/api'
     import type { TeamSummary } from '../lib/types'
     import { formatApiError } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
-
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
+    import { navigate } from '../lib/router'
+    import { t } from '../lib/i18n'
 
     let teams: TeamSummary[] = $state([])
-    let filteredTeams: TeamSummary[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
     let searchQuery = $state('')
@@ -25,7 +17,6 @@
 
         try {
             teams = await api.teams()
-            filteredTeams = teams.sort((a, b) => a.id - b.id)
         } catch (error) {
             errorMessage = formatApiError(error).message
         } finally {
@@ -33,112 +24,116 @@
         }
     }
 
-    $effect(() => {
-        if (searchQuery.trim() === '') {
-            filteredTeams = teams
-        } else {
-            const query = searchQuery.toLowerCase()
-            filteredTeams = teams.filter(
-                (team) => team.name.toLowerCase().includes(query) || team.id.toString().includes(query),
-            )
-        }
-    })
+    const normalizedQuery = $derived(searchQuery.trim().toLowerCase())
+    const sortedTeams = $derived([...teams].sort((a, b) => a.id - b.id))
+    const filteredTeams = $derived(
+        normalizedQuery
+            ? sortedTeams.filter(
+                  (team) =>
+                      team.name.toLowerCase().includes(normalizedQuery) || team.id.toString().includes(normalizedQuery),
+              )
+            : sortedTeams,
+    )
 
     onMount(loadTeams)
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 </script>
 
 <section class="fade-in">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Teams</h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Browse teams and their stats.</p>
+            <h2 class="text-3xl text-text">{$t('teams.title')}</h2>
         </div>
     </div>
 
     <div class="mt-6">
         <input
             type="text"
-            placeholder="Search by team name or ID..."
+            placeholder={$t('teams.searchPlaceholder')}
             bind:value={searchQuery}
-            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-500 transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:placeholder-slate-400"
+            class="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder-text-subtle transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
     </div>
 
     {#if loading}
-        <p class="mt-6 text-sm text-slate-600 dark:text-slate-400">Loading...</p>
+        <p class="mt-6 text-sm text-text-muted">{$t('common.loading')}</p>
     {:else if errorMessage}
-        <p class="mt-6 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
+        <p class="mt-6 text-sm text-danger">{errorMessage}</p>
     {:else}
         <div class="mt-6">
-            <div
-                class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/40"
-            >
+            <div class="overflow-hidden rounded-2xl border border-border bg-surface">
                 <div class="overflow-x-auto">
                     <table class="w-full">
-                        <thead class="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
+                        <thead class="border-b border-border bg-surface-muted">
                             <tr>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    ID
+                                    {$t('common.id')}
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Team
+                                    {$t('common.team')}
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Members
+                                    {$t('common.members')}
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Total Score
+                                    {$t('common.totalScore')}
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Action
+                                    {$t('common.action')}
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                        <tbody class="divide-y divide-border">
                             {#each filteredTeams as team}
                                 <tr
-                                    class="transition hover:bg-slate-50 dark:hover:bg-slate-900/60 cursor-pointer"
+                                    class="transition hover:bg-surface-muted cursor-pointer"
                                     onclick={() => navigate(`/teams/${team.id}`)}
                                 >
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-text">
                                         {team.id}
                                     </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-text">
                                         {team.name}
                                     </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-text">
                                         {team.member_count}
                                     </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-teal-600 dark:text-teal-200">
-                                        {team.total_score} pts
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-accent">
+                                        {$t('common.pointsShort', { points: team.total_score })}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                         <button
-                                            class="text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
-                                            onclick={() => navigate(`/teams/${team.id}`)}
+                                            class="text-accent hover:text-accent-strong"
+                                            onclick={(event) => {
+                                                event.stopPropagation()
+                                                navigate(`/teams/${team.id}`)
+                                            }}
+                                            type="button"
                                         >
-                                            View
+                                            {$t('common.view')}
                                         </button>
                                     </td>
                                 </tr>
                             {/each}
                             {#if filteredTeams.length === 0}
                                 <tr>
-                                    <td
-                                        colspan="5"
-                                        class="px-6 py-8 text-center text-sm text-slate-600 dark:text-slate-400"
-                                    >
-                                        {searchQuery ? 'No results found.' : 'No teams found.'}
+                                    <td colspan="5" class="px-6 py-8 text-center text-sm text-text-muted">
+                                        {searchQuery ? $t('teams.noResults') : $t('teams.noTeams')}
                                     </td>
                                 </tr>
                             {/if}
@@ -148,10 +143,12 @@
             </div>
 
             {#if filteredTeams.length > 0}
-                <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
-                    {filteredTeams.length} team{filteredTeams.length !== 1 ? 's' : ''}
+                <p class="mt-4 text-sm text-text-muted">
+                    {filteredTeams.length === 1
+                        ? $t('teams.countSingular', { count: filteredTeams.length })
+                        : $t('teams.countPlural', { count: filteredTeams.length })}
                     {#if searchQuery}
-                        (out of {teams.length})
+                        {$t('common.outOf', { total: teams.length })}
                     {/if}
                 </p>
             {/if}

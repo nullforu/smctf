@@ -1,13 +1,16 @@
 <script lang="ts">
-    import { onMount } from 'svelte'
     import { get } from 'svelte/store'
     import { authStore, type AuthState } from '../lib/stores'
     import { api } from '../lib/api'
     import type { Stack, UserDetail, SolvedChallenge } from '../lib/types'
-    import { formatApiError, formatDateTime } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
+    import { formatApiError, formatDateTime, parseRouteId } from '../lib/utils'
+    import { navigate } from '../lib/router'
+    import ProfileHeader from '../components/user-profile/ProfileHeader.svelte'
+    import AccountCard from '../components/user-profile/AccountCard.svelte'
+    import ActiveStacksCard from '../components/user-profile/ActiveStacksCard.svelte'
+    import SolvedChallengesCard from '../components/user-profile/SolvedChallengesCard.svelte'
+    import StatisticsCard from '../components/user-profile/StatisticsCard.svelte'
+    import { t } from '../lib/i18n'
 
     interface Props {
         routeParams?: Record<string, string>
@@ -28,9 +31,11 @@
     let editingUsername = $state(false)
     let usernameInput = $state('')
     let savingUsername = $state(false)
+    let lastLoadedUserId = $state<number | null>(null)
+    let lastStacksLoadedForUserId = $state<number | null>(null)
 
     const formatDateTimeLocal = formatDateTime
-    const formatOptionalDateTime = (value?: string | null) => (value ? formatDateTime(value) : 'N/A')
+    const formatOptionalDateTime = (value?: string | null) => (value ? formatDateTime(value) : $t('common.na'))
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -39,11 +44,14 @@
         return unsubscribe
     })
 
-    const isOwnProfile = $derived(auth.user ? !routeParams.id || parseInt(routeParams.id) === auth.user.id : false)
+    const routeUserId = $derived(parseRouteId(routeParams.id))
+    const isOwnProfile = $derived(auth.user ? !routeUserId || routeUserId === auth.user.id : false)
     const showBackButton = $derived(!!routeParams.id)
     const activeStacks = $derived(
         stacks.filter((stack) => !['stopped', 'failed', 'node_deleted'].includes(stack.status)),
     )
+    const targetUserId = $derived(routeUserId ?? auth.user?.id ?? null)
+    const totalSolvedPoints = $derived(solved.reduce((sum, item) => sum + item.points, 0))
 
     const loadUserProfile = async (userId: number) => {
         loading = true
@@ -117,28 +125,24 @@
     })
 
     $effect(() => {
-        if (routeParams.id) {
-            loadUserProfile(parseInt(routeParams.id))
-        } else if (auth.user) {
-            loadUserProfile(auth.user.id)
-        }
+        if (targetUserId === null) return
+        if (lastLoadedUserId === targetUserId) return
+
+        lastLoadedUserId = targetUserId
+        loadUserProfile(targetUserId)
     })
 
     $effect(() => {
-        if (auth.user && isOwnProfile) {
-            loadStacks()
+        if (!isOwnProfile) {
+            lastStacksLoadedForUserId = null
+            return
         }
-    })
 
-    onMount(() => {
-        if (routeParams.id) {
-            loadUserProfile(parseInt(routeParams.id))
-        } else if (auth.user) {
-            loadUserProfile(auth.user.id)
-        }
-        if (auth.user && isOwnProfile) {
-            loadStacks()
-        }
+        if (!auth.user) return
+        if (lastStacksLoadedForUserId === auth.user.id) return
+
+        lastStacksLoadedForUserId = auth.user.id
+        loadStacks()
     })
 </script>
 
@@ -146,7 +150,7 @@
     {#if showBackButton}
         <div class="mb-6">
             <button
-                class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400"
+                class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent"
                 onclick={() => navigate('/users')}
             >
                 <svg
@@ -162,236 +166,57 @@
                 >
                     <path d="m15 18-6-6 6-6" />
                 </svg>
-                Back to Users
+                {$t('profile.backToUsers')}
             </button>
         </div>
     {/if}
 
     {#if !auth.user}
         <div>
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Profile</h2>
+            <h2 class="text-3xl text-text">{$t('profile.title')}</h2>
         </div>
-        <div
-            class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-800 dark:text-amber-100"
-        >
-            Please <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>login</a> to view your profile.
+        <div class="mt-6 rounded-2xl border border-warning/40 bg-warning/10 p-6 text-sm text-warning-strong">
+            {$t('profile.loginToViewPrefix')}
+            <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>{$t('auth.loginLink')}</a>
+            {$t('profile.loginToViewSuffix')}
         </div>
     {:else if loading}
-        <div class="rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800/70 dark:bg-slate-900/40">
-            <p class="text-center text-sm text-slate-600 dark:text-slate-400">Loading...</p>
+        <div class="rounded-2xl border border-border bg-surface p-8">
+            <p class="text-center text-sm text-text-muted">{$t('common.loading')}</p>
         </div>
     {:else if errorMessage}
-        <div class="rounded-2xl border border-rose-200 bg-rose-50 p-8 dark:border-rose-900/50 dark:bg-rose-950/20">
-            <p class="text-center text-sm text-rose-700 dark:text-rose-300">{errorMessage}</p>
+        <div class="rounded-2xl border border-danger/30 bg-danger/10 p-8">
+            <p class="text-center text-sm text-danger">{errorMessage}</p>
         </div>
     {:else if user}
         <div>
-            <div class="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                    <h2 class="text-3xl text-slate-900 dark:text-slate-100">{user.username}</h2>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">User ID: {user.id}</p>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                        Team: {user.team_name}
-                    </p>
-                </div>
-                <span
-                    class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium uppercase
-                    {user.role === 'admin'
-                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                        : 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'}"
-                >
-                    {user.role}
-                </span>
-            </div>
+            <ProfileHeader {user} />
 
             {#if isOwnProfile}
-                <div
-                    class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
-                >
-                    <h3 class="text-lg text-slate-900 dark:text-slate-100">Account</h3>
+                <AccountCard
+                    {user}
+                    authEmail={auth.user?.email}
+                    {savingUsername}
+                    onSave={saveUsername}
+                    bind:editingUsername
+                    bind:usernameInput
+                />
 
-                    <div class="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                        <div class="flex items-center justify-between gap-4">
-                            <span class="text-slate-600 dark:text-slate-400">Username</span>
-
-                            {#if editingUsername}
-                                <div class="flex items-center gap-2">
-                                    <input
-                                        class="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                        bind:value={usernameInput}
-                                        disabled={savingUsername}
-                                    />
-                                    <button
-                                        class="text-sm text-teal-600 hover:underline disabled:opacity-50"
-                                        disabled={savingUsername}
-                                        onclick={saveUsername}
-                                    >
-                                        Save
-                                    </button>
-                                    <button
-                                        class="text-sm text-slate-500 hover:underline"
-                                        onclick={() => {
-                                            editingUsername = false
-                                            usernameInput = user!.username
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            {:else}
-                                <div class="flex items-center gap-3">
-                                    <span>{user.username}</span>
-                                    <button
-                                        class="text-xs text-teal-600 hover:underline"
-                                        onclick={() => (editingUsername = true)}
-                                    >
-                                        Edit
-                                    </button>
-                                </div>
-                            {/if}
-                        </div>
-
-                        <div class="flex justify-between">
-                            <span class="text-slate-600 dark:text-slate-400">Email</span>
-                            <span>{auth.user?.email}</span>
-                        </div>
-
-                        <div class="flex justify-between">
-                            <span class="text-slate-600 dark:text-slate-400">Role</span>
-                            <span class="uppercase text-teal-600 dark:text-teal-200">{user.role}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
-                >
-                    <div class="flex flex-wrap items-center justify-between gap-4">
-                        <h3 class="text-lg text-slate-900 dark:text-slate-100">Active Stacks</h3>
-                        <button
-                            class="text-xs uppercase tracking-wide text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white disabled:opacity-60"
-                            onclick={loadStacks}
-                            disabled={stacksLoading}
-                        >
-                            {stacksLoading ? 'Loading...' : 'Refresh'}
-                        </button>
-                    </div>
-
-                    {#if stacksError}
-                        <p
-                            class="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-                        >
-                            {stacksError}
-                        </p>
-                    {:else if activeStacks.length === 0}
-                        <div
-                            class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-5 text-center dark:border-slate-800/70 dark:bg-slate-950/40"
-                        >
-                            <p class="text-sm text-slate-600 dark:text-slate-400">No active stacks.</p>
-                        </div>
-                    {:else}
-                        <div class="mt-4 space-y-3">
-                            {#each activeStacks as stack}
-                                <div
-                                    class="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800/70 dark:bg-slate-950/40"
-                                >
-                                    <div class="flex flex-wrap items-center justify-between gap-3">
-                                        <div>
-                                            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                                                Challenge #{stack.challenge_id}
-                                            </p>
-                                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                Status: {stack.status}
-                                            </p>
-                                        </div>
-                                        <div
-                                            class="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400"
-                                        >
-                                            <span>
-                                                {stack.node_public_ip && stack.node_port
-                                                    ? `${stack.node_public_ip}:${stack.node_port}`
-                                                    : 'Pending'}
-                                            </span>
-                                            <button
-                                                class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:border-rose-300 hover:text-rose-800 disabled:opacity-60 dark:border-rose-500/40 dark:text-rose-200 dark:hover:border-rose-400"
-                                                type="button"
-                                                onclick={() => deleteStack(stack.challenge_id)}
-                                                disabled={stackDeletingId === stack.challenge_id || stacksLoading}
-                                            >
-                                                {stackDeletingId === stack.challenge_id ? 'Deleting...' : 'Delete'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                                        TTL: {formatOptionalDateTime(stack.ttl_expires_at)}
-                                    </div>
-                                </div>
-                            {/each}
-                        </div>
-                    {/if}
-                </div>
+                <ActiveStacksCard
+                    {activeStacks}
+                    {stacksError}
+                    {stacksLoading}
+                    {stackDeletingId}
+                    onRefresh={loadStacks}
+                    onDelete={deleteStack}
+                    {formatOptionalDateTime}
+                />
             {/if}
 
-            <div
-                class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
-            >
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg text-slate-900 dark:text-slate-100">Solved Challenges</h3>
-                    <span class="text-sm text-slate-600 dark:text-slate-400">
-                        {solved.length}
-                        {solved.length === 1 ? 'problem' : 'problems'}
-                    </span>
-                </div>
-
-                <div class="mt-6 space-y-3">
-                    {#each solved as item}
-                        <div
-                            class="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800/70 dark:bg-slate-950/40"
-                        >
-                            <h4 class="text-base font-medium text-slate-900 dark:text-slate-100">
-                                {item.title}
-                                <span class="ml-2 text-xs text-teal-600">{item.points} pts</span>
-                            </h4>
-                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                                Solved at {formatDateTimeLocal(item.solved_at)}
-                            </p>
-                        </div>
-                    {/each}
-
-                    {#if solved.length === 0}
-                        <div
-                            class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-800/70 dark:bg-slate-950/40"
-                        >
-                            <p class="text-sm text-slate-600 dark:text-slate-400">No challenges solved yet.</p>
-                        </div>
-                    {/if}
-                </div>
-            </div>
+            <SolvedChallengesCard {solved} formatDateTime={formatDateTimeLocal} />
 
             {#if solved.length > 0}
-                <div
-                    class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
-                >
-                    <h3 class="text-lg text-slate-900 dark:text-slate-100">Statistics</h3>
-                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                        <div
-                            class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/70 dark:bg-slate-950/40"
-                        >
-                            <p class="text-xs text-slate-600 dark:text-slate-400">Total Points</p>
-                            <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-                                {solved.reduce((sum, s) => sum + s.points, 0)}
-                            </p>
-                        </div>
-                        <div
-                            class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/70 dark:bg-slate-950/40"
-                        >
-                            <p class="text-xs text-slate-600 dark:text-slate-400">Problems Solved</p>
-                            <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-                                {solved.length}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <StatisticsCard totalPoints={totalSolvedPoints} solvedCount={solved.length} />
             {/if}
         </div>
     {/if}

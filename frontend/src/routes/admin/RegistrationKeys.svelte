@@ -3,6 +3,9 @@
     import { formatApiError, formatDateTime as _formatDateTime, type FieldErrors } from '../../lib/utils'
     import type { RegistrationKey, TeamSummary } from '../../lib/types'
     import { onMount } from 'svelte'
+    import FormMessage from '../../components/FormMessage.svelte'
+    import { t } from '../../lib/i18n'
+    import { get } from 'svelte/store'
 
     const formatDateTime = _formatDateTime
 
@@ -63,7 +66,7 @@
 
         try {
             if (!selectedTeamId) {
-                createKeysFieldErrors = { team_id: 'required' }
+                createKeysFieldErrors = { team_id: get(t)('errors.required') }
                 createKeysLoading = false
                 return
             }
@@ -72,7 +75,7 @@
                 team_id: Number(selectedTeamId),
             }
             const created = await api.createRegistrationKeys(payload)
-            createKeysSuccessMessage = `${created.length} keys created`
+            createKeysSuccessMessage = get(t)('admin.keys.createdCount', { count: created.length })
             keyCount = 1
             await loadKeys()
         } catch (error) {
@@ -85,7 +88,7 @@
     }
 </script>
 
-<div class="rounded-3xl border border-slate-200 bg-white p-4 dark:border-slate-800/80 dark:bg-slate-900/40 md:p-8">
+<div class="rounded-3xl border border-border bg-surface p-4 md:p-8">
     <form
         class="space-y-4"
         onsubmit={(event) => {
@@ -95,27 +98,27 @@
     >
         <div class="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
             <div>
-                <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-key-count"
-                    >Count</label
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-key-count"
+                    >{$t('common.count')}</label
                 >
                 <input
                     id="admin-key-count"
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                    class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     type="number"
                     min="1"
                     bind:value={keyCount}
                 />
                 {#if createKeysFieldErrors.count}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">count: {createKeysFieldErrors.count}</p>
+                    <p class="mt-2 text-xs text-danger">{$t('common.count')}: {createKeysFieldErrors.count}</p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-key-team"
-                    >Team</label
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-key-team"
+                    >{$t('common.team')}</label
                 >
                 <select
                     id="admin-key-team"
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                    class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     bind:value={selectedTeamId}
                     disabled={teamsLoading}
                 >
@@ -124,85 +127,71 @@
                     {/each}
                 </select>
                 {#if createKeysFieldErrors.team_id}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                        team_id: {createKeysFieldErrors.team_id}
+                    <p class="mt-2 text-xs text-danger">
+                        {$t('common.team')}: {createKeysFieldErrors.team_id}
                     </p>
                 {/if}
                 {#if teamsErrorMessage}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                        {teamsErrorMessage}
-                    </p>
+                    <FormMessage variant="error" message={teamsErrorMessage} className="mt-2" />
                 {/if}
             </div>
             <div class="flex items-end">
                 <button
-                    class="w-full rounded-xl bg-teal-600 px-6 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
+                    class="w-full rounded-xl bg-accent px-6 py-3 text-sm text-contrast-foreground transition hover:bg-accent-strong disabled:opacity-60"
                     type="submit"
                     disabled={createKeysLoading}
                 >
-                    {createKeysLoading ? 'Creating...' : 'Create Keys'}
+                    {createKeysLoading ? $t('admin.keys.creating') : $t('admin.keys.createKeys')}
                 </button>
             </div>
         </div>
 
         {#if createKeysErrorMessage}
-            <p
-                class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-            >
-                {createKeysErrorMessage}
-            </p>
+            <FormMessage variant="error" message={createKeysErrorMessage} />
         {/if}
         {#if createKeysSuccessMessage}
-            <p
-                class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
-            >
-                {createKeysSuccessMessage}
-            </p>
+            <FormMessage variant="success" message={createKeysSuccessMessage} />
         {/if}
     </form>
 
     <div class="mt-8">
         <div class="flex items-center justify-between">
-            <h3 class="text-lg text-slate-900 dark:text-slate-100">Registration Keys</h3>
+            <h3 class="text-lg text-text">{$t('admin.keys.title')}</h3>
             <button
-                class="text-xs uppercase tracking-wide text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                class="text-xs uppercase tracking-wide text-text-subtle hover:text-text"
                 onclick={loadKeys}
                 disabled={keysLoading}
             >
-                {keysLoading ? 'Loading...' : 'Refresh'}
+                {keysLoading ? $t('common.loading') : $t('common.refresh')}
             </button>
         </div>
 
         {#if keysErrorMessage}
-            <p
-                class="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-            >
-                {keysErrorMessage}
-            </p>
+            <FormMessage variant="error" message={keysErrorMessage} className="mt-4" />
         {/if}
 
         {#if keysLoading}
-            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">Loading keys...</p>
+            <p class="mt-4 text-sm text-text-subtle">{$t('admin.keys.loadingKeys')}</p>
         {:else if registrationKeys.length === 0}
-            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">No keys created yet.</p>
+            <p class="mt-4 text-sm text-text-subtle">{$t('admin.keys.noKeys')}</p>
         {:else}
             <div class="mt-4 overflow-x-auto">
-                <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                    <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <table class="w-full text-left text-sm text-text">
+                    <thead class="text-xs uppercase tracking-wide text-text-subtle">
                         <tr>
-                            <th class="py-2 pr-4">Code</th>
-                            <th class="py-2 pr-4">Created by</th>
-                            <th class="py-2 pr-4">Team</th>
-                            <th class="py-2 pr-4">Created at</th>
-                            <th class="py-2 pr-4">Used by</th>
-                            <th class="py-2 pr-4">Used IP</th>
-                            <th class="py-2">Used at</th>
+                            <th class="py-2 pr-4">{$t('common.code')}</th>
+                            <th class="py-2 pr-4">{$t('common.createdBy')}</th>
+                            <th class="py-2 pr-4">{$t('common.team')}</th>
+                            <th class="py-2 pr-4">{$t('common.createdAt')}</th>
+                            <th class="py-2 pr-4">{$t('common.usedBy')}</th>
+                            <th class="py-2 pr-4">{$t('common.usedIp')}</th>
+                            <th class="py-2">{$t('common.usedAt')}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {#each registrationKeys as key}
-                            <tr class="border-t border-slate-200/70 dark:border-slate-800/70">
-                                <td class="py-3 pr-4 font-mono text-slate-900 dark:text-slate-100">
+                            <tr class="border-t border-border/70">
+                                <td class="py-3 pr-4 font-mono text-text">
                                     {key.code}
                                 </td>
                                 <td class="py-3 pr-4">{key.created_by_username}</td>

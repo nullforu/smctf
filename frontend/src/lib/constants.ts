@@ -1,0 +1,16 @@
+export const CHALLENGE_CATEGORIES = [
+    'Web',
+    'Web3',
+    'Pwnable',
+    'Reversing',
+    'Crypto',
+    'Forensics',
+    'Network',
+    'Cloud',
+    'Misc',
+    'Programming',
+    'Algorithms',
+    'Math',
+    'AI',
+    'Blockchain',
+] as const

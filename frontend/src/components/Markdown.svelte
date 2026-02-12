@@ -38,7 +38,7 @@
     }
 
     .markdown :global(a) {
-        @apply text-teal-600 hover:underline dark:text-teal-400;
+        @apply text-accent hover:underline;
     }
 
     .markdown :global(ul) {
@@ -54,11 +54,11 @@
     }
 
     .markdown :global(code) {
-        @apply rounded bg-slate-200 px-1.5 py-0.5 text-sm dark:bg-slate-800 sm:text-base;
+        @apply rounded bg-surface-subtle px-1.5 py-0.5 text-sm  sm:text-base;
     }
 
     .markdown :global(pre) {
-        @apply mb-3 overflow-x-auto rounded-lg bg-slate-200 p-3 text-sm dark:bg-slate-800 sm:mb-4 sm:p-4 sm:text-base;
+        @apply mb-3 overflow-x-auto rounded-lg bg-surface-subtle p-3 text-sm  sm:mb-4 sm:p-4 sm:text-base;
     }
 
     .markdown :global(pre code) {
@@ -66,7 +66,7 @@
     }
 
     .markdown :global(blockquote) {
-        @apply mb-4 border-l-4 border-slate-300 pl-4 italic dark:border-slate-700;
+        @apply mb-4 border-l-4 border-border pl-4 italic;
     }
 
     .markdown :global(strong) {

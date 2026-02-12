@@ -4,6 +4,7 @@
     import { authStore, themeStore, setAuthUser, clearAuth } from './lib/stores'
     import { api } from './lib/api'
     import { configStore, loadConfig } from './lib/config'
+    import { localeStore, t } from './lib/i18n'
     import _Header from './components/Header.svelte'
     import Home from './routes/Home.svelte'
     import Login from './routes/Login.svelte'
@@ -69,9 +70,18 @@
     })
 
     $effect(() => {
+        const unsubscribe = localeStore.subscribe((value) => {
+            if (typeof document !== 'undefined') {
+                document.documentElement.lang = value
+            }
+        })
+        return unsubscribe
+    })
+
+    $effect(() => {
         const unsubscribe = configStore.subscribe((value) => {
             if (typeof document !== 'undefined') {
-                document.title = value.title || 'SMCTF'
+                document.title = value.title || get(t)('app.title')
             }
         })
         return unsubscribe
@@ -147,17 +157,15 @@
 
     <main class="mx-auto w-full max-w-6xl px-6 py-10">
         {#if booting}
-            <div
-                class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400"
-            >
-                Checking session...
+            <div class="rounded-2xl border border-border bg-surface p-8 text-center text-text-muted">
+                {$t('app.checkingSession')}
             </div>
         {:else}
             <Component {routeParams} />
         {/if}
     </main>
 
-    <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-500 dark:border-slate-800/70">
-        <p>Copyright &copy; 2026 Semyeong Computer High School, All rights reserved.</p>
+    <footer class="border-t border-border py-6 text-center text-xs text-text-subtle">
+        <p>{$t('footer.copyright')}</p>
     </footer>
 </div>
