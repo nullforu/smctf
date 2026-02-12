@@ -56,6 +56,12 @@
     onMount(() => {
         void Promise.all([loadChallenges(), loadSolved()])
     })
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 </script>
 
 <section class="fade-in">

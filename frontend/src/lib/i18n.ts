@@ -1,24 +1,24 @@
 import { derived, get, writable } from 'svelte/store'
 import en from '../locales/en.json'
 import ko from '../locales/ko.json'
-import jp from '../locales/jp.json'
+import ja from '../locales/ja.json'
 
-export type Locale = 'en' | 'ko' | 'jp'
+export type Locale = 'en' | 'ko' | 'ja'
 
 const STORAGE_KEY = 'smctf.locale'
 
 const dictionaries: Record<Locale, Record<string, string>> = {
     en,
     ko,
-    jp,
+    ja,
 }
 
 const normalizeLocale = (value?: string | null): Locale => {
     switch (value) {
         case 'ko':
             return 'ko'
-        case 'jp':
-            return 'jp'
+        case 'ja':
+            return 'ja'
         case 'en':
         default:
             return 'en'
@@ -69,7 +69,7 @@ export const getLocaleTag = (locale: Locale) => {
     switch (locale) {
         case 'ko':
             return 'ko-KR'
-        case 'jp':
+        case 'ja':
             return 'ja-JP'
         case 'en':
         default:

@@ -4,6 +4,12 @@
     import { t } from '../lib/i18n'
 
     let viewMode = $state<'users' | 'teams'>('users')
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 </script>
 
 <section class="fade-in">

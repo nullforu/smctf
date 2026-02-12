@@ -38,6 +38,12 @@
     )
 
     onMount(loadUsers)
+
+    interface Props {
+        routeParams?: Record<string, string>
+    }
+
+    let { routeParams = {} }: Props = $props()
 </script>
 
 <section class="fade-in">

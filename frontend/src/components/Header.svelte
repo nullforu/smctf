@@ -212,7 +212,7 @@
                 >
                     <option value="en">{$t('header.languageEnglish')}</option>
                     <option value="ko">{$t('header.languageKorean')}</option>
-                    <option value="jp">{$t('header.languageJapanese')}</option>
+                    <option value="ja">{$t('header.languageJapanese')}</option>
                 </select>
             </div>
         </div>
@@ -337,7 +337,7 @@
                         >
                             <option value="en">{$t('header.languageEnglish')}</option>
                             <option value="ko">{$t('header.languageKorean')}</option>
-                            <option value="jp">{$t('header.languageJapanese')}</option>
+                            <option value="ja">{$t('header.languageJapanese')}</option>
                         </select>
                     </div>
                 </div>
