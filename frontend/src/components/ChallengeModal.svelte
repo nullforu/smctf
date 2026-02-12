@@ -137,12 +137,8 @@
         try {
             stackInfo = await api.createStack(challenge.id)
         } catch (error) {
-            if (error instanceof ApiError && error.status === 429) {
-                stackMessage = 'Too many stack requests. Please wait about 1 minute before trying again.'
-            } else {
-                const formatted = formatApiError(error)
-                stackMessage = formatted.message
-            }
+            const formatted = formatApiError(error)
+            stackMessage = formatted.message
         } finally {
             stackLoading = false
         }

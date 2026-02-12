@@ -9,7 +9,7 @@ module.exports = {
                 body: ['"IBM Plex Sans"', 'ui-sans-serif', 'system-ui'],
             },
             colors: {
-                background: 'rgb(var(--color-bg) / <alpha-value>)',
+                background: 'rgb(var(--app-bg) / <alpha-value>)',
                 surface: {
                     DEFAULT: 'rgb(var(--color-surface) / <alpha-value>)',
                     muted: 'rgb(var(--color-surface-muted) / <alpha-value>)',

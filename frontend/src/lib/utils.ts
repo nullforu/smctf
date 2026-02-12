@@ -11,8 +11,8 @@ export const formatApiError = (error: unknown) => {
             const resetSeconds = error.rateLimit?.reset_seconds
             const message =
                 typeof resetSeconds === 'number'
-                    ? `Too many flag submissions. Please try again in ${resetSeconds} seconds.`
-                    : 'Too many flag submissions. Please try again later.'
+                    ? `Too many requests. Please try again in ${resetSeconds} seconds.`
+                    : 'Too many requests. Please try again later.'
 
             return { message, fieldErrors }
         }
