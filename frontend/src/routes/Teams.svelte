@@ -40,8 +40,8 @@
 <section class="fade-in">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Teams</h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Browse teams and their stats.</p>
+            <h2 class="text-3xl text-text">Teams</h2>
+            <p class="mt-1 text-sm text-text-muted">Browse teams and their stats.</p>
         </div>
     </div>
 
@@ -50,71 +50,69 @@
             type="text"
             placeholder="Search by team name or ID..."
             bind:value={searchQuery}
-            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-500 transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:placeholder-slate-400"
+            class="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder-text-subtle transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
     </div>
 
     {#if loading}
-        <p class="mt-6 text-sm text-slate-600 dark:text-slate-400">Loading...</p>
+        <p class="mt-6 text-sm text-text-muted">Loading...</p>
     {:else if errorMessage}
-        <p class="mt-6 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
+        <p class="mt-6 text-sm text-danger">{errorMessage}</p>
     {:else}
         <div class="mt-6">
-            <div
-                class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/40"
-            >
+            <div class="overflow-hidden rounded-2xl border border-border bg-surface">
                 <div class="overflow-x-auto">
                     <table class="w-full">
-                        <thead class="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
+                        <thead class="border-b border-border bg-surface-muted">
                             <tr>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
                                     ID
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
                                     Team
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
                                     Members
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
                                     Total Score
                                 </th>
                                 <th
-                                    class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400"
+                                    class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
                                     Action
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                        <tbody class="divide-y divide-border">
                             {#each filteredTeams as team}
                                 <tr
-                                    class="transition hover:bg-slate-50 dark:hover:bg-slate-900/60 cursor-pointer"
+                                    class="transition hover:bg-surface-muted cursor-pointer"
                                     onclick={() => navigate(`/teams/${team.id}`)}
                                 >
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-text">
                                         {team.id}
                                     </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-text">
                                         {team.name}
                                     </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-text">
                                         {team.member_count}
                                     </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-teal-600 dark:text-teal-200">
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-accent">
                                         {team.total_score} pts
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                         <button
-                                            class="text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+                                            class="text-accent hover:text-accent-strong"
                                             onclick={(event) => {
                                                 event.stopPropagation()
                                                 navigate(`/teams/${team.id}`)
@@ -128,10 +126,7 @@
                             {/each}
                             {#if filteredTeams.length === 0}
                                 <tr>
-                                    <td
-                                        colspan="5"
-                                        class="px-6 py-8 text-center text-sm text-slate-600 dark:text-slate-400"
-                                    >
+                                    <td colspan="5" class="px-6 py-8 text-center text-sm text-text-muted">
                                         {searchQuery ? 'No results found.' : 'No teams found.'}
                                     </td>
                                 </tr>
@@ -142,7 +137,7 @@
             </div>
 
             {#if filteredTeams.length > 0}
-                <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
+                <p class="mt-4 text-sm text-text-muted">
                     {filteredTeams.length} team{filteredTeams.length !== 1 ? 's' : ''}
                     {#if searchQuery}
                         (out of {teams.length})

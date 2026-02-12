@@ -31,25 +31,21 @@
 
 <section class="fade-in">
     <div class="mb-4 md:mb-6">
-        <h2 class="text-2xl font-semibold text-slate-900 dark:text-slate-100 md:text-3xl">Admin</h2>
+        <h2 class="text-2xl font-semibold text-text md:text-3xl">Admin</h2>
     </div>
 
     {#if !auth.user}
-        <div
-            class="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-100 md:p-6"
-        >
+        <div class="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning-strong md:p-6">
             Admin functions require login.
         </div>
     {:else if auth.user.role !== 'admin'}
-        <div
-            class="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-200 md:p-6"
-        >
+        <div class="rounded-2xl border border-danger/40 bg-danger/10 p-4 text-sm text-danger md:p-6">
             Access denied. Admin account required.
         </div>
     {:else}
         <div class="mb-4 flex items-center gap-3">
             <select
-                class="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400 md:hidden"
+                class="flex-1 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none md:hidden"
                 bind:value={activeTab}
             >
                 {#each adminTabs as tab}
@@ -59,7 +55,7 @@
 
             {#if !showSidebar}
                 <select
-                    class="hidden flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400 md:block"
+                    class="hidden flex-1 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none md:block"
                     bind:value={activeTab}
                 >
                     {#each adminTabs as tab}
@@ -69,7 +65,7 @@
             {/if}
 
             <button
-                class="hidden text-sm text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white md:block"
+                class="hidden text-sm text-text hover:text-text md:block"
                 onclick={() => (showSidebar = !showSidebar)}
                 title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
             >
@@ -90,15 +86,13 @@
         <div class="flex flex-col gap-6 md:flex-row md:gap-8">
             {#if showSidebar}
                 <nav class="hidden md:block md:w-64 md:flex-shrink-0">
-                    <div
-                        class="rounded-2xl border border-slate-200 bg-white p-2 dark:border-slate-800/80 dark:bg-slate-900/40"
-                    >
+                    <div class="rounded-2xl border border-border bg-surface p-2">
                         {#each adminTabs as tab}
                             <button
                                 class={`flex w-full items-center rounded-lg px-4 py-2.5 text-left text-sm transition ${
                                     activeTab === tab.id
-                                        ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800/60 dark:text-slate-100'
-                                        : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/40'
+                                        ? 'bg-surface-subtle font-medium text-text  '
+                                        : 'text-text hover:bg-surface-muted  '
                                 }`}
                                 onclick={() => (activeTab = tab.id)}
                                 type="button"

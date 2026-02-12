@@ -204,12 +204,10 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onclick={handleBackdropClick}>
-    <div
-        class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800/80 dark:bg-slate-900/95"
-    >
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-overlay/50 p-4" onclick={handleBackdropClick}>
+    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface p-8">
         <button
-            class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            class="absolute right-2 top-2 text-text-subtle hover:text-text"
             onclick={onClose}
             aria-label="Close Modal"
         >
@@ -220,47 +218,39 @@
 
         <div class="flex items-start justify-between gap-4">
             <div>
-                <h2 class="text-2xl text-slate-900 dark:text-slate-100">{challenge.title}</h2>
+                <h2 class="text-2xl text-text">{challenge.title}</h2>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                    <span
-                        class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    <span class="rounded-full bg-surface-subtle px-3 py-1 text-xs font-medium text-text"
                         >{challenge.category}</span
                     >
-                    <span class="text-slate-600 dark:text-slate-400">{challenge.points} pts</span>
-                    <span class="text-slate-600 dark:text-slate-400">Solved {challenge.solve_count}</span>
+                    <span class="text-text-muted">{challenge.points} pts</span>
+                    <span class="text-text-muted">Solved {challenge.solve_count}</span>
                 </div>
             </div>
             {#if isSolved}
-                <span class="rounded-full bg-emerald-500/20 px-4 py-1.5 text-sm text-emerald-700 dark:text-emerald-200"
-                    >Solved</span
-                >
+                <span class="rounded-full bg-success/20 px-4 py-1.5 text-sm text-success">Solved</span>
             {:else if !challenge.is_active}
-                <span
-                    class="rounded-full bg-slate-400/10 px-4 py-1.5 text-sm text-slate-600 dark:bg-slate-500/10 dark:text-slate-300"
-                    >Inactive</span
-                >
+                <span class="rounded-full bg-surface/10 px-4 py-1.5 text-sm text-text-muted">Inactive</span>
             {/if}
         </div>
 
-        <div class="mt-6 text-slate-700 dark:text-slate-300">
+        <div class="mt-6 text-text">
             <p class="whitespace-pre-wrap">{challenge.description}</p>
         </div>
 
         {#if challenge.has_file}
             <div class="mt-6">
-                <div
-                    class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/50 dark:text-slate-200"
-                >
+                <div class="rounded-xl border border-border bg-surface-muted p-4 text-sm text-text">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p class="font-medium">Challenge File</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                            <p class="text-xs text-text-subtle">
                                 {challenge.file_name ?? 'challenge.zip'}
                             </p>
                         </div>
                         {#if auth.user}
                             <button
-                                class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+                                class="rounded-lg bg-contrast px-4 py-2 text-xs font-medium text-contrast-foreground transition hover:bg-contrast/80 disabled:opacity-60"
                                 type="button"
                                 onclick={downloadFile}
                                 disabled={downloadLoading}
@@ -270,12 +260,10 @@
                         {/if}
                     </div>
                     {#if !auth.user}
-                        <p class="mt-2 text-xs text-amber-700 dark:text-amber-200">
-                            Login required to download this file.
-                        </p>
+                        <p class="mt-2 text-xs text-warning">Login required to download this file.</p>
                     {/if}
                     {#if downloadMessage}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">{downloadMessage}</p>
+                        <p class="mt-2 text-xs text-danger">{downloadMessage}</p>
                     {/if}
                 </div>
             </div>
@@ -283,13 +271,11 @@
 
         <div class="mt-8 space-y-6">
             {#if challenge.stack_enabled}
-                <div
-                    class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/50 dark:text-slate-200"
-                >
+                <div class="rounded-xl border border-border bg-surface-muted p-4 text-sm text-text">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p class="font-medium">Stack Instance</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                            <p class="text-xs text-text-subtle">
                                 {stackPolling
                                     ? stackNextInterval === 60000
                                         ? 'Refreshing every 60s'
@@ -301,7 +287,7 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 {#if stackInfo}
                                     <button
-                                        class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-800 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                                        class="rounded-lg border border-border px-3 py-2 text-xs font-medium text-text transition hover:border-border hover:text-text disabled:opacity-60"
                                         type="button"
                                         onclick={loadStack}
                                         disabled={stackLoading}
@@ -309,7 +295,7 @@
                                         {stackLoading ? 'Refreshing...' : 'Refresh'}
                                     </button>
                                     <button
-                                        class="rounded-lg border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 transition hover:border-rose-300 hover:text-rose-800 disabled:opacity-60 dark:border-rose-500/40 dark:text-rose-200 dark:hover:border-rose-400"
+                                        class="rounded-lg border border-danger/30 px-3 py-2 text-xs font-medium text-danger transition hover:border-danger/50 hover:text-danger-strong disabled:opacity-60"
                                         type="button"
                                         onclick={deleteStack}
                                         disabled={stackLoading}
@@ -318,7 +304,7 @@
                                     </button>
                                 {:else}
                                     <button
-                                        class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+                                        class="rounded-lg bg-contrast px-3 py-2 text-xs font-medium text-contrast-foreground transition hover:bg-contrast/80 disabled:opacity-60"
                                         type="button"
                                         onclick={createStack}
                                         disabled={stackLoading || isSolved}
@@ -331,23 +317,21 @@
                     </div>
 
                     {#if !auth.user}
-                        <p class="mt-2 text-xs text-amber-700 dark:text-amber-200">
-                            Login required to manage stack instances.
-                        </p>
+                        <p class="mt-2 text-xs text-warning">Login required to manage stack instances.</p>
                     {:else if isSolved}
-                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        <p class="mt-2 text-xs text-text-subtle">
                             This challenge is already solved. New stacks cannot be created.
                         </p>
                     {:else if stackInfo}
-                        <div class="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-400">
+                        <div class="mt-3 grid gap-2 text-xs text-text-muted">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="font-medium text-slate-700 dark:text-slate-200">Status:</span>
-                                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] dark:bg-slate-800">
+                                <span class="font-medium text-text">Status:</span>
+                                <span class="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px]">
                                     {stackInfo.status}
                                 </span>
                             </div>
                             <div>
-                                <span class="font-medium text-slate-700 dark:text-slate-200">Endpoint:</span>
+                                <span class="font-medium text-text">Endpoint:</span>
                                 <span class="ml-2">
                                     {stackInfo.node_public_ip && stackInfo.node_port
                                         ? `${stackInfo.node_public_ip}:${stackInfo.node_port}`
@@ -355,37 +339,29 @@
                                 </span>
                             </div>
                             <div>
-                                <span class="font-medium text-slate-700 dark:text-slate-200">TTL:</span>
+                                <span class="font-medium text-text">TTL:</span>
                                 <span class="ml-2">{formatTimestamp(stackInfo.ttl_expires_at)}</span>
                             </div>
                         </div>
                     {:else}
-                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        <p class="mt-2 text-xs text-text-subtle">
                             No active stack. Create one to get your instance details.
                         </p>
                     {/if}
 
                     {#if stackMessage}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">{stackMessage}</p>
+                        <p class="mt-2 text-xs text-danger">{stackMessage}</p>
                     {/if}
                 </div>
             {/if}
             {#if !auth.user}
-                <div
-                    class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-100"
-                >
+                <div class="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning-strong">
                     Please <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>login</a> to submit flags.
                 </div>
             {:else if isSolved}
-                <div
-                    class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-200"
-                >
-                    Correct!
-                </div>
+                <div class="rounded-xl border border-success/40 bg-success/10 p-4 text-sm text-success">Correct!</div>
             {:else if !challenge.is_active}
-                <div
-                    class="rounded-xl border border-slate-400/40 bg-slate-400/10 p-4 text-sm text-slate-600 dark:text-slate-400"
-                >
+                <div class="rounded-xl border border-border/40 bg-surface/10 p-4 text-sm text-text-muted">
                     This challenge is inactive.
                 </div>
             {:else}
@@ -397,10 +373,10 @@
                     }}
                 >
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+                        <label class="block text-sm font-medium text-text mb-2"
                             >Enter Flag
                             <input
-                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                                class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                                 type="text"
                                 bind:value={flagInput}
                                 placeholder="flag&#123;...&#125;"
@@ -409,7 +385,7 @@
                         </label>
                     </div>
                     <button
-                        class="w-full rounded-xl bg-teal-600 py-3 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
+                        class="w-full rounded-xl bg-accent py-3 text-sm font-medium text-contrast-foreground transition hover:bg-accent-strong disabled:opacity-60"
                         type="submit"
                         disabled={submission.status === 'loading'}
                     >
@@ -419,8 +395,8 @@
                         <div
                             class={`rounded-xl border px-4 py-3 text-sm ${
                                 isSuccessful
-                                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
-                                    : 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-200'
+                                    ? 'border-success/40 bg-success/10 text-success '
+                                    : 'border-danger/40 bg-danger/10 text-danger '
                             }`}
                         >
                             {submission.message}

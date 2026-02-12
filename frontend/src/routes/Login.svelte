@@ -40,13 +40,11 @@
 
 <section class="fade-in">
     <div class="grid gap-8 md:grid-cols-[1.1fr_1fr]">
-        <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Login</h2>
+        <div class="rounded-3xl border border-border bg-surface p-10">
+            <h2 class="text-3xl text-text">Login</h2>
 
             {#if auth.user}
-                <div
-                    class="mt-6 rounded-xl border border-teal-500/40 bg-teal-500/10 p-4 text-sm text-teal-700 dark:text-teal-200"
-                >
+                <div class="mt-6 rounded-xl border border-accent/40 bg-accent/10 p-4 text-sm text-accent-strong">
                     Already logged in as {auth.user.username}.
                     <a class="ml-2 underline" href="/challenges" onclick={(e) => navigate('/challenges', e)}
                         >Go to Challenges</a
@@ -62,36 +60,31 @@
                 }}
             >
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="login-email"
-                        >Email</label
-                    >
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="login-email">Email</label>
                     <input
                         id="login-email"
-                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                        class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="email"
                         bind:value={email}
                         placeholder="user@example.com"
                         autocomplete="email"
                     />
                     {#if fieldErrors.email}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">email: {fieldErrors.email}</p>
+                        <p class="mt-2 text-xs text-danger">email: {fieldErrors.email}</p>
                     {/if}
                 </div>
                 <div>
-                    <label
-                        class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                        for="login-password">Password</label
-                    >
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="login-password">Password</label>
                     <input
                         id="login-password"
-                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                        class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="password"
                         bind:value={password}
                         placeholder="••••••••"
                         autocomplete="current-password"
                     />
                     {#if fieldErrors.password}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">password: {fieldErrors.password}</p>
+                        <p class="mt-2 text-xs text-danger">password: {fieldErrors.password}</p>
                     {/if}
                 </div>
 
@@ -100,7 +93,7 @@
                 {/if}
 
                 <button
-                    class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
+                    class="w-full rounded-xl bg-accent py-3 text-sm text-contrast-foreground transition hover:bg-accent-strong disabled:opacity-60"
                     type="submit"
                     disabled={loading}
                 >
@@ -109,12 +102,12 @@
             </form>
         </div>
 
-        <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
-            <h3 class="text-lg text-slate-900 dark:text-slate-100">Need Help?</h3>
-            <ul class="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-400">
+        <div class="rounded-3xl border border-border bg-surface p-10">
+            <h3 class="text-lg text-text">Need Help?</h3>
+            <ul class="mt-4 space-y-3 text-sm text-text">
                 <li>
                     Don't have an account? <a
-                        class="text-teal-600 underline dark:text-teal-200"
+                        class="text-accent underline"
                         href="/register"
                         onclick={(e) => navigate('/register', e)}>Sign up</a
                     >.

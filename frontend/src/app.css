@@ -3,23 +3,138 @@
 @tailwind utilities;
 
 :root {
-    color-scheme: light dark;
+    color-scheme: light;
+
+    --color-bg: 245 247 249;
+    --color-surface: 255 255 255;
+    --color-surface-muted: 242 244 247;
+    --color-surface-subtle: 235 238 242;
+
+    --color-border: 216 221 228;
+
+    --color-text: 26 32 44;
+    --color-text-muted: 78 88 105;
+    --color-text-subtle: 110 120 135;
+    --color-text-inverse: 255 255 255;
+
+    --color-accent: 14 139 126;
+    --color-accent-strong: 11 112 102;
+    --color-accent-foreground: 255 255 255;
+
+    --color-secondary: 92 99 110;
+    --color-secondary-foreground: 255 255 255;
+
+    --color-danger: 200 45 65;
+    --color-danger-strong: 165 35 52;
+    --color-danger-foreground: 255 255 255;
+
+    --color-warning: 210 135 30;
+    --color-warning-strong: 170 100 20;
+    --color-warning-foreground: 255 255 255;
+
+    --color-success: 30 150 95;
+    --color-success-strong: 20 115 75;
+    --color-success-foreground: 255 255 255;
+
+    --color-info: 45 120 190;
+
+    --color-ring: 14 139 126;
+
+    --color-overlay: 0 0 0;
+
+    --color-contrast: 26 32 44;
+    --color-contrast-foreground: 255 255 255;
+
+    --app-bg: 245 247 249;
+    --app-radial: 30 38 50;
+
+    --selection-bg: 40 120 110;
+    --selection-text: 240 244 248;
+
+    --chart-1: 70 160 210;
+    --chart-2: 60 180 140;
+    --chart-3: 220 170 80;
+    --chart-4: 210 120 160;
+    --chart-5: 150 130 210;
+    --chart-6: 230 140 70;
+    --chart-7: 70 190 200;
+    --chart-8: 220 100 100;
+    --chart-9: 90 200 130;
+    --chart-10: 110 150 220;
+}
+
+.dark {
+    color-scheme: dark;
+
+    --color-bg: 17 19 22;
+    --color-surface: 24 27 31;
+    --color-surface-muted: 14 16 19;
+    --color-surface-subtle: 30 34 39;
+
+    --color-border: 58 64 72;
+
+    --color-text: 210 214 220;
+    --color-text-muted: 150 158 170;
+    --color-text-subtle: 110 118 130;
+    --color-text-inverse: 24 27 31;
+
+    --color-accent: 38 180 150;
+    --color-accent-strong: 60 210 175;
+    --color-accent-foreground: 15 18 21;
+
+    --color-secondary: 130 138 150;
+    --color-secondary-foreground: 24 27 31;
+
+    --color-danger: 225 85 100;
+    --color-danger-strong: 245 120 135;
+    --color-danger-foreground: 24 27 31;
+
+    --color-warning: 220 170 80;
+    --color-warning-strong: 240 200 120;
+    --color-warning-foreground: 24 27 31;
+
+    --color-success: 60 200 140;
+    --color-success-strong: 120 230 180;
+    --color-success-foreground: 24 27 31;
+
+    --color-info: 100 160 210;
+
+    --color-ring: 38 180 150;
+
+    --color-overlay: 0 0 0;
+
+    --color-contrast: 210 214 220;
+    --color-contrast-foreground: 24 27 31;
+
+    --app-bg: 17 19 22;
+    --app-radial: 40 45 50;
+
+    --selection-text: 210 214 220;
+
+    --chart-1: 80 150 200;
+    --chart-2: 70 190 150;
+    --chart-3: 210 160 90;
+    --chart-4: 190 110 150;
+    --chart-5: 150 140 210;
+    --chart-6: 220 140 80;
+    --chart-7: 80 170 190;
+    --chart-8: 210 110 110;
+    --chart-9: 90 190 140;
+    --chart-10: 110 150 210;
 }
 
 /* Light mode (default) */
 body {
     font-family: 'IBM Plex Sans', ui-sans-serif, system-ui;
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    background: rgb(var(--app-bg));
     min-height: 100vh;
-    color: #1e293b;
+    color: rgb(var(--color-text));
 }
 
 /* Dark mode */
 .dark body {
-    background:
-        radial-gradient(circle at top, rgba(24, 34, 48, 0.6), transparent 55%),
-        linear-gradient(180deg, #0b1016 0%, #0b1016 60%, #0f1724 100%);
-    color: #e2e8f0;
+    background: rgb(var(--app-bg));
+    color: rgb(var(--color-text));
 }
 
 h1,
@@ -30,11 +145,11 @@ h4 {
 }
 
 ::selection {
-    background: rgba(14, 116, 144, 0.4);
+    background: rgb(var(--selection-bg) / 0.4);
 }
 
 .dark ::selection {
-    color: #e2e8f0;
+    color: rgb(var(--selection-text));
 }
 
 /* .fade-in {
@@ -50,12 +165,4 @@ h4 {
         opacity: 1;
         transform: translateY(0);
     }
-} */
-
-/* 
-.grid-overlay {
-    background-image:
-        linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
-    background-size: 44px 44px;
 } */

@@ -57,10 +57,10 @@
     }
 </script>
 
-<header class="border-b border-slate-200 bg-white/70 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/70">
+<header class="border-b border-border bg-surface/70 backdrop-blur">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <button
-            class="flex items-center justify-center p-2 text-slate-700 dark:text-slate-200 lg:hidden"
+            class="flex items-center justify-center p-2 text-text lg:hidden"
             onclick={toggleMobileMenu}
             aria-label="Toggle mobile menu"
         >
@@ -89,53 +89,30 @@
         <a href="/" class="hidden items-center gap-4 lg:flex" onclick={(event) => navigate('/', event)}>
             <img src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`} alt="Logo" class="h-6 w-auto" />
             <div>
-                <p class="font-display text-xl text-slate-900 dark:text-slate-100">{appConfig.header_title}</p>
-                <p class="text-xs text-slate-600 dark:text-slate-400">{appConfig.header_description}</p>
+                <p class="font-display text-xl text-text">{appConfig.header_title}</p>
+                <p class="text-xs text-text-muted">{appConfig.header_description}</p>
             </div>
         </a>
 
-        <nav class="hidden items-center gap-6 text-sm text-slate-700 dark:text-slate-300 lg:flex">
-            <a
-                class="hover:text-teal-600 dark:hover:text-teal-200"
-                href="/challenges"
-                onclick={(e) => navigate('/challenges', e)}>Challenges</a
-            >
-            <a
-                class="hover:text-teal-600 dark:hover:text-teal-200"
-                href="/scoreboard"
-                onclick={(e) => navigate('/scoreboard', e)}>Scoreboard</a
-            >
-            <a class="hover:text-teal-600 dark:hover:text-teal-200" href="/teams" onclick={(e) => navigate('/teams', e)}
-                >Teams</a
-            >
-            <a class="hover:text-teal-600 dark:hover:text-teal-200" href="/users" onclick={(e) => navigate('/users', e)}
-                >Users</a
-            >
-            <a
-                class="hover:text-teal-600 dark:hover:text-teal-200"
-                href="/profile"
-                onclick={(e) => navigate('/profile', e)}>Profile</a
-            >
+        <nav class="hidden items-center gap-6 text-sm text-text lg:flex">
+            <a class="hover:text-accent" href="/challenges" onclick={(e) => navigate('/challenges', e)}>Challenges</a>
+            <a class="hover:text-accent" href="/scoreboard" onclick={(e) => navigate('/scoreboard', e)}>Scoreboard</a>
+            <a class="hover:text-accent" href="/teams" onclick={(e) => navigate('/teams', e)}>Teams</a>
+            <a class="hover:text-accent" href="/users" onclick={(e) => navigate('/users', e)}>Users</a>
+            <a class="hover:text-accent" href="/profile" onclick={(e) => navigate('/profile', e)}>Profile</a>
             {#if user?.role === 'admin'}
-                <a
-                    class="hover:text-teal-600 dark:hover:text-teal-200"
-                    href="/admin"
-                    onclick={(e) => navigate('/admin', e)}>Admin</a
-                >
+                <a class="hover:text-accent" href="/admin" onclick={(e) => navigate('/admin', e)}>Admin</a>
             {/if}
         </nav>
 
         <div class="hidden items-center gap-3 lg:flex">
             {#if user}
-                <button
-                    class="hidden text-right text-xs text-slate-600 dark:text-slate-400 sm:block"
-                    onclick={() => navigate('/profile')}
-                >
-                    <p class="text-slate-900 dark:text-slate-200">{user.username}</p>
+                <button class="hidden text-right text-xs text-text-muted sm:block" onclick={() => navigate('/profile')}>
+                    <p class="text-text">{user.username}</p>
                     <p>{user.email}</p>
                 </button>
                 <button
-                    class="rounded-full border border-slate-300 px-4 py-2 text-xs text-slate-800 transition hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 dark:hover:text-teal-200"
+                    class="rounded-full border border-border px-4 py-2 text-xs text-text transition hover:border-accent hover:text-accent"
                     onclick={() => logout()}
                 >
                     Logout
@@ -143,17 +120,17 @@
             {:else}
                 <a
                     href="/login"
-                    class="rounded-full border border-slate-300 px-4 py-2 text-xs text-slate-800 transition hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 dark:hover:text-teal-200"
+                    class="rounded-full border border-border px-4 py-2 text-xs text-text transition hover:border-accent hover:text-accent"
                     onclick={(e) => navigate('/login', e)}>Login</a
                 >
                 <a
                     href="/register"
-                    class="rounded-full bg-teal-500/20 px-4 py-2 text-xs text-teal-700 transition hover:bg-teal-500/30 dark:text-teal-200"
+                    class="rounded-full bg-accent/20 px-4 py-2 text-xs text-accent-strong transition hover:bg-accent/30"
                     onclick={(e) => navigate('/register', e)}>Register</a
                 >
             {/if}
             <button
-                class="rounded-full border border-slate-300 p-2 text-slate-700 transition hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 dark:hover:text-teal-200"
+                class="rounded-full border border-border p-2 text-text transition hover:border-accent hover:text-accent"
                 onclick={toggleThemeCallback}
                 aria-label="Toggle theme"
                 title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
@@ -202,27 +179,27 @@
 
 {#if mobileMenuOpen}
     <button
-        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+        class="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm lg:hidden"
         onclick={closeMobileMenu}
         aria-label="Close menu"
     ></button>
 {/if}
 
 <aside
-    class="fixed left-0 top-0 z-50 h-full w-72 transform border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-950 lg:hidden {mobileMenuOpen
+    class="fixed left-0 top-0 z-50 h-full w-72 transform border-r border-border bg-surface shadow-xl transition-transform duration-300 lg:hidden {mobileMenuOpen
         ? 'translate-x-0'
         : '-translate-x-full'}"
 >
     <div class="flex h-full flex-col">
-        <div class="flex items-center justify-between border-b border-slate-200 p-6 dark:border-slate-800">
+        <div class="flex items-center justify-between border-b border-border p-6">
             <div class="flex items-center gap-3">
                 <img src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`} alt="Logo" class="h-4 w-auto" />
                 <div>
-                    <p class="font-display text-xl text-slate-900 dark:text-slate-100">{appConfig.header_title}</p>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{appConfig.header_description}</p>
+                    <p class="font-display text-xl text-text">{appConfig.header_title}</p>
+                    <p class="text-xs text-text-muted">{appConfig.header_description}</p>
                 </div>
             </div>
-            <button class="p-1 text-slate-700 dark:text-slate-200" onclick={closeMobileMenu} aria-label="Close menu">
+            <button class="p-1 text-text" onclick={closeMobileMenu} aria-label="Close menu">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
@@ -242,14 +219,11 @@
 
         <div class="flex flex-1 flex-col overflow-y-auto p-6">
             {#if user}
-                <div
-                    class="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
-                >
-                    <p class="text-sm font-medium text-slate-900 dark:text-slate-200">{user.username}</p>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{user.email}</p>
+                <div class="mb-6 rounded-lg border border-border bg-surface-muted p-4">
+                    <p class="text-sm font-medium text-text">{user.username}</p>
+                    <p class="text-xs text-text-muted">{user.email}</p>
                     {#if user.role === 'admin'}
-                        <span
-                            class="mt-2 inline-block rounded-full bg-teal-500/20 px-2 py-0.5 text-xs text-teal-700 dark:text-teal-300"
+                        <span class="mt-2 inline-block rounded-full bg-accent/20 px-2 py-0.5 text-xs text-accent-strong"
                             >Admin</span
                         >
                     {/if}
@@ -259,35 +233,35 @@
             <nav class="flex flex-col gap-2">
                 <a
                     href="/challenges"
-                    class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                    class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/challenges', e)}
                 >
                     Challenges
                 </a>
                 <a
                     href="/scoreboard"
-                    class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                    class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/scoreboard', e)}
                 >
                     Scoreboard
                 </a>
                 <a
                     href="/users"
-                    class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                    class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/users', e)}
                 >
                     Users
                 </a>
                 <a
                     href="/teams"
-                    class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                    class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/teams', e)}
                 >
                     Teams
                 </a>
                 <a
                     href="/profile"
-                    class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                    class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/profile', e)}
                 >
                     Profile
@@ -295,7 +269,7 @@
                 {#if user?.role === 'admin'}
                     <a
                         href="/admin"
-                        class="rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-teal-500/10 hover:text-teal-600 dark:text-slate-300 dark:hover:text-teal-200"
+                        class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                         onclick={(e) => navigateAndClose('/admin', e)}
                     >
                         Admin
@@ -303,11 +277,11 @@
                 {/if}
             </nav>
 
-            <div class="my-6 border-t border-slate-200 dark:border-slate-800"></div>
+            <div class="my-6 border-t border-border"></div>
 
             <div class="flex flex-col gap-3">
                 <button
-                    class="flex items-center justify-between rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-700 transition hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 dark:hover:text-teal-200"
+                    class="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm text-text transition hover:border-accent hover:text-accent"
                     onclick={toggleThemeCallback}
                 >
                     <span>{theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}</span>
@@ -352,7 +326,7 @@
 
                 {#if user}
                     <button
-                        class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 transition hover:border-red-400 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-950"
+                        class="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger transition hover:border-danger/50 hover:bg-danger/20"
                         onclick={() => logout(closeMobileMenu)}
                     >
                         Logout
@@ -360,14 +334,14 @@
                 {:else}
                     <a
                         href="/login"
-                        class="rounded-lg border border-slate-300 px-4 py-3 text-center text-sm text-slate-800 transition hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 dark:hover:text-teal-200"
+                        class="rounded-lg border border-border px-4 py-3 text-center text-sm text-text transition hover:border-accent hover:text-accent"
                         onclick={(e) => navigateAndClose('/login', e)}
                     >
                         Login
                     </a>
                     <a
                         href="/register"
-                        class="rounded-lg bg-teal-500/20 px-4 py-3 text-center text-sm text-teal-700 transition hover:bg-teal-500/30 dark:text-teal-200"
+                        class="rounded-lg bg-accent/20 px-4 py-3 text-center text-sm text-accent-strong transition hover:bg-accent/30"
                         onclick={(e) => navigateAndClose('/register', e)}
                     >
                         Register

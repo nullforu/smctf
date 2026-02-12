@@ -12,10 +12,10 @@
     let { variant = 'error', message, className = '', children }: Props & { children?: Snippet } = $props()
 
     const styles: Record<Variant, string> = {
-        error: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-200',
-        success: 'border-teal-500/40 bg-teal-500/10 text-teal-700 dark:text-teal-200',
-        warning: 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-100',
-        info: 'border-slate-300/70 bg-slate-100/60 text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300',
+        error: 'border-danger/40 bg-danger/10 text-danger ',
+        success: 'border-accent/40 bg-accent/10 text-accent-strong ',
+        warning: 'border-warning/40 bg-warning/10 text-warning-strong ',
+        info: 'border-border/70 bg-surface/60 text-text   ',
     }
 </script>
 

@@ -39,8 +39,8 @@
 
 <section class="fade-in">
     <div class="grid gap-8 md:grid-cols-[1.1fr_1fr]">
-        <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Register</h2>
+        <div class="rounded-3xl border border-border bg-surface p-10">
+            <h2 class="text-3xl text-text">Register</h2>
 
             <form
                 class="mt-6 space-y-5"
@@ -50,63 +50,58 @@
                 }}
             >
                 <div>
-                    <label
-                        class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                        for="register-email">Email</label
-                    >
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="register-email">Email</label>
                     <input
                         id="register-email"
-                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                        class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="email"
                         bind:value={email}
                         placeholder="user@example.com"
                         autocomplete="email"
                     />
                     {#if fieldErrors.email}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">email: {fieldErrors.email}</p>
+                        <p class="mt-2 text-xs text-danger">email: {fieldErrors.email}</p>
                     {/if}
                 </div>
                 <div>
-                    <label
-                        class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                        for="register-username">Username</label
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="register-username"
+                        >Username</label
                     >
                     <input
                         id="register-username"
-                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                        class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="text"
                         bind:value={username}
                         placeholder="user1"
                         autocomplete="username"
                     />
                     {#if fieldErrors.username}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">username: {fieldErrors.username}</p>
+                        <p class="mt-2 text-xs text-danger">username: {fieldErrors.username}</p>
                     {/if}
                 </div>
                 <div>
-                    <label
-                        class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                        for="register-password">Password</label
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="register-password"
+                        >Password</label
                     >
                     <input
                         id="register-password"
-                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                        class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="password"
                         bind:value={password}
                         placeholder="••••••••"
                         autocomplete="new-password"
                     />
                     {#if fieldErrors.password}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">password: {fieldErrors.password}</p>
+                        <p class="mt-2 text-xs text-danger">password: {fieldErrors.password}</p>
                     {/if}
                 </div>
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="register-key"
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="register-key"
                         >Registration Key</label
                     >
                     <input
                         id="register-key"
-                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                        class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="text"
                         inputmode="numeric"
                         pattern="[0-9]*"
@@ -116,7 +111,7 @@
                         autocomplete="one-time-code"
                     />
                     {#if fieldErrors.registration_key}
-                        <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                        <p class="mt-2 text-xs text-danger">
                             registration_key: {fieldErrors.registration_key}
                         </p>
                     {/if}
@@ -136,7 +131,7 @@
                 {/if}
 
                 <button
-                    class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
+                    class="w-full rounded-xl bg-accent py-3 text-sm text-contrast-foreground transition hover:bg-accent-strong disabled:opacity-60"
                     type="submit"
                     disabled={loading}
                 >
@@ -145,9 +140,9 @@
             </form>
         </div>
 
-        <div class="rounded-3xl border border-slate-200 bg-white p-10 dark:border-slate-800/80 dark:bg-slate-900/40">
-            <h3 class="text-lg text-slate-900 dark:text-slate-100">Notice</h3>
-            <ul class="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-400">
+        <div class="rounded-3xl border border-border bg-surface p-10">
+            <h3 class="text-lg text-text">Notice</h3>
+            <ul class="mt-4 space-y-3 text-sm text-text">
                 <li>Please read and follow the competition rules.</li>
                 <li>Participants may be restricted or disqualified if rules are violated.</li>
             </ul>

@@ -149,7 +149,7 @@
     {#if showBackButton}
         <div class="mb-6">
             <button
-                class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400"
+                class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent"
                 onclick={() => navigate('/users')}
             >
                 <svg
@@ -172,20 +172,18 @@
 
     {#if !auth.user}
         <div>
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Profile</h2>
+            <h2 class="text-3xl text-text">Profile</h2>
         </div>
-        <div
-            class="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-800 dark:text-amber-100"
-        >
+        <div class="mt-6 rounded-2xl border border-warning/40 bg-warning/10 p-6 text-sm text-warning-strong">
             Please <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>login</a> to view your profile.
         </div>
     {:else if loading}
-        <div class="rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800/70 dark:bg-slate-900/40">
-            <p class="text-center text-sm text-slate-600 dark:text-slate-400">Loading...</p>
+        <div class="rounded-2xl border border-border bg-surface p-8">
+            <p class="text-center text-sm text-text-muted">Loading...</p>
         </div>
     {:else if errorMessage}
-        <div class="rounded-2xl border border-rose-200 bg-rose-50 p-8 dark:border-rose-900/50 dark:bg-rose-950/20">
-            <p class="text-center text-sm text-rose-700 dark:text-rose-300">{errorMessage}</p>
+        <div class="rounded-2xl border border-danger/30 bg-danger/10 p-8">
+            <p class="text-center text-sm text-danger">{errorMessage}</p>
         </div>
     {:else if user}
         <div>

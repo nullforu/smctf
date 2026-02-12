@@ -60,26 +60,20 @@
 <section class="fade-in">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h2 class="text-3xl text-slate-900 dark:text-slate-100">Challenges</h2>
+            <h2 class="text-3xl text-text">Challenges</h2>
         </div>
-        <div
-            class="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-300"
-        >
+        <div class="rounded-full border border-border bg-surface px-4 py-2 text-xs text-text">
             Solved {solvedCount} / {activeChallenges.length}
             {inactiveChallenges.length > 0 ? `(${inactiveChallenges.length} inactive)` : ''}
         </div>
     </div>
 
     {#if loading}
-        <div
-            class="mt-6 rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400"
-        >
+        <div class="mt-6 rounded-2xl border border-border bg-surface p-8 text-center text-text-muted">
             Loading challenges...
         </div>
     {:else if errorMessage}
-        <div
-            class="mt-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-700 dark:text-rose-200"
-        >
+        <div class="mt-6 rounded-2xl border border-danger/40 bg-danger/10 p-6 text-sm text-danger">
             {errorMessage}
         </div>
     {:else}

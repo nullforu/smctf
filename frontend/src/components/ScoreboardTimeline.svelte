@@ -141,25 +141,21 @@
     })
 </script>
 
-<div
-    class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800/80 dark:bg-slate-900/40"
->
-    <h3 class="text-lg text-slate-900 dark:text-slate-100">Timeline</h3>
+<div class="min-w-0 rounded-2xl border border-border bg-surface p-4 sm:p-6">
+    <h3 class="text-lg text-text">Timeline</h3>
     {#if loading}
-        <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">Calculating timeline...</p>
+        <p class="mt-4 text-sm text-text-muted">Calculating timeline...</p>
     {:else if errorMessage}
-        <p class="mt-4 text-sm text-rose-700 dark:text-rose-200">{errorMessage}</p>
+        <p class="mt-4 text-sm text-danger">{errorMessage}</p>
     {:else if timeline}
-        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-500">
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
             <span>
                 Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)}
                 {mode === 'teams' ? 'teams' : 'users'}
             </span>
         </div>
         {#if chartModel}
-            <div
-                class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/70 dark:bg-slate-950/40"
-            >
+            <div class="mt-4 rounded-xl border border-border bg-surface-muted p-4">
                 <div
                     class="relative min-w-0 w-full overflow-hidden"
                     bind:this={chartContainer}
@@ -192,7 +188,7 @@
                                             x2={chartModel.width - chartModel.padding.right}
                                             y1={tick.y}
                                             y2={tick.y}
-                                            class="stroke-slate-300 dark:stroke-slate-800/60"
+                                            class="stroke-border"
                                             stroke-width="1"
                                         />
                                         <text
@@ -201,7 +197,7 @@
                                             text-anchor="end"
                                             fill="currentColor"
                                             style="font-size: 10px"
-                                            class="text-slate-500"
+                                            class="text-text-subtle"
                                         >
                                             {tick.value}
                                         </text>
@@ -214,7 +210,7 @@
                                             x2={tick.x}
                                             y1={chartModel.height - chartModel.padding.bottom}
                                             y2={chartModel.height - chartModel.padding.bottom + 6}
-                                            class="stroke-slate-300 dark:stroke-slate-800/70"
+                                            class="stroke-border"
                                             stroke-width="1"
                                         />
                                         <text
@@ -223,7 +219,7 @@
                                             text-anchor="middle"
                                             fill="currentColor"
                                             style="font-size: 10px"
-                                            class="text-slate-500"
+                                            class="text-text-subtle"
                                         >
                                             {tick.label}
                                         </text>
@@ -257,7 +253,7 @@
                                             fill={series.color}
                                             stroke="currentColor"
                                             stroke-width="1.4"
-                                            class="text-white dark:text-slate-950"
+                                            class="text-contrast-foreground"
                                             class:opacity-30={hoveredUserId && hoveredUserId !== series.user_id}
                                             role="presentation"
                                             aria-hidden="true"
@@ -279,35 +275,34 @@
                         </div>
                     </div>
                     <div
-                        class="pointer-events-none absolute z-10 w-60 max-w-[70vw] rounded-lg border border-slate-300 bg-white/95 p-3 text-xs text-slate-800 shadow-xl dark:border-slate-700/80 dark:bg-slate-950/90 dark:text-slate-200"
+                        class="pointer-events-none absolute z-10 w-60 max-w-[70vw] rounded-lg border border-border bg-surface/95 p-3 text-xs text-text shadow-xl"
                         bind:this={tooltipBox}
                         style={`left: ${tooltip?.left ?? 0}px; top: ${tooltip?.top ?? 0}px`}
                         class:hidden={!tooltip}
                     >
                         {#if tooltip}
-                            <p class="text-slate-700 dark:text-slate-300">
+                            <p class="text-text">
                                 {mode === 'teams' ? 'Team' : 'User'}: {tooltip.username}
                             </p>
-                            <p class="mt-1 text-sm text-slate-900 dark:text-slate-100">
+                            <p class="mt-1 text-sm text-text">
                                 {tooltip.submission.challenge_count > 1
                                     ? `Solved ${tooltip.submission.challenge_count} challenges`
                                     : 'Challenge solved'}
                             </p>
-                            <p class="mt-1 text-slate-600 dark:text-slate-400">
+                            <p class="mt-1 text-text-muted">
                                 {formatDateTimeLocal(tooltip.submission.timestamp)}
                             </p>
-                            <p class="mt-1 text-teal-600 dark:text-teal-200">+{tooltip.submission.points} pts</p>
+                            <p class="mt-1 text-accent">+{tooltip.submission.points} pts</p>
                         {/if}
                     </div>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
+                <div class="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
                     {#each chartModel.series as series}
                         {#if mode === 'teams'}
                             <button
                                 class="flex items-center gap-2"
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
-                                class:text-slate-900={hoveredUserId === series.user_id}
-                                class:dark:text-slate-100={hoveredUserId === series.user_id}
+                                class:text-text={hoveredUserId === series.user_id}
                                 aria-label={`${series.username} highlight`}
                                 onmouseenter={() => {
                                     hoveredUserId = series.user_id
@@ -323,8 +318,7 @@
                             <button
                                 class="flex items-center gap-2 transition"
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
-                                class:text-slate-900={hoveredUserId === series.user_id}
-                                class:dark:text-slate-100={hoveredUserId === series.user_id}
+                                class:text-text={hoveredUserId === series.user_id}
                                 tabindex="0"
                                 aria-label={`${series.username} highlight`}
                                 onmouseenter={() => {
@@ -341,13 +335,13 @@
                         {/if}
                     {/each}
                 </div>
-                <div class="mt-2 flex justify-between text-xs text-slate-600 dark:text-slate-500">
+                <div class="mt-2 flex justify-between text-xs text-text-muted">
                     <span>{formatDateTimeLocal(chartModel.startLabel)}</span>
                     <span>{formatDateTimeLocal(chartModel.endLabel)}</span>
                 </div>
             </div>
         {:else}
-            <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">No timeline data available.</p>
+            <p class="mt-4 text-sm text-text-muted">No timeline data available.</p>
         {/if}
     {/if}
 </div>

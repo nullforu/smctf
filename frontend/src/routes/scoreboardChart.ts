@@ -51,16 +51,16 @@ export interface ChartModel {
 }
 
 export const chartPalette = [
-    '#38bdf8',
-    '#34d399',
-    '#fbbf24',
-    '#f472b6',
-    '#a78bfa',
-    '#f97316',
-    '#22d3ee',
-    '#f87171',
-    '#4ade80',
-    '#60a5fa',
+    'rgb(var(--chart-1))',
+    'rgb(var(--chart-2))',
+    'rgb(var(--chart-3))',
+    'rgb(var(--chart-4))',
+    'rgb(var(--chart-5))',
+    'rgb(var(--chart-6))',
+    'rgb(var(--chart-7))',
+    'rgb(var(--chart-8))',
+    'rgb(var(--chart-9))',
+    'rgb(var(--chart-10))',
 ]
 
 export const chartUserLimit = 10

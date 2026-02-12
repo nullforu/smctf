@@ -147,9 +147,7 @@
 
     <main class="mx-auto w-full max-w-6xl px-6 py-10">
         {#if booting}
-            <div
-                class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400"
-            >
+            <div class="rounded-2xl border border-border bg-surface p-8 text-center text-text-muted">
                 Checking session...
             </div>
         {:else}
@@ -157,7 +155,7 @@
         {/if}
     </main>
 
-    <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-500 dark:border-slate-800/70">
+    <footer class="border-t border-border py-6 text-center text-xs text-text-subtle">
         <p>Copyright &copy; 2026 Semyeong Computer High School, All rights reserved.</p>
     </footer>
 </div>

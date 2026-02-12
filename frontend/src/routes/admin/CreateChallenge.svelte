@@ -87,7 +87,7 @@
     }
 </script>
 
-<div class="rounded-3xl border border-slate-200 bg-white p-4 dark:border-slate-800/80 dark:bg-slate-900/40 md:p-8">
+<div class="rounded-3xl border border-border bg-surface p-4 md:p-8">
     <form
         class="space-y-5"
         onsubmit={(event) => {
@@ -96,43 +96,37 @@
         }}
     >
         <div>
-            <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-title"
-                >Title</label
-            >
+            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-title">Title</label>
             <input
                 id="admin-title"
-                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                 type="text"
                 bind:value={title}
             />
             {#if fieldErrors.title}
-                <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">title: {fieldErrors.title}</p>
+                <p class="mt-2 text-xs text-danger">title: {fieldErrors.title}</p>
             {/if}
         </div>
         <div>
-            <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-description"
-                >Description</label
-            >
+            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-description">Description</label>
             <textarea
                 id="admin-description"
-                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                 rows="5"
                 bind:value={description}
             ></textarea>
             {#if fieldErrors.description}
-                <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                <p class="mt-2 text-xs text-danger">
                     description: {fieldErrors.description}
                 </p>
             {/if}
         </div>
         <div class="grid gap-4 md:grid-cols-3">
             <div>
-                <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-category"
-                    >Category</label
-                >
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-category">Category</label>
                 <select
                     id="admin-category"
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                    class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     bind:value={category}
                 >
                     {#each CHALLENGE_CATEGORIES as option}
@@ -140,69 +134,63 @@
                     {/each}
                 </select>
                 {#if fieldErrors.category}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                    <p class="mt-2 text-xs text-danger">
                         category: {fieldErrors.category}
                     </p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-points"
-                    >Points</label
-                >
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-points">Points</label>
                 <input
                     id="admin-points"
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                    class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     type="number"
                     min="1"
                     bind:value={points}
                 />
                 {#if fieldErrors.points}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                    <p class="mt-2 text-xs text-danger">
                         points: {fieldErrors.points}
                     </p>
                 {/if}
             </div>
             <div>
-                <label
-                    class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                    for="admin-minimum-points">Minimum</label
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-minimum-points">Minimum</label
                 >
                 <input
                     id="admin-minimum-points"
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                    class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     type="number"
                     min="0"
                     bind:value={minimumPoints}
                 />
                 {#if fieldErrors.minimum_points}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                    <p class="mt-2 text-xs text-danger">
                         minimum_points: {fieldErrors.minimum_points}
                     </p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-flag"
-                    >Flag</label
-                >
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-flag">Flag</label>
                 <input
                     id="admin-flag"
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                    class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     type="text"
                     bind:value={flag}
                 />
                 {#if fieldErrors.flag}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                    <p class="mt-2 text-xs text-danger">
                         flag: {fieldErrors.flag}
                     </p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400" for="admin-file"
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-file"
                     >Challenge File (.zip)</label
                 >
                 <input
                     id="admin-file"
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                    class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     type="file"
                     accept=".zip"
                     oninput={(event) => {
@@ -212,63 +200,51 @@
                     }}
                 />
                 {#if challengeFileError}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">{challengeFileError}</p>
+                    <p class="mt-2 text-xs text-danger">{challengeFileError}</p>
                 {/if}
             </div>
         </div>
-        <label class="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
-            <input
-                type="checkbox"
-                bind:checked={isActive}
-                class="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
-            />
+        <label class="flex items-center gap-3 text-sm text-text">
+            <input type="checkbox" bind:checked={isActive} class="h-4 w-4 rounded border-border" />
             Create as active
         </label>
-        <div
-            class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800/80 dark:bg-slate-950/40"
-        >
-            <label class="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
-                <input
-                    type="checkbox"
-                    bind:checked={stackEnabled}
-                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
-                />
+        <div class="rounded-2xl border border-border bg-surface/60 p-4">
+            <label class="flex items-center gap-3 text-sm text-text">
+                <input type="checkbox" bind:checked={stackEnabled} class="h-4 w-4 rounded border-border" />
                 Provide stack (container instance)
             </label>
             {#if stackEnabled}
                 <div class="mt-4 grid gap-4">
                     <div>
-                        <label
-                            class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                            for="admin-stack-target-port">Target Port</label
+                        <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-stack-target-port"
+                            >Target Port</label
                         >
                         <input
                             id="admin-stack-target-port"
-                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                            class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                             type="number"
                             min="1"
                             max="65535"
                             bind:value={stackTargetPort}
                         />
                         {#if fieldErrors.stack_target_port}
-                            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                            <p class="mt-2 text-xs text-danger">
                                 stack_target_port: {fieldErrors.stack_target_port}
                             </p>
                         {/if}
                     </div>
                     <div>
-                        <label
-                            class="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400"
-                            for="admin-stack-pod-spec">Pod Spec (YAML)</label
+                        <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-stack-pod-spec"
+                            >Pod Spec (YAML)</label
                         >
                         <textarea
                             id="admin-stack-pod-spec"
-                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-mono text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
+                            class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 font-mono text-xs text-text focus:border-accent focus:outline-none"
                             rows="7"
                             bind:value={stackPodSpec}
                         ></textarea>
                         {#if fieldErrors.stack_pod_spec}
-                            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
+                            <p class="mt-2 text-xs text-danger">
                                 stack_pod_spec: {fieldErrors.stack_pod_spec}
                             </p>
                         {/if}
@@ -285,7 +261,7 @@
         {/if}
 
         <button
-            class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
+            class="w-full rounded-xl bg-accent py-3 text-sm text-contrast-foreground transition hover:bg-accent-strong disabled:opacity-60"
             type="submit"
             disabled={loading || challengeFileUploading}
         >
