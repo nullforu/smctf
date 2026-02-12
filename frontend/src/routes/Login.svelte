@@ -5,6 +5,7 @@
     import { formatApiError, type FieldErrors } from '../lib/utils'
     import { navigate } from '../lib/router'
     import FormMessage from '../components/FormMessage.svelte'
+    import { t } from '../lib/i18n'
 
     let email = $state('')
     let password = $state('')
@@ -41,13 +42,13 @@
 <section class="fade-in">
     <div class="grid gap-8 md:grid-cols-[1.1fr_1fr]">
         <div class="rounded-3xl border border-border bg-surface p-10">
-            <h2 class="text-3xl text-text">Login</h2>
+            <h2 class="text-3xl text-text">{$t('auth.login')}</h2>
 
             {#if auth.user}
                 <div class="mt-6 rounded-xl border border-accent/40 bg-accent/10 p-4 text-sm text-accent-strong">
-                    Already logged in as {auth.user.username}.
+                    {$t('auth.alreadyLoggedIn', { username: auth.user.username })}
                     <a class="ml-2 underline" href="/challenges" onclick={(e) => navigate('/challenges', e)}
-                        >Go to Challenges</a
+                        >{$t('auth.goToChallenges')}</a
                     >
                 </div>
             {/if}
@@ -60,31 +61,35 @@
                 }}
             >
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-text-muted" for="login-email">Email</label>
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="login-email"
+                        >{$t('auth.emailLabel')}</label
+                    >
                     <input
                         id="login-email"
                         class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="email"
                         bind:value={email}
-                        placeholder="user@example.com"
+                        placeholder={$t('auth.emailPlaceholder')}
                         autocomplete="email"
                     />
                     {#if fieldErrors.email}
-                        <p class="mt-2 text-xs text-danger">email: {fieldErrors.email}</p>
+                        <p class="mt-2 text-xs text-danger">{$t('auth.emailLabel')}: {fieldErrors.email}</p>
                     {/if}
                 </div>
                 <div>
-                    <label class="text-xs uppercase tracking-wide text-text-muted" for="login-password">Password</label>
+                    <label class="text-xs uppercase tracking-wide text-text-muted" for="login-password"
+                        >{$t('auth.passwordLabel')}</label
+                    >
                     <input
                         id="login-password"
                         class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                         type="password"
                         bind:value={password}
-                        placeholder="••••••••"
+                        placeholder={$t('auth.passwordPlaceholder')}
                         autocomplete="current-password"
                     />
                     {#if fieldErrors.password}
-                        <p class="mt-2 text-xs text-danger">password: {fieldErrors.password}</p>
+                        <p class="mt-2 text-xs text-danger">{$t('auth.passwordLabel')}: {fieldErrors.password}</p>
                     {/if}
                 </div>
 
@@ -97,19 +102,18 @@
                     type="submit"
                     disabled={loading}
                 >
-                    {loading ? 'Logging in...' : 'Login'}
+                    {loading ? $t('auth.loggingIn') : $t('auth.login')}
                 </button>
             </form>
         </div>
 
         <div class="rounded-3xl border border-border bg-surface p-10">
-            <h3 class="text-lg text-text">Need Help?</h3>
+            <h3 class="text-lg text-text">{$t('auth.needHelp')}</h3>
             <ul class="mt-4 space-y-3 text-sm text-text">
                 <li>
-                    Don't have an account? <a
-                        class="text-accent underline"
-                        href="/register"
-                        onclick={(e) => navigate('/register', e)}>Sign up</a
+                    {$t('auth.noAccount')}
+                    <a class="text-accent underline" href="/register" onclick={(e) => navigate('/register', e)}
+                        >{$t('auth.signUpLink')}</a
                     >.
                 </li>
             </ul>

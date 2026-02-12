@@ -11,6 +11,7 @@
     } from '../routes/scoreboardChart'
     import type { TimelineSubmission, TimelineResponse } from '../lib/types'
     import { navigate } from '../lib/router'
+    import { t } from '../lib/i18n'
 
     interface Props {
         mode?: 'users' | 'teams'
@@ -142,16 +143,21 @@
 </script>
 
 <div class="min-w-0 rounded-2xl border border-border bg-surface p-4 sm:p-6">
-    <h3 class="text-lg text-text">Timeline</h3>
+    <h3 class="text-lg text-text">{$t('timeline.title')}</h3>
     {#if loading}
-        <p class="mt-4 text-sm text-text-muted">Calculating timeline...</p>
+        <p class="mt-4 text-sm text-text-muted">{$t('timeline.calculating')}</p>
     {:else if errorMessage}
         <p class="mt-4 text-sm text-danger">{errorMessage}</p>
     {:else if timeline}
         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
             <span>
-                Top {Math.min(chartUserLimit, chartModel?.series?.length || 0)}
-                {mode === 'teams' ? 'teams' : 'users'}
+                {mode === 'teams'
+                    ? $t('timeline.topTeams', {
+                          count: Math.min(chartUserLimit, chartModel?.series?.length || 0),
+                      })
+                    : $t('timeline.topUsers', {
+                          count: Math.min(chartUserLimit, chartModel?.series?.length || 0),
+                      })}
             </span>
         </div>
         {#if chartModel}
@@ -160,7 +166,7 @@
                     class="relative min-w-0 w-full overflow-hidden"
                     bind:this={chartContainer}
                     role="group"
-                    aria-label="score timeline chart"
+                    aria-label={$t('timeline.ariaLabel')}
                     onmouseleave={() => {
                         hoveredUserId = null
                         clearTooltip()
@@ -172,7 +178,7 @@
                                 class="block h-72 w-full"
                                 viewBox={`0 0 ${chartModel.width} ${chartModel.height}`}
                                 role="img"
-                                aria-label="score timeline chart"
+                                aria-label={$t('timeline.ariaLabel')}
                             >
                                 <rect
                                     x="0"
@@ -282,17 +288,23 @@
                     >
                         {#if tooltip}
                             <p class="text-text">
-                                {mode === 'teams' ? 'Team' : 'User'}: {tooltip.username}
+                                {mode === 'teams'
+                                    ? $t('timeline.tooltipTeam', { name: tooltip.username })
+                                    : $t('timeline.tooltipUser', { name: tooltip.username })}
                             </p>
                             <p class="mt-1 text-sm text-text">
                                 {tooltip.submission.challenge_count > 1
-                                    ? `Solved ${tooltip.submission.challenge_count} challenges`
-                                    : 'Challenge solved'}
+                                    ? $t('timeline.tooltipSolvedMany', {
+                                          count: tooltip.submission.challenge_count,
+                                      })
+                                    : $t('timeline.tooltipSolvedOne')}
                             </p>
                             <p class="mt-1 text-text-muted">
                                 {formatDateTimeLocal(tooltip.submission.timestamp)}
                             </p>
-                            <p class="mt-1 text-accent">+{tooltip.submission.points} pts</p>
+                            <p class="mt-1 text-accent">
+                                {$t('timeline.tooltipPoints', { points: tooltip.submission.points })}
+                            </p>
                         {/if}
                     </div>
                 </div>
@@ -303,7 +315,7 @@
                                 class="flex items-center gap-2"
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
                                 class:text-text={hoveredUserId === series.user_id}
-                                aria-label={`${series.username} highlight`}
+                                aria-label={$t('timeline.highlight', { name: series.username })}
                                 onmouseenter={() => {
                                     hoveredUserId = series.user_id
                                 }}
@@ -320,7 +332,7 @@
                                 class:opacity-40={hoveredUserId && hoveredUserId !== series.user_id}
                                 class:text-text={hoveredUserId === series.user_id}
                                 tabindex="0"
-                                aria-label={`${series.username} highlight`}
+                                aria-label={$t('timeline.highlight', { name: series.username })}
                                 onmouseenter={() => {
                                     hoveredUserId = series.user_id
                                 }}
@@ -341,7 +353,7 @@
                 </div>
             </div>
         {:else}
-            <p class="mt-4 text-sm text-text-muted">No timeline data available.</p>
+            <p class="mt-4 text-sm text-text-muted">{$t('timeline.noData')}</p>
         {/if}
     {/if}
 </div>

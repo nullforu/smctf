@@ -5,6 +5,7 @@
     import { navigate } from '../lib/router'
     import type { AuthUser } from '../lib/types'
     import { get } from 'svelte/store'
+    import { localeStore, setLocale, t, type Locale } from '../lib/i18n'
 
     const toggleThemeValueCallback = toggleThemeValue
     const toggleThemeCallback = toggleTheme
@@ -18,6 +19,7 @@
     let theme = $state(get(themeStore))
     let appConfig = $state(get(configStore))
     let mobileMenuOpen = $state(false)
+    let locale = $state<Locale>(get(localeStore))
 
     $effect(() => {
         const unsubscribe = themeStore.subscribe((value) => {
@@ -33,6 +35,13 @@
         return unsubscribe
     })
 
+    $effect(() => {
+        const unsubscribe = localeStore.subscribe((value) => {
+            locale = value
+        })
+        return unsubscribe
+    })
+
     function toggleMobileMenu() {
         mobileMenuOpen = !mobileMenuOpen
     }
@@ -44,6 +53,11 @@
     function navigateAndClose(path: string, event: Event) {
         navigate(path, event)
         closeMobileMenu()
+    }
+
+    const handleLocaleChange = (event: Event) => {
+        const target = event.currentTarget as HTMLSelectElement
+        setLocale(target.value as Locale)
     }
 
     const logout = async (after?: () => void) => {
@@ -62,7 +76,7 @@
         <button
             class="flex items-center justify-center p-2 text-text lg:hidden"
             onclick={toggleMobileMenu}
-            aria-label="Toggle mobile menu"
+            aria-label={$t('header.toggleMobileMenu')}
         >
             <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -87,7 +101,11 @@
         </button>
 
         <a href="/" class="hidden items-center gap-4 lg:flex" onclick={(event) => navigate('/', event)}>
-            <img src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`} alt="Logo" class="h-6 w-auto" />
+            <img
+                src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`}
+                alt={$t('header.logoAlt')}
+                class="h-6 w-auto"
+            />
             <div>
                 <p class="font-display text-xl text-text">{appConfig.header_title}</p>
                 <p class="text-xs text-text-muted">{appConfig.header_description}</p>
@@ -95,13 +113,25 @@
         </a>
 
         <nav class="hidden items-center gap-6 text-sm text-text lg:flex">
-            <a class="hover:text-accent" href="/challenges" onclick={(e) => navigate('/challenges', e)}>Challenges</a>
-            <a class="hover:text-accent" href="/scoreboard" onclick={(e) => navigate('/scoreboard', e)}>Scoreboard</a>
-            <a class="hover:text-accent" href="/teams" onclick={(e) => navigate('/teams', e)}>Teams</a>
-            <a class="hover:text-accent" href="/users" onclick={(e) => navigate('/users', e)}>Users</a>
-            <a class="hover:text-accent" href="/profile" onclick={(e) => navigate('/profile', e)}>Profile</a>
+            <a class="hover:text-accent" href="/challenges" onclick={(e) => navigate('/challenges', e)}>
+                {$t('nav.challenges')}
+            </a>
+            <a class="hover:text-accent" href="/scoreboard" onclick={(e) => navigate('/scoreboard', e)}>
+                {$t('nav.scoreboard')}
+            </a>
+            <a class="hover:text-accent" href="/teams" onclick={(e) => navigate('/teams', e)}>
+                {$t('nav.teams')}
+            </a>
+            <a class="hover:text-accent" href="/users" onclick={(e) => navigate('/users', e)}>
+                {$t('nav.users')}
+            </a>
+            <a class="hover:text-accent" href="/profile" onclick={(e) => navigate('/profile', e)}>
+                {$t('nav.profile')}
+            </a>
             {#if user?.role === 'admin'}
-                <a class="hover:text-accent" href="/admin" onclick={(e) => navigate('/admin', e)}>Admin</a>
+                <a class="hover:text-accent" href="/admin" onclick={(e) => navigate('/admin', e)}>
+                    {$t('nav.admin')}
+                </a>
             {/if}
         </nav>
 
@@ -115,25 +145,25 @@
                     class="rounded-full border border-border px-4 py-2 text-xs text-text transition hover:border-accent hover:text-accent"
                     onclick={() => logout()}
                 >
-                    Logout
+                    {$t('auth.logout')}
                 </button>
             {:else}
                 <a
                     href="/login"
                     class="rounded-full border border-border px-4 py-2 text-xs text-text transition hover:border-accent hover:text-accent"
-                    onclick={(e) => navigate('/login', e)}>Login</a
+                    onclick={(e) => navigate('/login', e)}>{$t('auth.login')}</a
                 >
                 <a
                     href="/register"
                     class="rounded-full bg-accent/20 px-4 py-2 text-xs text-accent-strong transition hover:bg-accent/30"
-                    onclick={(e) => navigate('/register', e)}>Register</a
+                    onclick={(e) => navigate('/register', e)}>{$t('auth.register')}</a
                 >
             {/if}
             <button
                 class="rounded-full border border-border p-2 text-text transition hover:border-accent hover:text-accent"
                 onclick={toggleThemeCallback}
-                aria-label="Toggle theme"
-                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                aria-label={$t('header.toggleTheme')}
+                title={theme === 'light' ? $t('header.switchToDark') : $t('header.switchToLight')}
             >
                 {#if theme === 'light'}
                     <svg
@@ -173,6 +203,18 @@
                     </svg>
                 {/if}
             </button>
+            <div class="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs text-text">
+                <select
+                    class="bg-transparent text-xs text-text focus:outline-none cursor-pointer"
+                    bind:value={locale}
+                    onchange={handleLocaleChange}
+                    aria-label={$t('header.language')}
+                >
+                    <option value="en">{$t('header.languageEnglish')}</option>
+                    <option value="ko">{$t('header.languageKorean')}</option>
+                    <option value="jp">{$t('header.languageJapanese')}</option>
+                </select>
+            </div>
         </div>
     </div>
 </header>
@@ -181,7 +223,7 @@
     <button
         class="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm lg:hidden"
         onclick={closeMobileMenu}
-        aria-label="Close menu"
+        aria-label={$t('header.closeMenu')}
     ></button>
 {/if}
 
@@ -193,13 +235,17 @@
     <div class="flex h-full flex-col">
         <div class="flex items-center justify-between border-b border-border p-6">
             <div class="flex items-center gap-3">
-                <img src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`} alt="Logo" class="h-4 w-auto" />
+                <img
+                    src={`/logo_${toggleThemeValueCallback(theme)}_cropped.svg`}
+                    alt={$t('header.logoAlt')}
+                    class="h-4 w-auto"
+                />
                 <div>
                     <p class="font-display text-xl text-text">{appConfig.header_title}</p>
                     <p class="text-xs text-text-muted">{appConfig.header_description}</p>
                 </div>
             </div>
-            <button class="p-1 text-text" onclick={closeMobileMenu} aria-label="Close menu">
+            <button class="p-1 text-text" onclick={closeMobileMenu} aria-label={$t('header.closeMenu')}>
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
@@ -224,7 +270,7 @@
                     <p class="text-xs text-text-muted">{user.email}</p>
                     {#if user.role === 'admin'}
                         <span class="mt-2 inline-block rounded-full bg-accent/20 px-2 py-0.5 text-xs text-accent-strong"
-                            >Admin</span
+                            >{$t('common.admin')}</span
                         >
                     {/if}
                 </div>
@@ -236,35 +282,35 @@
                     class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/challenges', e)}
                 >
-                    Challenges
+                    {$t('nav.challenges')}
                 </a>
                 <a
                     href="/scoreboard"
                     class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/scoreboard', e)}
                 >
-                    Scoreboard
+                    {$t('nav.scoreboard')}
                 </a>
                 <a
                     href="/users"
                     class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/users', e)}
                 >
-                    Users
+                    {$t('nav.users')}
                 </a>
                 <a
                     href="/teams"
                     class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/teams', e)}
                 >
-                    Teams
+                    {$t('nav.teams')}
                 </a>
                 <a
                     href="/profile"
                     class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                     onclick={(e) => navigateAndClose('/profile', e)}
                 >
-                    Profile
+                    {$t('nav.profile')}
                 </a>
                 {#if user?.role === 'admin'}
                     <a
@@ -272,7 +318,7 @@
                         class="rounded-lg px-4 py-3 text-sm text-text transition hover:bg-accent/10 hover:text-accent"
                         onclick={(e) => navigateAndClose('/admin', e)}
                     >
-                        Admin
+                        {$t('nav.admin')}
                     </a>
                 {/if}
             </nav>
@@ -280,11 +326,26 @@
             <div class="my-6 border-t border-border"></div>
 
             <div class="flex flex-col gap-3">
+                <div class="rounded-lg border border-border px-4 py-3 text-sm text-text">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-text-muted">{$t('header.language')}</span>
+                        <select
+                            class="bg-transparent text-sm text-text focus:outline-none"
+                            bind:value={locale}
+                            onchange={handleLocaleChange}
+                            aria-label={$t('header.language')}
+                        >
+                            <option value="en">{$t('header.languageEnglish')}</option>
+                            <option value="ko">{$t('header.languageKorean')}</option>
+                            <option value="jp">{$t('header.languageJapanese')}</option>
+                        </select>
+                    </div>
+                </div>
                 <button
                     class="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm text-text transition hover:border-accent hover:text-accent"
                     onclick={toggleThemeCallback}
                 >
-                    <span>{theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}</span>
+                    <span>{theme === 'light' ? $t('header.switchToDark') : $t('header.switchToLight')}</span>
                     {#if theme === 'light'}
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -329,7 +390,7 @@
                         class="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger transition hover:border-danger/50 hover:bg-danger/20"
                         onclick={() => logout(closeMobileMenu)}
                     >
-                        Logout
+                        {$t('auth.logout')}
                     </button>
                 {:else}
                     <a
@@ -337,14 +398,14 @@
                         class="rounded-lg border border-border px-4 py-3 text-center text-sm text-text transition hover:border-accent hover:text-accent"
                         onclick={(e) => navigateAndClose('/login', e)}
                     >
-                        Login
+                        {$t('auth.login')}
                     </a>
                     <a
                         href="/register"
                         class="rounded-lg bg-accent/20 px-4 py-3 text-center text-sm text-accent-strong transition hover:bg-accent/30"
                         onclick={(e) => navigateAndClose('/register', e)}
                     >
-                        Register
+                        {$t('auth.register')}
                     </a>
                 {/if}
             </div>

@@ -4,6 +4,7 @@
     import { authStore, themeStore, setAuthUser, clearAuth } from './lib/stores'
     import { api } from './lib/api'
     import { configStore, loadConfig } from './lib/config'
+    import { localeStore, t } from './lib/i18n'
     import _Header from './components/Header.svelte'
     import Home from './routes/Home.svelte'
     import Login from './routes/Login.svelte'
@@ -69,9 +70,18 @@
     })
 
     $effect(() => {
+        const unsubscribe = localeStore.subscribe((value) => {
+            if (typeof document !== 'undefined') {
+                document.documentElement.lang = value
+            }
+        })
+        return unsubscribe
+    })
+
+    $effect(() => {
         const unsubscribe = configStore.subscribe((value) => {
             if (typeof document !== 'undefined') {
-                document.title = value.title || 'SMCTF'
+                document.title = value.title || get(t)('app.title')
             }
         })
         return unsubscribe
@@ -148,7 +158,7 @@
     <main class="mx-auto w-full max-w-6xl px-6 py-10">
         {#if booting}
             <div class="rounded-2xl border border-border bg-surface p-8 text-center text-text-muted">
-                Checking session...
+                {$t('app.checkingSession')}
             </div>
         {:else}
             <Component {routeParams} />
@@ -156,6 +166,6 @@
     </main>
 
     <footer class="border-t border-border py-6 text-center text-xs text-text-subtle">
-        <p>Copyright &copy; 2026 Semyeong Computer High School, All rights reserved.</p>
+        <p>{$t('footer.copyright')}</p>
     </footer>
 </div>

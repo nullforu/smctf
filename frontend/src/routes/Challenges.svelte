@@ -5,6 +5,7 @@
     import type { Challenge } from '../lib/types'
     import ChallengeCard from '../components/ChallengeCard.svelte'
     import ChallengeModal from '../components/ChallengeModal.svelte'
+    import { t } from '../lib/i18n'
 
     let challenges: Challenge[] = $state([])
     let loading = $state(true)
@@ -60,17 +61,17 @@
 <section class="fade-in">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h2 class="text-3xl text-text">Challenges</h2>
+            <h2 class="text-3xl text-text">{$t('challenges.title')}</h2>
         </div>
         <div class="rounded-full border border-border bg-surface px-4 py-2 text-xs text-text">
-            Solved {solvedCount} / {activeChallenges.length}
-            {inactiveChallenges.length > 0 ? `(${inactiveChallenges.length} inactive)` : ''}
+            {$t('challenges.solvedSummary', { solved: solvedCount, total: activeChallenges.length })}
+            {inactiveChallenges.length > 0 ? $t('challenges.inactiveCount', { count: inactiveChallenges.length }) : ''}
         </div>
     </div>
 
     {#if loading}
         <div class="mt-6 rounded-2xl border border-border bg-surface p-8 text-center text-text-muted">
-            Loading challenges...
+            {$t('challenges.loading')}
         </div>
     {:else if errorMessage}
         <div class="mt-6 rounded-2xl border border-danger/40 bg-danger/10 p-6 text-sm text-danger">

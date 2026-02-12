@@ -10,6 +10,7 @@
     import ActiveStacksCard from '../components/user-profile/ActiveStacksCard.svelte'
     import SolvedChallengesCard from '../components/user-profile/SolvedChallengesCard.svelte'
     import StatisticsCard from '../components/user-profile/StatisticsCard.svelte'
+    import { t } from '../lib/i18n'
 
     interface Props {
         routeParams?: Record<string, string>
@@ -34,7 +35,7 @@
     let lastStacksLoadedForUserId = $state<number | null>(null)
 
     const formatDateTimeLocal = formatDateTime
-    const formatOptionalDateTime = (value?: string | null) => (value ? formatDateTime(value) : 'N/A')
+    const formatOptionalDateTime = (value?: string | null) => (value ? formatDateTime(value) : $t('common.na'))
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -165,21 +166,23 @@
                 >
                     <path d="m15 18-6-6 6-6" />
                 </svg>
-                Back to Users
+                {$t('profile.backToUsers')}
             </button>
         </div>
     {/if}
 
     {#if !auth.user}
         <div>
-            <h2 class="text-3xl text-text">Profile</h2>
+            <h2 class="text-3xl text-text">{$t('profile.title')}</h2>
         </div>
         <div class="mt-6 rounded-2xl border border-warning/40 bg-warning/10 p-6 text-sm text-warning-strong">
-            Please <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>login</a> to view your profile.
+            {$t('profile.loginToViewPrefix')}
+            <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>{$t('auth.loginLink')}</a>
+            {$t('profile.loginToViewSuffix')}
         </div>
     {:else if loading}
         <div class="rounded-2xl border border-border bg-surface p-8">
-            <p class="text-center text-sm text-text-muted">Loading...</p>
+            <p class="text-center text-sm text-text-muted">{$t('common.loading')}</p>
         </div>
     {:else if errorMessage}
         <div class="rounded-2xl border border-danger/30 bg-danger/10 p-8">

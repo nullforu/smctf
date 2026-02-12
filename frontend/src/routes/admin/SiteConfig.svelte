@@ -4,6 +4,8 @@
     import { formatApiError, type FieldErrors } from '../../lib/utils'
     import { onMount } from 'svelte'
     import FormMessage from '../../components/FormMessage.svelte'
+    import { t } from '../../lib/i18n'
+    import { get } from 'svelte/store'
 
     let configTitle = $state('')
     let configDescription = $state('')
@@ -56,7 +58,7 @@
             headerTitle = response.header_title
             headerDescription = response.header_description
             setConfig(response)
-            configSuccessMessage = 'Configuration saved.'
+            configSuccessMessage = get(t)('admin.site.saved')
         } catch (error) {
             const formatted = formatApiError(error)
             configErrorMessage = formatted.message
@@ -70,15 +72,15 @@
 <div class="rounded-3xl border border-border bg-surface p-4 md:p-8">
     <div class="flex items-center justify-between">
         <div>
-            <h3 class="text-lg text-text">Site Configuration</h3>
-            <p class="text-xs text-text-subtle">Customize the appearance and details of CTF.</p>
+            <h3 class="text-lg text-text">{$t('admin.site.title')}</h3>
+            <p class="text-xs text-text-subtle">{$t('admin.site.subtitle')}</p>
         </div>
         <button
             class="text-xs uppercase tracking-wide text-text-subtle hover:text-text"
             onclick={loadSiteConfig}
             disabled={configLoading}
         >
-            {configLoading ? 'Loading...' : 'Reload'}
+            {configLoading ? $t('common.loading') : $t('common.reload')}
         </button>
     </div>
 
@@ -90,62 +92,66 @@
         }}
     >
         <div>
-            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-header-title">Header Title</label>
+            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-header-title"
+                >{$t('admin.site.headerTitle')}</label
+            >
             <input
                 id="admin-header-title"
                 class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                 type="text"
                 bind:value={headerTitle}
-                placeholder="CTF"
+                placeholder={$t('admin.site.headerTitlePlaceholder')}
             />
             {#if configFieldErrors.header_title}
                 <p class="mt-2 text-xs text-danger">
-                    header_title: {configFieldErrors.header_title}
+                    {$t('admin.site.headerTitle')}: {configFieldErrors.header_title}
                 </p>
             {/if}
         </div>
         <div>
             <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-header-description"
-                >Header Description</label
+                >{$t('admin.site.headerDescription')}</label
             >
             <textarea
                 id="admin-header-description"
                 class="mt-2 h-28 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                 bind:value={headerDescription}
-                placeholder="Capture The Flag"
+                placeholder={$t('admin.site.headerDescriptionPlaceholder')}
             ></textarea>
             {#if configFieldErrors.header_description}
                 <p class="mt-2 text-xs text-danger">
-                    header_description: {configFieldErrors.header_description}
+                    {$t('admin.site.headerDescription')}: {configFieldErrors.header_description}
                 </p>
             {/if}
         </div>
         <div>
-            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-site-title">Title</label>
+            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-site-title"
+                >{$t('admin.site.siteTitle')}</label
+            >
             <input
                 id="admin-site-title"
                 class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                 type="text"
                 bind:value={configTitle}
-                placeholder="Welcome to SMCTF."
+                placeholder={$t('admin.site.siteTitlePlaceholder')}
             />
             {#if configFieldErrors.title}
-                <p class="mt-2 text-xs text-danger">title: {configFieldErrors.title}</p>
+                <p class="mt-2 text-xs text-danger">{$t('admin.site.siteTitle')}: {configFieldErrors.title}</p>
             {/if}
         </div>
         <div>
             <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-site-description"
-                >Description</label
+                >{$t('admin.site.description')}</label
             >
             <textarea
                 id="admin-site-description"
                 class="mt-2 h-32 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                 bind:value={configDescription}
-                placeholder="Check out the repository for setup instructions."
+                placeholder={$t('admin.site.siteDescriptionPlaceholder')}
             ></textarea>
             {#if configFieldErrors.description}
                 <p class="mt-2 text-xs text-danger">
-                    description: {configFieldErrors.description}
+                    {$t('admin.site.description')}: {configFieldErrors.description}
                 </p>
             {/if}
         </div>
@@ -162,7 +168,7 @@
             type="submit"
             disabled={configLoading}
         >
-            {configLoading ? 'Saving...' : 'Save Configuration'}
+            {configLoading ? $t('admin.site.saving') : $t('admin.site.saveButton')}
         </button>
     </form>
 </div>

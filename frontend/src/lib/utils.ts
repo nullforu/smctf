@@ -1,9 +1,12 @@
+import { get } from 'svelte/store'
 import type { ApiErrorDetail } from './api'
 import { ApiError } from './api'
+import { getLocaleTag, localeStore, t } from './i18n'
 
 export type FieldErrors = Record<string, string>
 
 export const formatApiError = (error: unknown) => {
+    const translate = get(t)
     if (error instanceof ApiError) {
         const fieldErrors = buildFieldErrors(error.details)
 
@@ -11,15 +14,15 @@ export const formatApiError = (error: unknown) => {
             const resetSeconds = error.rateLimit?.reset_seconds
             const message =
                 typeof resetSeconds === 'number'
-                    ? `Too many requests. Please try again in ${resetSeconds} seconds.`
-                    : 'Too many requests. Please try again later.'
+                    ? translate('errors.tooManyRequests', { seconds: resetSeconds })
+                    : translate('errors.tooManyRequestsLater')
 
             return { message, fieldErrors }
         }
 
         return { message: error.message, fieldErrors }
     }
-    return { message: 'network error or unexpected error', fieldErrors: {} }
+    return { message: translate('errors.network'), fieldErrors: {} }
 }
 
 const buildFieldErrors = (details?: ApiErrorDetail[]) => {
@@ -35,7 +38,8 @@ export const formatDateTime = (value: string) => {
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return value
 
-    return date.toLocaleString('en-US', {
+    const locale = getLocaleTag(get(localeStore))
+    return date.toLocaleString(locale, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',

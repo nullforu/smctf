@@ -4,6 +4,8 @@
     import type { TeamSummary } from '../../lib/types'
     import { onMount } from 'svelte'
     import FormMessage from '../../components/FormMessage.svelte'
+    import { t } from '../../lib/i18n'
+    import { get } from 'svelte/store'
 
     const formatDateTime = _formatDateTime
 
@@ -42,7 +44,7 @@
 
         try {
             const created = await api.createTeam({ name: teamName })
-            createTeamSuccessMessage = `Team "${created.name}" created`
+            createTeamSuccessMessage = get(t)('admin.teams.successCreated', { name: created.name })
             teamName = ''
             await loadTeams()
         } catch (error) {
@@ -65,16 +67,18 @@
             }}
         >
             <div>
-                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-team-name">Team Name</label>
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-team-name"
+                    >{$t('common.teamName')}</label
+                >
                 <input
                     id="admin-team-name"
                     class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     type="text"
                     bind:value={teamName}
-                    placeholder="e.g., 세명컴퓨터고등학교 or Null4U"
+                    placeholder={$t('admin.teams.placeholder')}
                 />
                 {#if createTeamFieldErrors.name}
-                    <p class="mt-2 text-xs text-danger">name: {createTeamFieldErrors.name}</p>
+                    <p class="mt-2 text-xs text-danger">{$t('common.name')}: {createTeamFieldErrors.name}</p>
                 {/if}
             </div>
             {#if createTeamErrorMessage}
@@ -88,20 +92,20 @@
                 type="submit"
                 disabled={createTeamLoading}
             >
-                {createTeamLoading ? 'Creating...' : 'Create Team'}
+                {createTeamLoading ? $t('admin.teams.creating') : $t('admin.teams.createTeam')}
             </button>
         </form>
     </div>
 
     <div class="rounded-3xl border border-border bg-surface p-4 md:p-8">
         <div class="flex items-center justify-between">
-            <h3 class="text-lg text-text">Teams</h3>
+            <h3 class="text-lg text-text">{$t('common.teams')}</h3>
             <button
                 class="text-xs uppercase tracking-wide text-text-subtle hover:text-text"
                 onclick={loadTeams}
                 disabled={teamsLoading}
             >
-                {teamsLoading ? 'Loading...' : 'Refresh'}
+                {teamsLoading ? $t('common.loading') : $t('common.refresh')}
             </button>
         </div>
 
@@ -110,17 +114,17 @@
         {/if}
 
         {#if teamsLoading}
-            <p class="mt-4 text-sm text-text-subtle">Loading teams...</p>
+            <p class="mt-4 text-sm text-text-subtle">{$t('admin.teams.loadingTeams')}</p>
         {:else if teams.length === 0}
-            <p class="mt-4 text-sm text-text-subtle">No teams created yet.</p>
+            <p class="mt-4 text-sm text-text-subtle">{$t('admin.teams.noTeams')}</p>
         {:else}
             <div class="mt-4 overflow-x-auto">
                 <table class="w-full text-left text-sm text-text">
                     <thead class="text-xs uppercase tracking-wide text-text-subtle">
                         <tr>
-                            <th class="py-2 pr-4">ID</th>
-                            <th class="py-2 pr-4">Name</th>
-                            <th class="py-2">Created at</th>
+                            <th class="py-2 pr-4">{$t('common.id')}</th>
+                            <th class="py-2 pr-4">{$t('common.name')}</th>
+                            <th class="py-2">{$t('common.createdAt')}</th>
                         </tr>
                     </thead>
                     <tbody>

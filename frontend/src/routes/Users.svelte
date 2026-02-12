@@ -4,6 +4,7 @@
     import type { UserListItem } from '../lib/types'
     import { formatApiError } from '../lib/utils'
     import { navigate } from '../lib/router'
+    import { getRoleKey, t } from '../lib/i18n'
 
     let users: UserListItem[] = $state([])
     let loading = $state(false)
@@ -42,21 +43,21 @@
 <section class="fade-in">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h2 class="text-3xl text-text">Users</h2>
+            <h2 class="text-3xl text-text">{$t('users.title')}</h2>
         </div>
     </div>
 
     <div class="mt-6">
         <input
             type="text"
-            placeholder="Search by username or ID..."
+            placeholder={$t('users.searchPlaceholder')}
             bind:value={searchQuery}
             class="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder-text-subtle transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
     </div>
 
     {#if loading}
-        <p class="mt-6 text-sm text-text-muted">Loading...</p>
+        <p class="mt-6 text-sm text-text-muted">{$t('common.loading')}</p>
     {:else if errorMessage}
         <p class="mt-6 text-sm text-danger">{errorMessage}</p>
     {:else}
@@ -69,27 +70,27 @@
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    ID
+                                    {$t('common.id')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Username
+                                    {$t('common.username')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Team
+                                    {$t('common.team')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Role
+                                    {$t('common.role')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Action
+                                    {$t('common.action')}
                                 </th>
                             </tr>
                         </thead>
@@ -115,7 +116,7 @@
                                                 ? 'bg-secondary/20 text-secondary '
                                                 : 'bg-accent/20 text-accent-strong '}"
                                         >
-                                            {user.role}
+                                            {$t(getRoleKey(user.role))}
                                         </span>
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
@@ -127,7 +128,7 @@
                                             }}
                                             type="button"
                                         >
-                                            View
+                                            {$t('common.view')}
                                         </button>
                                     </td>
                                 </tr>
@@ -135,7 +136,7 @@
                             {#if filteredUsers.length === 0}
                                 <tr>
                                     <td colspan="5" class="px-6 py-8 text-center text-sm text-text-muted">
-                                        {searchQuery ? 'No results found.' : 'No users found.'}
+                                        {searchQuery ? $t('users.noResults') : $t('users.noUsers')}
                                     </td>
                                 </tr>
                             {/if}
@@ -146,9 +147,11 @@
 
             {#if filteredUsers.length > 0}
                 <p class="mt-4 text-sm text-text-muted">
-                    {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
+                    {filteredUsers.length === 1
+                        ? $t('users.countSingular', { count: filteredUsers.length })
+                        : $t('users.countPlural', { count: filteredUsers.length })}
                     {#if searchQuery}
-                        (out of {users.length})
+                        {$t('common.outOf', { total: users.length })}
                     {/if}
                 </p>
             {/if}

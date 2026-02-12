@@ -1,5 +1,6 @@
-import { writable } from 'svelte/store'
+import { get, writable } from 'svelte/store'
 import { api } from './api'
+import { localeStore, t } from './i18n'
 
 export interface AppConfigState {
     title: string
@@ -9,19 +10,33 @@ export interface AppConfigState {
     updated_at?: string
 }
 
-const defaultConfig: AppConfigState = {
-    title: 'Welcome to SMCTF.',
-    description: 'Check out the repository for setup instructions.',
-    header_title: 'CTF',
-    header_description: 'Capture The Flag',
+const buildDefaultConfig = (): AppConfigState => {
+    const translate = get(t)
+    return {
+        title: translate('config.defaultTitle'),
+        description: translate('config.defaultDescription'),
+        header_title: translate('config.defaultHeaderTitle'),
+        header_description: translate('config.defaultHeaderDescription'),
+    }
 }
+
+let defaultConfig: AppConfigState = buildDefaultConfig()
 
 export const configStore = writable<AppConfigState>(defaultConfig)
 
 let loaded = false
 let inFlight: Promise<void> | null = null
+let hasLoadedRemote = false
+
+localeStore.subscribe(() => {
+    defaultConfig = buildDefaultConfig()
+    if (!hasLoadedRemote) {
+        configStore.set(defaultConfig)
+    }
+})
 
 export const setConfig = (config: AppConfigState) => {
+    hasLoadedRemote = true
     configStore.set({
         title: config.title ?? defaultConfig.title,
         description: config.description ?? defaultConfig.description,
@@ -40,7 +55,8 @@ export const loadConfig = async () => {
             const config = await api.config()
             setConfig(config)
         } catch {
-            setConfig(defaultConfig)
+            hasLoadedRemote = false
+            configStore.set(defaultConfig)
         } finally {
             loaded = true
             inFlight = null
@@ -53,5 +69,6 @@ export const loadConfig = async () => {
 export const resetConfig = () => {
     loaded = false
     inFlight = null
-    setConfig(defaultConfig)
+    hasLoadedRemote = false
+    configStore.set(defaultConfig)
 }

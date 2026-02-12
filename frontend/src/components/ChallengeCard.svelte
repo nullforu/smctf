@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Challenge } from '../lib/types'
+    import { getCategoryKey, t } from '../lib/i18n'
 
     interface Props {
         challenge: Challenge
@@ -25,15 +26,19 @@
             <h3 class="text-lg font-medium text-text">{challenge.title}</h3>
             <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span class="rounded-full bg-surface-subtle px-2.5 py-0.5 text-xs font-medium text-text"
-                    >{challenge.category}</span
+                    >{$t(getCategoryKey(challenge.category))}</span
                 >
-                <span class="text-text-muted">{challenge.points} pts</span>
+                <span class="text-text-muted">{$t('common.pointsShort', { points: challenge.points })}</span>
             </div>
         </div>
         {#if isSolved}
-            <span class="rounded-full bg-success/20 px-3 py-1 text-xs text-success">Solved</span>
+            <span class="rounded-full bg-success/20 px-3 py-1 text-xs text-success">
+                {$t('challenge.solvedLabel')}
+            </span>
         {:else if !challenge.is_active}
-            <span class="rounded-full bg-surface/10 px-3 py-1 text-xs text-text-muted">Inactive</span>
+            <span class="rounded-full bg-surface/10 px-3 py-1 text-xs text-text-muted">
+                {$t('challenge.inactiveLabel')}
+            </span>
         {/if}
     </div>
 </div>

@@ -6,14 +6,15 @@
     import RegistrationKeys from './admin/RegistrationKeys.svelte'
     import Teams from './admin/Teams.svelte'
     import SiteConfig from './admin/SiteConfig.svelte'
+    import { t } from '../lib/i18n'
 
-    const adminTabs = [
-        { id: 'challenges', label: 'Create Challenge' },
-        { id: 'challenge_management', label: 'Challenge Management' },
-        { id: 'teams', label: 'Teams' },
-        { id: 'registration_keys', label: 'Registration Keys' },
-        { id: 'site_config', label: 'Site Configuration' },
-    ] as const
+    const adminTabs = $derived([
+        { id: 'challenges', label: $t('admin.tab.createChallenge') },
+        { id: 'challenge_management', label: $t('admin.tab.challengeManagement') },
+        { id: 'teams', label: $t('admin.tab.teams') },
+        { id: 'registration_keys', label: $t('admin.tab.registrationKeys') },
+        { id: 'site_config', label: $t('admin.tab.siteConfig') },
+    ])
     type AdminTabId = (typeof adminTabs)[number]['id']
 
     let activeTab = $state<AdminTabId>('challenges')
@@ -31,16 +32,16 @@
 
 <section class="fade-in">
     <div class="mb-4 md:mb-6">
-        <h2 class="text-2xl font-semibold text-text md:text-3xl">Admin</h2>
+        <h2 class="text-2xl font-semibold text-text md:text-3xl">{$t('admin.title')}</h2>
     </div>
 
     {#if !auth.user}
         <div class="rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning-strong md:p-6">
-            Admin functions require login.
+            {$t('admin.loginRequired')}
         </div>
     {:else if auth.user.role !== 'admin'}
         <div class="rounded-2xl border border-danger/40 bg-danger/10 p-4 text-sm text-danger md:p-6">
-            Access denied. Admin account required.
+            {$t('admin.accessDenied')}
         </div>
     {:else}
         <div class="mb-4 flex items-center gap-3">
@@ -67,17 +68,17 @@
             <button
                 class="hidden text-sm text-text hover:text-text md:block"
                 onclick={() => (showSidebar = !showSidebar)}
-                title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
+                title={showSidebar ? $t('admin.hideSidebarTitle') : $t('admin.showSidebarTitle')}
             >
                 {#if showSidebar}
                     <span class="flex items-center gap-2">
                         <span>◀</span>
-                        <span>Hide Menu</span>
+                        <span>{$t('admin.hideMenu')}</span>
                     </span>
                 {:else}
                     <span class="flex items-center gap-2">
                         <span>▶</span>
-                        <span>Show Menu</span>
+                        <span>{$t('admin.showMenu')}</span>
                     </span>
                 {/if}
             </button>

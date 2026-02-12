@@ -4,6 +4,8 @@
     import type { RegistrationKey, TeamSummary } from '../../lib/types'
     import { onMount } from 'svelte'
     import FormMessage from '../../components/FormMessage.svelte'
+    import { t } from '../../lib/i18n'
+    import { get } from 'svelte/store'
 
     const formatDateTime = _formatDateTime
 
@@ -64,7 +66,7 @@
 
         try {
             if (!selectedTeamId) {
-                createKeysFieldErrors = { team_id: 'required' }
+                createKeysFieldErrors = { team_id: get(t)('errors.required') }
                 createKeysLoading = false
                 return
             }
@@ -73,7 +75,7 @@
                 team_id: Number(selectedTeamId),
             }
             const created = await api.createRegistrationKeys(payload)
-            createKeysSuccessMessage = `${created.length} keys created`
+            createKeysSuccessMessage = get(t)('admin.keys.createdCount', { count: created.length })
             keyCount = 1
             await loadKeys()
         } catch (error) {
@@ -96,7 +98,9 @@
     >
         <div class="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
             <div>
-                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-key-count">Count</label>
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-key-count"
+                    >{$t('common.count')}</label
+                >
                 <input
                     id="admin-key-count"
                     class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
@@ -105,11 +109,13 @@
                     bind:value={keyCount}
                 />
                 {#if createKeysFieldErrors.count}
-                    <p class="mt-2 text-xs text-danger">count: {createKeysFieldErrors.count}</p>
+                    <p class="mt-2 text-xs text-danger">{$t('common.count')}: {createKeysFieldErrors.count}</p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-key-team">Team</label>
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-key-team"
+                    >{$t('common.team')}</label
+                >
                 <select
                     id="admin-key-team"
                     class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
@@ -122,7 +128,7 @@
                 </select>
                 {#if createKeysFieldErrors.team_id}
                     <p class="mt-2 text-xs text-danger">
-                        team_id: {createKeysFieldErrors.team_id}
+                        {$t('common.team')}: {createKeysFieldErrors.team_id}
                     </p>
                 {/if}
                 {#if teamsErrorMessage}
@@ -135,7 +141,7 @@
                     type="submit"
                     disabled={createKeysLoading}
                 >
-                    {createKeysLoading ? 'Creating...' : 'Create Keys'}
+                    {createKeysLoading ? $t('admin.keys.creating') : $t('admin.keys.createKeys')}
                 </button>
             </div>
         </div>
@@ -150,13 +156,13 @@
 
     <div class="mt-8">
         <div class="flex items-center justify-between">
-            <h3 class="text-lg text-text">Registration Keys</h3>
+            <h3 class="text-lg text-text">{$t('admin.keys.title')}</h3>
             <button
                 class="text-xs uppercase tracking-wide text-text-subtle hover:text-text"
                 onclick={loadKeys}
                 disabled={keysLoading}
             >
-                {keysLoading ? 'Loading...' : 'Refresh'}
+                {keysLoading ? $t('common.loading') : $t('common.refresh')}
             </button>
         </div>
 
@@ -165,21 +171,21 @@
         {/if}
 
         {#if keysLoading}
-            <p class="mt-4 text-sm text-text-subtle">Loading keys...</p>
+            <p class="mt-4 text-sm text-text-subtle">{$t('admin.keys.loadingKeys')}</p>
         {:else if registrationKeys.length === 0}
-            <p class="mt-4 text-sm text-text-subtle">No keys created yet.</p>
+            <p class="mt-4 text-sm text-text-subtle">{$t('admin.keys.noKeys')}</p>
         {:else}
             <div class="mt-4 overflow-x-auto">
                 <table class="w-full text-left text-sm text-text">
                     <thead class="text-xs uppercase tracking-wide text-text-subtle">
                         <tr>
-                            <th class="py-2 pr-4">Code</th>
-                            <th class="py-2 pr-4">Created by</th>
-                            <th class="py-2 pr-4">Team</th>
-                            <th class="py-2 pr-4">Created at</th>
-                            <th class="py-2 pr-4">Used by</th>
-                            <th class="py-2 pr-4">Used IP</th>
-                            <th class="py-2">Used at</th>
+                            <th class="py-2 pr-4">{$t('common.code')}</th>
+                            <th class="py-2 pr-4">{$t('common.createdBy')}</th>
+                            <th class="py-2 pr-4">{$t('common.team')}</th>
+                            <th class="py-2 pr-4">{$t('common.createdAt')}</th>
+                            <th class="py-2 pr-4">{$t('common.usedBy')}</th>
+                            <th class="py-2 pr-4">{$t('common.usedIp')}</th>
+                            <th class="py-2">{$t('common.usedAt')}</th>
                         </tr>
                     </thead>
                     <tbody>

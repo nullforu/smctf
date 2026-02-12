@@ -3,6 +3,8 @@
     import { CHALLENGE_CATEGORIES } from '../../lib/constants'
     import { formatApiError, isZipFile, type FieldErrors } from '../../lib/utils'
     import FormMessage from '../../components/FormMessage.svelte'
+    import { getCategoryKey, t } from '../../lib/i18n'
+    import { get } from 'svelte/store'
 
     let loading = $state(false)
     let errorMessage = $state('')
@@ -32,7 +34,7 @@
 
         try {
             if (challengeFile && !isZipFile(challengeFile)) {
-                challengeFileError = 'Only .zip files are allowed.'
+                challengeFileError = get(t)('admin.create.onlyZip')
                 return
             }
 
@@ -49,17 +51,20 @@
                 stack_pod_spec: stackEnabled ? stackPodSpec : undefined,
             })
 
-            successMessage = `Challenge "${created.title}" (ID ${created.id}) created successfully`
+            successMessage = get(t)('admin.create.success', { title: created.title, id: created.id })
 
             if (challengeFile) {
                 try {
                     challengeFileUploading = true
                     const uploadResponse = await api.requestChallengeFileUpload(created.id, challengeFile.name)
                     await uploadPresignedPost(uploadResponse.upload, challengeFile)
-                    successMessage = `Challenge "${created.title}" (ID ${created.id}) created with file`
+                    successMessage = get(t)('admin.create.successWithFile', {
+                        title: created.title,
+                        id: created.id,
+                    })
                 } catch (uploadError) {
                     const formattedUpload = formatApiError(uploadError)
-                    errorMessage = `Challenge created, but file upload failed: ${formattedUpload.message}`
+                    errorMessage = get(t)('admin.create.fileUploadFailed', { message: formattedUpload.message })
                 } finally {
                     challengeFileUploading = false
                 }
@@ -96,7 +101,8 @@
         }}
     >
         <div>
-            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-title">Title</label>
+            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-title">{$t('common.title')}</label
+            >
             <input
                 id="admin-title"
                 class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
@@ -104,11 +110,13 @@
                 bind:value={title}
             />
             {#if fieldErrors.title}
-                <p class="mt-2 text-xs text-danger">title: {fieldErrors.title}</p>
+                <p class="mt-2 text-xs text-danger">{$t('common.title')}: {fieldErrors.title}</p>
             {/if}
         </div>
         <div>
-            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-description">Description</label>
+            <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-description"
+                >{$t('common.description')}</label
+            >
             <textarea
                 id="admin-description"
                 class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
@@ -117,30 +125,34 @@
             ></textarea>
             {#if fieldErrors.description}
                 <p class="mt-2 text-xs text-danger">
-                    description: {fieldErrors.description}
+                    {$t('common.description')}: {fieldErrors.description}
                 </p>
             {/if}
         </div>
         <div class="grid gap-4 md:grid-cols-3">
             <div>
-                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-category">Category</label>
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-category"
+                    >{$t('common.category')}</label
+                >
                 <select
                     id="admin-category"
                     class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                     bind:value={category}
                 >
                     {#each CHALLENGE_CATEGORIES as option}
-                        <option value={option}>{option}</option>
+                        <option value={option}>{$t(getCategoryKey(option))}</option>
                     {/each}
                 </select>
                 {#if fieldErrors.category}
                     <p class="mt-2 text-xs text-danger">
-                        category: {fieldErrors.category}
+                        {$t('common.category')}: {fieldErrors.category}
                     </p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-points">Points</label>
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-points"
+                    >{$t('common.points')}</label
+                >
                 <input
                     id="admin-points"
                     class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
@@ -150,12 +162,13 @@
                 />
                 {#if fieldErrors.points}
                     <p class="mt-2 text-xs text-danger">
-                        points: {fieldErrors.points}
+                        {$t('common.points')}: {fieldErrors.points}
                     </p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-minimum-points">Minimum</label
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-minimum-points"
+                    >{$t('common.minimum')}</label
                 >
                 <input
                     id="admin-minimum-points"
@@ -166,12 +179,14 @@
                 />
                 {#if fieldErrors.minimum_points}
                     <p class="mt-2 text-xs text-danger">
-                        minimum_points: {fieldErrors.minimum_points}
+                        {$t('common.minimum')}: {fieldErrors.minimum_points}
                     </p>
                 {/if}
             </div>
             <div>
-                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-flag">Flag</label>
+                <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-flag"
+                    >{$t('common.flag')}</label
+                >
                 <input
                     id="admin-flag"
                     class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
@@ -180,13 +195,13 @@
                 />
                 {#if fieldErrors.flag}
                     <p class="mt-2 text-xs text-danger">
-                        flag: {fieldErrors.flag}
+                        {$t('common.flag')}: {fieldErrors.flag}
                     </p>
                 {/if}
             </div>
             <div>
                 <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-file"
-                    >Challenge File (.zip)</label
+                    >{$t('admin.create.challengeFile')}</label
                 >
                 <input
                     id="admin-file"
@@ -206,18 +221,18 @@
         </div>
         <label class="flex items-center gap-3 text-sm text-text">
             <input type="checkbox" bind:checked={isActive} class="h-4 w-4 rounded border-border" />
-            Create as active
+            {$t('admin.create.createActive')}
         </label>
         <div class="rounded-2xl border border-border bg-surface/60 p-4">
             <label class="flex items-center gap-3 text-sm text-text">
                 <input type="checkbox" bind:checked={stackEnabled} class="h-4 w-4 rounded border-border" />
-                Provide stack (container instance)
+                {$t('admin.create.provideStack')}
             </label>
             {#if stackEnabled}
                 <div class="mt-4 grid gap-4">
                     <div>
                         <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-stack-target-port"
-                            >Target Port</label
+                            >{$t('admin.create.targetPort')}</label
                         >
                         <input
                             id="admin-stack-target-port"
@@ -229,13 +244,13 @@
                         />
                         {#if fieldErrors.stack_target_port}
                             <p class="mt-2 text-xs text-danger">
-                                stack_target_port: {fieldErrors.stack_target_port}
+                                {$t('admin.create.targetPort')}: {fieldErrors.stack_target_port}
                             </p>
                         {/if}
                     </div>
                     <div>
                         <label class="text-xs uppercase tracking-wide text-text-muted" for="admin-stack-pod-spec"
-                            >Pod Spec (YAML)</label
+                            >{$t('admin.create.podSpec')}</label
                         >
                         <textarea
                             id="admin-stack-pod-spec"
@@ -245,7 +260,7 @@
                         ></textarea>
                         {#if fieldErrors.stack_pod_spec}
                             <p class="mt-2 text-xs text-danger">
-                                stack_pod_spec: {fieldErrors.stack_pod_spec}
+                                {$t('admin.create.podSpec')}: {fieldErrors.stack_pod_spec}
                             </p>
                         {/if}
                     </div>
@@ -265,7 +280,11 @@
             type="submit"
             disabled={loading || challengeFileUploading}
         >
-            {loading ? 'Creating...' : challengeFileUploading ? 'Uploading...' : 'Create Challenge'}
+            {loading
+                ? $t('auth.creating')
+                : challengeFileUploading
+                  ? $t('admin.create.uploading')
+                  : $t('admin.create.createChallenge')}
         </button>
     </form>
 </div>

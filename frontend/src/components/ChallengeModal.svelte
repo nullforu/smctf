@@ -5,6 +5,7 @@
     import { formatApiError } from '../lib/utils'
     import { navigate } from '../lib/router'
     import type { Challenge, Stack } from '../lib/types'
+    import { getCategoryKey, getLocaleTag, localeStore, t } from '../lib/i18n'
 
     interface SubmissionState {
         status: 'idle' | 'loading' | 'success' | 'error'
@@ -43,8 +44,9 @@
     })
 
     const submitFlag = async () => {
+        const translate = get(t)
         if (isSolved) {
-            submission = { status: 'success', message: 'Correct!' }
+            submission = { status: 'success', message: translate('challenge.correct') }
             return
         }
 
@@ -56,15 +58,15 @@
             const result = await api.submitFlag(challenge.id, flagInput)
 
             if (result.correct) {
-                submission = { status: 'success', message: 'Correct!' }
+                submission = { status: 'success', message: translate('challenge.correct') }
                 flagInput = ''
                 onSolved()
             } else {
-                submission = { status: 'error', message: 'Incorrect. Please try again.' }
+                submission = { status: 'error', message: translate('challenge.incorrect') }
             }
         } catch (error) {
             if (error instanceof ApiError && error.status === 409) {
-                submission = { status: 'success', message: 'Correct!' }
+                submission = { status: 'success', message: translate('challenge.correct') }
                 flagInput = ''
                 onSolved()
                 return
@@ -99,10 +101,11 @@
     }
 
     const formatTimestamp = (value?: string | null) => {
-        if (!value) return 'N/A'
+        if (!value) return get(t)('common.na')
         const date = new Date(value)
         if (Number.isNaN(date.getTime())) return value
-        return date.toLocaleString()
+        const locale = getLocaleTag(get(localeStore))
+        return date.toLocaleString(locale)
     }
 
     const loadStack = async () => {
@@ -126,8 +129,9 @@
     }
 
     const createStack = async () => {
+        const translate = get(t)
         if (isSolved) {
-            stackMessage = 'Solved challenges cannot create new stacks.'
+            stackMessage = translate('challenge.solvedCannotCreate')
             return
         }
         if (stackLoading || !auth.user) return
@@ -170,7 +174,7 @@
         }
 
         if (isSolved) {
-            stackMessage = 'This challenge is already solved. New stacks cannot be created.'
+            stackMessage = get(t)('challenge.stackSolvedNoNew')
         }
 
         loadStack()
@@ -205,7 +209,7 @@
         <button
             class="absolute right-2 top-2 text-text-subtle hover:text-text"
             onclick={onClose}
-            aria-label="Close Modal"
+            aria-label={$t('challenge.closeModal')}
         >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -217,16 +221,22 @@
                 <h2 class="text-2xl text-text">{challenge.title}</h2>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
                     <span class="rounded-full bg-surface-subtle px-3 py-1 text-xs font-medium text-text"
-                        >{challenge.category}</span
+                        >{$t(getCategoryKey(challenge.category))}</span
                     >
-                    <span class="text-text-muted">{challenge.points} pts</span>
-                    <span class="text-text-muted">Solved {challenge.solve_count}</span>
+                    <span class="text-text-muted">{$t('common.pointsShort', { points: challenge.points })}</span>
+                    <span class="text-text-muted">
+                        {$t('challenge.solvedCount', { count: challenge.solve_count })}
+                    </span>
                 </div>
             </div>
             {#if isSolved}
-                <span class="rounded-full bg-success/20 px-4 py-1.5 text-sm text-success">Solved</span>
+                <span class="rounded-full bg-success/20 px-4 py-1.5 text-sm text-success">
+                    {$t('challenge.solvedLabel')}
+                </span>
             {:else if !challenge.is_active}
-                <span class="rounded-full bg-surface/10 px-4 py-1.5 text-sm text-text-muted">Inactive</span>
+                <span class="rounded-full bg-surface/10 px-4 py-1.5 text-sm text-text-muted">
+                    {$t('challenge.inactiveLabel')}
+                </span>
             {/if}
         </div>
 
@@ -239,7 +249,7 @@
                 <div class="rounded-xl border border-border bg-surface-muted p-4 text-sm text-text">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <p class="font-medium">Challenge File</p>
+                            <p class="font-medium">{$t('challenge.fileTitle')}</p>
                             <p class="text-xs text-text-subtle">
                                 {challenge.file_name ?? 'challenge.zip'}
                             </p>
@@ -251,12 +261,12 @@
                                 onclick={downloadFile}
                                 disabled={downloadLoading}
                             >
-                                {downloadLoading ? 'Preparing...' : 'Download'}
+                                {downloadLoading ? $t('challenge.downloadPreparing') : $t('challenge.download')}
                             </button>
                         {/if}
                     </div>
                     {#if !auth.user}
-                        <p class="mt-2 text-xs text-warning">Login required to download this file.</p>
+                        <p class="mt-2 text-xs text-warning">{$t('challenge.fileLoginRequired')}</p>
                     {/if}
                     {#if downloadMessage}
                         <p class="mt-2 text-xs text-danger">{downloadMessage}</p>
@@ -270,13 +280,13 @@
                 <div class="rounded-xl border border-border bg-surface-muted p-4 text-sm text-text">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <p class="font-medium">Stack Instance</p>
+                            <p class="font-medium">{$t('challenge.stackInstance')}</p>
                             <p class="text-xs text-text-subtle">
                                 {stackPolling
                                     ? stackNextInterval === 60000
-                                        ? 'Refreshing every 60s'
-                                        : 'Refreshing every 10s'
-                                    : 'Refresh paused'}
+                                        ? $t('challenge.stackRefreshing60')
+                                        : $t('challenge.stackRefreshing10')
+                                    : $t('challenge.stackRefreshPaused')}
                             </p>
                         </div>
                         {#if auth.user}
@@ -288,7 +298,7 @@
                                         onclick={loadStack}
                                         disabled={stackLoading}
                                     >
-                                        {stackLoading ? 'Refreshing...' : 'Refresh'}
+                                        {stackLoading ? $t('common.loading') : $t('common.refresh')}
                                     </button>
                                     <button
                                         class="rounded-lg border border-danger/30 px-3 py-2 text-xs font-medium text-danger transition hover:border-danger/50 hover:text-danger-strong disabled:opacity-60"
@@ -296,7 +306,7 @@
                                         onclick={deleteStack}
                                         disabled={stackLoading}
                                     >
-                                        {stackLoading ? 'Working...' : 'Delete Stack'}
+                                        {stackLoading ? $t('challenge.stackWorking') : $t('challenge.deleteStack')}
                                     </button>
                                 {:else}
                                     <button
@@ -305,7 +315,7 @@
                                         onclick={createStack}
                                         disabled={stackLoading || isSolved}
                                     >
-                                        {stackLoading ? 'Creating...' : 'Create Stack'}
+                                        {stackLoading ? $t('auth.creating') : $t('challenge.createStack')}
                                     </button>
                                 {/if}
                             </div>
@@ -313,35 +323,35 @@
                     </div>
 
                     {#if !auth.user}
-                        <p class="mt-2 text-xs text-warning">Login required to manage stack instances.</p>
+                        <p class="mt-2 text-xs text-warning">{$t('challenge.stackLoginRequired')}</p>
                     {:else if isSolved}
                         <p class="mt-2 text-xs text-text-subtle">
-                            This challenge is already solved. New stacks cannot be created.
+                            {$t('challenge.stackSolvedNoNew')}
                         </p>
                     {:else if stackInfo}
                         <div class="mt-3 grid gap-2 text-xs text-text-muted">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="font-medium text-text">Status:</span>
+                                <span class="font-medium text-text">{$t('challenge.stackStatus')}</span>
                                 <span class="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px]">
                                     {stackInfo.status}
                                 </span>
                             </div>
                             <div>
-                                <span class="font-medium text-text">Endpoint:</span>
+                                <span class="font-medium text-text">{$t('challenge.stackEndpoint')}</span>
                                 <span class="ml-2">
                                     {stackInfo.node_public_ip && stackInfo.node_port
                                         ? `${stackInfo.node_public_ip}:${stackInfo.node_port}`
-                                        : 'Pending'}
+                                        : $t('challenge.stackPending')}
                                 </span>
                             </div>
                             <div>
-                                <span class="font-medium text-text">TTL:</span>
+                                <span class="font-medium text-text">{$t('challenge.stackTtl')}</span>
                                 <span class="ml-2">{formatTimestamp(stackInfo.ttl_expires_at)}</span>
                             </div>
                         </div>
                     {:else}
                         <p class="mt-2 text-xs text-text-subtle">
-                            No active stack. Create one to get your instance details.
+                            {$t('challenge.stackNoActive')}
                         </p>
                     {/if}
 
@@ -352,13 +362,17 @@
             {/if}
             {#if !auth.user}
                 <div class="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning-strong">
-                    Please <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>login</a> to submit flags.
+                    {$t('challenge.loginToSubmitPrefix')}
+                    <a class="underline" href="/login" onclick={(e) => navigate('/login', e)}>{$t('auth.loginLink')}</a>
+                    {$t('challenge.loginToSubmitSuffix')}
                 </div>
             {:else if isSolved}
-                <div class="rounded-xl border border-success/40 bg-success/10 p-4 text-sm text-success">Correct!</div>
+                <div class="rounded-xl border border-success/40 bg-success/10 p-4 text-sm text-success">
+                    {$t('challenge.correct')}
+                </div>
             {:else if !challenge.is_active}
                 <div class="rounded-xl border border-border/40 bg-surface/10 p-4 text-sm text-text-muted">
-                    This challenge is inactive.
+                    {$t('challenge.inactiveMessage')}
                 </div>
             {:else}
                 <form
@@ -370,12 +384,12 @@
                 >
                     <div>
                         <label class="block text-sm font-medium text-text mb-2"
-                            >Enter Flag
+                            >{$t('challenge.enterFlag')}
                             <input
                                 class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text focus:border-accent focus:outline-none"
                                 type="text"
                                 bind:value={flagInput}
-                                placeholder="flag&#123;...&#125;"
+                                placeholder={$t('challenge.flagPlaceholder')}
                                 autocomplete="off"
                             />
                         </label>
@@ -385,7 +399,7 @@
                         type="submit"
                         disabled={submission.status === 'loading'}
                     >
-                        {submission.status === 'loading' ? 'Submitting...' : 'Submit'}
+                        {submission.status === 'loading' ? $t('challenge.submitting') : $t('challenge.submit')}
                     </button>
                     {#if submission.message}
                         <div

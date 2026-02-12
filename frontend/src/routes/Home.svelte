@@ -4,6 +4,7 @@
     import { navigate } from '../lib/router'
     import { configStore } from '../lib/config'
     import Markdown from '../components/Markdown.svelte'
+    import { t } from '../lib/i18n'
     let auth = $state(get(authStore))
     let appConfig = $state(get(configStore))
 
@@ -35,13 +36,13 @@
                 <a
                     href="/challenges"
                     class="rounded-full bg-accent px-5 py-2.5 text-sm text-contrast-foreground transition hover:bg-accent-strong sm:px-6 sm:py-3 sm:text-base"
-                    onclick={(e) => navigate('/challenges', e)}>Challenges</a
+                    onclick={(e) => navigate('/challenges', e)}>{$t('home.ctaChallenges')}</a
                 >
                 {#if !auth.user}
                     <a
                         href="/register"
                         class="rounded-full border border-border px-5 py-2.5 text-sm text-text transition hover:border-accent sm:px-6 sm:py-3 sm:text-base"
-                        onclick={(e) => navigate('/register', e)}>Sign Up</a
+                        onclick={(e) => navigate('/register', e)}>{$t('home.ctaSignUp')}</a
                     >
                 {/if}
             </div>

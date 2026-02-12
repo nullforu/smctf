@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { UserDetail } from '../../lib/types'
+    import { getRoleKey, t } from '../../lib/i18n'
 
     interface Props {
         user: UserDetail
@@ -26,11 +27,11 @@
 </script>
 
 <div class="mt-6 rounded-2xl border border-border bg-surface p-6">
-    <h3 class="text-lg text-text">Account</h3>
+    <h3 class="text-lg text-text">{$t('profile.account')}</h3>
 
     <div class="mt-4 space-y-2 text-sm text-text">
         <div class="flex items-center justify-between gap-4">
-            <span class="text-text-muted">Username</span>
+            <span class="text-text-muted">{$t('common.username')}</span>
 
             {#if editingUsername}
                 <div class="flex items-center gap-2">
@@ -44,28 +45,30 @@
                         disabled={savingUsername}
                         onclick={onSave}
                     >
-                        Save
+                        {$t('profile.save')}
                     </button>
-                    <button class="text-sm text-text-subtle hover:underline" onclick={cancelEdit}>Cancel</button>
+                    <button class="text-sm text-text-subtle hover:underline" onclick={cancelEdit}>
+                        {$t('profile.cancel')}
+                    </button>
                 </div>
             {:else}
                 <div class="flex items-center gap-3">
                     <span>{user.username}</span>
                     <button class="text-xs text-accent hover:underline" onclick={() => (editingUsername = true)}>
-                        Edit
+                        {$t('profile.edit')}
                     </button>
                 </div>
             {/if}
         </div>
 
         <div class="flex justify-between">
-            <span class="text-text-muted">Email</span>
+            <span class="text-text-muted">{$t('common.email')}</span>
             <span>{authEmail}</span>
         </div>
 
         <div class="flex justify-between">
-            <span class="text-text-muted">Role</span>
-            <span class="uppercase text-accent">{user.role}</span>
+            <span class="text-text-muted">{$t('common.role')}</span>
+            <span class="uppercase text-accent">{$t(getRoleKey(user.role))}</span>
         </div>
     </div>
 </div>

@@ -4,6 +4,7 @@
     import type { TeamSummary } from '../lib/types'
     import { formatApiError } from '../lib/utils'
     import { navigate } from '../lib/router'
+    import { t } from '../lib/i18n'
 
     let teams: TeamSummary[] = $state([])
     let loading = $state(false)
@@ -40,22 +41,21 @@
 <section class="fade-in">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h2 class="text-3xl text-text">Teams</h2>
-            <p class="mt-1 text-sm text-text-muted">Browse teams and their stats.</p>
+            <h2 class="text-3xl text-text">{$t('teams.title')}</h2>
         </div>
     </div>
 
     <div class="mt-6">
         <input
             type="text"
-            placeholder="Search by team name or ID..."
+            placeholder={$t('teams.searchPlaceholder')}
             bind:value={searchQuery}
             class="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder-text-subtle transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
     </div>
 
     {#if loading}
-        <p class="mt-6 text-sm text-text-muted">Loading...</p>
+        <p class="mt-6 text-sm text-text-muted">{$t('common.loading')}</p>
     {:else if errorMessage}
         <p class="mt-6 text-sm text-danger">{errorMessage}</p>
     {:else}
@@ -68,27 +68,27 @@
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    ID
+                                    {$t('common.id')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Team
+                                    {$t('common.team')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Members
+                                    {$t('common.members')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Total Score
+                                    {$t('common.totalScore')}
                                 </th>
                                 <th
                                     class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted"
                                 >
-                                    Action
+                                    {$t('common.action')}
                                 </th>
                             </tr>
                         </thead>
@@ -108,7 +108,7 @@
                                         {team.member_count}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-accent">
-                                        {team.total_score} pts
+                                        {$t('common.pointsShort', { points: team.total_score })}
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                         <button
@@ -119,7 +119,7 @@
                                             }}
                                             type="button"
                                         >
-                                            View
+                                            {$t('common.view')}
                                         </button>
                                     </td>
                                 </tr>
@@ -127,7 +127,7 @@
                             {#if filteredTeams.length === 0}
                                 <tr>
                                     <td colspan="5" class="px-6 py-8 text-center text-sm text-text-muted">
-                                        {searchQuery ? 'No results found.' : 'No teams found.'}
+                                        {searchQuery ? $t('teams.noResults') : $t('teams.noTeams')}
                                     </td>
                                 </tr>
                             {/if}
@@ -138,9 +138,11 @@
 
             {#if filteredTeams.length > 0}
                 <p class="mt-4 text-sm text-text-muted">
-                    {filteredTeams.length} team{filteredTeams.length !== 1 ? 's' : ''}
+                    {filteredTeams.length === 1
+                        ? $t('teams.countSingular', { count: filteredTeams.length })
+                        : $t('teams.countPlural', { count: filteredTeams.length })}
                     {#if searchQuery}
-                        (out of {teams.length})
+                        {$t('common.outOf', { total: teams.length })}
                     {/if}
                 </p>
             {/if}

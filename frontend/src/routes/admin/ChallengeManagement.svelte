@@ -5,6 +5,8 @@
     import type { Challenge } from '../../lib/types'
     import { onMount } from 'svelte'
     import FormMessage from '../../components/FormMessage.svelte'
+    import { get } from 'svelte/store'
+    import { getCategoryKey, t } from '../../lib/i18n'
 
     let challenges: Challenge[] = $state([])
     let loading = $state(false)
@@ -104,7 +106,7 @@
             })
 
             challenges = challenges.map((item) => (item.id === updated.id ? updated : item))
-            successMessage = `Challenge "${updated.title}" updated successfully`
+            successMessage = get(t)('admin.manage.successUpdated', { title: updated.title })
 
             editTitle = updated.title
             editDescription = updated.description
@@ -129,12 +131,12 @@
         editFileSuccess = ''
 
         if (!editFile) {
-            editFileError = 'Select a .zip file to upload.'
+            editFileError = get(t)('admin.manage.selectZip')
             return
         }
 
         if (!isZipFile(editFile)) {
-            editFileError = 'Only .zip files are allowed.'
+            editFileError = get(t)('admin.create.onlyZip')
             return
         }
 
@@ -146,7 +148,7 @@
             challenges = challenges.map((item) =>
                 item.id === uploadResponse.challenge.id ? uploadResponse.challenge : item,
             )
-            editFileSuccess = 'Challenge file uploaded.'
+            editFileSuccess = get(t)('admin.manage.fileUploaded')
             editFile = null
         } catch (error) {
             const formatted = formatApiError(error)
@@ -157,7 +159,9 @@
     }
 
     const deleteEditFile = async (challenge: Challenge) => {
-        const confirmed = window.confirm(`Delete challenge file for "${challenge.title}" (ID ${challenge.id})?`)
+        const confirmed = window.confirm(
+            get(t)('admin.manage.confirmDeleteFile', { title: challenge.title, id: challenge.id }),
+        )
         if (!confirmed) return
 
         editFileError = ''
@@ -167,7 +171,7 @@
         try {
             const updated = await api.deleteChallengeFile(challenge.id)
             challenges = challenges.map((item) => (item.id === updated.id ? updated : item))
-            editFileSuccess = 'Challenge file deleted.'
+            editFileSuccess = get(t)('admin.manage.fileDeleted')
         } catch (error) {
             const formatted = formatApiError(error)
             editFileError = formatted.message
@@ -177,7 +181,9 @@
     }
 
     const deleteChallenge = async (challenge: Challenge) => {
-        const confirmed = window.confirm(`Delete challenge "${challenge.title}" (ID ${challenge.id})?`)
+        const confirmed = window.confirm(
+            get(t)('admin.manage.confirmDeleteChallenge', { title: challenge.title, id: challenge.id }),
+        )
         if (!confirmed) return
 
         manageLoading = true
@@ -188,7 +194,7 @@
         try {
             await api.deleteChallenge(challenge.id)
             challenges = challenges.filter((item) => item.id !== challenge.id)
-            successMessage = `Challenge "${challenge.title}" deleted`
+            successMessage = get(t)('admin.manage.successDeleted', { title: challenge.title })
             if (expandedChallengeId === challenge.id) {
                 expandedChallengeId = null
             }
@@ -208,7 +214,7 @@
             onclick={loadChallenges}
             disabled={loading}
         >
-            {loading ? 'Loading...' : 'Refresh'}
+            {loading ? $t('common.loading') : $t('common.refresh')}
         </button>
     </div>
 
@@ -220,7 +226,7 @@
     {/if}
 
     {#if loading}
-        <p class="text-sm text-text-subtle">Loading challenges...</p>
+        <p class="text-sm text-text-subtle">{$t('admin.manage.loadingChallenges')}</p>
     {:else}
         <div class="overflow-hidden rounded-2xl border border-border bg-surface">
             <div class="overflow-x-auto">
@@ -230,47 +236,47 @@
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                ID
+                                {$t('common.id')}
                             </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Title
+                                {$t('common.title')}
                             </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Category
+                                {$t('common.category')}
                             </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Points
+                                {$t('admin.manage.initial')}
                             </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Initial
+                                {$t('common.points')}
                             </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Minimum
+                                {$t('common.minimum')}
                             </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Solved
+                                {$t('challenges.solvedLabel')}
                             </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Status
+                                {$t('common.status')}
                             </th>
                             <th
                                 class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted"
                             >
-                                Action
+                                {$t('common.action')}
                             </th>
                         </tr>
                     </thead>
@@ -284,7 +290,7 @@
                                     {challenge.title}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-text">
-                                    {challenge.category}
+                                    {$t(getCategoryKey(challenge.category))}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-text">
                                     {challenge.points}
@@ -306,7 +312,9 @@
                                                 : 'bg-surface-subtle text-text  '
                                         }`}
                                     >
-                                        {challenge.is_active ? 'active' : 'inactive'}
+                                        {challenge.is_active
+                                            ? $t('admin.manage.statusActive')
+                                            : $t('admin.manage.statusInactive')}
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
@@ -316,14 +324,16 @@
                                             onclick={() => openEditor(challenge)}
                                             disabled={manageLoading}
                                         >
-                                            {expandedChallengeId === challenge.id ? 'Close Edit' : 'Edit'}
+                                            {expandedChallengeId === challenge.id
+                                                ? $t('admin.manage.closeEdit')
+                                                : $t('admin.manage.edit')}
                                         </button>
                                         <button
                                             class="text-danger hover:text-danger-strong"
                                             onclick={() => deleteChallenge(challenge)}
                                             disabled={manageLoading}
                                         >
-                                            Delete
+                                            {$t('admin.manage.delete')}
                                         </button>
                                     </div>
                                 </td>
@@ -341,7 +351,7 @@
                                             <div>
                                                 <label
                                                     class="text-xs uppercase tracking-wide text-text-muted"
-                                                    for={`manage-title-${challenge.id}`}>Title</label
+                                                    for={`manage-title-${challenge.id}`}>{$t('common.title')}</label
                                                 >
                                                 <input
                                                     id={`manage-title-${challenge.id}`}
@@ -351,14 +361,15 @@
                                                 />
                                                 {#if manageFieldErrors.title}
                                                     <p class="mt-2 text-xs text-danger">
-                                                        title: {manageFieldErrors.title}
+                                                        {$t('common.title')}: {manageFieldErrors.title}
                                                     </p>
                                                 {/if}
                                             </div>
                                             <div>
                                                 <label
                                                     class="text-xs uppercase tracking-wide text-text-muted"
-                                                    for={`manage-description-${challenge.id}`}>Description</label
+                                                    for={`manage-description-${challenge.id}`}
+                                                    >{$t('common.description')}</label
                                                 >
                                                 <textarea
                                                     id={`manage-description-${challenge.id}`}
@@ -368,7 +379,7 @@
                                                 ></textarea>
                                                 {#if manageFieldErrors.description}
                                                     <p class="mt-2 text-xs text-danger">
-                                                        description: {manageFieldErrors.description}
+                                                        {$t('common.description')}: {manageFieldErrors.description}
                                                     </p>
                                                 {/if}
                                             </div>
@@ -376,7 +387,8 @@
                                                 <div>
                                                     <label
                                                         class="text-xs uppercase tracking-wide text-text-muted"
-                                                        for={`manage-category-${challenge.id}`}>Category</label
+                                                        for={`manage-category-${challenge.id}`}
+                                                        >{$t('common.category')}</label
                                                     >
                                                     <select
                                                         id={`manage-category-${challenge.id}`}
@@ -384,19 +396,20 @@
                                                         bind:value={editCategory}
                                                     >
                                                         {#each CHALLENGE_CATEGORIES as option}
-                                                            <option value={option}>{option}</option>
+                                                            <option value={option}>{$t(getCategoryKey(option))}</option>
                                                         {/each}
                                                     </select>
                                                     {#if manageFieldErrors.category}
                                                         <p class="mt-2 text-xs text-danger">
-                                                            category: {manageFieldErrors.category}
+                                                            {$t('common.category')}: {manageFieldErrors.category}
                                                         </p>
                                                     {/if}
                                                 </div>
                                                 <div>
                                                     <label
                                                         class="text-xs uppercase tracking-wide text-text-muted"
-                                                        for={`manage-points-${challenge.id}`}>Points</label
+                                                        for={`manage-points-${challenge.id}`}
+                                                        >{$t('common.points')}</label
                                                     >
                                                     <input
                                                         id={`manage-points-${challenge.id}`}
@@ -407,14 +420,15 @@
                                                     />
                                                     {#if manageFieldErrors.points}
                                                         <p class="mt-2 text-xs text-danger">
-                                                            points: {manageFieldErrors.points}
+                                                            {$t('common.points')}: {manageFieldErrors.points}
                                                         </p>
                                                     {/if}
                                                 </div>
                                                 <div>
                                                     <label
                                                         class="text-xs uppercase tracking-wide text-text-muted"
-                                                        for={`manage-minimum-points-${challenge.id}`}>Minimum</label
+                                                        for={`manage-minimum-points-${challenge.id}`}
+                                                        >{$t('common.minimum')}</label
                                                     >
                                                     <input
                                                         id={`manage-minimum-points-${challenge.id}`}
@@ -425,7 +439,7 @@
                                                     />
                                                     {#if manageFieldErrors.minimum_points}
                                                         <p class="mt-2 text-xs text-danger">
-                                                            minimum_points: {manageFieldErrors.minimum_points}
+                                                            {$t('common.minimum')}: {manageFieldErrors.minimum_points}
                                                         </p>
                                                     {/if}
                                                 </div>
@@ -436,7 +450,7 @@
                                                     bind:checked={editIsActive}
                                                     class="h-4 w-4 rounded border-border"
                                                 />
-                                                Active
+                                                {$t('common.active')}
                                             </label>
                                             <div class="rounded-2xl border border-border bg-surface/60 p-4">
                                                 <label class="flex items-center gap-3 text-sm text-text">
@@ -445,7 +459,7 @@
                                                         bind:checked={editStackEnabled}
                                                         class="h-4 w-4 rounded border-border"
                                                     />
-                                                    Provide stack (container instance)
+                                                    {$t('admin.create.provideStack')}
                                                 </label>
                                                 {#if editStackEnabled}
                                                     <div class="mt-4 grid gap-4">
@@ -453,7 +467,7 @@
                                                             <label
                                                                 class="text-xs uppercase tracking-wide text-text-muted"
                                                                 for={`manage-stack-target-port-${challenge.id}`}
-                                                                >Target Port</label
+                                                                >{$t('admin.create.targetPort')}</label
                                                             >
                                                             <input
                                                                 id={`manage-stack-target-port-${challenge.id}`}
@@ -465,7 +479,7 @@
                                                             />
                                                             {#if manageFieldErrors.stack_target_port}
                                                                 <p class="mt-2 text-xs text-danger">
-                                                                    stack_target_port: {manageFieldErrors.stack_target_port}
+                                                                    {$t('admin.create.targetPort')}: {manageFieldErrors.stack_target_port}
                                                                 </p>
                                                             {/if}
                                                         </div>
@@ -473,18 +487,18 @@
                                                             <label
                                                                 class="text-xs uppercase tracking-wide text-text-muted"
                                                                 for={`manage-stack-pod-spec-${challenge.id}`}
-                                                                >Pod Spec (YAML)</label
+                                                                >{$t('admin.create.podSpec')}</label
                                                             >
                                                             <textarea
                                                                 id={`manage-stack-pod-spec-${challenge.id}`}
                                                                 class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 font-mono text-xs text-text focus:border-accent focus:outline-none"
                                                                 rows="7"
-                                                                placeholder="Leave empty to keep existing spec"
+                                                                placeholder={$t('admin.manage.podSpecPlaceholder')}
                                                                 bind:value={editStackPodSpec}
                                                             ></textarea>
                                                             {#if manageFieldErrors.stack_pod_spec}
                                                                 <p class="mt-2 text-xs text-danger">
-                                                                    stack_pod_spec: {manageFieldErrors.stack_pod_spec}
+                                                                    {$t('admin.create.podSpec')}: {manageFieldErrors.stack_pod_spec}
                                                                 </p>
                                                             {/if}
                                                         </div>
@@ -496,12 +510,12 @@
                                                 class="rounded-xl border border-border bg-surface/60 p-4 text-sm text-text"
                                             >
                                                 <p class="text-xs uppercase tracking-wide text-text-subtle">
-                                                    Challenge File
+                                                    {$t('admin.manage.challengeFile')}
                                                 </p>
                                                 <p class="mt-2 text-sm text-text">
                                                     {challenge.has_file
                                                         ? (challenge.file_name ?? 'challenge.zip')
-                                                        : 'No file uploaded'}
+                                                        : $t('admin.manage.noFileUploaded')}
                                                 </p>
                                                 <div class="mt-3 flex flex-wrap items-center gap-3">
                                                     <input
@@ -521,7 +535,9 @@
                                                         onclick={() => uploadEditFile(challenge)}
                                                         disabled={editFileUploading || manageLoading}
                                                     >
-                                                        {editFileUploading ? 'Uploading...' : 'Upload .zip'}
+                                                        {editFileUploading
+                                                            ? $t('admin.create.uploading')
+                                                            : $t('admin.manage.uploadZip')}
                                                     </button>
                                                     {#if challenge.has_file}
                                                         <button
@@ -530,7 +546,7 @@
                                                             onclick={() => deleteEditFile(challenge)}
                                                             disabled={editFileUploading || manageLoading}
                                                         >
-                                                            Delete File
+                                                            {$t('admin.manage.deleteFile')}
                                                         </button>
                                                     {/if}
                                                 </div>
@@ -557,14 +573,14 @@
                                                     onclick={() => (expandedChallengeId = null)}
                                                     disabled={manageLoading}
                                                 >
-                                                    Cancel
+                                                    {$t('common.cancel')}
                                                 </button>
                                                 <button
                                                     class="rounded-xl bg-accent px-5 py-3 text-sm text-contrast-foreground transition hover:bg-accent-strong disabled:opacity-60"
                                                     type="submit"
                                                     disabled={manageLoading}
                                                 >
-                                                    {manageLoading ? 'Saving...' : 'Save Changes'}
+                                                    {manageLoading ? $t('admin.site.saving') : $t('common.saveChanges')}
                                                 </button>
                                             </div>
                                         </form>
@@ -575,7 +591,7 @@
                         {#if challenges.length === 0}
                             <tr>
                                 <td colspan="9" class="px-6 py-8 text-center text-sm text-text-muted">
-                                    No challenges found.
+                                    {$t('admin.manage.noChallenges')}
                                 </td>
                             </tr>
                         {/if}

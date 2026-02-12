@@ -1,4 +1,6 @@
+import { get } from 'svelte/store'
 import type { TimelineSubmission, TimelineResponse } from '../lib/types'
+import { getLocaleTag, localeStore } from '../lib/i18n'
 
 export interface ChartPoint {
     x: number
@@ -76,7 +78,8 @@ const formatTime = (value: string) => {
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return value
 
-    return date.toLocaleTimeString('ko-KR', {
+    const locale = getLocaleTag(get(localeStore))
+    return date.toLocaleTimeString(locale, {
         hour: '2-digit',
         minute: '2-digit',
         timeZone: 'Asia/Seoul',
