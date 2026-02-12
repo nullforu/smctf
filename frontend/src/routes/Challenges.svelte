@@ -6,21 +6,15 @@
     import ChallengeCard from '../components/ChallengeCard.svelte'
     import ChallengeModal from '../components/ChallengeModal.svelte'
 
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
-
-    const ChallengeModalComponent = ChallengeModal
-
     let challenges: Challenge[] = $state([])
     let loading = $state(true)
     let errorMessage = $state('')
     let solvedIds = $state(new Set<number>())
     let selectedChallenge: Challenge | null = $state(null)
 
-    const ChallengeCardComponent = ChallengeCard
+    const activeChallenges = $derived(challenges.filter((challenge) => challenge.is_active))
+    const inactiveChallenges = $derived(challenges.filter((challenge) => !challenge.is_active))
+    const solvedCount = $derived(solvedIds.size)
 
     const loadChallenges = async () => {
         loading = true
@@ -58,9 +52,8 @@
         selectedChallenge = null
     }
 
-    onMount(async () => {
-        await loadChallenges()
-        await loadSolved()
+    onMount(() => {
+        void Promise.all([loadChallenges(), loadSolved()])
     })
 </script>
 
@@ -72,10 +65,8 @@
         <div
             class="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs text-slate-700 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-300"
         >
-            Solved {solvedIds.size} / {challenges.filter((c) => c.is_active).length}
-            {challenges.filter((c) => !c.is_active).length > 0
-                ? `(${challenges.filter((c) => !c.is_active).length} inactive)`
-                : ''}
+            Solved {solvedCount} / {activeChallenges.length}
+            {inactiveChallenges.length > 0 ? `(${inactiveChallenges.length} inactive)` : ''}
         </div>
     </div>
 
@@ -94,7 +85,7 @@
     {:else}
         <div class="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {#each challenges as challenge}
-                <ChallengeCardComponent
+                <ChallengeCard
                     {challenge}
                     isSolved={solvedIds.has(challenge.id)}
                     onClick={() => openChallenge(challenge)}
@@ -105,7 +96,7 @@
 </section>
 
 {#if selectedChallenge}
-    <ChallengeModalComponent
+    <ChallengeModal
         challenge={selectedChallenge}
         isSolved={solvedIds.has(selectedChallenge.id)}
         onClose={closeModal}

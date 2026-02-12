@@ -1,15 +1,8 @@
 <script lang="ts">
     import { api } from '../lib/api'
     import { formatApiError, type FieldErrors } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
-
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
+    import { navigate } from '../lib/router'
+    import FormMessage from '../components/FormMessage.svelte'
 
     let email = $state('')
     let username = $state('')
@@ -130,22 +123,16 @@
                 </div>
 
                 {#if errorMessage}
-                    <p
-                        class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-                    >
-                        {errorMessage}
-                    </p>
+                    <FormMessage variant="error" message={errorMessage} />
                 {/if}
                 {#if success}
-                    <p
-                        class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
-                    >
+                    <FormMessage variant="success">
                         Account created successfully. Please <a
                             class="underline"
                             href="/login"
                             onclick={(e) => navigate('/login', e)}>login</a
                         >.
-                    </p>
+                    </FormMessage>
                 {/if}
 
                 <button

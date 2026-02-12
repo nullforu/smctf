@@ -1,25 +1,10 @@
 <script lang="ts">
     import { api, uploadPresignedPost } from '../../lib/api'
+    import { CHALLENGE_CATEGORIES } from '../../lib/constants'
     import { formatApiError, isZipFile, type FieldErrors } from '../../lib/utils'
     import type { Challenge } from '../../lib/types'
     import { onMount } from 'svelte'
-
-    const categories = [
-        'Web',
-        'Web3',
-        'Pwnable',
-        'Reversing',
-        'Crypto',
-        'Forensics',
-        'Network',
-        'Cloud',
-        'Misc',
-        'Programming',
-        'Algorithms',
-        'Math',
-        'AI',
-        'Blockchain',
-    ]
+    import FormMessage from '../../components/FormMessage.svelte'
 
     let challenges: Challenge[] = $state([])
     let loading = $state(false)
@@ -30,7 +15,7 @@
     let manageFieldErrors: FieldErrors = $state({})
     let editTitle = $state('')
     let editDescription = $state('')
-    let editCategory = $state(categories[0])
+    let editCategory = $state(CHALLENGE_CATEGORIES[0])
     let editPoints = $state(100)
     let editMinimumPoints = $state(100)
     let editIsActive = $state(true)
@@ -228,18 +213,10 @@
     </div>
 
     {#if errorMessage}
-        <p
-            class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-        >
-            {errorMessage}
-        </p>
+        <FormMessage variant="error" message={errorMessage} />
     {/if}
     {#if successMessage}
-        <p
-            class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
-        >
-            {successMessage}
-        </p>
+        <FormMessage variant="success" message={successMessage} />
     {/if}
 
     {#if loading}
@@ -408,7 +385,7 @@
                                                         class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                                                         bind:value={editCategory}
                                                     >
-                                                        {#each categories as option}
+                                                        {#each CHALLENGE_CATEGORIES as option}
                                                             <option value={option}>{option}</option>
                                                         {/each}
                                                     </select>
@@ -572,14 +549,18 @@
                                                     {/if}
                                                 </div>
                                                 {#if editFileError}
-                                                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                                                        {editFileError}
-                                                    </p>
+                                                    <FormMessage
+                                                        variant="error"
+                                                        message={editFileError}
+                                                        className="mt-2"
+                                                    />
                                                 {/if}
                                                 {#if editFileSuccess}
-                                                    <p class="mt-2 text-xs text-teal-600 dark:text-teal-300">
-                                                        {editFileSuccess}
-                                                    </p>
+                                                    <FormMessage
+                                                        variant="success"
+                                                        message={editFileSuccess}
+                                                        className="mt-2"
+                                                    />
                                                 {/if}
                                             </div>
 

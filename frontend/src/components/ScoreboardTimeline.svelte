@@ -1,12 +1,16 @@
 <script lang="ts">
-    import { onDestroy, onMount, tick } from 'svelte'
+    import { onDestroy, tick, untrack } from 'svelte'
     import { api } from '../lib/api'
     import { formatApiError, formatDateTime } from '../lib/utils'
-    import { buildChartModel, chartLayout, type ChartSubmissionPoint, type ChartModel } from '../routes/scoreboardChart'
-    import type { TeamTimelineResponse, TimelineSubmission, TimelineResponse } from '../lib/types'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
+    import {
+        buildChartModel,
+        chartLayout,
+        chartUserLimit,
+        type ChartSubmissionPoint,
+        type ChartModel,
+    } from '../routes/scoreboardChart'
+    import type { TimelineSubmission, TimelineResponse } from '../lib/types'
+    import { navigate } from '../lib/router'
 
     interface Props {
         mode?: 'users' | 'teams'
@@ -22,7 +26,6 @@
     let { mode = 'users' }: Props = $props()
 
     let timeline: TimelineResponse | null = $state(null)
-    let rawTeamTimeline: TeamTimelineResponse | null = $state(null)
     let chartModel: ChartModel | null = $state(null)
     let hoveredUserId: number | null = $state(null)
     let tooltip: TooltipState | null = $state(null)
@@ -31,10 +34,9 @@
     let resizeObserver: ResizeObserver | null = null
     let tooltipBox: HTMLDivElement | null = $state(null)
 
-    const chartUserLimit = 10
-
     let loading = $state(true)
     let errorMessage = $state('')
+    let requestId = $state(0)
 
     const formatDateTimeLocal = formatDateTime
 
@@ -65,9 +67,13 @@
 
     const syncChartSize = () => {
         if (!chartContainer) return
-        chartWidth = Math.floor(chartContainer.clientWidth || chartLayout.width)
+        const nextWidth = Math.floor(chartContainer.clientWidth || chartLayout.width)
+        const widthChanged = nextWidth !== chartWidth
 
-        if (timeline) chartModel = buildChartModel(timeline, chartWidth)
+        if (widthChanged) {
+            chartWidth = nextWidth
+            if (timeline) chartModel = buildChartModel(timeline, nextWidth)
+        }
 
         if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
             resizeObserver = new ResizeObserver(syncChartSize)
@@ -75,15 +81,18 @@
         }
     }
 
-    const loadTimeline = async () => {
+    const loadTimeline = async (modeValue: 'users' | 'teams') => {
+        requestId += 1
+        const currentRequest = requestId
         loading = true
         errorMessage = ''
         chartModel = null
         tooltip = null
 
         try {
-            if (mode === 'teams') {
-                rawTeamTimeline = await api.timelineTeams()
+            if (modeValue === 'teams') {
+                const rawTeamTimeline = await api.timelineTeams()
+                if (currentRequest !== requestId) return
                 timeline = rawTeamTimeline
                     ? {
                           submissions: rawTeamTimeline.submissions.map((sub) => ({
@@ -97,21 +106,32 @@
                     : null
             } else {
                 timeline = await api.timeline()
-                rawTeamTimeline = null
+                if (currentRequest !== requestId) return
             }
             chartModel = timeline ? buildChartModel(timeline, chartWidth) : null
 
             await tick()
             syncChartSize()
         } catch (error) {
-            errorMessage = formatApiError(error).message
+            if (currentRequest === requestId) {
+                errorMessage = formatApiError(error).message
+            }
         } finally {
-            loading = false
+            if (currentRequest === requestId) {
+                loading = false
+            }
         }
     }
 
-    onMount(async () => {
-        await loadTimeline()
+    $effect(() => {
+        const selectedMode = mode
+        untrack(() => {
+            loadTimeline(selectedMode)
+        })
+    })
+
+    $effect(() => {
+        if (!chartContainer) return
         syncChartSize()
     })
 

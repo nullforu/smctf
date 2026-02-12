@@ -1,27 +1,22 @@
 <script lang="ts">
     import { get } from 'svelte/store'
     import { authStore } from '../lib/stores'
-    import CreateChallenge_ from './admin/CreateChallenge.svelte'
-    import ChallengeManagement_ from './admin/ChallengeManagement.svelte'
-    import RegistrationKeys_ from './admin/RegistrationKeys.svelte'
-    import Teams_ from './admin/Teams.svelte'
-    import SiteConfig_ from './admin/SiteConfig.svelte'
+    import CreateChallenge from './admin/CreateChallenge.svelte'
+    import ChallengeManagement from './admin/ChallengeManagement.svelte'
+    import RegistrationKeys from './admin/RegistrationKeys.svelte'
+    import Teams from './admin/Teams.svelte'
+    import SiteConfig from './admin/SiteConfig.svelte'
 
-    const CreateChallenge = CreateChallenge_
-    const ChallengeManagement = ChallengeManagement_
-    const RegistrationKeys = RegistrationKeys_
-    const Teams = Teams_
-    const SiteConfig = SiteConfig_
+    const adminTabs = [
+        { id: 'challenges', label: 'Create Challenge' },
+        { id: 'challenge_management', label: 'Challenge Management' },
+        { id: 'teams', label: 'Teams' },
+        { id: 'registration_keys', label: 'Registration Keys' },
+        { id: 'site_config', label: 'Site Configuration' },
+    ] as const
+    type AdminTabId = (typeof adminTabs)[number]['id']
 
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
-
-    let activeTab = $state<'challenges' | 'challenge_management' | 'registration_keys' | 'teams' | 'site_config'>(
-        'challenges',
-    )
+    let activeTab = $state<AdminTabId>('challenges')
     let showSidebar = $state(false)
 
     let auth = $state(get(authStore))
@@ -57,11 +52,9 @@
                 class="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400 md:hidden"
                 bind:value={activeTab}
             >
-                <option value="challenges">Create Challenge</option>
-                <option value="challenge_management">Challenge Management</option>
-                <option value="teams">Teams</option>
-                <option value="registration_keys">Registration Keys</option>
-                <option value="site_config">Site Configuration</option>
+                {#each adminTabs as tab}
+                    <option value={tab.id}>{tab.label}</option>
+                {/each}
             </select>
 
             {#if !showSidebar}
@@ -69,11 +62,9 @@
                     class="hidden flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400 md:block"
                     bind:value={activeTab}
                 >
-                    <option value="challenges">Create Challenge</option>
-                    <option value="challenge_management">Challenge Management</option>
-                    <option value="teams">Teams</option>
-                    <option value="registration_keys">Registration Keys</option>
-                    <option value="site_config">Site Configuration</option>
+                    {#each adminTabs as tab}
+                        <option value={tab.id}>{tab.label}</option>
+                    {/each}
                 </select>
             {/if}
 
@@ -102,56 +93,19 @@
                     <div
                         class="rounded-2xl border border-slate-200 bg-white p-2 dark:border-slate-800/80 dark:bg-slate-900/40"
                     >
-                        <button
-                            class={`flex w-full items-center rounded-lg px-4 py-2.5 text-left text-sm transition ${
-                                activeTab === 'challenges'
-                                    ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800/60 dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/40'
-                            }`}
-                            onclick={() => (activeTab = 'challenges')}
-                        >
-                            Create Challenge
-                        </button>
-                        <button
-                            class={`flex w-full items-center rounded-lg px-4 py-2.5 text-left text-sm transition ${
-                                activeTab === 'challenge_management'
-                                    ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800/60 dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/40'
-                            }`}
-                            onclick={() => (activeTab = 'challenge_management')}
-                        >
-                            Challenge Management
-                        </button>
-                        <button
-                            class={`flex w-full items-center rounded-lg px-4 py-2.5 text-left text-sm transition ${
-                                activeTab === 'registration_keys'
-                                    ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800/60 dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/40'
-                            }`}
-                            onclick={() => (activeTab = 'registration_keys')}
-                        >
-                            Registration Keys
-                        </button>
-                        <button
-                            class={`flex w-full items-center rounded-lg px-4 py-2.5 text-left text-sm transition ${
-                                activeTab === 'teams'
-                                    ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800/60 dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/40'
-                            }`}
-                            onclick={() => (activeTab = 'teams')}
-                        >
-                            Teams
-                        </button>
-                        <button
-                            class={`flex w-full items-center rounded-lg px-4 py-2.5 text-left text-sm transition ${
-                                activeTab === 'site_config'
-                                    ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800/60 dark:text-slate-100'
-                                    : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/40'
-                            }`}
-                            onclick={() => (activeTab = 'site_config')}
-                        >
-                            Site Configuration
-                        </button>
+                        {#each adminTabs as tab}
+                            <button
+                                class={`flex w-full items-center rounded-lg px-4 py-2.5 text-left text-sm transition ${
+                                    activeTab === tab.id
+                                        ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800/60 dark:text-slate-100'
+                                        : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/40'
+                                }`}
+                                onclick={() => (activeTab = tab.id)}
+                                type="button"
+                            >
+                                {tab.label}
+                            </button>
+                        {/each}
                     </div>
                 </nav>
             {/if}

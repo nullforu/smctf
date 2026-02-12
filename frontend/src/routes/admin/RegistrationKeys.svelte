@@ -3,6 +3,7 @@
     import { formatApiError, formatDateTime as _formatDateTime, type FieldErrors } from '../../lib/utils'
     import type { RegistrationKey, TeamSummary } from '../../lib/types'
     import { onMount } from 'svelte'
+    import FormMessage from '../../components/FormMessage.svelte'
 
     const formatDateTime = _formatDateTime
 
@@ -129,9 +130,7 @@
                     </p>
                 {/if}
                 {#if teamsErrorMessage}
-                    <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                        {teamsErrorMessage}
-                    </p>
+                    <FormMessage variant="error" message={teamsErrorMessage} className="mt-2" />
                 {/if}
             </div>
             <div class="flex items-end">
@@ -146,18 +145,10 @@
         </div>
 
         {#if createKeysErrorMessage}
-            <p
-                class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-            >
-                {createKeysErrorMessage}
-            </p>
+            <FormMessage variant="error" message={createKeysErrorMessage} />
         {/if}
         {#if createKeysSuccessMessage}
-            <p
-                class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
-            >
-                {createKeysSuccessMessage}
-            </p>
+            <FormMessage variant="success" message={createKeysSuccessMessage} />
         {/if}
     </form>
 
@@ -174,11 +165,7 @@
         </div>
 
         {#if keysErrorMessage}
-            <p
-                class="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-            >
-                {keysErrorMessage}
-            </p>
+            <FormMessage variant="error" message={keysErrorMessage} className="mt-4" />
         {/if}
 
         {#if keysLoading}

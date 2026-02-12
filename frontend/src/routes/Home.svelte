@@ -1,19 +1,9 @@
 <script lang="ts">
     import { get } from 'svelte/store'
     import { authStore } from '../lib/stores'
-    import { navigate as _navigate } from '../lib/router'
+    import { navigate } from '../lib/router'
     import { configStore } from '../lib/config'
-    import _Markdown from '../components/Markdown.svelte'
-
-    const Markdown = _Markdown
-    const navigate = _navigate
-
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
-
+    import Markdown from '../components/Markdown.svelte'
     let auth = $state(get(authStore))
     let appConfig = $state(get(configStore))
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from 'svelte'
     import { api } from '../lib/api'
     import { formatApiError } from '../lib/utils'
     import type {
@@ -9,9 +10,7 @@
         TeamLeaderboardResponse,
         TeamScoreEntry,
     } from '../lib/types'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
+    import { navigate } from '../lib/router'
 
     interface Props {
         mode?: 'users' | 'teams'
@@ -28,6 +27,7 @@
     let teamScores: TeamEntryView[] = $state([])
     let loading = $state(true)
     let errorMessage = $state('')
+    let requestId = $state(0)
     const flagSize = 22
     const fixedCols = '48px 80px minmax(160px, 1fr)'
 
@@ -71,26 +71,38 @@
 
     const gridTemplate = (count: number) => `${fixedCols} repeat(${count}, ${flagSize}px)`
 
-    const loadScoreboard = async () => {
+    const loadScoreboard = async (modeValue: 'users' | 'teams') => {
+        requestId += 1
+        const currentRequest = requestId
         loading = true
         errorMessage = ''
 
         try {
-            if (mode === 'teams') {
-                applyTeamLeaderboard(await api.leaderboardTeams())
+            if (modeValue === 'teams') {
+                const payload = await api.leaderboardTeams()
+                if (currentRequest !== requestId) return
+                applyTeamLeaderboard(payload)
             } else {
-                applyUserLeaderboard(await api.leaderboard())
+                const payload = await api.leaderboard()
+                if (currentRequest !== requestId) return
+                applyUserLeaderboard(payload)
             }
         } catch (error) {
-            errorMessage = formatApiError(error).message
+            if (currentRequest === requestId) {
+                errorMessage = formatApiError(error).message
+            }
         } finally {
-            loading = false
+            if (currentRequest === requestId) {
+                loading = false
+            }
         }
     }
 
     $effect(() => {
-        const selected = mode
-        loadScoreboard()
+        const selectedMode = mode
+        untrack(() => {
+            loadScoreboard(selectedMode)
+        })
     })
 </script>
 

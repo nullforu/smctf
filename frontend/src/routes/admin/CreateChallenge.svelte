@@ -1,30 +1,15 @@
 <script lang="ts">
     import { api, uploadPresignedPost } from '../../lib/api'
+    import { CHALLENGE_CATEGORIES } from '../../lib/constants'
     import { formatApiError, isZipFile, type FieldErrors } from '../../lib/utils'
-
-    const categories = [
-        'Web',
-        'Web3',
-        'Pwnable',
-        'Reversing',
-        'Crypto',
-        'Forensics',
-        'Network',
-        'Cloud',
-        'Misc',
-        'Programming',
-        'Algorithms',
-        'Math',
-        'AI',
-        'Blockchain',
-    ]
+    import FormMessage from '../../components/FormMessage.svelte'
 
     let loading = $state(false)
     let errorMessage = $state('')
     let successMessage = $state('')
     let title = $state('')
     let description = $state('')
-    let category = $state(categories[0])
+    let category = $state(CHALLENGE_CATEGORIES[0])
     let points = $state(100)
     let minimumPoints = $state(100)
     let flag = $state('')
@@ -82,7 +67,7 @@
 
             title = ''
             description = ''
-            category = categories[0]
+            category = CHALLENGE_CATEGORIES[0]
             points = 100
             minimumPoints = 100
             flag = ''
@@ -150,7 +135,7 @@
                     class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:border-teal-400"
                     bind:value={category}
                 >
-                    {#each categories as option}
+                    {#each CHALLENGE_CATEGORIES as option}
                         <option value={option}>{option}</option>
                     {/each}
                 </select>
@@ -293,18 +278,10 @@
         </div>
 
         {#if errorMessage}
-            <p
-                class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-            >
-                {errorMessage}
-            </p>
+            <FormMessage variant="error" message={errorMessage} />
         {/if}
         {#if successMessage}
-            <p
-                class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
-            >
-                {successMessage}
-            </p>
+            <FormMessage variant="success" message={successMessage} />
         {/if}
 
         <button

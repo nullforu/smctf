@@ -3,18 +3,9 @@
     import { api } from '../lib/api'
     import type { UserListItem } from '../lib/types'
     import { formatApiError } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
-
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
+    import { navigate } from '../lib/router'
 
     let users: UserListItem[] = $state([])
-    let filteredUsers: UserListItem[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
     let searchQuery = $state('')
@@ -25,7 +16,6 @@
 
         try {
             users = await api.users()
-            filteredUsers = users.sort((a, b) => a.id - b.id)
         } catch (error) {
             errorMessage = formatApiError(error).message
         } finally {
@@ -33,19 +23,18 @@
         }
     }
 
-    $effect(() => {
-        if (searchQuery.trim() === '') {
-            filteredUsers = users
-        } else {
-            const query = searchQuery.toLowerCase()
-            filteredUsers = users.filter(
-                (user) =>
-                    user.username.toLowerCase().includes(query) ||
-                    user.id.toString().includes(query) ||
-                    user.team_name.toLowerCase().includes(query),
-            )
-        }
-    })
+    const normalizedQuery = $derived(searchQuery.trim().toLowerCase())
+    const sortedUsers = $derived([...users].sort((a, b) => a.id - b.id))
+    const filteredUsers = $derived(
+        normalizedQuery
+            ? sortedUsers.filter(
+                  (user) =>
+                      user.username.toLowerCase().includes(normalizedQuery) ||
+                      user.id.toString().includes(normalizedQuery) ||
+                      user.team_name.toLowerCase().includes(normalizedQuery),
+              )
+            : sortedUsers,
+    )
 
     onMount(loadUsers)
 </script>
@@ -134,7 +123,11 @@
                                     <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                         <button
                                             class="text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
-                                            onclick={() => navigate(`/users/${user.id}`)}
+                                            onclick={(event) => {
+                                                event.stopPropagation()
+                                                navigate(`/users/${user.id}`)
+                                            }}
+                                            type="button"
                                         >
                                             View
                                         </button>

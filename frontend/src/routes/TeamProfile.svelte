@@ -1,11 +1,8 @@
 <script lang="ts">
-    import { onMount } from 'svelte'
     import { api } from '../lib/api'
     import type { TeamDetail, TeamMember, TeamSolvedChallenge } from '../lib/types'
-    import { formatApiError, formatDateTime } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
+    import { formatApiError, formatDateTime, parseRouteId } from '../lib/utils'
+    import { navigate } from '../lib/router'
 
     interface Props {
         routeParams?: Record<string, string>
@@ -18,6 +15,7 @@
     let solved: TeamSolvedChallenge[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
+    let lastLoadedTeamId = $state<number | null>(null)
 
     const formatDateTimeLocal = formatDateTime
 
@@ -44,16 +42,14 @@
         }
     }
 
-    $effect(() => {
-        if (routeParams.id) {
-            loadTeam(parseInt(routeParams.id))
-        }
-    })
+    const routeTeamId = $derived(parseRouteId(routeParams.id))
 
-    onMount(() => {
-        if (routeParams.id) {
-            loadTeam(parseInt(routeParams.id))
-        }
+    $effect(() => {
+        if (routeTeamId === null) return
+        if (lastLoadedTeamId === routeTeamId) return
+
+        lastLoadedTeamId = routeTeamId
+        loadTeam(routeTeamId)
     })
 </script>
 

@@ -3,10 +3,8 @@
     import { authStore } from '../lib/stores'
     import { api, ApiError } from '../lib/api'
     import { formatApiError } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
+    import { navigate } from '../lib/router'
     import type { Challenge, Stack } from '../lib/types'
-
-    const navigate = _navigate
 
     interface SubmissionState {
         status: 'idle' | 'loading' | 'success' | 'error'
@@ -33,6 +31,9 @@
     let stackMessage = $state('')
     let stackPolling = $state(false)
     let stackNextInterval = $state(10000)
+
+    const STACK_POLL_FAST_MS = 10000
+    const STACK_POLL_SLOW_MS = 60000
 
     $effect(() => {
         const unsubscribe = authStore.subscribe((value) => {
@@ -110,12 +111,12 @@
         try {
             const result = await api.getStack(challenge.id)
             stackInfo = result
-            stackNextInterval = stackInfo?.status === 'running' ? 60000 : 10000
+            stackNextInterval = stackInfo?.status === 'running' ? STACK_POLL_SLOW_MS : STACK_POLL_FAST_MS
             stackMessage = ''
         } catch (error) {
             if (error instanceof ApiError && error.status === 404) {
                 stackInfo = null
-                stackNextInterval = 10000
+                stackNextInterval = STACK_POLL_FAST_MS
                 stackMessage = ''
                 return
             }
@@ -168,7 +169,7 @@
             stackInfo = null
             stackMessage = ''
             stackPolling = false
-            stackNextInterval = 10000
+            stackNextInterval = STACK_POLL_FAST_MS
             return
         }
 

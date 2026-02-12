@@ -1,22 +1,8 @@
 <script lang="ts">
-    import _ScoreboardTimeline from '../components/ScoreboardTimeline.svelte'
-    import _ScoreboardLeaderboard from '../components/ScoreboardLeaderboard.svelte'
+    import ScoreboardTimeline from '../components/ScoreboardTimeline.svelte'
+    import ScoreboardLeaderboard from '../components/ScoreboardLeaderboard.svelte'
 
-    const ScoreboardTimeline = _ScoreboardTimeline
-    const ScoreboardLeaderboard = _ScoreboardLeaderboard
-
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
-
-    let timelineKey = $state(0)
     let viewMode = $state<'users' | 'teams'>('users')
-
-    const reloadTimeline = () => {
-        timelineKey++
-    }
 </script>
 
 <section class="fade-in">
@@ -36,7 +22,6 @@
                     }`}
                     onclick={() => {
                         viewMode = 'users'
-                        reloadTimeline()
                     }}
                 >
                     Users
@@ -49,7 +34,6 @@
                     }`}
                     onclick={() => {
                         viewMode = 'teams'
-                        reloadTimeline()
                     }}
                 >
                     Team
@@ -59,9 +43,7 @@
     </div>
 
     <div class="mt-6 grid min-w-0 grid-cols-1 gap-6">
-        {#key timelineKey}
-            <ScoreboardTimeline mode={viewMode} />
-        {/key}
+        <ScoreboardTimeline mode={viewMode} />
         <ScoreboardLeaderboard mode={viewMode} />
     </div>
 </section>

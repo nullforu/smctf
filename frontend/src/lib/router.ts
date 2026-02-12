@@ -1,4 +1,4 @@
-export const navigate = (path: string, event?: MouseEvent) => {
+export const navigate = (path: string, event?: Event) => {
     if (typeof window === 'undefined') return
 
     event?.preventDefault()

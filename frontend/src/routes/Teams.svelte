@@ -3,18 +3,9 @@
     import { api } from '../lib/api'
     import type { TeamSummary } from '../lib/types'
     import { formatApiError } from '../lib/utils'
-    import { navigate as _navigate } from '../lib/router'
-
-    const navigate = _navigate
-
-    interface Props {
-        routeParams?: Record<string, string>
-    }
-
-    let { routeParams = {} }: Props = $props()
+    import { navigate } from '../lib/router'
 
     let teams: TeamSummary[] = $state([])
-    let filteredTeams: TeamSummary[] = $state([])
     let loading = $state(false)
     let errorMessage = $state('')
     let searchQuery = $state('')
@@ -25,7 +16,6 @@
 
         try {
             teams = await api.teams()
-            filteredTeams = teams.sort((a, b) => a.id - b.id)
         } catch (error) {
             errorMessage = formatApiError(error).message
         } finally {
@@ -33,16 +23,16 @@
         }
     }
 
-    $effect(() => {
-        if (searchQuery.trim() === '') {
-            filteredTeams = teams
-        } else {
-            const query = searchQuery.toLowerCase()
-            filteredTeams = teams.filter(
-                (team) => team.name.toLowerCase().includes(query) || team.id.toString().includes(query),
-            )
-        }
-    })
+    const normalizedQuery = $derived(searchQuery.trim().toLowerCase())
+    const sortedTeams = $derived([...teams].sort((a, b) => a.id - b.id))
+    const filteredTeams = $derived(
+        normalizedQuery
+            ? sortedTeams.filter(
+                  (team) =>
+                      team.name.toLowerCase().includes(normalizedQuery) || team.id.toString().includes(normalizedQuery),
+              )
+            : sortedTeams,
+    )
 
     onMount(loadTeams)
 </script>
@@ -125,7 +115,11 @@
                                     <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                         <button
                                             class="text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
-                                            onclick={() => navigate(`/teams/${team.id}`)}
+                                            onclick={(event) => {
+                                                event.stopPropagation()
+                                                navigate(`/teams/${team.id}`)
+                                            }}
+                                            type="button"
                                         >
                                             View
                                         </button>

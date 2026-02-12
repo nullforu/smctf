@@ -46,3 +46,9 @@ export const formatDateTime = (value: string) => {
 }
 
 export const isZipFile = (file: File) => file.name.toLowerCase().endsWith('.zip')
+
+export const parseRouteId = (value?: string) => {
+    if (!value) return null
+    const parsed = Number.parseInt(value, 10)
+    return Number.isNaN(parsed) ? null : parsed
+}

@@ -3,6 +3,7 @@
     import { formatApiError, formatDateTime as _formatDateTime, type FieldErrors } from '../../lib/utils'
     import type { TeamSummary } from '../../lib/types'
     import { onMount } from 'svelte'
+    import FormMessage from '../../components/FormMessage.svelte'
 
     const formatDateTime = _formatDateTime
 
@@ -79,18 +80,10 @@
                 {/if}
             </div>
             {#if createTeamErrorMessage}
-                <p
-                    class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-                >
-                    {createTeamErrorMessage}
-                </p>
+                <FormMessage variant="error" message={createTeamErrorMessage} />
             {/if}
             {#if createTeamSuccessMessage}
-                <p
-                    class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
-                >
-                    {createTeamSuccessMessage}
-                </p>
+                <FormMessage variant="success" message={createTeamSuccessMessage} />
             {/if}
             <button
                 class="w-full rounded-xl bg-teal-600 py-3 text-sm text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-teal-500/30 dark:text-teal-100 dark:hover:bg-teal-500/40"
@@ -115,11 +108,7 @@
         </div>
 
         {#if teamsErrorMessage}
-            <p
-                class="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-            >
-                {teamsErrorMessage}
-            </p>
+            <FormMessage variant="error" message={teamsErrorMessage} className="mt-4" />
         {/if}
 
         {#if teamsLoading}

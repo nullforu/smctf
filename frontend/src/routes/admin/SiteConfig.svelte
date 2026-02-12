@@ -3,6 +3,7 @@
     import { setConfig } from '../../lib/config'
     import { formatApiError, type FieldErrors } from '../../lib/utils'
     import { onMount } from 'svelte'
+    import FormMessage from '../../components/FormMessage.svelte'
 
     let configTitle = $state('')
     let configDescription = $state('')
@@ -156,18 +157,10 @@
         </div>
 
         {#if configErrorMessage}
-            <p
-                class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-700 dark:text-rose-200"
-            >
-                {configErrorMessage}
-            </p>
+            <FormMessage variant="error" message={configErrorMessage} />
         {/if}
         {#if configSuccessMessage}
-            <p
-                class="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-xs text-teal-700 dark:text-teal-200"
-            >
-                {configSuccessMessage}
-            </p>
+            <FormMessage variant="success" message={configSuccessMessage} />
         {/if}
 
         <button

@@ -123,6 +123,20 @@ const refreshToken = async () => {
     return data.access_token as string
 }
 
+let refreshInFlight: Promise<string> | null = null
+
+const getFreshToken = async () => {
+    if (refreshInFlight) return refreshInFlight
+    refreshInFlight = (async () => {
+        try {
+            return await refreshToken()
+        } finally {
+            refreshInFlight = null
+        }
+    })()
+    return refreshInFlight
+}
+
 const request = async <T>(
     path: string,
     {
@@ -154,7 +168,7 @@ const request = async <T>(
 
     if (response.status === 401 && auth && retryOnAuth) {
         try {
-            const newToken = await refreshToken()
+            const newToken = await getFreshToken()
             const retryHeaders = buildHeaders(true, newToken)
             if (body !== undefined) retryHeaders['Content-Type'] = 'application/json'
 

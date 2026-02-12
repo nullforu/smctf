@@ -42,8 +42,18 @@
     }
 
     function navigateAndClose(path: string, event: Event) {
-        navigate(path, event as MouseEvent)
+        navigate(path, event)
         closeMobileMenu()
+    }
+
+    const logout = async (after?: () => void) => {
+        try {
+            await api.logout()
+        } catch {
+            clearAuthCallback()
+        }
+        navigate('/login')
+        after?.()
     }
 </script>
 
@@ -126,14 +136,7 @@
                 </button>
                 <button
                     class="rounded-full border border-slate-300 px-4 py-2 text-xs text-slate-800 transition hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-teal-400 dark:hover:text-teal-200"
-                    onclick={async () => {
-                        try {
-                            await api.logout()
-                        } catch {
-                            clearAuthCallback()
-                        }
-                        navigate('/login')
-                    }}
+                    onclick={() => logout()}
                 >
                     Logout
                 </button>
@@ -350,15 +353,7 @@
                 {#if user}
                     <button
                         class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 transition hover:border-red-400 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-950"
-                        onclick={async () => {
-                            try {
-                                await api.logout()
-                            } catch {
-                                clearAuthCallback()
-                            }
-                            navigate('/login')
-                            closeMobileMenu()
-                        }}
+                        onclick={() => logout(closeMobileMenu)}
                     >
                         Logout
                     </button>
