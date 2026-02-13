@@ -67,148 +67,445 @@ teams:
   - "네명컴퓨터고등학교"
 
 challenges:
-  - title: "Warmup"
-    description: "Welcome to smctf! Can you find the flag in plain sight?"
+  - title: "Reverse It"
+    description: "3gn3ll4hc_s1ht_3sr3v3r (flag{...})"
     points: 50
-    flag: "flag{w3lc0me_to_smctf_2024}"
+    flag: "flag{r3v3rs3_th1s_ch4ll3ng3}"
     category: "Misc"
-  - title: "Easy Crypto"
-    description: "Caesar cipher with a twist. Decode: Mjqqt1 Htsij"
+  - title: "Simple NextJS"
+    description: "25년도에 큰 취약점이 터졌다던데.. 뭐였지?"
+    points: 50
+    flag: "flag{n3xtjs_cve_2O2S_2gg27_m1dd13w4r3}"
+    category: "Web"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "PDF Converter"
+    description: |
+      세명컴퓨터고등학교 전공동아리 널포유에서 PDF를 이미지로 변환해주는 웹 서비스를 출시하였습니다.
+      이 서비스는 선생님들도 손쉽게 사용할 수 있도록 회원 기능을 제공하며 각 회원들은 서로의 파일을 볼 수 없습니다.
+
+      파일은 내부적으로 업로드되어 나중에 다시 다운로드 받을 수 있도록 되어 있습니다. 
+
+      그런데 어느날 선생님만 볼 수 있는 모든 학생들의 성적표가 유출되는 사고가 발생되었고, 조사 결과 이 웹 서비스로 부터 유출된 것으로 보여집니다.
+
+      웹 서비스의 취약점을 찾아 선생님만 볼 수 있는 중요한 파일을 획득하세요. 
+      
+      소스코드가 제공되지 않는 블랙박스(Blackbox) 문제입니다. 플래그 형식은 `SCA{...}` 입니다.
     points: 100
-    flag: "flag{caesar_cipher_easy}"
-    category: "Crypto"
-  - title: "Web Basics"
-    description: "Find the hidden admin page."
+    flag: "flag{f8e88a73-000f-41fe-ba8f-9f8636f2d21c}"
+    category: "Web"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+  - title: "Strong Bcrypt"
+    description: |
+      이 웹 서비스를 개발한 개발팀에서 어떠한 방법으로 인증(Authentication) 없이 바이패스되는 취약점이 존재한다는 제보를 받았습니다.
+
+      해당 취약점을 찾아내어 플래그를 획득하세요. 플래그 형식은 `SCA{...}` 입니다.
     points: 100
-    flag: "flag{hidden_in_robots_txt}"
+    flag: "flag{5c8f6e2d-3b4a-4f7e-9f1d-2e5b6c7d8e9f}"
     category: "Web"
-  - title: "Binary Exploitation 101"
-    description: "Simple buffer overflow challenge."
-    points: 150
-    flag: "flag{buffer_overflow_basics}"
-    category: "Pwnable"
-  - title: "Reverse Me"
-    description: "Can you reverse this simple binary?"
-    points: 150
-    flag: "flag{rev3rse_3ng1neering}"
-    category: "Reversing"
-  - title: "SQL Injection"
-    description: "Classic SQLi. Admin login bypass."
-    points: 200
-    flag: "flag{sqli_admin_bypass_2024}"
-    category: "Web"
-  - title: "RSA Broken"
-    description: "Small prime factorization problem."
-    points: 200
-    flag: "flag{rsa_small_primes_weak}"
-    category: "Crypto"
-  - title: "Format String"
-    description: "Exploit the format string vulnerability."
-    points: 250
-    flag: "flag{fmt_str1ng_vuln}"
-    category: "Pwnable"
-  - title: "XSS Challenge"
-    description: "Steal the admin cookie."
-    points: 250
-    flag: "flag{xss_cookie_stealer}"
-    category: "Web"
-  - title: "Heap Overflow"
-    description: "Advanced heap exploitation."
-    points: 300
-    flag: "flag{heap_overflow_mastery}"
-    category: "Pwnable"
-  - title: "AES ECB Mode"
-    description: "Exploit ECB mode weakness."
-    points: 300
-    flag: "flag{ecb_mode_is_dangerous}"
-    category: "Crypto"
-  - title: "Advanced Reversing"
-    description: "Multi-stage obfuscated binary."
-    points: 350
-    flag: "flag{advanced_reverse_2024}"
-    category: "Reversing"
-  - title: "Race Condition"
-    description: "Win the race to get the flag."
-    points: 350
-    flag: "flag{race_condition_exploit}"
-    category: "Web"
-  - title: "ROP Chain"
-    description: "Return-oriented programming challenge."
-    points: 400
-    flag: "flag{rop_chain_complete}"
-    category: "Pwnable"
-  - title: "Elliptic Curve"
-    description: "Break weak elliptic curve cryptography."
-    points: 400
-    flag: "flag{ecc_weak_curve_break}"
-    category: "Crypto"
-  - title: "Kernel Exploitation"
-    description: "Exploit a kernel vulnerability."
-    points: 450
-    flag: "flag{kernel_pwn_master}"
-    category: "Pwnable"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Broken CSS"
+    description: |
+      한 회사에서 기르던 고양이가 실수로 CSS 파일을 망가뜨리고 커밋까지 해버렸습니다.
+      그런데 개발자는 묘한 느낌이 들어 상부에 이를 보고하였습니다.
+
+      Git을 통해 Diff를 제공합니다. 고양이가 숨겨둔 의미심장한 메시지를 찾아주세요! 플래그 형식은 `Meow{...}` 입니다.
+    points: 50
+    flag: "Meow{c4t_1s_4l5o_4_d3v3l0p3r}"
+    category: "Misc"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
   - title: "Custom Protocol"
-    description: "Reverse engineer a custom network protocol."
-    points: 450
-    flag: "flag{custom_proto_reversed}"
-    category: "Reversing"
-  - title: "JWT Forgery"
-    description: "Forge a JWT token with algorithm confusion."
-    points: 450
-    flag: "flag{jwt_alg_none_attack}"
-    category: "Web"
-  - title: "Side Channel Attack"
-    description: "Timing attack on crypto implementation."
-    points: 500
-    flag: "flag{timing_attack_success}"
-    category: "Crypto"
-  - title: "Smart Contract Audit"
-    description: "Find the vulnerability in the token contract."
-    points: 350
-    flag: "flag{token_reentrancy_bug}"
-    category: "Web3"
-  - title: "Chain Indexer"
-    description: "Fix the block indexing logic."
-    points: 300
-    flag: "flag{block_index_fix}"
-    category: "Blockchain"
-  - title: "AI Prompt Leak"
-    description: "Extract the hidden prompt."
-    points: 300
-    flag: "flag{prompt_injection_leak}"
-    category: "AI"
-  - title: "Packet Sleuth"
-    description: "Analyze the capture to find the secret."
-    points: 250
-    flag: "flag{pcap_hidden_secret}"
+    description: |
+      정보보안 동아리에서 밀리터리에 관심이 있던 한 학생이 자신만의 L7 네트워크 프로토콜을 만들었습니다. 
+
+      유일하게 이 프로토콜을 제작한 사실을 알고있던 유일한 한명의 선생님과 학생은 비밀리에 이 프로토콜을 사용하여 통신하며 시험지 및 정답지를 주고 받았습니다.
+
+      그 학생이 갑자기 성적이 오른것에 대해 이상함을 느끼던 당신은 우연히 이 사실을 알게되었습니다. 
+
+      그리고 이 통신을 가로채 증거를 확보한 후 경찰에 넘기려 합니다. 증거에서 중요한 정보를 획득하세요. 플래그 형식은 `SMCH{...}` 입니다.
+    points: 150
+    flag: "SMCH{c5u5t0m_pr0t0c0l_4n4lyz3d}"
     category: "Network"
-  - title: "Cloud Misconfig"
-    description: "Public bucket exposure challenge."
-    points: 250
-    flag: "flag{bucket_leak_found}"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "아이엠그라운드"
+    description: |
+      클라우드 플랫폼인 AWS에선 리소스에 대한 안전한 엑세스 관리와 사용자, 역할 정책 등을 관리하기 위해 IAM(Identity and Access Management) 서비스를 제공합니다.
+
+      세명컴퓨터고등학교의 클라우드 컴퓨팅 동아리 Null4U에서 웹 서비스를 출시하였는데, 당신은 이 서비스에서 필요 이상의 권한이 부여된 IAM 역할을 발견하였습니다.
+
+      Null4U에서 활동하는 주요 인물과 대화를 나눠보았고 아래와 같은 정보를 얻었습니다.
+
+      - 중요한 데이터는 고가용성 및 내구성이 확보된 스토리지 서비스에 보관되어야 한다.
+      - 중요한 데이터는 오브젝트 스토리지 서비스, 그 중 자주 접근하진 않지만 필요 시 밀리초 내에 접근이 가능할 수 있는 가장 비용 효율적인 스토리지 클래스를 사용하여 보관하고 있다.
+      - 이 스토리지는 오로지 CDN 캐싱 서비스에서 OAC(Origin Access Control)를 통해서만 접근이 가능하도록 정책을 설정해두었다.
+
+      이 정보를 바탕으로 해당 서비스에서 중요한 데이터를 찾아 플래그를 획득하세요. 플래그 형식은 `N4U{...}` 입니다.
+
+      > 본 문제는 각 팀별로 제공되는 하나의 IAM 사용자로 직접 로그인하여 풀이를 진행하는 문제입니다. 
+      > 
+      > 각 팀의 IAM 사용자에 대한 로그인 정보는 대회 시작 후 별도로 안내됩니다.
+    points: 150
+    flag: "N4U{1am_gr0und3d_1n_aws_1am}"
     category: "Cloud"
-  - title: "Forensic Timeline"
-    description: "Recover deleted artifacts."
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Password Manager"
+    description: |
+      보안 회사는 MacOS의 키체인(Keychain)에서 영감을 받아 자체적인 패스워드 매니저를 개발하고 출시하였습니다. 이 매니저는 CLI 형태로 동작합니다.
+
+      프로토타입이 공개된 후, 당신은 베타 테스터로 선정되어 이 패스워드 매니저를 사용해볼 기회를 얻었습니다.
+
+      회사는 패스워드 매니저의 보안에 대해 자신감을 표명하였고 중대한 취약점을 찾으면 100달러의 상금을 주겠다고 발표하였습니다.
+
+      돈이 없어 라면만 먹고 사는 백수인 당신은 이 기회를 놓치지 않고 패스워드 매니저의 취약점을 찾아 `admin` 계정에 포함된 중요한 정보를 획득하여 상금을 타내려고 합니다. 플래그 형식은 `flag{...}` 입니다.
+    points: 200
+    flag: "flag{p4ssw0rd_m4n4g3r_bre4k1n}"
+    category: "Reversing"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "VM inside VM"
+    description: |
+      가상 머신(VM)은 격리된 환경에서 운영체제를 실행할 수 있도록 해주는 기술입니다. 
+
+      한 보안 연구원이 VM 안에 또 다른 VM을 설치하는 실험을 진행하던 중, 내부 VM에서 호스트 시스템의 중요한 정보를 획득하는 데 성공하였습니다.
+
+      이 취약점을 재현하여 내부 VM에서 호스트 시스템의 중요한 정보를 획득하세요. 플래그 형식은 `flag{...}` 입니다.
     points: 250
-    flag: "flag{timeline_recovered}"
+    flag: "flag{vm_1ns1de_vm_exploit3d}"
+    category: "Pwnable"
+    stack_enabled: true
+    stack_target_port: 150
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Self Modifying Nightmare"
+    description: |
+      이 애플리케이션 바이너리는 스스로 코드를 수정하는 독특한 기능을 가지고 있으며, 아래와 같은 기술을 사용합니다.
+
+      - Runtime code patching (`mprotect` System Call)
+      - Encryption/Decryption of code sections
+      - Anti debugging techniques
+
+      연구원으로 활동하는 당신은 이 애플리케이션에서 어떠한 방법으로든 취약점을 찾아내서 쉘을 획득해야 합니다. GDB를 적극적으로 활용하세요.
+
+      플래그 형식은 `flag{...}` 입니다.
+    points: 300
+    flag: "flag{s3lf_m0d1fy1ng_n1ghtmar3}"
+    category: "Reversing"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "MacDonald Part Time"
+    description: |
+      당신은 유명 햄버거 프랜차이즈인 맥OOO에서 파트 타임으로 일하는 학생입니다. 
+
+      어느날 매장에서 근무하는 사장과 다른 직원들이 일하기 싫다며 집으로 도망가버렸고, 가장 짬이 낮은 당신만 홀로 남게 되었습니다.
+
+      기분은 좋지 않았지만 당신은 이 틈을 타 **케첩**을 몰래 훔치기로 하였습니다. 
+      당신은 매장에서 직원들만 접근할 수 있는 PoS 시스템에 접근하여 케첩의 재고를 몰래 조작하고 훔쳐야 걸리지 않습니다.
+
+      키오스크에 접근하려면 매장 내 배치된 PoS(Point of Sale) 단말기에서 관리자 권한을 획득하고 조작해야 합니다. 이 시스템은 ARM MacOS 기반으로 동작합니다.
+
+      케첩을 몰래 훔치고 덤으로 중요한 정보를 획득하여 제출하세요. 플래그 형식은 `ketchup{...}` 입니다.
+    points: 200
+    flag: "ketchup{p0s_syst3m_expl01t3d}"
+    category: "Reversing"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Easy ret2win"
+    description: "설명이 필요없는 아주 쉬운 ret2win 문제입니다."
+    points: 50
+    flag: "flag{ret2win_successful}"
+    category: "Pwnable"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "House of Orange"
+    description: |
+      이 바이너리는 glibc 2.23 버전을 사용한다고 합니다. House of Orange 기법을 사용하여 쉘을 획득하고 플래그를 획득하세요.
+
+      플래그 형식은 `flag{...}` 입니다.
+    points: 200
+    flag: "flag{h0use_0f_0rang3_expl01t3d}"
+    category: "Pwnable"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Seccomp Jail"
+    description: |
+      이 바이너리는 seccomp 필터링이 적용되어 있습니다. 우회 기법을 사용하여 쉘을 획득하고 플래그를 획득하세요.
+
+      플래그 형식은 `flag{...}` 입니다.
+    points: 300
+    flag: "flag{seccomp_jail_byp4ss3d}"
+    category: "Pwnable"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Final ROP"
+    description: |
+      이 바이너리는 NX, PIE, Canary 보호 기법이 모두 적용되어 있습니다. ROP 기법을 사용하여 쉘을 획득하고 플래그를 획득하세요.
+
+      플래그 형식은 `flag{...}` 입니다.
+    points: 300
+    flag: "flag{f1nal_r0p_ch4ll3ng3_m4st3r3d}"
+    category: "Pwnable"
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Contact Lenses"
+    description: |
+      안경이 불편한 당신은 안경을 박살내고 콘택트 렌즈를 사용하기로 결심했습니다. 분명 서랍에 콘택트 렌즈가 있을거라 생각했지만 서랍의 크기만 15GB라서 도저히 다 뒤질 엄두가 나지 않습니다.
+
+      수단과 방법을 가리지 않고 콘택트 렌즈가 들어있는 디렉토리를 찾고, 같은 디렉토리 내 플래그 파일을 획득하세요. 플래그 형식은 `flag{...}` 입니다.
+    points: 100
+    flag: "flag{c0ntact_l3ns3s_f0und_1n_15gb}"
     category: "Forensics"
-  - title: "Algo Warmup"
-    description: "Optimize the path search."
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Forensic Investigator"
+    description: |
+      당신은 경찰청 소속 포렌식 수사관입니다. 어느날 은평구에 위치한 한 고등학교에서 교사와 학생간의 불미스러운 사건이 발생하였습니다.
+
+      사건 직후 용의자는 즉시 컴퓨터를 포맷하였고, 컴퓨터에 대해 일면식이 없던 용의자는 포맷된 컴퓨터를 그대로 경찰에 제출하였습니다.
+
+      사건의 진실을 밝히기 위해 포맷된 컴퓨터에서 중요한 증거를 복구하세요. 플래그 형식은 `flag{...}` 입니다.
     points: 200
-    flag: "flag{shortest_path_ok}"
-    category: "Algorithms"
-  - title: "Math Puzzle"
-    description: "Solve the modular equation."
-    points: 200
-    flag: "flag{mod_inverse_found}"
-    category: "Math"
-  - title: "Programming Sprint"
-    description: "Implement the parser."
-    points: 200
-    flag: "flag{parser_passed}"
-    category: "Programming"
-  - title: "Final Boss"
-    description: "Combine multiple vulnerabilities to get the flag."
+    flag: "flag{f0r3ns1c_inv3st1gat0r_success}"
+    category: "Forensics"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Ministry of Defence"
+    description: |
+      당신은 북한에서 활동하는 해커 그룹 소속의 해커입니다. 당신의 팀은 북한 정부로부터 대한민국 국방부의 비밀 문서를 탈취하라는 극비 임무를 받았습니다.
+
+      만약 해킹에 성공하지 못한다면 당신과 당신의 팀원들은 모두 공개 처형을 당하고 당신의 가족까지 숙청당할 것입니다. 
+      반대로 해킹에 성공한다면 당신은 한달치 식량을 보상으로 받을 수 있습니다.
+
+      당신은 국방부의 내부 네트워크에 침투하는 데 성공하였고, 이제 비밀 문서까지 획득하였습니다. 
+      하지만 문서는 암호화가 되어있었고, 이는 대한민국 국방부에서 자체적인 암호화 방식이라는 것을 깨닳았습니다.
+
+      이 암호화 방식을 분석하여 문서를 복호화하고 플래그를 획득하세요. 플래그 형식은 `flag{...}` 입니다.
     points: 500
-    flag: "flag{final_boss_defeated_2024}"
-    category: "Misc"
+    flag: "flag{m1n1stry_0f_d3f3nc3_decryp73d}"
+    category: "Crypto"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Signalman"
+    description: |
+      당신은 대한민국의 자랑스러운 국군 장병으로, 통신병으로 복무하고 있습니다. 
+      어느날 북한으로 추정되는 적군에서 비밀리에 기밀 문서를 탈취하기 위해 대한민국 군사 통신망에 침투한다는 첩보를 입수하였습니다.
+
+      사단에서 진행했던 암호 해독 경진대회에서 1등을 차지한 당신은 이 임무를 맡게 되었고, 적군은 자체적인 암호화 방식을 사용하여 통신을 진행하고 있다는 것을 알게 되었습니다.
+
+      적군의 통신을 가로채고 암호화 방식을 분석하여 어떠한 기밀 문서를 탈취하였는지 파악하고 플래그를 획득하세요. 플래그 형식은 `flag{...}` 입니다.
+    points: 400
+    flag: "flag{s1gn4lm4n_c0mmun1cat10ns_br34k3d}"
+    category: "Crypto"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+
+  # - title: "Warmup"
+  #   description: "Welcome to smctf! Can you find the flag in plain sight?"
+  #   points: 50
+  #   flag: "flag{w3lc0me_to_smctf_2024}"
+  #   category: "Misc"
+  #   stack_enabled: true
+  #   stack_target_port: 80
+  #   stack_pod_spec_path: "./stack_pod_spec.yaml"
+  #   file_name: "challenge.zip"
+  #   file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+  #   file_uploaded_at: "2026-02-13 12:00:00"
+  # - title: "Easy Crypto"
+  #   description: "Caesar cipher with a twist. Decode: Mjqqt1 Htsij"
+  #   points: 100
+  #   flag: "flag{caesar_cipher_easy}"
+  #   category: "Crypto"
+  # - title: "Web Basics"
+  #   description: "Find the hidden admin page."
+  #   points: 100
+  #   flag: "flag{hidden_in_robots_txt}"
+  #   category: "Web"
+  # - title: "Binary Exploitation 101"
+  #   description: "Simple buffer overflow challenge."
+  #   points: 150
+  #   flag: "flag{buffer_overflow_basics}"
+  #   category: "Pwnable"
+  # - title: "Reverse Me"
+  #   description: "Can you reverse this simple binary?"
+  #   points: 150
+  #   flag: "flag{rev3rse_3ng1neering}"
+  #   category: "Reversing"
+  # - title: "SQL Injection"
+  #   description: "Classic SQLi. Admin login bypass."
+  #   points: 200
+  #   flag: "flag{sqli_admin_bypass_2024}"
+  #   category: "Web"
+  # - title: "RSA Broken"
+  #   description: "Small prime factorization problem."
+  #   points: 200
+  #   flag: "flag{rsa_small_primes_weak}"
+  #   category: "Crypto"
+  # - title: "Format String"
+  #   description: "Exploit the format string vulnerability."
+  #   points: 250
+  #   flag: "flag{fmt_str1ng_vuln}"
+  #   category: "Pwnable"
+  # - title: "XSS Challenge"
+  #   description: "Steal the admin cookie."
+  #   points: 250
+  #   flag: "flag{xss_cookie_stealer}"
+  #   category: "Web"
+  # - title: "Heap Overflow"
+  #   description: "Advanced heap exploitation."
+  #   points: 300
+  #   flag: "flag{heap_overflow_mastery}"
+  #   category: "Pwnable"
+  # - title: "AES ECB Mode"
+  #   description: "Exploit ECB mode weakness."
+  #   points: 300
+  #   flag: "flag{ecb_mode_is_dangerous}"
+  #   category: "Crypto"
+  # - title: "Advanced Reversing"
+  #   description: "Multi-stage obfuscated binary."
+  #   points: 350
+  #   flag: "flag{advanced_reverse_2024}"
+  #   category: "Reversing"
+  # - title: "Race Condition"
+  #   description: "Win the race to get the flag."
+  #   points: 350
+  #   flag: "flag{race_condition_exploit}"
+  #   category: "Web"
+  # - title: "ROP Chain"
+  #   description: "Return-oriented programming challenge."
+  #   points: 400
+  #   flag: "flag{rop_chain_complete}"
+  #   category: "Pwnable"
+  # - title: "Elliptic Curve"
+  #   description: "Break weak elliptic curve cryptography."
+  #   points: 400
+  #   flag: "flag{ecc_weak_curve_break}"
+  #   category: "Crypto"
+  # - title: "Kernel Exploitation"
+  #   description: "Exploit a kernel vulnerability."
+  #   points: 450
+  #   flag: "flag{kernel_pwn_master}"
+  #   category: "Pwnable"
+  # - title: "Custom Protocol"
+  #   description: "Reverse engineer a custom network protocol."
+  #   points: 450
+  #   flag: "flag{custom_proto_reversed}"
+  #   category: "Reversing"
+  # - title: "JWT Forgery"
+  #   description: "Forge a JWT token with algorithm confusion."
+  #   points: 450
+  #   flag: "flag{jwt_alg_none_attack}"
+  #   category: "Web"
+  # - title: "Side Channel Attack"
+  #   description: "Timing attack on crypto implementation."
+  #   points: 500
+  #   flag: "flag{timing_attack_success}"
+  #   category: "Crypto"
+  # - title: "Smart Contract Audit"
+  #   description: "Find the vulnerability in the token contract."
+  #   points: 350
+  #   flag: "flag{token_reentrancy_bug}"
+  #   category: "Web3"
+  # - title: "Chain Indexer"
+  #   description: "Fix the block indexing logic."
+  #   points: 300
+  #   flag: "flag{block_index_fix}"
+  #   category: "Blockchain"
+  # - title: "AI Prompt Leak"
+  #   description: "Extract the hidden prompt."
+  #   points: 300
+  #   flag: "flag{prompt_injection_leak}"
+  #   category: "AI"
+  # - title: "Packet Sleuth"
+  #   description: "Analyze the capture to find the secret."
+  #   points: 250
+  #   flag: "flag{pcap_hidden_secret}"
+  #   category: "Network"
+  # - title: "Cloud Misconfig"
+  #   description: "Public bucket exposure challenge."
+  #   points: 250
+  #   flag: "flag{bucket_leak_found}"
+  #   category: "Cloud"
+  # - title: "Forensic Timeline"
+  #   description: "Recover deleted artifacts."
+  #   points: 250
+  #   flag: "flag{timeline_recovered}"
+  #   category: "Forensics"
+  # - title: "Algo Warmup"
+  #   description: "Optimize the path search."
+  #   points: 200
+  #   flag: "flag{shortest_path_ok}"
+  #   category: "Algorithms"
+  # - title: "Math Puzzle"
+  #   description: "Solve the modular equation."
+  #   points: 200
+  #   flag: "flag{mod_inverse_found}"
+  #   category: "Math"
+  # - title: "Programming Sprint"
+  #   description: "Implement the parser."
+  #   points: 200
+  #   flag: "flag{parser_passed}"
+  #   category: "Programming"
+  # - title: "Final Boss"
+  #   description: "Combine multiple vulnerabilities to get the flag."
+  #   points: 500
+  #   flag: "flag{final_boss_defeated_2024}"
+  #   category: "Misc"
+  #   stack_enabled: true
+  #   stack_target_port: 80
+  #   stack_pod_spec_path: "./stack_pod_spec.yaml"
+  #   file_name: "challenge.zip"
+  #   file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+  #   file_uploaded_at: "2026-02-13 12:00:00"

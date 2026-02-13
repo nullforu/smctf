@@ -86,6 +86,24 @@ def resolve_template_paths(raw_paths: List[str]) -> List[str]:
     return resolved
 
 
+def load_text_file(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().rstrip("\n")
+
+
+def apply_challenge_pod_spec_paths(challenges: List[dict], base_dir: str) -> None:
+    for chal in challenges:
+        pod_spec_path = chal.get("stack_pod_spec_path")
+        if not pod_spec_path:
+            continue
+        resolved = resolve_path(pod_spec_path, base_dir)
+        if not os.path.exists(resolved):
+            raise SystemExit(
+                f"Error: challenge pod spec file not found: {pod_spec_path}"
+            )
+        chal["stack_pod_spec"] = load_text_file(resolved)
+
+
 def main(argv: List[str]) -> int:
     args = parse_args(argv)
 
@@ -101,6 +119,9 @@ def main(argv: List[str]) -> int:
 
     settings = load_settings(DEFAULT_SETTINGS_PATH, template_paths, settings_path)
     data = load_data(data_path)
+    apply_challenge_pod_spec_paths(
+        data.get("challenges", []), os.path.dirname(data_path)
+    )
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -111,6 +132,21 @@ def main(argv: List[str]) -> int:
 
     security = settings["security"]
     auth = settings["auth"]
+    stack_config = settings.get("stack", {})
+    files_config = settings.get("files", {})
+    stack_pod_spec = ""
+    pod_spec_path = stack_config.get("pod_spec_path")
+    if stack_config.get("enabled", False) and int(
+        stack_config.get("random_challenge_count", 0)
+    ) > 0 and not pod_spec_path:
+        raise SystemExit(
+            "Error: stack.pod_spec_path is required when stack is enabled"
+        )
+    if pod_spec_path:
+        resolved_pod_spec_path = resolve_path(pod_spec_path, os.getcwd())
+        if not os.path.exists(resolved_pod_spec_path):
+            raise SystemExit(f"Error: pod spec file not found: {pod_spec_path}")
+        stack_pod_spec = load_text_file(resolved_pod_spec_path)
 
     flag_secret = os.getenv("FLAG_HMAC_SECRET", security["flag_hmac_secret_default"])
     bcrypt_cost = int(os.getenv("BCRYPT_COST", str(security["bcrypt_cost"])))
@@ -145,6 +181,9 @@ def main(argv: List[str]) -> int:
         settings["timing"],
         constraints,
         flag_secret,
+        stack_config,
+        stack_pod_spec,
+        files_config,
     )
     registration_keys = generate_registration_keys(
         len(users),

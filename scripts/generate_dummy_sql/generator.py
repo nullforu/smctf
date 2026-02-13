@@ -1,8 +1,9 @@
 import hashlib
 import hmac
 import random
+import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 try:
     import bcrypt
@@ -28,6 +29,19 @@ def hash_password(password: str, cost: int) -> str:
     _ensure_bcrypt()
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=cost))
     return hashed.decode()
+
+
+def _pick_random_indices(
+    total: int, count: int, exclude: Optional[Iterable[int]] = None
+) -> Set[int]:
+    if total <= 0 or count <= 0:
+        return set()
+    excluded = set(exclude or [])
+    candidates = [idx for idx in range(total) if idx not in excluded]
+    if not candidates:
+        return set()
+    count = min(count, len(candidates))
+    return set(random.sample(candidates, count))
 
 
 def generate_teams(
@@ -95,20 +109,78 @@ def generate_challenges(
     timing: Dict[str, Any],
     constraints: Dict[str, Any],
     secret: str,
-) -> List[Tuple[str, str, str, int, int, str, bool, str, bool, int, str]]:
+    stack_config: Optional[Dict[str, Any]] = None,
+    stack_pod_spec_content: str = "",
+    file_config: Optional[Dict[str, Any]] = None,
+) -> List[
+    Tuple[
+        str,
+        str,
+        str,
+        int,
+        int,
+        str,
+        bool,
+        str,
+        bool,
+        int,
+        str,
+        Optional[str],
+        Optional[str],
+        Optional[str],
+    ]
+]:
     generated = []
     base_time = datetime.now(UTC) - timedelta(hours=timing["challenges_base_hours_ago"])
     step_minutes = timing["challenge_created_minutes_step"]
     ratio = constraints["min_points_ratio"]
     floor = constraints["min_points_floor"]
+    stack_config = stack_config or {}
+    file_config = file_config or {}
+    stack_enabled_default = bool(stack_config.get("enabled", False))
+    stack_random_count = int(stack_config.get("random_challenge_count", 0))
+    stack_target_port_default = int(stack_config.get("target_port", 80))
+    file_enabled_default = bool(file_config.get("enabled", False))
+    file_random_count = int(file_config.get("random_challenge_count", 0))
+    file_default_name = str(file_config.get("file_name", "challenge.zip"))
+    file_uploaded_after_max = int(file_config.get("uploaded_minutes_after_create_max", 120))
+    stack_indices = _pick_random_indices(
+        len(challenges), stack_random_count if stack_enabled_default else 0
+    )
+    file_indices = _pick_random_indices(
+        len(challenges),
+        file_random_count if file_enabled_default else 0,
+        exclude=set(),
+    )
 
     for i, chal in enumerate(challenges):
         flag_hash = hmac_flag(secret, chal["flag"])
         minimum_points = max(floor, int(chal["points"] * ratio))
         created_at = base_time + timedelta(minutes=i * step_minutes)
         stack_enabled = bool(chal.get("stack_enabled", False))
+        if not stack_enabled and i in stack_indices:
+            stack_enabled = True
         stack_target_port = int(chal.get("stack_target_port", 0)) if stack_enabled else 0
+        if stack_enabled and stack_target_port == 0:
+            stack_target_port = stack_target_port_default
         stack_pod_spec = str(chal.get("stack_pod_spec", "")) if stack_enabled else ""
+        if stack_enabled and not stack_pod_spec:
+            stack_pod_spec = stack_pod_spec_content
+        if stack_enabled and not stack_pod_spec:
+            raise SystemExit(
+                "Error: stack_enabled challenge requires stack_pod_spec content"
+            )
+        file_key = chal.get("file_key")
+        file_name = chal.get("file_name")
+        file_uploaded_at = chal.get("file_uploaded_at")
+        if not file_name and i in file_indices:
+            file_name = file_default_name
+        if file_key is None and file_name:
+            file_key = f"{uuid.UUID(int=random.getrandbits(128))}.zip"
+        if file_uploaded_at is None and file_name:
+            offset = 0 if file_uploaded_after_max <= 0 else random.randint(0, file_uploaded_after_max)
+            uploaded_at = created_at + timedelta(minutes=offset)
+            file_uploaded_at = uploaded_at.strftime("%Y-%m-%d %H:%M:%S")
 
         generated.append(
             (
@@ -123,6 +195,9 @@ def generate_challenges(
                 stack_enabled,
                 stack_target_port,
                 stack_pod_spec,
+                file_key,
+                file_name,
+                file_uploaded_at,
             )
         )
 

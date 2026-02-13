@@ -10,7 +10,24 @@ def write_sql_file(
     output_file: str,
     teams: List[Tuple[str, str]],
     users: List[Tuple[str, str, str, str, str, int]],
-    challenges: List[Tuple[str, str, str, int, int, str, bool, str, bool, int, str]],
+    challenges: List[
+        Tuple[
+            str,
+            str,
+            str,
+            int,
+            int,
+            str,
+            bool,
+            str,
+            bool,
+            int,
+            str,
+            Optional[str],
+            Optional[str],
+            Optional[str],
+        ]
+    ],
     registration_keys: List[
         Tuple[str, int, int, Optional[int], Optional[str], str, Optional[str]]
     ],
@@ -97,6 +114,9 @@ def write_sql_file(
             stack_enabled,
             stack_target_port,
             stack_pod_spec,
+            file_key,
+            file_name,
+            file_uploaded_at,
         ) in challenges:
             title_esc = escape_sql_string(title)
             description_esc = escape_sql_string(description)
@@ -104,12 +124,21 @@ def write_sql_file(
             flag_hash_esc = escape_sql_string(flag_hash)
             stack_pod_spec_esc = escape_sql_string(stack_pod_spec)
             stack_pod_spec_value = "NULL" if stack_pod_spec_esc == "" else f"'{stack_pod_spec_esc}'"
+            file_key_value = "NULL"
+            file_name_value = "NULL"
+            file_uploaded_at_value = "NULL"
+            if file_key:
+                file_key_value = f"'{escape_sql_string(str(file_key))}'"
+            if file_name:
+                file_name_value = f"'{escape_sql_string(str(file_name))}'"
+            if file_uploaded_at:
+                file_uploaded_at_value = f"'{escape_sql_string(str(file_uploaded_at))}'"
 
             f.write(
-                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, is_active, created_at, stack_enabled, stack_target_port, stack_pod_spec) VALUES "
+                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, is_active, created_at, stack_enabled, stack_target_port, stack_pod_spec, file_key, file_name, file_uploaded_at) VALUES "
             )
             f.write(
-                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {is_active}, '{created_at}', {stack_enabled}, {stack_target_port}, {stack_pod_spec_value});\n"
+                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {is_active}, '{created_at}', {stack_enabled}, {stack_target_port}, {stack_pod_spec_value}, {file_key_value}, {file_name_value}, {file_uploaded_at_value});\n"
             )
 
         f.write("\n")
