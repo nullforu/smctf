@@ -18,7 +18,6 @@ ignore:
   - "**/mock/**"
   - "cmd/**"
   - "scripts/**"
-  - "frontend/**"
   - "docs/**"
   - "assets/**"
   - "migrations/**"

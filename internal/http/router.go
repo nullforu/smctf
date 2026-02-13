@@ -85,7 +85,5 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.POST("/teams", h.CreateTeam)
 	}
 
-	attachFrontendRoutes(r)
-
 	return r
 }

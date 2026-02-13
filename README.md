@@ -63,10 +63,11 @@ Also, the following features are planned to be implemented. see [issues](https:/
 ## Tech Stacks
 
 - Backend: [Go](https://go.dev/), [Gin](https://github.com/gin-gonic/gin), [Bun ORM](https://bun.uptrace.dev/)
-- Frontend: [Svelte](https://svelte.dev/)
+- Container Provisioner: [Go (nullforu/container-provisioner-k8s)](https://github.com/nullforu/container-provisioner-k8s)
+- Frontend: [React (nullforu/smctfe)](https://github.com/nullforu/smctfe)
 - Database, Cache: [PostgreSQL](https://www.postgresql.org/)(instead of MySQL/MariaDB), [Redis](https://redis.io/)
 - Testing: [Testcontainers for Go](https://github.com/testcontainers/testcontainers-go)
-- Infra, CI/CD (TBD): AWS, Terraform, Cloudflare, GitHub Actions, etc.
+- Infra, CI/CD (TBD): AWS, EKS, Terraform, Cloudflare, GitHub Actions, etc.
 
 ## Installation and Usage
 
@@ -188,9 +189,6 @@ After setting up the environment variables, build and run the server:
 
 ```shell
 git clone https://github.com/nullforu/smctf.git
-
-# builds frontend assets to ./frontend/dist (Backend will serve these static files)
-source ./scripts/build_frontend.sh
 
 go mod download
 go build -o smctf ./cmd/server
@@ -408,7 +406,7 @@ This project is licensed under the MIT License. See the [LICENSE](./LICENSE) fil
 
 ... and more [Null4U](https://github.com/nullforu) members.
 
-## Too Much Information (Some excerpts)
+<!-- ## Too Much Information (Some excerpts)
 
 ```diff
 > 백엔드 언어를 굳이 Go를 선택한 이유?
@@ -445,7 +443,7 @@ This project is licensed under the MIT License. See the [LICENSE](./LICENSE) fil
 
 > \- 프로젝트의 유일 메인테이너이자 동아리 부장 [@yulmwu](https://github.com/yulmwu) 발췌 \-
 >
-> 이거 유지보수할 사람이 하나밖에 없는게 단점.. Null4U에 종속시키고 졸업할 예정이니 후배님들이 알아서 잘 배워서 유지보수 해주길 바람.
+> 이거 유지보수할 사람이 하나밖에 없는게 단점.. Null4U에 종속시키고 졸업할 예정이니 후배님들이 알아서 잘 배워서 유지보수 해주길 바람. -->
 
 [^1]: SMCH: Semyeong Computer High School (세명컴퓨터고등학교)
 
