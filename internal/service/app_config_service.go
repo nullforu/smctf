@@ -18,6 +18,8 @@ const (
 	appConfigKeyDescription = "description"
 	appConfigKeyHeaderTitle = "header_title"
 	appConfigKeyHeaderDesc  = "header_description"
+	appConfigKeyCTFStartAt  = "ctf_start_at"
+	appConfigKeyCTFEndAt    = "ctf_end_at"
 )
 
 type AppConfig struct {
@@ -25,7 +27,17 @@ type AppConfig struct {
 	Description       string `json:"description"`
 	HeaderTitle       string `json:"header_title"`
 	HeaderDescription string `json:"header_description"`
+	CTFStartAt        string `json:"ctf_start_at"`
+	CTFEndAt          string `json:"ctf_end_at"`
 }
+
+type CTFState string
+
+const (
+	CTFStateActive     CTFState = "active"
+	CTFStateNotStarted CTFState = "not_started"
+	CTFStateEnded      CTFState = "ended"
+)
 
 type appConfigField struct {
 	key          string
@@ -80,6 +92,28 @@ var appConfigFields = []appConfigField{
 			cfg.HeaderDescription = value
 		},
 	},
+	{
+		key:          appConfigKeyCTFStartAt,
+		defaultValue: "",
+		maxLen:       64,
+		get: func(cfg AppConfig) string {
+			return cfg.CTFStartAt
+		},
+		set: func(cfg *AppConfig, value string) {
+			cfg.CTFStartAt = value
+		},
+	},
+	{
+		key:          appConfigKeyCTFEndAt,
+		defaultValue: "",
+		maxLen:       64,
+		get: func(cfg AppConfig) string {
+			return cfg.CTFEndAt
+		},
+		set: func(cfg *AppConfig, value string) {
+			cfg.CTFEndAt = value
+		},
+	},
 }
 
 type appConfigCache struct {
@@ -106,7 +140,7 @@ func (s *AppConfigService) Get(ctx context.Context) (AppConfig, time.Time, strin
 	return s.load(ctx)
 }
 
-func (s *AppConfigService) Update(ctx context.Context, title *string, description *string, headerTitle *string, headerDescription *string) (AppConfig, time.Time, string, error) {
+func (s *AppConfigService) Update(ctx context.Context, title *string, description *string, headerTitle *string, headerDescription *string, ctfStartAt *string, ctfEndAt *string) (AppConfig, time.Time, string, error) {
 	cfg, _, _, err := s.Get(ctx)
 	if err != nil {
 		return AppConfig{}, time.Time{}, "", err
@@ -117,6 +151,8 @@ func (s *AppConfigService) Update(ctx context.Context, title *string, descriptio
 		appConfigKeyDescription: description,
 		appConfigKeyHeaderTitle: headerTitle,
 		appConfigKeyHeaderDesc:  headerDescription,
+		appConfigKeyCTFStartAt:  ctfStartAt,
+		appConfigKeyCTFEndAt:    ctfEndAt,
 	}
 
 	updates, err := applyAppConfigUpdates(&cfg, inputs)
@@ -138,6 +174,33 @@ func (s *AppConfigService) Update(ctx context.Context, title *string, descriptio
 	s.cache.Store(&appConfigCache{parsed: cfg, updatedAt: updatedAt, etag: etag})
 
 	return cfg, updatedAt, etag, nil
+}
+
+func (s *AppConfigService) CTFState(ctx context.Context, now time.Time) (CTFState, error) {
+	cfg, _, _, err := s.Get(ctx)
+	if err != nil {
+		return CTFStateActive, err
+	}
+
+	startAt, startSet, err := parseRFC3339Optional(cfg.CTFStartAt)
+	if err != nil {
+		return CTFStateActive, err
+	}
+
+	endAt, endSet, err := parseRFC3339Optional(cfg.CTFEndAt)
+	if err != nil {
+		return CTFStateActive, err
+	}
+
+	if startSet && now.Before(startAt) {
+		return CTFStateNotStarted, nil
+	}
+
+	if endSet && now.After(endAt) {
+		return CTFStateEnded, nil
+	}
+
+	return CTFStateActive, nil
 }
 
 func (s *AppConfigService) cached() *appConfigCache {
@@ -279,7 +342,7 @@ func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]*string) (map[strin
 		}
 
 		value := strings.TrimSpace(*valuePtr)
-		if value == "" {
+		if value == "" && !isOptionalConfigField(key) {
 			return nil, NewValidationError(FieldError{Field: key, Reason: "required"})
 		}
 
@@ -287,9 +350,47 @@ func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]*string) (map[strin
 			return nil, NewValidationError(FieldError{Field: key, Reason: "too_long"})
 		}
 
+		if key == appConfigKeyCTFStartAt || key == appConfigKeyCTFEndAt {
+			if _, _, err := parseRFC3339Optional(value); err != nil {
+				return nil, NewValidationError(FieldError{Field: key, Reason: "invalid"})
+			}
+		}
+
 		field.set(cfg, value)
 		updates[key] = value
 	}
 
+	startAt, startSet, err := parseRFC3339Optional(cfg.CTFStartAt)
+	if err != nil {
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFStartAt, Reason: "invalid"})
+	}
+
+	endAt, endSet, err := parseRFC3339Optional(cfg.CTFEndAt)
+	if err != nil {
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "invalid"})
+	}
+
+	if startSet && endSet && !endAt.After(startAt) {
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "invalid"})
+	}
+
 	return updates, nil
+}
+
+func isOptionalConfigField(key string) bool {
+	return key == appConfigKeyCTFStartAt || key == appConfigKeyCTFEndAt
+}
+
+func parseRFC3339Optional(value string) (time.Time, bool, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Time{}, false, nil
+	}
+
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+
+	return parsed, true, nil
 }

@@ -3,8 +3,10 @@ package http_test
 import (
 	"context"
 	"net/http"
-	"smctf/internal/service"
 	"testing"
+	"time"
+
+	"smctf/internal/service"
 )
 
 func TestListChallenges(t *testing.T) {
@@ -18,18 +20,25 @@ func TestListChallenges(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp []map[string]any
+	var resp struct {
+		CTFState   string           `json:"ctf_state"`
+		Challenges []map[string]any `json:"challenges"`
+	}
 	decodeJSON(t, rec, &resp)
 
-	if len(resp) != 3 {
-		t.Fatalf("expected 3 challenges, got %d", len(resp))
+	if resp.CTFState != string(service.CTFStateActive) {
+		t.Fatalf("expected ctf_state active, got %s", resp.CTFState)
+	}
+
+	if len(resp.Challenges) != 3 {
+		t.Fatalf("expected 3 challenges, got %d", len(resp.Challenges))
 	}
 
 	expectedTitles := []string{"Active 1", "Inactive", "Active 2"}
 	expectedActive := []bool{true, false, true}
 	expectedCategories := []string{"Misc", "Misc", "Misc"}
 
-	for i, row := range resp {
+	for i, row := range resp.Challenges {
 		if row["title"] != expectedTitles[i] {
 			t.Fatalf("expected title %q, got %q", expectedTitles[i], row["title"])
 		}
@@ -262,6 +271,88 @@ func TestSubmitFlag(t *testing.T) {
 	})
 }
 
+func TestChallengesBeforeStart(t *testing.T) {
+	env := setupTest(t, testCfg)
+	start := time.Now().Add(2 * time.Hour)
+	end := time.Now().Add(4 * time.Hour)
+	setCTFWindow(t, env, &start, &end)
+
+	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+	access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var listResp struct {
+		CTFState string `json:"ctf_state"`
+	}
+	decodeJSON(t, rec, &listResp)
+	if listResp.CTFState != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %s", listResp.CTFState)
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var submitResp map[string]any
+	decodeJSON(t, rec, &submitResp)
+	if submitResp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", submitResp["ctf_state"])
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/file/download", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("download status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var downloadResp map[string]any
+	decodeJSON(t, rec, &downloadResp)
+	if downloadResp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", downloadResp["ctf_state"])
+	}
+}
+
+func TestChallengesAfterEnd(t *testing.T) {
+	env := setupTest(t, testCfg)
+	end := time.Now().Add(-2 * time.Hour)
+	setCTFWindow(t, env, nil, &end)
+
+	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+	access, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var listResp struct {
+		CTFState   string `json:"ctf_state"`
+		Challenges []any  `json:"challenges"`
+	}
+	decodeJSON(t, rec, &listResp)
+	if listResp.CTFState != string(service.CTFStateEnded) {
+		t.Fatalf("expected ctf_state ended, got %s", listResp.CTFState)
+	}
+	if len(listResp.Challenges) != 1 {
+		t.Fatalf("expected challenges after end, got %d", len(listResp.Challenges))
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var submitResp map[string]any
+	decodeJSON(t, rec, &submitResp)
+	if submitResp["ctf_state"] != string(service.CTFStateEnded) {
+		t.Fatalf("expected ctf_state ended, got %v", submitResp["ctf_state"])
+	}
+}
+
 func TestChallengesDynamicScoring(t *testing.T) {
 	env := setupTest(t, testCfg)
 	team := createTeam(t, env, "Alpha")
@@ -309,14 +400,17 @@ func TestChallengesDynamicScoring(t *testing.T) {
 		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp []map[string]any
+	var resp struct {
+		CTFState   string           `json:"ctf_state"`
+		Challenges []map[string]any `json:"challenges"`
+	}
 	decodeJSON(t, rec, &resp)
 
-	if len(resp) != 1 {
-		t.Fatalf("expected 1 challenge, got %d", len(resp))
+	if len(resp.Challenges) != 1 {
+		t.Fatalf("expected 1 challenge, got %d", len(resp.Challenges))
 	}
 
-	row := resp[0]
+	row := resp.Challenges[0]
 	if row["points"].(float64) != 100 {
 		t.Fatalf("expected dynamic points 100, got %v", row["points"])
 	}

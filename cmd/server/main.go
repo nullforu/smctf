@@ -87,6 +87,12 @@ func main() {
 	stackClient := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
 
+	if cfg, _, _, err := appConfigSvc.Get(ctx); err != nil {
+		log.Printf("app config load warning: %v", err)
+	} else if cfg.CTFStartAt == "" && cfg.CTFEndAt == "" {
+		log.Printf("warning: ctf_start_at and ctf_end_at not configured; competition will always be active at all times")
+	}
+
 	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, redisClient, logger)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,

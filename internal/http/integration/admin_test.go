@@ -210,11 +210,14 @@ func TestAdminDeleteChallenge(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var challenges []map[string]any
+	var challenges struct {
+		CTFState   string           `json:"ctf_state"`
+		Challenges []map[string]any `json:"challenges"`
+	}
 	decodeJSON(t, rec, &challenges)
 
-	if len(challenges) != 0 {
-		t.Fatalf("expected 0 challenges, got %d", len(challenges))
+	if len(challenges.Challenges) != 0 {
+		t.Fatalf("expected 0 challenges, got %d", len(challenges.Challenges))
 	}
 }
 

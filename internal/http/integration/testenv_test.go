@@ -278,6 +278,32 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	}
 }
 
+func setCTFWindow(t *testing.T, env testEnv, startAt, endAt *time.Time) {
+	t.Helper()
+
+	var startValue *string
+	if startAt != nil {
+		value := startAt.UTC().Format(time.RFC3339)
+		startValue = &value
+	} else {
+		value := ""
+		startValue = &value
+	}
+
+	var endValue *string
+	if endAt != nil {
+		value := endAt.UTC().Format(time.RFC3339)
+		endValue = &value
+	} else {
+		value := ""
+		endValue = &value
+	}
+
+	if _, _, _, err := env.appConfigSvc.Update(context.Background(), nil, nil, nil, nil, startValue, endValue); err != nil {
+		t.Fatalf("set ctf window: %v", err)
+	}
+}
+
 func resetState(t *testing.T) {
 	t.Helper()
 

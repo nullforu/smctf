@@ -11,6 +11,8 @@ type appConfigResponse struct {
 	Description       string    `json:"description"`
 	HeaderTitle       string    `json:"header_title"`
 	HeaderDescription string    `json:"header_description"`
+	CTFStartAt        string    `json:"ctf_start_at"`
+	CTFEndAt          string    `json:"ctf_end_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
@@ -19,6 +21,8 @@ type adminConfigUpdateRequest struct {
 	Description       *string `json:"description"`
 	HeaderTitle       *string `json:"header_title"`
 	HeaderDescription *string `json:"header_description"`
+	CTFStartAt        *string `json:"ctf_start_at"`
+	CTFEndAt          *string `json:"ctf_end_at"`
 }
 
 type meUpdateRequest struct {
@@ -141,6 +145,15 @@ type challengeResponse struct {
 	StackTargetPort int     `json:"stack_target_port"`
 }
 
+type ctfStateResponse struct {
+	CTFState string `json:"ctf_state"`
+}
+
+type challengesListResponse struct {
+	CTFState   string              `json:"ctf_state"`
+	Challenges []challengeResponse `json:"challenges,omitempty"`
+}
+
 type adminChallengeResponse struct {
 	challengeResponse
 	StackPodSpec *string `json:"stack_pod_spec,omitempty"`
@@ -155,6 +168,7 @@ type presignedPostResponse struct {
 type presignedURLResponse struct {
 	URL       string    `json:"url"`
 	ExpiresAt time.Time `json:"expires_at"`
+	CTFState  string    `json:"ctf_state"`
 }
 
 type challengeFileUploadResponse struct {
@@ -186,9 +200,15 @@ type stackResponse struct {
 	TTLExpiresAt *time.Time `json:"ttl_expires_at,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+	CTFState     string     `json:"-"`
 }
 
-func newStackResponse(stack *models.Stack) stackResponse {
+type stacksListResponse struct {
+	CTFState string          `json:"ctf_state"`
+	Stacks   []stackResponse `json:"stacks,omitempty"`
+}
+
+func newStackResponse(stack *models.Stack, ctfState string) stackResponse {
 	return stackResponse{
 		StackID:      stack.StackID,
 		ChallengeID:  stack.ChallengeID,
@@ -199,6 +219,7 @@ func newStackResponse(stack *models.Stack) stackResponse {
 		TTLExpiresAt: stack.TTLExpiresAt,
 		CreatedAt:    stack.CreatedAt.UTC(),
 		UpdatedAt:    stack.UpdatedAt.UTC(),
+		CTFState:     ctfState,
 	}
 }
 

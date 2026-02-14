@@ -287,3 +287,106 @@ func TestStackCreateRateLimit(t *testing.T) {
 		t.Fatalf("rate limit status %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestStacksBlockedBeforeStart(t *testing.T) {
+	stub := newProvisionerStub()
+	server := httptest.NewServer(http.HandlerFunc(stub.handler))
+	defer server.Close()
+
+	cfg := testCfg
+	cfg.Stack = config.StackConfig{
+		Enabled:            true,
+		MaxPerUser:         3,
+		ProvisionerBaseURL: server.URL,
+		ProvisionerAPIKey:  "test-key",
+		ProvisionerTimeout: 2 * time.Second,
+		CreateWindow:       time.Minute,
+		CreateMax:          1,
+	}
+
+	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+	env := setupStackTest(t, cfg, client)
+	start := time.Now().Add(2 * time.Hour)
+	end := time.Now().Add(4 * time.Hour)
+	setCTFWindow(t, env, &start, &end)
+
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	access, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	challenge := createStackChallenge(t, env, "StackChal")
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/stacks", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list stack status %d: %s", rec.Code, rec.Body.String())
+	}
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get stack status %d: %s", rec.Code, rec.Body.String())
+	}
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete stack status %d: %s", rec.Code, rec.Body.String())
+	}
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+}
+
+func TestStacksCreateBlockedAfterEnd(t *testing.T) {
+	stub := newProvisionerStub()
+	server := httptest.NewServer(http.HandlerFunc(stub.handler))
+	defer server.Close()
+
+	cfg := testCfg
+	cfg.Stack = config.StackConfig{
+		Enabled:            true,
+		MaxPerUser:         3,
+		ProvisionerBaseURL: server.URL,
+		ProvisionerAPIKey:  "test-key",
+		ProvisionerTimeout: 2 * time.Second,
+		CreateWindow:       time.Minute,
+		CreateMax:          1,
+	}
+
+	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+	env := setupStackTest(t, cfg, client)
+	end := time.Now().Add(-2 * time.Hour)
+	setCTFWindow(t, env, nil, &end)
+
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	access, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-pass")
+	challenge := createStackChallenge(t, env, "EndedStack")
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateEnded) {
+		t.Fatalf("expected ctf_state ended, got %v", resp["ctf_state"])
+	}
+}

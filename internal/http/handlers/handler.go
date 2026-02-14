@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"smctf/internal/config"
@@ -31,6 +32,8 @@ type Handler struct {
 	teams  *service.TeamService
 	stacks *service.StackService
 	redis  *redis.Client
+
+	ctfStateCache ctfStateCache
 }
 
 func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
@@ -126,6 +129,46 @@ func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
 	return id, true
 }
 
+const ctfStateCacheTTL = time.Minute
+
+type ctfStateCache struct {
+	mu        sync.Mutex
+	state     service.CTFState
+	expiresAt time.Time
+}
+
+func (c *ctfStateCache) get(now time.Time) (service.CTFState, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if now.Before(c.expiresAt) {
+		return c.state, true
+	}
+	return service.CTFStateActive, false
+}
+
+func (c *ctfStateCache) set(state service.CTFState, expiresAt time.Time) {
+	c.mu.Lock()
+	c.state = state
+	c.expiresAt = expiresAt
+	c.mu.Unlock()
+}
+
+func (h *Handler) ctfState(ctx *gin.Context) (service.CTFState, bool) {
+	now := time.Now().UTC()
+	if state, ok := h.ctfStateCache.get(now); ok {
+		return state, true
+	}
+
+	state, err := h.app.CTFState(ctx.Request.Context(), now)
+	if err != nil {
+		writeError(ctx, err)
+		return service.CTFStateActive, false
+	}
+
+	h.ctfStateCache.set(state, now.Add(ctfStateCacheTTL))
+	return state, true
+}
+
 // App Config Handlers
 
 func (h *Handler) GetConfig(ctx *gin.Context) {
@@ -153,6 +196,8 @@ func (h *Handler) GetConfig(ctx *gin.Context) {
 		Description:       cfg.Description,
 		HeaderTitle:       cfg.HeaderTitle,
 		HeaderDescription: cfg.HeaderDescription,
+		CTFStartAt:        cfg.CTFStartAt,
+		CTFEndAt:          cfg.CTFEndAt,
 		UpdatedAt:         updatedAt.UTC(),
 	})
 }
@@ -186,7 +231,7 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 		return
 	}
 
-	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description, req.HeaderTitle, req.HeaderDescription)
+	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description, req.HeaderTitle, req.HeaderDescription, req.CTFStartAt, req.CTFEndAt)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -198,6 +243,8 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 		Description:       cfg.Description,
 		HeaderTitle:       cfg.HeaderTitle,
 		HeaderDescription: cfg.HeaderDescription,
+		CTFStartAt:        cfg.CTFStartAt,
+		CTFEndAt:          cfg.CTFEndAt,
 		UpdatedAt:         updatedAt.UTC(),
 	})
 }
@@ -319,6 +366,16 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 // Challenge Handlers
 
 func (h *Handler) ListChallenges(ctx *gin.Context) {
+	state, ok := h.ctfState(ctx)
+	if !ok {
+		return
+	}
+
+	if state == service.CTFStateNotStarted {
+		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
+		return
+	}
+
 	challenges, err := h.ctf.ListChallenges(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
@@ -329,10 +386,20 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 		ch := challenge
 		resp = append(resp, newChallengeResponse(&ch))
 	}
-	ctx.JSON(http.StatusOK, resp)
+	ctx.JSON(http.StatusOK, challengesListResponse{CTFState: string(state), Challenges: resp})
 }
 
 func (h *Handler) SubmitFlag(ctx *gin.Context) {
+	state, ok := h.ctfState(ctx)
+	if !ok {
+		return
+	}
+
+	if state != service.CTFStateActive {
+		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
+		return
+	}
+
 	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
 		return
@@ -357,13 +424,24 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"correct": correct,
+		"correct":   correct,
+		"ctf_state": string(state),
 	})
 }
 
 func (h *Handler) CreateStack(ctx *gin.Context) {
 	if h.stacks == nil {
 		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	state, ok := h.ctfState(ctx)
+	if !ok {
+		return
+	}
+
+	if state != service.CTFStateActive {
+		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
 
@@ -378,12 +456,22 @@ func (h *Handler) CreateStack(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, newStackResponse(stackModel))
+	ctx.JSON(http.StatusCreated, newStackResponse(stackModel, string(state)))
 }
 
 func (h *Handler) GetStack(ctx *gin.Context) {
 	if h.stacks == nil {
 		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	state, ok := h.ctfState(ctx)
+	if !ok {
+		return
+	}
+
+	if state == service.CTFStateNotStarted {
+		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
 
@@ -398,12 +486,22 @@ func (h *Handler) GetStack(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newStackResponse(stackModel))
+	ctx.JSON(http.StatusOK, newStackResponse(stackModel, string(state)))
 }
 
 func (h *Handler) DeleteStack(ctx *gin.Context) {
 	if h.stacks == nil {
 		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	state, ok := h.ctfState(ctx)
+	if !ok {
+		return
+	}
+
+	if state == service.CTFStateNotStarted {
+		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
 
@@ -417,12 +515,22 @@ func (h *Handler) DeleteStack(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+	ctx.JSON(http.StatusOK, gin.H{"status": "ok", "ctf_state": string(state)})
 }
 
 func (h *Handler) ListStacks(ctx *gin.Context) {
 	if h.stacks == nil {
 		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	state, ok := h.ctfState(ctx)
+	if !ok {
+		return
+	}
+
+	if state == service.CTFStateNotStarted {
+		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
 
@@ -435,10 +543,10 @@ func (h *Handler) ListStacks(ctx *gin.Context) {
 	resp := make([]stackResponse, 0, len(stacks))
 	for i := range stacks {
 		stackModel := stacks[i]
-		resp = append(resp, newStackResponse(&stackModel))
+		resp = append(resp, newStackResponse(&stackModel, string(state)))
 	}
 
-	ctx.JSON(http.StatusOK, resp)
+	ctx.JSON(http.StatusOK, stacksListResponse{CTFState: string(state), Stacks: resp})
 }
 
 func (h *Handler) CreateChallenge(ctx *gin.Context) {
@@ -564,6 +672,16 @@ func (h *Handler) RequestChallengeFileUpload(ctx *gin.Context) {
 }
 
 func (h *Handler) RequestChallengeFileDownload(ctx *gin.Context) {
+	state, ok := h.ctfState(ctx)
+	if !ok {
+		return
+	}
+
+	if state == service.CTFStateNotStarted {
+		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
+		return
+	}
+
 	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
 		return
@@ -578,6 +696,7 @@ func (h *Handler) RequestChallengeFileDownload(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, presignedURLResponse{
 		URL:       download.URL,
 		ExpiresAt: download.ExpiresAt,
+		CTFState:  string(state),
 	})
 }
 
