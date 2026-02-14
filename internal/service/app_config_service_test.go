@@ -122,13 +122,22 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	}
 
 	invalid := "nope"
-	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &invalid, nil); err == nil {
+	_, _, _, err = svc.Update(context.Background(), nil, nil, nil, nil, &invalid, nil)
+	if err == nil {
 		t.Fatalf("expected validation error")
+	}
+	var ve *ValidationError
+	if !errors.As(err, &ve) || len(ve.Fields) == 0 || ve.Fields[0].Reason != "invalid_format" {
+		t.Fatalf("expected invalid_format, got %v", err)
 	}
 
 	badEnd := "2026-02-10T09:00:00Z"
-	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &badEnd); err == nil {
+	_, _, _, err = svc.Update(context.Background(), nil, nil, nil, nil, &start, &badEnd)
+	if err == nil {
 		t.Fatalf("expected validation error for end before start")
+	}
+	if !errors.As(err, &ve) || len(ve.Fields) == 0 || ve.Fields[0].Reason != "end_before_start" {
+		t.Fatalf("expected end_before_start, got %v", err)
 	}
 
 	empty := ""

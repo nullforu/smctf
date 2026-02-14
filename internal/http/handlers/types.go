@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"time"
 
 	"smctf/internal/models"
@@ -16,13 +17,33 @@ type appConfigResponse struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
+type optionalString struct {
+	Set   bool
+	Value *string
+}
+
+func (o *optionalString) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if string(data) == "null" {
+		o.Value = nil
+		return nil
+	}
+
+	var value string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	o.Value = &value
+	return nil
+}
+
 type adminConfigUpdateRequest struct {
-	Title             *string `json:"title"`
-	Description       *string `json:"description"`
-	HeaderTitle       *string `json:"header_title"`
-	HeaderDescription *string `json:"header_description"`
-	CTFStartAt        *string `json:"ctf_start_at"`
-	CTFEndAt          *string `json:"ctf_end_at"`
+	Title             *string        `json:"title"`
+	Description       *string        `json:"description"`
+	HeaderTitle       *string        `json:"header_title"`
+	HeaderDescription *string        `json:"header_description"`
+	CTFStartAt        optionalString `json:"ctf_start_at"`
+	CTFEndAt          optionalString `json:"ctf_end_at"`
 }
 
 type meUpdateRequest struct {

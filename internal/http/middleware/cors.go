@@ -25,7 +25,7 @@ func CORS(allowAll bool, allowedOrigins []string) gin.HandlerFunc {
 		}
 
 		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Cache-Control, Pragma")
 		ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if ctx.Request.Method == http.MethodOptions {

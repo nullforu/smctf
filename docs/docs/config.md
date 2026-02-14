@@ -23,7 +23,7 @@ Response 200
 
 Notes:
 
-- Response includes `ETag` and `Cache-Control: public, max-age=60` for caching.
+- Response includes `ETag` and `Cache-Control: no-cache` for caching.
 - `ctf_start_at` and `ctf_end_at` are RFC3339 timestamps. Empty values mean the CTF is always active.
 
 Errors:

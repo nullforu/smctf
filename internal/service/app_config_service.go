@@ -364,7 +364,7 @@ func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]*string) (map[strin
 
 		if key == appConfigKeyCTFStartAt || key == appConfigKeyCTFEndAt {
 			if _, _, err := parseRFC3339Optional(value); err != nil {
-				return nil, NewValidationError(FieldError{Field: key, Reason: "invalid"})
+				return nil, NewValidationError(FieldError{Field: key, Reason: "invalid_format"})
 			}
 		}
 
@@ -374,16 +374,16 @@ func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]*string) (map[strin
 
 	startAt, startSet, err := parseRFC3339Optional(cfg.CTFStartAt)
 	if err != nil {
-		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFStartAt, Reason: "invalid"})
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFStartAt, Reason: "invalid_format"})
 	}
 
 	endAt, endSet, err := parseRFC3339Optional(cfg.CTFEndAt)
 	if err != nil {
-		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "invalid"})
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "invalid_format"})
 	}
 
 	if startSet && endSet && !endAt.After(startAt) {
-		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "invalid"})
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "end_before_start"})
 	}
 
 	return updates, nil

@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"smctf/internal/config"
@@ -32,8 +31,6 @@ type Handler struct {
 	teams  *service.TeamService
 	stacks *service.StackService
 	redis  *redis.Client
-
-	ctfStateCache ctfStateCache
 }
 
 func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
@@ -129,43 +126,12 @@ func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
 	return id, true
 }
 
-const ctfStateCacheTTL = time.Minute
-
-type ctfStateCache struct {
-	mu        sync.Mutex
-	state     service.CTFState
-	expiresAt time.Time
-}
-
-func (c *ctfStateCache) get(now time.Time) (service.CTFState, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if now.Before(c.expiresAt) {
-		return c.state, true
-	}
-	return service.CTFStateActive, false
-}
-
-func (c *ctfStateCache) set(state service.CTFState, expiresAt time.Time) {
-	c.mu.Lock()
-	c.state = state
-	c.expiresAt = expiresAt
-	c.mu.Unlock()
-}
-
 func (h *Handler) ctfState(ctx *gin.Context) (service.CTFState, bool) {
-	now := time.Now().UTC()
-	if state, ok := h.ctfStateCache.get(now); ok {
-		return state, true
-	}
-
-	state, err := h.app.CTFState(ctx.Request.Context(), now)
+	state, err := h.app.CTFState(ctx.Request.Context(), time.Now().UTC())
 	if err != nil {
 		writeError(ctx, err)
 		return service.CTFStateActive, false
 	}
-
-	h.ctfStateCache.set(state, now.Add(ctfStateCacheTTL))
 	return state, true
 }
 
@@ -180,7 +146,7 @@ func (h *Handler) GetConfig(ctx *gin.Context) {
 
 	if match := ctx.GetHeader("If-None-Match"); match != "" && etagMatches(match, etag) {
 		ctx.Header("ETag", etag)
-		ctx.Header("Cache-Control", "public, max-age=60")
+		ctx.Header("Cache-Control", "no-cache")
 		ctx.Status(http.StatusNotModified)
 		return
 	}
@@ -189,7 +155,7 @@ func (h *Handler) GetConfig(ctx *gin.Context) {
 	if !updatedAt.IsZero() {
 		ctx.Header("Last-Modified", updatedAt.UTC().Format(http.TimeFormat))
 	}
-	ctx.Header("Cache-Control", "public, max-age=60")
+	ctx.Header("Cache-Control", "no-cache")
 
 	ctx.JSON(http.StatusOK, appConfigResponse{
 		Title:             cfg.Title,
@@ -231,7 +197,10 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 		return
 	}
 
-	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description, req.HeaderTitle, req.HeaderDescription, req.CTFStartAt, req.CTFEndAt)
+	ctfStartAt := optionalStringValue(req.CTFStartAt)
+	ctfEndAt := optionalStringValue(req.CTFEndAt)
+
+	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description, req.HeaderTitle, req.HeaderDescription, ctfStartAt, ctfEndAt)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -247,6 +216,17 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 		CTFEndAt:          cfg.CTFEndAt,
 		UpdatedAt:         updatedAt.UTC(),
 	})
+}
+
+func optionalStringValue(value optionalString) *string {
+	if !value.Set {
+		return nil
+	}
+	if value.Value == nil {
+		empty := ""
+		return &empty
+	}
+	return value.Value
 }
 
 // Auth Handlers

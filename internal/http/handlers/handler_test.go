@@ -218,6 +218,39 @@ func TestHandlerAdminConfigInvalidCTFWindow(t *testing.T) {
 	}
 }
 
+func TestHandlerAdminConfigCTFWindowClear(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	body := map[string]any{
+		"ctf_start_at": "2026-02-10T10:00:00Z",
+		"ctf_end_at":   "2026-02-10T18:00:00Z",
+	}
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", body)
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin config status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body = map[string]any{
+		"ctf_start_at": nil,
+		"ctf_end_at":   nil,
+	}
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/config", body)
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin config status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		CTFStartAt string `json:"ctf_start_at"`
+		CTFEndAt   string `json:"ctf_end_at"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.CTFStartAt != "" || resp.CTFEndAt != "" {
+		t.Fatalf("expected cleared ctf window, got %+v", resp)
+	}
+}
+
 // Auth Handler Tests
 
 func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
