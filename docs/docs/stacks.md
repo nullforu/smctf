@@ -16,25 +16,30 @@ Authorization: Bearer <access_token>
 Response 200
 
 ```json
-[
-    {
-        "stack_id": "stack-716b6384dd477b0b",
-        "challenge_id": 12,
-        "status": "running",
-        "node_public_ip": "12.34.56.78",
-        "node_port": 31538,
-        "target_port": 80,
-        "ttl_expires_at": "2026-02-10T04:02:26Z",
-        "created_at": "2026-02-10T02:02:26Z",
-        "updated_at": "2026-02-10T02:07:29Z"
-    }
-]
+{
+    "ctf_state": "active",
+    "stacks": [
+        {
+            "stack_id": "stack-716b6384dd477b0b",
+            "challenge_id": 12,
+            "status": "running",
+            "node_public_ip": "12.34.56.78",
+            "node_port": 31538,
+            "target_port": 80,
+            "ttl_expires_at": "2026-02-10T04:02:26Z",
+            "created_at": "2026-02-10T02:02:26Z",
+            "updated_at": "2026-02-10T02:07:29Z",
+            "ctf_state": "active"
+        }
+    ]
+}
 ```
 
 Errors:
 
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 503 `stack feature disabled`
+- If `ctf_state` is `not_started`, the response only includes `ctf_state`.
 
 ---
 
@@ -60,7 +65,8 @@ Response 201
     "target_port": 80,
     "ttl_expires_at": "2026-02-10T04:02:26Z",
     "created_at": "2026-02-10T02:02:26Z",
-    "updated_at": "2026-02-10T02:02:26Z"
+    "updated_at": "2026-02-10T02:02:26Z",
+    "ctf_state": "active"
 }
 ```
 
@@ -72,6 +78,7 @@ Errors:
 - 409 `stack limit reached` or `challenge already solved`
 - 429 `too many submissions` (rate limited)
 - 503 `stack feature disabled` or `stack provisioner unavailable`
+- If `ctf_state` is `not_started` or `ended`, the response only includes `ctf_state`.
 
 Notes:
 
@@ -101,7 +108,8 @@ Response 200
     "target_port": 80,
     "ttl_expires_at": "2026-02-10T04:02:26Z",
     "created_at": "2026-02-10T02:02:26Z",
-    "updated_at": "2026-02-10T02:07:29Z"
+    "updated_at": "2026-02-10T02:07:29Z",
+    "ctf_state": "active"
 }
 ```
 
@@ -110,6 +118,7 @@ Errors:
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 404 `stack not found`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
+- If `ctf_state` is `not_started`, the response only includes `ctf_state`.
 
 ---
 
@@ -127,7 +136,8 @@ Response 200
 
 ```json
 {
-    "status": "ok"
+    "status": "ok",
+    "ctf_state": "active"
 }
 ```
 
@@ -136,3 +146,4 @@ Errors:
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 404 `stack not found`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
+- If `ctf_state` is `not_started`, the response only includes `ctf_state`.

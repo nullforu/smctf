@@ -10,23 +10,26 @@ nav_order: 4
 Response 200
 
 ```json
-[
-    {
-        "id": 1,
-        "title": "Warmup",
-        "description": "...",
-        "category": "Web",
-        "points": 100,
-        "initial_points": 200,
-        "minimum_points": 50,
-        "solve_count": 12,
-        "is_active": true,
-        "has_file": true,
-        "file_name": "challenge.zip",
-        "stack_enabled": false,
-        "stack_target_port": 0
-    }
-]
+{
+    "ctf_state": "active",
+    "challenges": [
+        {
+            "id": 1,
+            "title": "Warmup",
+            "description": "...",
+            "category": "Web",
+            "points": 100,
+            "initial_points": 200,
+            "minimum_points": 50,
+            "solve_count": 12,
+            "is_active": true,
+            "has_file": true,
+            "file_name": "challenge.zip",
+            "stack_enabled": false,
+            "stack_target_port": 0
+        }
+    ]
+}
 ```
 
 Notes:
@@ -34,6 +37,7 @@ Notes:
 - `points` is dynamically calculated based on solves.
 - `has_file` indicates whether a challenge file is available.
 - `stack_enabled` indicates if a per-user stack instance is supported for this challenge.
+- If `ctf_state` is `not_started`, the response only includes `ctf_state`.
 
 ---
 
@@ -59,13 +63,15 @@ Response 200
 
 ```json
 {
-    "correct": true
+    "correct": true,
+    "ctf_state": "active"
 }
 ```
 
 Notes:
 
 - A challenge is considered already solved once any teammate solves it.
+- If `ctf_state` is `not_started` or `ended`, the response only includes `ctf_state`.
 
 Errors:
 
@@ -92,7 +98,8 @@ Response 200
 ```json
 {
     "url": "https://s3.example.com/...",
-    "expires_at": "2025-01-01T00:00:00Z"
+    "expires_at": "2025-01-01T00:00:00Z",
+    "ctf_state": "active"
 }
 ```
 
@@ -100,3 +107,4 @@ Errors:
 
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 404 `challenge not found` or `challenge file not found`
+- If `ctf_state` is `not_started`, the response only includes `ctf_state`.

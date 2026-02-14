@@ -20,7 +20,9 @@ Request
     "title": "My CTF",
     "description": "Hello",
     "header_title": "SM CTF",
-    "header_description": "Join the challenge"
+    "header_description": "Join the challenge",
+    "ctf_start_at": "2026-02-10T10:00:00Z",
+    "ctf_end_at": "2026-02-10T18:00:00Z"
 }
 ```
 
@@ -32,6 +34,8 @@ Response 200
     "description": "Hello",
     "header_title": "SM CTF",
     "header_description": "Join the challenge",
+    "ctf_start_at": "2026-02-10T10:00:00Z",
+    "ctf_end_at": "2026-02-10T18:00:00Z",
     "updated_at": "2026-01-26T12:00:00Z"
 }
 ```
@@ -41,6 +45,10 @@ Errors:
 - 400 `invalid input`
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 403 `forbidden`
+
+Notes:
+
+- `ctf_start_at` and `ctf_end_at` are RFC3339 timestamps. Empty values mean the CTF is always active.
 
 ---
 
