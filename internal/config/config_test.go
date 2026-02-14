@@ -673,6 +673,9 @@ func TestValidateConfig_InvalidStackConfig(t *testing.T) {
 			LeaderboardTTL: time.Minute,
 			AppConfigTTL:   2 * time.Minute,
 		},
+		CORS: CORSConfig{
+			AllowedOrigins: []string{"http://localhost:3000", "https://smctf.example.com"},
+		},
 		Logging: LoggingConfig{
 			Dir:              "logs",
 			FilePrefix:       "app",

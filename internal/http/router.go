@@ -30,7 +30,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
-	r.Use(middleware.CORS(cfg.AppEnv != "production", nil))
+	r.Use(middleware.CORS(cfg.AppEnv != "production", cfg.CORS.AllowedOrigins))
 
 	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, redis)
 

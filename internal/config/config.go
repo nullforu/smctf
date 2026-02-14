@@ -24,6 +24,7 @@ type Config struct {
 	JWT      JWTConfig
 	Security SecurityConfig
 	Cache    CacheConfig
+	CORS     CORSConfig
 	Logging  LoggingConfig
 	S3       S3Config
 	Stack    StackConfig
@@ -65,6 +66,10 @@ type CacheConfig struct {
 	TimelineTTL    time.Duration
 	LeaderboardTTL time.Duration
 	AppConfigTTL   time.Duration
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string
 }
 
 type LoggingConfig struct {
@@ -195,6 +200,8 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	corsAllowedOrigins := parseCSV(getEnv("CORS_ALLOWED_ORIGINS", ""))
+
 	logDir := getEnv("LOG_DIR", "logs")
 	logPrefix := getEnv("LOG_FILE_PREFIX", "app")
 	logMaxBodyBytes, err := getEnvInt("LOG_MAX_BODY_BYTES", 1024*1024)
@@ -305,6 +312,9 @@ func Load() (Config, error) {
 			TimelineTTL:    timelineCacheTTL,
 			LeaderboardTTL: leaderboardCacheTTL,
 			AppConfigTTL:   appConfigCacheTTL,
+		},
+		CORS: CORSConfig{
+			AllowedOrigins: corsAllowedOrigins,
 		},
 		Logging: LoggingConfig{
 			Dir:               logDir,
@@ -564,6 +574,22 @@ func redact(value string) string {
 	return value[:visiblePrefix] + "***" + value[len(value)-visibleSuffix:]
 }
 
+func parseCSV(value string) []string {
+	if value == "" {
+		return nil
+	}
+
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
 func FormatForLog(cfg Config) string {
 	cfg = Redact(cfg)
 	var b strings.Builder
@@ -599,6 +625,8 @@ func FormatForLog(cfg Config) string {
 	fmt.Fprintln(&b, "Cache:")
 	fmt.Fprintf(&b, "  TimelineTTL=%s\n", cfg.Cache.TimelineTTL)
 	fmt.Fprintf(&b, "  LeaderboardTTL=%s\n", cfg.Cache.LeaderboardTTL)
+	fmt.Fprintln(&b, "CORS:")
+	fmt.Fprintf(&b, "  AllowedOrigins=%s\n", strings.Join(cfg.CORS.AllowedOrigins, ","))
 	fmt.Fprintln(&b, "Logging:")
 	fmt.Fprintf(&b, "  Dir=%s\n", cfg.Logging.Dir)
 	fmt.Fprintf(&b, "  FilePrefix=%s\n", cfg.Logging.FilePrefix)
