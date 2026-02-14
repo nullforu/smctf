@@ -669,6 +669,7 @@ func TestValidateConfig_InvalidStackConfig(t *testing.T) {
 		Cache: CacheConfig{
 			TimelineTTL:    time.Minute,
 			LeaderboardTTL: time.Minute,
+			AppConfigTTL:   2 * time.Minute,
 		},
 		Logging: LoggingConfig{
 			Dir:              "logs",
@@ -733,6 +734,7 @@ func TestValidateConfig_AdditionalValidation(t *testing.T) {
 		Cache: CacheConfig{
 			TimelineTTL:    time.Minute,
 			LeaderboardTTL: time.Minute,
+			AppConfigTTL:   2 * time.Minute,
 		},
 		Logging: LoggingConfig{
 			Dir:              "logs",
@@ -869,6 +871,7 @@ func TestFormatForLog(t *testing.T) {
 		Cache: CacheConfig{
 			TimelineTTL:    time.Minute,
 			LeaderboardTTL: time.Minute,
+			AppConfigTTL:   2 * time.Minute,
 		},
 		Logging: LoggingConfig{
 			Dir:               "logs",

@@ -12,7 +12,7 @@ import (
 func TestAppConfigServiceDefaultsPersisted(t *testing.T) {
 	env := setupServiceTest(t)
 	appRepo := repo.NewAppConfigRepo(env.db)
-	svc := NewAppConfigService(appRepo)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
 
 	cfg, updatedAt, etag, err := svc.Get(context.Background())
 	if err != nil {
@@ -36,10 +36,34 @@ func TestAppConfigServiceDefaultsPersisted(t *testing.T) {
 	}
 }
 
+func TestAppConfigServiceUsesRedisCache(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
+
+	cfg, updatedAt, etag, err := svc.Get(context.Background())
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	if exists, err := env.redis.Exists(context.Background(), appConfigCacheKey).Result(); err != nil || exists == 0 {
+		t.Fatalf("expected app config to be cached in redis")
+	}
+
+	cachedCfg, cachedUpdatedAt, cachedETag, err := svc.Get(context.Background())
+	if err != nil {
+		t.Fatalf("Get cached: %v", err)
+	}
+
+	if cachedCfg.Title != cfg.Title || cachedETag != etag || !cachedUpdatedAt.Equal(updatedAt) {
+		t.Fatalf("cached mismatch: %+v", cachedCfg)
+	}
+}
+
 func TestAppConfigServiceUpdatePartial(t *testing.T) {
 	env := setupServiceTest(t)
 	appRepo := repo.NewAppConfigRepo(env.db)
-	svc := NewAppConfigService(appRepo)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
 
 	_, _, _, err := svc.Get(context.Background())
 	if err != nil {
@@ -64,7 +88,7 @@ func TestAppConfigServiceUpdatePartial(t *testing.T) {
 func TestAppConfigServiceUpdateValidation(t *testing.T) {
 	env := setupServiceTest(t)
 	appRepo := repo.NewAppConfigRepo(env.db)
-	svc := NewAppConfigService(appRepo)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
 
 	empty := ""
 	_, _, _, err := svc.Update(context.Background(), &empty, nil, nil, nil, nil, nil)
@@ -81,7 +105,7 @@ func TestAppConfigServiceUpdateValidation(t *testing.T) {
 func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	env := setupServiceTest(t)
 	appRepo := repo.NewAppConfigRepo(env.db)
-	svc := NewAppConfigService(appRepo)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
 
 	now := time.Now().UTC()
 	startTime := now.Add(1 * time.Hour)
@@ -116,7 +140,7 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 func TestAppConfigServiceCTFState(t *testing.T) {
 	env := setupServiceTest(t)
 	appRepo := repo.NewAppConfigRepo(env.db)
-	svc := NewAppConfigService(appRepo)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
 
 	now := time.Date(2026, 2, 10, 9, 0, 0, 0, time.UTC)
 	start := now.Add(2 * time.Hour).Format(time.RFC3339)

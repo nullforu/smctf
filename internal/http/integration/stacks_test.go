@@ -134,7 +134,7 @@ func setupStackTest(t *testing.T, cfg config.Config, client *stack.Client) testE
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
-	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, client, testRedis)
 
 	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, testRedis, testLogger)

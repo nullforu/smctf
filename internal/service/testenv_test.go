@@ -104,6 +104,7 @@ func TestMain(m *testing.M) {
 		Cache: config.CacheConfig{
 			TimelineTTL:    2 * time.Minute,
 			LeaderboardTTL: 2 * time.Minute,
+			AppConfigTTL:   2 * time.Minute,
 		},
 	}
 

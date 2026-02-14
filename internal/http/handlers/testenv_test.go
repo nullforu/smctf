@@ -108,6 +108,7 @@ func TestMain(m *testing.M) {
 		Cache: config.CacheConfig{
 			TimelineTTL:    2 * time.Minute,
 			LeaderboardTTL: 2 * time.Minute,
+			AppConfigTTL:   2 * time.Minute,
 		},
 	}
 
@@ -220,7 +221,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
-	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo, handlerRedis, handlerCfg.Cache.AppConfigTTL)
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, teamRepo, handlerRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)

@@ -3,14 +3,15 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"smctf/internal/models"
 	"smctf/internal/repo"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -117,31 +118,33 @@ var appConfigFields = []appConfigField{
 }
 
 type appConfigCache struct {
-	parsed    AppConfig
-	updatedAt time.Time
-	etag      string
+	Config    AppConfig `json:"config"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ETag      string    `json:"etag"`
 }
 
 type AppConfigService struct {
-	repo  *repo.AppConfigRepo
-	cache atomic.Value
-	mu    sync.Mutex
+	repo     *repo.AppConfigRepo
+	redis    *redis.Client
+	cacheTTL time.Duration
 }
 
-func NewAppConfigService(repo *repo.AppConfigRepo) *AppConfigService {
-	return &AppConfigService{repo: repo}
+const appConfigCacheKey = "app_config:cached"
+
+func NewAppConfigService(repo *repo.AppConfigRepo, redisClient *redis.Client, cacheTTL time.Duration) *AppConfigService {
+	return &AppConfigService{repo: repo, redis: redisClient, cacheTTL: cacheTTL}
 }
 
 func (s *AppConfigService) Get(ctx context.Context) (AppConfig, time.Time, string, error) {
-	if cached := s.cached(); cached != nil {
-		return cached.parsed, cached.updatedAt, cached.etag, nil
+	if cached, ok := s.getCache(ctx); ok {
+		return cached.Config, cached.UpdatedAt, cached.ETag, nil
 	}
 
 	return s.load(ctx)
 }
 
 func (s *AppConfigService) Update(ctx context.Context, title *string, description *string, headerTitle *string, headerDescription *string, ctfStartAt *string, ctfEndAt *string) (AppConfig, time.Time, string, error) {
-	cfg, _, _, err := s.Get(ctx)
+	cfg, cachedUpdatedAt, cachedETag, err := s.Get(ctx)
 	if err != nil {
 		return AppConfig{}, time.Time{}, "", err
 	}
@@ -161,7 +164,7 @@ func (s *AppConfigService) Update(ctx context.Context, title *string, descriptio
 	}
 
 	if len(updates) == 0 {
-		return cfg, s.cachedUpdatedAt(), buildETag(cfg), nil
+		return cfg, cachedUpdatedAt, cachedETag, nil
 	}
 
 	rows, err := s.repo.UpsertMany(ctx, updates)
@@ -171,7 +174,8 @@ func (s *AppConfigService) Update(ctx context.Context, title *string, descriptio
 
 	updatedAt := maxUpdatedAt(rows)
 	etag := buildETag(cfg)
-	s.cache.Store(&appConfigCache{parsed: cfg, updatedAt: updatedAt, etag: etag})
+	s.invalidateCache(ctx)
+	s.storeCache(ctx, appConfigCache{Config: cfg, UpdatedAt: updatedAt, ETag: etag})
 
 	return cfg, updatedAt, etag, nil
 }
@@ -203,37 +207,26 @@ func (s *AppConfigService) CTFState(ctx context.Context, now time.Time) (CTFStat
 	return CTFStateActive, nil
 }
 
-func (s *AppConfigService) cached() *appConfigCache {
-	value := s.cache.Load()
-	if value == nil {
-		return nil
+func (s *AppConfigService) getCache(ctx context.Context) (appConfigCache, bool) {
+	if s.redis == nil {
+		return appConfigCache{}, false
 	}
 
-	cached, ok := value.(*appConfigCache)
-	if !ok {
-		return nil
+	cached, err := s.redis.Get(ctx, appConfigCacheKey).Result()
+	if err != nil {
+		return appConfigCache{}, false
 	}
 
-	return cached
-}
-
-func (s *AppConfigService) cachedUpdatedAt() time.Time {
-	cached := s.cached()
-	if cached == nil {
-		return time.Time{}
+	var data appConfigCache
+	if err := json.Unmarshal([]byte(cached), &data); err != nil {
+		_ = s.redis.Del(ctx, appConfigCacheKey).Err()
+		return appConfigCache{}, false
 	}
 
-	return cached.updatedAt
+	return data, true
 }
 
 func (s *AppConfigService) load(ctx context.Context) (AppConfig, time.Time, string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if cached := s.cached(); cached != nil {
-		return cached.parsed, cached.updatedAt, cached.etag, nil
-	}
-
 	rows, err := s.repo.GetAll(ctx)
 	if err != nil {
 		return AppConfig{}, time.Time{}, "", err
@@ -249,10 +242,29 @@ func (s *AppConfigService) load(ctx context.Context) (AppConfig, time.Time, stri
 	}
 
 	etag := buildETag(cfg)
-	cached := &appConfigCache{parsed: cfg, updatedAt: updatedAt, etag: etag}
-	s.cache.Store(cached)
+	s.storeCache(ctx, appConfigCache{Config: cfg, UpdatedAt: updatedAt, ETag: etag})
 
 	return cfg, updatedAt, etag, nil
+}
+
+func (s *AppConfigService) storeCache(ctx context.Context, data appConfigCache) {
+	if s.redis == nil || s.cacheTTL <= 0 {
+		return
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+
+	_ = s.redis.Set(ctx, appConfigCacheKey, payload, s.cacheTTL).Err()
+}
+
+func (s *AppConfigService) invalidateCache(ctx context.Context) {
+	if s.redis == nil {
+		return
+	}
+	_ = s.redis.Del(ctx, appConfigCacheKey).Err()
 }
 
 func buildConfigFromRows(rows []models.AppConfig) (AppConfig, time.Time, map[string]string) {

@@ -64,6 +64,7 @@ type SecurityConfig struct {
 type CacheConfig struct {
 	TimelineTTL    time.Duration
 	LeaderboardTTL time.Duration
+	AppConfigTTL   time.Duration
 }
 
 type LoggingConfig struct {
@@ -189,6 +190,11 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	appConfigCacheTTL, err := getDuration("APP_CONFIG_CACHE_TTL", 2*time.Minute)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	logDir := getEnv("LOG_DIR", "logs")
 	logPrefix := getEnv("LOG_FILE_PREFIX", "app")
 	logMaxBodyBytes, err := getEnvInt("LOG_MAX_BODY_BYTES", 1024*1024)
@@ -298,6 +304,7 @@ func Load() (Config, error) {
 		Cache: CacheConfig{
 			TimelineTTL:    timelineCacheTTL,
 			LeaderboardTTL: leaderboardCacheTTL,
+			AppConfigTTL:   appConfigCacheTTL,
 		},
 		Logging: LoggingConfig{
 			Dir:               logDir,

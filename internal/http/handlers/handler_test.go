@@ -1195,7 +1195,7 @@ func TestHandlerListChallengesError(t *testing.T) {
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
 	appConfigRepo := repo.NewAppConfigRepo(closedDB)
-	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo, handlerRedis, handlerCfg.Cache.AppConfigTTL)
 	handler := New(handlerCfg, nil, ctfSvc, appConfigSvc, nil, scoreRepo, nil, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)

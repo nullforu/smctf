@@ -140,6 +140,11 @@ func TestMain(m *testing.M) {
 			SubmissionWindow: 2 * time.Minute,
 			SubmissionMax:    5,
 		},
+		Cache: config.CacheConfig{
+			TimelineTTL:    2 * time.Minute,
+			LeaderboardTTL: 2 * time.Minute,
+			AppConfigTTL:   2 * time.Minute,
+		},
 		Logging: config.LoggingConfig{
 			Dir:              "",
 			FilePrefix:       "test",
@@ -258,7 +263,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
-	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
 
 	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, nil, testRedis, testLogger)
 

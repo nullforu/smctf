@@ -83,7 +83,7 @@ func main() {
 	authSvc := service.NewAuthService(cfg, database, userRepo, registrationKeyRepo, teamRepo, redisClient)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
-	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
 	stackClient := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
 
