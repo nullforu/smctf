@@ -244,6 +244,8 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 		{"invalid s3 enabled", "S3_ENABLED", "not-a-bool"},
 		{"invalid s3 presign ttl", "S3_PRESIGN_TTL", "bad-duration"},
 		{"invalid s3 force path", "S3_FORCE_PATH_STYLE", "bad-bool"},
+		{"invalid leaderboard cache ttl", "LEADERBOARD_CACHE_TTL", "bad-duration"},
+		{"invalid app config cache ttl", "APP_CONFIG_CACHE_TTL", "bad-duration"},
 	}
 
 	for _, tt := range tests {
