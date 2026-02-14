@@ -196,7 +196,7 @@ func (s *AppConfigService) CTFState(ctx context.Context, now time.Time) (CTFStat
 		return CTFStateNotStarted, nil
 	}
 
-	if endSet && !now.Before(endAt) {
+	if endSet && now.After(endAt) {
 		return CTFStateEnded, nil
 	}
 
