@@ -83,8 +83,11 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	appRepo := repo.NewAppConfigRepo(env.db)
 	svc := NewAppConfigService(appRepo)
 
-	start := "2026-02-10T10:00:00Z"
-	end := "2026-02-10T12:00:00Z"
+	now := time.Now().UTC()
+	startTime := now.Add(1 * time.Hour)
+	endTime := startTime.Add(2 * time.Hour)
+	start := startTime.Format(time.RFC3339)
+	end := endTime.Format(time.RFC3339)
 	cfg, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
