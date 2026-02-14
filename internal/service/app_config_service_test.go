@@ -46,7 +46,7 @@ func TestAppConfigServiceUpdatePartial(t *testing.T) {
 	}
 
 	title := "New Title"
-	cfg, _, _, err := svc.Update(context.Background(), &title, nil, nil, nil)
+	cfg, _, _, err := svc.Update(context.Background(), &title, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestAppConfigServiceUpdateValidation(t *testing.T) {
 	svc := NewAppConfigService(appRepo)
 
 	empty := ""
-	_, _, _, err := svc.Update(context.Background(), &empty, nil, nil, nil)
+	_, _, _, err := svc.Update(context.Background(), &empty, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
@@ -74,5 +74,32 @@ func TestAppConfigServiceUpdateValidation(t *testing.T) {
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %T", err)
+	}
+}
+
+func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo)
+
+	start := "2026-02-10T10:00:00Z"
+	end := "2026-02-10T12:00:00Z"
+	cfg, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end)
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if cfg.CTFStartAt != start || cfg.CTFEndAt != end {
+		t.Fatalf("expected ctf times, got %+v", cfg)
+	}
+
+	invalid := "nope"
+	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &invalid, nil); err == nil {
+		t.Fatalf("expected validation error")
+	}
+
+	empty := ""
+	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &empty, &empty); err != nil {
+		t.Fatalf("expected empty times to be allowed, got %v", err)
 	}
 }

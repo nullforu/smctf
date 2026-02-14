@@ -132,6 +132,32 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+func setHandlerCTFWindow(t *testing.T, env handlerEnv, startAt, endAt *time.Time) {
+	t.Helper()
+
+	var startValue *string
+	if startAt != nil {
+		value := startAt.UTC().Format(time.RFC3339)
+		startValue = &value
+	} else {
+		value := ""
+		startValue = &value
+	}
+
+	var endValue *string
+	if endAt != nil {
+		value := endAt.UTC().Format(time.RFC3339)
+		endValue = &value
+	} else {
+		value := ""
+		endValue = &value
+	}
+
+	if _, _, _, err := env.appConfigSvc.Update(context.Background(), nil, nil, nil, nil, startValue, endValue); err != nil {
+		t.Fatalf("set ctf window: %v", err)
+	}
+}
+
 func startHandlerPostgres(ctx context.Context) (testcontainers.Container, config.DBConfig, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:16-alpine",

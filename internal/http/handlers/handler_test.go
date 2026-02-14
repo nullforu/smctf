@@ -606,13 +606,17 @@ func TestStackHandlersList(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var resp []stackResponse
+	var resp stacksListResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if len(resp) != 2 {
-		t.Fatalf("expected 2 stacks, got %d", len(resp))
+	if resp.CTFState != string(service.CTFStateActive) {
+		t.Fatalf("expected ctf_state active, got %s", resp.CTFState)
+	}
+
+	if len(resp.Stacks) != 2 {
+		t.Fatalf("expected 2 stacks, got %d", len(resp.Stacks))
 	}
 }
 
@@ -1024,7 +1028,9 @@ func TestHandlerListChallengesError(t *testing.T) {
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
-	handler := New(handlerCfg, nil, ctfSvc, nil, nil, scoreRepo, nil, nil, handlerRedis)
+	appConfigRepo := repo.NewAppConfigRepo(closedDB)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo)
+	handler := New(handlerCfg, nil, ctfSvc, appConfigSvc, nil, scoreRepo, nil, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
 	handler.ListChallenges(ctx)
