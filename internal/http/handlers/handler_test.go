@@ -184,6 +184,40 @@ func TestHandlerAdminConfigValidation(t *testing.T) {
 	}
 }
 
+func TestHandlerAdminConfigUpdateCTFWindow(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	body := map[string]string{
+		"ctf_start_at": "2026-02-10T10:00:00Z",
+		"ctf_end_at":   "2026-02-10T18:00:00Z",
+	}
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", body)
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin config status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		CTFStartAt string `json:"ctf_start_at"`
+		CTFEndAt   string `json:"ctf_end_at"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.CTFStartAt != body["ctf_start_at"] || resp.CTFEndAt != body["ctf_end_at"] {
+		t.Fatalf("unexpected ctf window: %+v", resp)
+	}
+}
+
+func TestHandlerAdminConfigInvalidCTFWindow(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	body := map[string]string{"ctf_start_at": "nope"}
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", body)
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
 // Auth Handler Tests
 
 func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
@@ -390,6 +424,45 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 
 	_ = challenge
 	_ = other
+}
+
+func TestHandlerListChallengesNotStarted(t *testing.T) {
+	env := setupHandlerTest(t)
+	start := time.Now().Add(2 * time.Hour)
+	setHandlerCTFWindow(t, env, &start, nil)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list challenges status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+	if _, ok := resp["challenges"]; ok {
+		t.Fatalf("expected challenges to be omitted before start")
+	}
+}
+
+func TestHandlerSubmitFlagEnded(t *testing.T) {
+	env := setupHandlerTest(t)
+	end := time.Now().Add(-2 * time.Hour)
+	setHandlerCTFWindow(t, env, nil, &end)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/1/submit", map[string]string{"flag": "FLAG{1}"})
+	env.handler.SubmitFlag(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateEnded) {
+		t.Fatalf("expected ctf_state ended, got %v", resp["ctf_state"])
+	}
 }
 
 func TestHandlerRequestChallengeFileUpload(t *testing.T) {
@@ -620,6 +693,79 @@ func TestStackHandlersList(t *testing.T) {
 	}
 }
 
+func TestStackHandlersNotStarted(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", "user")
+	challenge := createHandlerStackChallenge(t, env, "stack")
+
+	start := time.Now().Add(2 * time.Hour)
+	setHandlerCTFWindow(t, env, &start, nil)
+
+	mock := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running", TargetPort: 80}, nil
+		},
+	}
+
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+	env.handler.CreateStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/stacks", nil)
+	ctx.Set("userID", user.ID)
+	env.handler.ListStacks(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list stacks status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+	env.handler.GetStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+	env.handler.DeleteStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+}
+
 func TestAdminGetChallengeIncludesStackSpec(t *testing.T) {
 	env := setupHandlerTest(t)
 	challenge := createHandlerStackChallenge(t, env, "stack")
@@ -675,6 +821,26 @@ func TestSubmitFlagDeletesStack(t *testing.T) {
 
 	if !deleted {
 		t.Fatalf("expected stack delete call")
+	}
+}
+
+func TestHandlerDownloadNotStarted(t *testing.T) {
+	env := setupHandlerTest(t)
+	challenge := createHandlerChallenge(t, env, "Download", 100, "FLAG{D}", true)
+	start := time.Now().Add(2 * time.Hour)
+	setHandlerCTFWindow(t, env, &start, nil)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/file/download", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	env.handler.RequestChallengeFileDownload(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("download status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
 	}
 }
 

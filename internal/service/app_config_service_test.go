@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"smctf/internal/repo"
 )
@@ -101,5 +102,54 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	empty := ""
 	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &empty, &empty); err != nil {
 		t.Fatalf("expected empty times to be allowed, got %v", err)
+	}
+}
+
+func TestAppConfigServiceCTFState(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo)
+
+	now := time.Date(2026, 2, 10, 9, 0, 0, 0, time.UTC)
+	start := now.Add(2 * time.Hour).Format(time.RFC3339)
+	end := now.Add(4 * time.Hour).Format(time.RFC3339)
+
+	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	state, err := svc.CTFState(context.Background(), now)
+	if err != nil {
+		t.Fatalf("CTFState: %v", err)
+	}
+	if state != CTFStateNotStarted {
+		t.Fatalf("expected not_started, got %s", state)
+	}
+
+	start = now.Add(-time.Hour).Format(time.RFC3339)
+	end = now.Add(time.Hour).Format(time.RFC3339)
+	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	state, err = svc.CTFState(context.Background(), now)
+	if err != nil {
+		t.Fatalf("CTFState: %v", err)
+	}
+	if state != CTFStateActive {
+		t.Fatalf("expected active, got %s", state)
+	}
+
+	end = now.Add(-time.Minute).Format(time.RFC3339)
+	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	state, err = svc.CTFState(context.Background(), now)
+	if err != nil {
+		t.Fatalf("CTFState: %v", err)
+	}
+	if state != CTFStateEnded {
+		t.Fatalf("expected ended, got %s", state)
 	}
 }
