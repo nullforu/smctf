@@ -90,7 +90,7 @@ func main() {
 	if cfg, _, _, err := appConfigSvc.Get(ctx); err != nil {
 		log.Printf("app config load warning: %v", err)
 	} else if cfg.CTFStartAt == "" && cfg.CTFEndAt == "" {
-		log.Printf("warning: ctf_start_at/ctf_end_at not configured; competition will always be active")
+		log.Printf("warning: ctf_start_at and ctf_end_at not configured; competition will always be active at all times")
 	}
 
 	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, redisClient, logger)
