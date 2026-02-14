@@ -137,6 +137,90 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	}
 }
 
+func TestAppConfigServiceUpdateNoChanges(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
+
+	cfg, updatedAt, etag, err := svc.Get(context.Background())
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	outCfg, outUpdatedAt, outETag, err := svc.Update(context.Background(), nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if outCfg.Title != cfg.Title || outETag != etag || !outUpdatedAt.Equal(updatedAt) {
+		t.Fatalf("unexpected unchanged update: %+v", outCfg)
+	}
+}
+
+func TestAppConfigServiceGetCacheInvalidJSON(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
+
+	if err := env.redis.Set(context.Background(), appConfigCacheKey, "{not-json}", time.Minute).Err(); err != nil {
+		t.Fatalf("set bad cache: %v", err)
+	}
+
+	if _, ok := svc.getCache(context.Background()); ok {
+		t.Fatalf("expected cache miss for invalid json")
+	}
+
+	exists, err := env.redis.Exists(context.Background(), appConfigCacheKey).Result()
+	if err != nil {
+		t.Fatalf("exists: %v", err)
+	}
+	if exists != 0 {
+		t.Fatalf("expected bad cache to be deleted")
+	}
+}
+
+func TestAppConfigServiceCacheNilRedis(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo, nil, env.cfg.Cache.AppConfigTTL)
+
+	if _, ok := svc.getCache(context.Background()); ok {
+		t.Fatalf("expected cache miss with nil redis")
+	}
+
+	cfg, _, _, err := svc.Get(context.Background())
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if cfg.Title == "" {
+		t.Fatalf("expected config from DB")
+	}
+
+	svc.storeCache(context.Background(), appConfigCache{Config: cfg})
+	svc.invalidateCache(context.Background())
+}
+
+func TestAppConfigServiceStoreCacheTTLDisabled(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo, env.redis, 0)
+
+	cfg, _, _, err := svc.Get(context.Background())
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	svc.storeCache(context.Background(), appConfigCache{Config: cfg})
+
+	exists, err := env.redis.Exists(context.Background(), appConfigCacheKey).Result()
+	if err != nil {
+		t.Fatalf("exists: %v", err)
+	}
+	if exists != 0 {
+		t.Fatalf("expected cache to be skipped with ttl=0")
+	}
+}
+
 func TestAppConfigServiceCTFState(t *testing.T) {
 	env := setupServiceTest(t)
 	appRepo := repo.NewAppConfigRepo(env.db)
