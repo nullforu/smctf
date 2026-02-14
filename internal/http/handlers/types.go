@@ -200,7 +200,7 @@ type stackResponse struct {
 	TTLExpiresAt *time.Time `json:"ttl_expires_at,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
-	CTFState     string     `json:"ctf_state"`
+	CTFState     string     `json:"-"`
 }
 
 type stacksListResponse struct {
