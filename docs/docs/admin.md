@@ -21,8 +21,8 @@ Request
     "description": "Hello",
     "header_title": "SM CTF",
     "header_description": "Join the challenge",
-    "ctf_start_at": "2026-02-10T10:00:00Z",
-    "ctf_end_at": "2026-02-10T18:00:00Z"
+    "ctf_start_at": "2099-12-31T10:00:00Z",
+    "ctf_end_at": "2099-12-31T18:00:00Z"
 }
 ```
 
@@ -34,8 +34,8 @@ Response 200
     "description": "Hello",
     "header_title": "SM CTF",
     "header_description": "Join the challenge",
-    "ctf_start_at": "2026-02-10T10:00:00Z",
-    "ctf_end_at": "2026-02-10T18:00:00Z",
+    "ctf_start_at": "2099-12-31T10:00:00Z",
+    "ctf_end_at": "2099-12-31T18:00:00Z",
     "updated_at": "2026-01-26T12:00:00Z"
 }
 ```

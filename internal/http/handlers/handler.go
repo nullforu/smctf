@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"smctf/internal/config"
@@ -31,6 +32,8 @@ type Handler struct {
 	teams  *service.TeamService
 	stacks *service.StackService
 	redis  *redis.Client
+
+	ctfStateCache ctfStateCache
 }
 
 func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
@@ -126,13 +129,43 @@ func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
 	return id, true
 }
 
+const ctfStateCacheTTL = time.Minute
+
+type ctfStateCache struct {
+	mu        sync.Mutex
+	state     service.CTFState
+	expiresAt time.Time
+}
+
+func (c *ctfStateCache) get(now time.Time) (service.CTFState, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if now.Before(c.expiresAt) {
+		return c.state, true
+	}
+	return service.CTFStateActive, false
+}
+
+func (c *ctfStateCache) set(state service.CTFState, expiresAt time.Time) {
+	c.mu.Lock()
+	c.state = state
+	c.expiresAt = expiresAt
+	c.mu.Unlock()
+}
+
 func (h *Handler) ctfState(ctx *gin.Context) (service.CTFState, bool) {
-	state, err := h.app.CTFState(ctx.Request.Context(), time.Now().UTC())
+	now := time.Now().UTC()
+	if state, ok := h.ctfStateCache.get(now); ok {
+		return state, true
+	}
+
+	state, err := h.app.CTFState(ctx.Request.Context(), now)
 	if err != nil {
 		writeError(ctx, err)
 		return service.CTFStateActive, false
 	}
 
+	h.ctfStateCache.set(state, now.Add(ctfStateCacheTTL))
 	return state, true
 }
 

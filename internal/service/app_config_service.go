@@ -360,6 +360,20 @@ func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]*string) (map[strin
 		updates[key] = value
 	}
 
+	startAt, startSet, err := parseRFC3339Optional(cfg.CTFStartAt)
+	if err != nil {
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFStartAt, Reason: "invalid"})
+	}
+
+	endAt, endSet, err := parseRFC3339Optional(cfg.CTFEndAt)
+	if err != nil {
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "invalid"})
+	}
+
+	if startSet && endSet && !endAt.After(startAt) {
+		return nil, NewValidationError(FieldError{Field: appConfigKeyCTFEndAt, Reason: "invalid"})
+	}
+
 	return updates, nil
 }
 

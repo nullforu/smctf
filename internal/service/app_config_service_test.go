@@ -102,6 +102,11 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 
+	badEnd := "2026-02-10T09:00:00Z"
+	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &badEnd); err == nil {
+		t.Fatalf("expected validation error for end before start")
+	}
+
 	empty := ""
 	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &empty, &empty); err != nil {
 		t.Fatalf("expected empty times to be allowed, got %v", err)
