@@ -31,7 +31,6 @@ Response 201
 Errors:
 
 - 400 `invalid input`
-- 403 `user blocked`
 - 409 `user already exists`
 
 `registration_key` must be an admin-created alphanumeric code.

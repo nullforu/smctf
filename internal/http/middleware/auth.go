@@ -1,12 +1,13 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"smctf/internal/auth"
 	"smctf/internal/config"
-	"smctf/internal/repo"
+	"smctf/internal/models"
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -64,7 +65,11 @@ func RequireRole(role string) gin.HandlerFunc {
 	}
 }
 
-func RequireActiveUser(users *repo.UserRepo) gin.HandlerFunc {
+type UserLookup interface {
+	GetByID(ctx context.Context, id int64) (*models.User, error)
+}
+
+func RequireActiveUser(users UserLookup) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userID := UserID(ctx)
 		if userID == 0 {

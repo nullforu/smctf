@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +10,7 @@ import (
 
 	"smctf/internal/auth"
 	"smctf/internal/config"
+	"smctf/internal/models"
 
 	"github.com/gin-gonic/gin"
 )
@@ -133,4 +136,80 @@ func TestRequireRole(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
+}
+
+func TestRequireActiveUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.JWTConfig{
+		Secret:     "secret",
+		Issuer:     "issuer",
+		AccessTTL:  time.Hour,
+		RefreshTTL: time.Hour,
+	}
+
+	user := &models.User{ID: 1, Role: "user"}
+	blocked := &models.User{ID: 2, Role: "blocked"}
+
+	userRepo := &stubUserLookup{
+		users: map[int64]*models.User{
+			user.ID:    user,
+			blocked.ID: blocked,
+		},
+	}
+
+	router := gin.New()
+	router.GET("/active", Auth(cfg), RequireActiveUser(userRepo), func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	accessUser, err := auth.GenerateAccessToken(cfg, user.ID, "user")
+	if err != nil {
+		t.Fatalf("token: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/active", nil)
+	req.Header.Set("Authorization", "Bearer "+accessUser)
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	accessBlocked, err := auth.GenerateAccessToken(cfg, blocked.ID, "user")
+	if err != nil {
+		t.Fatalf("token blocked: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/active", nil)
+	req.Header.Set("Authorization", "Bearer "+accessBlocked)
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+
+	userRepo.err = errors.New("db down")
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/active", nil)
+	req.Header.Set("Authorization", "Bearer "+accessUser)
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+}
+
+type stubUserLookup struct {
+	users map[int64]*models.User
+	err   error
+}
+
+func (s *stubUserLookup) GetByID(_ context.Context, id int64) (*models.User, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	user, ok := s.users[id]
+	if !ok {
+		return nil, errors.New("not found")
+	}
+	return user, nil
 }
