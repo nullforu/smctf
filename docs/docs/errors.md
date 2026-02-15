@@ -88,3 +88,7 @@ For blocked users:
 ```json
 { "error": "user blocked" }
 ```
+
+Notes:
+
+- Returned only on endpoints that require an active (non-blocked) user. Some read-only endpoints are still available to blocked users (e.g. stack listing and stack detail).

@@ -343,7 +343,7 @@ func TestAdminMoveUserTeam(t *testing.T) {
 	}
 	decodeJSON(t, rec, &regResp)
 
-	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/users/"+itoa(regResp.ID)+"/team", map[string]int64{"team_id": teamB.ID}, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/users/"+itoa(regResp.ID)+"/team", map[string]int64{"team_id": teamB.ID}, authHeader(adminAccess))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

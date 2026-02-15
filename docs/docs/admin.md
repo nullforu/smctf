@@ -184,7 +184,7 @@ Errors:
 
 ## Move User Team
 
-`PUT /api/admin/users/:id/team`
+`POST /api/admin/users/:id/team`
 
 Headers
 

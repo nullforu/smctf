@@ -152,8 +152,8 @@ type userMeResponse struct {
 	Role          string     `json:"role"`
 	TeamID        int64      `json:"team_id"`
 	TeamName      string     `json:"team_name"`
-	BlockedReason *string    `json:"blocked_reason,omitempty"`
-	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
+	BlockedReason *string    `json:"blocked_reason"`
+	BlockedAt     *time.Time `json:"blocked_at"`
 }
 
 type userDetailResponse struct {
@@ -162,8 +162,8 @@ type userDetailResponse struct {
 	Role          string     `json:"role"`
 	TeamID        int64      `json:"team_id"`
 	TeamName      string     `json:"team_name"`
-	BlockedReason *string    `json:"blocked_reason,omitempty"`
-	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
+	BlockedReason *string    `json:"blocked_reason"`
+	BlockedAt     *time.Time `json:"blocked_at"`
 }
 
 type adminUserResponse struct {
@@ -173,8 +173,8 @@ type adminUserResponse struct {
 	Role          string     `json:"role"`
 	TeamID        int64      `json:"team_id"`
 	TeamName      string     `json:"team_name"`
-	BlockedReason *string    `json:"blocked_reason,omitempty"`
-	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
+	BlockedReason *string    `json:"blocked_reason"`
+	BlockedAt     *time.Time `json:"blocked_at"`
 }
 
 type challengeResponse struct {

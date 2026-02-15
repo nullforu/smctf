@@ -150,7 +150,7 @@ func TestRequireActiveUser(t *testing.T) {
 	user := &models.User{ID: 1, Role: "user"}
 	blocked := &models.User{ID: 2, Role: "blocked"}
 
-	userRepo := &stubUserLookup{
+	users := &stubUserLookup{
 		users: map[int64]*models.User{
 			user.ID:    user,
 			blocked.ID: blocked,
@@ -158,7 +158,7 @@ func TestRequireActiveUser(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.GET("/active", Auth(cfg), RequireActiveUser(userRepo), func(ctx *gin.Context) {
+	router.GET("/active", Auth(cfg), RequireActiveUser(users), func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
 
@@ -195,7 +195,7 @@ func TestRequireActiveUser(t *testing.T) {
 		t.Fatalf("expected 403, got %d", rec.Code)
 	}
 
-	userRepo.err = errors.New("db down")
+	users.err = errors.New("db down")
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/active", nil)
 	req.Header.Set("Authorization", "Bearer "+accessUser)
@@ -218,5 +218,6 @@ func (s *stubUserLookup) GetByID(_ context.Context, id int64) (*models.User, err
 	if !ok {
 		return nil, errors.New("not found")
 	}
+
 	return user, nil
 }

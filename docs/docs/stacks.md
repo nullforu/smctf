@@ -40,6 +40,9 @@ Errors:
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 503 `stack feature disabled`
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
+Notes:
+
+- Blocked users can access this endpoint (read-only).
 
 ---
 
@@ -119,6 +122,9 @@ Errors:
 - 404 `stack not found`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
+Notes:
+
+- Blocked users can access this endpoint (read-only).
 
 ---
 

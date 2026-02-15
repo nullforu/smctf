@@ -352,7 +352,7 @@ func TestHandlerAdminMoveUserTeam(t *testing.T) {
 	teamB := createHandlerTeam(t, env, "Beta")
 	user := createHandlerUserWithTeam(t, env, "user@example.com", "user1", "pass", "user", teamA.ID)
 
-	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
 
 	env.handler.AdminMoveUserTeam(ctx)
@@ -366,21 +366,21 @@ func TestHandlerAdminMoveUserTeam(t *testing.T) {
 		t.Fatalf("expected team_id %d, got %d", teamB.ID, resp.TeamID)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/users/1/team", map[string]any{"team_id": -1})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": -1})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
 	env.handler.AdminMoveUserTeam(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/users/1/team", map[string]any{"team_id": 9999})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": 9999})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
 	env.handler.AdminMoveUserTeam(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
 	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
 	env.handler.AdminMoveUserTeam(ctx)
 	if rec.Code != http.StatusBadRequest {

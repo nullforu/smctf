@@ -856,6 +856,9 @@ func (h *Handler) AdminBlockUser(ctx *gin.Context) {
 		return
 	}
 
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
+
 	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
 	if err != nil {
 		writeError(ctx, err)
@@ -891,6 +894,9 @@ func (h *Handler) AdminUnblockUser(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 
 	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
 	if err != nil {
