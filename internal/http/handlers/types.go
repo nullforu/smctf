@@ -157,11 +157,13 @@ type userMeResponse struct {
 }
 
 type userDetailResponse struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
-	TeamID   int64  `json:"team_id"`
-	TeamName string `json:"team_name"`
+	ID            int64      `json:"id"`
+	Username      string     `json:"username"`
+	Role          string     `json:"role"`
+	TeamID        int64      `json:"team_id"`
+	TeamName      string     `json:"team_name"`
+	BlockedReason *string    `json:"blocked_reason,omitempty"`
+	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
 }
 
 type adminUserResponse struct {
@@ -284,11 +286,13 @@ func newUserMeResponse(user *models.User) userMeResponse {
 
 func newUserDetailResponse(user *models.User) userDetailResponse {
 	return userDetailResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		Role:     user.Role,
-		TeamID:   user.TeamID,
-		TeamName: user.TeamName,
+		ID:            user.ID,
+		Username:      user.Username,
+		Role:          user.Role,
+		TeamID:        user.TeamID,
+		TeamName:      user.TeamName,
+		BlockedReason: user.BlockedReason,
+		BlockedAt:     user.BlockedAt,
 	}
 }
 

@@ -151,6 +151,8 @@ func (r *TeamRepo) ListMembers(ctx context.Context, id int64) ([]models.TeamMemb
 		ColumnExpr("u.id AS id").
 		ColumnExpr("u.username AS username").
 		ColumnExpr("u.role AS role").
+		ColumnExpr("u.blocked_reason AS blocked_reason").
+		ColumnExpr("u.blocked_at AS blocked_at").
 		Where("u.team_id = ?", id).
 		OrderExpr("u.id ASC")
 

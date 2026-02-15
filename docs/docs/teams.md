@@ -57,7 +57,9 @@ Response 200
     {
         "id": 5,
         "username": "user1",
-        "role": "user"
+        "role": "user",
+        "blocked_reason": null,
+        "blocked_at": null
     }
 ]
 ```

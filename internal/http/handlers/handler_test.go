@@ -57,6 +57,10 @@ func newJSONContext(t *testing.T, method, path string, body any) (*gin.Context, 
 	return ctx, rec
 }
 
+func ptrString(value string) *string {
+	return &value
+}
+
 func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest any) {
 	t.Helper()
 
@@ -1496,6 +1500,39 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 	env.handler.ListUsers(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list users status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var users []struct {
+		ID            int64   `json:"id"`
+		BlockedReason *string `json:"blocked_reason"`
+	}
+	decodeJSON(t, rec, &users)
+	if len(users) == 0 {
+		t.Fatalf("expected users list")
+	}
+
+	user.BlockedReason = ptrString("policy")
+	now := time.Now().UTC()
+	user.BlockedAt = &now
+	if err := env.userRepo.Update(context.Background(), user); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", user.ID)}}
+
+	env.handler.GetUser(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get user status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var detail struct {
+		ID            int64   `json:"id"`
+		BlockedReason *string `json:"blocked_reason"`
+	}
+	decodeJSON(t, rec, &detail)
+	if detail.ID != user.ID || detail.BlockedReason == nil {
+		t.Fatalf("expected blocked reason, got %+v", detail)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/0", nil)

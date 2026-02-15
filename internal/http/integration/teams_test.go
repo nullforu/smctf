@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -124,6 +125,14 @@ func TestTeamsDetailMembersSolved(t *testing.T) {
 	team := createTeam(t, env, "Alpha")
 	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
 	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
+	blocked := createUserWithTeam(t, env, "b1@example.com", "blocked", "pass", "user", team.ID)
+	reason := "policy"
+	blocked.BlockedReason = &reason
+	now := time.Now().UTC()
+	blocked.BlockedAt = &now
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
 	ch1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	ch2 := createChallenge(t, env, "Ch2", 50, "flag{2}", true)
 
@@ -143,7 +152,7 @@ func TestTeamsDetailMembersSolved(t *testing.T) {
 	}
 	decodeJSON(t, rec, &list)
 
-	if len(list) != 1 || list[0].ID != team.ID || list[0].MemberCount != 2 || list[0].TotalScore != 150 {
+	if len(list) != 1 || list[0].ID != team.ID || list[0].MemberCount != 3 || list[0].TotalScore != 150 {
 		t.Fatalf("unexpected team list: %+v", list)
 	}
 
@@ -160,7 +169,7 @@ func TestTeamsDetailMembersSolved(t *testing.T) {
 	}
 	decodeJSON(t, rec, &detail)
 
-	if detail.ID != team.ID || detail.MemberCount != 2 || detail.TotalScore != 150 {
+	if detail.ID != team.ID || detail.MemberCount != 3 || detail.TotalScore != 150 {
 		t.Fatalf("unexpected team detail: %+v", detail)
 	}
 
@@ -170,12 +179,23 @@ func TestTeamsDetailMembersSolved(t *testing.T) {
 	}
 
 	var members []struct {
-		ID int64 `json:"id"`
+		ID            int64   `json:"id"`
+		BlockedReason *string `json:"blocked_reason"`
 	}
 	decodeJSON(t, rec, &members)
 
-	if len(members) != 2 {
-		t.Fatalf("expected 2 members, got %d", len(members))
+	if len(members) != 3 {
+		t.Fatalf("expected 3 members, got %d", len(members))
+	}
+
+	foundBlocked := false
+	for _, member := range members {
+		if member.ID == blocked.ID {
+			foundBlocked = member.BlockedReason != nil
+		}
+	}
+	if !foundBlocked {
+		t.Fatalf("expected blocked member details")
 	}
 
 	rec = doRequest(t, env.router, http.MethodGet, "/api/teams/"+itoa(team.ID)+"/solved", nil, nil)
