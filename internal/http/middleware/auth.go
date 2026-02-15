@@ -6,6 +6,8 @@ import (
 
 	"smctf/internal/auth"
 	"smctf/internal/config"
+	"smctf/internal/repo"
+	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -55,6 +57,29 @@ func RequireRole(role string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if Role(ctx) != role {
 			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errForbidden})
+			return
+		}
+
+		ctx.Next()
+	}
+}
+
+func RequireActiveUser(users *repo.UserRepo) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userID := UserID(ctx)
+		if userID == 0 {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errInvalidToken})
+			return
+		}
+
+		user, err := users.GetByID(ctx.Request.Context(), userID)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errInvalidToken})
+			return
+		}
+
+		if user.Role == "blocked" {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": service.ErrUserBlocked.Error()})
 			return
 		}
 

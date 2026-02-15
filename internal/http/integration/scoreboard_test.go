@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"smctf/internal/models"
 	"smctf/internal/service"
@@ -13,12 +14,18 @@ func TestScoreboard(t *testing.T) {
 	env := setupTest(t, testCfg)
 	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
+	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
 
 	createSubmission(t, env, user1.ID, challenge1.ID, true, time.Now().UTC())
 	createSubmission(t, env, user2.ID, challenge1.ID, true, time.Now().UTC())
 	createSubmission(t, env, user2.ID, challenge2.ID, true, time.Now().UTC())
+	createSubmission(t, env, blocked.ID, challenge2.ID, true, time.Now().UTC())
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard", nil, nil)
 	if rec.Code != http.StatusOK {
@@ -44,12 +51,18 @@ func TestScoreboardTeams(t *testing.T) {
 	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
 	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
 	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
+	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "user", teamB.ID)
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 50, "flag{2}", true)
 
 	createSubmission(t, env, user1.ID, challenge1.ID, true, time.Now().UTC())
 	createSubmission(t, env, user2.ID, challenge2.ID, true, time.Now().UTC())
 	createSubmission(t, env, user3.ID, challenge2.ID, true, time.Now().UTC())
+	createSubmission(t, env, blocked.ID, challenge2.ID, true, time.Now().UTC())
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard/teams", nil, nil)
 	if rec.Code != http.StatusOK {
@@ -77,12 +90,18 @@ func TestScoreboardTeamTimeline(t *testing.T) {
 	teamA := createTeam(t, env, "Alpha")
 	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
+	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "user", teamA.ID)
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
 
 	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
 	createSubmission(t, env, user1.ID, challenge1.ID, true, base.Add(3*time.Minute))
 	createSubmission(t, env, user2.ID, challenge2.ID, true, base.Add(7*time.Minute))
+	createSubmission(t, env, blocked.ID, challenge1.ID, true, base.Add(5*time.Minute))
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/timeline/teams", nil, nil)
 	if rec.Code != http.StatusOK {
@@ -113,6 +132,11 @@ func TestScoreboardTimeline(t *testing.T) {
 	env := setupTest(t, testCfg)
 	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
+	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
 
@@ -120,6 +144,7 @@ func TestScoreboardTimeline(t *testing.T) {
 	createSubmission(t, env, user1.ID, challenge1.ID, true, base.Add(3*time.Minute))
 	createSubmission(t, env, user2.ID, challenge2.ID, true, base.Add(7*time.Minute))
 	createSubmission(t, env, user1.ID, challenge2.ID, true, base.Add(16*time.Minute))
+	createSubmission(t, env, blocked.ID, challenge2.ID, true, base.Add(20*time.Minute))
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/timeline", nil, nil)
 	if rec.Code != http.StatusOK {
@@ -158,6 +183,11 @@ func TestScoreboardTimelineWindow(t *testing.T) {
 	env := setupTest(t, testCfg)
 	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
 	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
+	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 200, "flag{2}", true)
 
@@ -166,6 +196,7 @@ func TestScoreboardTimelineWindow(t *testing.T) {
 
 	recent := now.Add(-20 * time.Minute)
 	createSubmission(t, env, user2.ID, challenge2.ID, true, recent)
+	createSubmission(t, env, blocked.ID, challenge2.ID, true, now.Add(-10*time.Minute))
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/timeline?window=60", nil, nil)
 	if rec.Code != http.StatusOK {
@@ -214,9 +245,14 @@ func TestScoreboardTimelineInvalidWindow(t *testing.T) {
 
 func TestScoreboardDynamicScoring(t *testing.T) {
 	env := setupTest(t, testCfg)
-	team := createTeam(t, env, "Alpha")
+	team := createTeam(t, env, fmt.Sprintf("Alpha-%d", time.Now().UnixNano()))
 	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", team.ID)
 	userSolo := createUser(t, env, "solo@example.com", "solo", "pass123", "user")
+	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass123", "user")
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 
 	challenge := createChallenge(t, env, "Dynamic", 500, "flag{dynamic}", true)
 	challenge.MinimumPoints = 100
@@ -226,6 +262,7 @@ func TestScoreboardDynamicScoring(t *testing.T) {
 
 	createSubmission(t, env, userTeam.ID, challenge.ID, true, time.Now().UTC())
 	createSubmission(t, env, userSolo.ID, challenge.ID, true, time.Now().UTC())
+	createSubmission(t, env, blocked.ID, challenge.ID, true, time.Now().UTC())
 
 	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard", nil, nil)
 	if rec.Code != http.StatusOK {

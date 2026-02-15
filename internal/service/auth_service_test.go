@@ -266,6 +266,38 @@ func TestAuthServiceLoginRefreshLogout(t *testing.T) {
 	}
 }
 
+func TestAuthServiceLoginBlocked(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
+	user.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), user); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+
+	if _, _, _, err := env.authSvc.Login(context.Background(), "blocked@example.com", "pass"); err != nil {
+		t.Fatalf("expected login success, got %v", err)
+	}
+}
+
+func TestAuthServiceRefreshBlocked(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
+
+	_, refresh, _, err := env.authSvc.Login(context.Background(), "user@example.com", "pass")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	user.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), user); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+
+	if _, _, err := env.authSvc.Refresh(context.Background(), refresh); err != nil {
+		t.Fatalf("expected refresh success, got %v", err)
+	}
+}
+
 func TestAuthServiceRegisterMissingKey(t *testing.T) {
 	env := setupServiceTest(t)
 	_, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass", "MISSING1", "")

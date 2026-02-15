@@ -6,6 +6,7 @@ var (
 	ErrUserExists            = errors.New("user already exists")
 	ErrInvalidCreds          = errors.New("invalid credentials")
 	ErrInvalidInput          = errors.New("invalid input")
+	ErrUserBlocked           = errors.New("user blocked")
 	ErrChallengeNotFound     = errors.New("challenge not found")
 	ErrChallengeFileNotFound = errors.New("challenge file not found")
 	ErrStorageUnavailable    = errors.New("storage unavailable")

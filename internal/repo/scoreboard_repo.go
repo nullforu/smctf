@@ -79,6 +79,7 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardRes
 		TableExpr("users AS u").
 		ColumnExpr("u.id AS user_id").
 		ColumnExpr("u.username AS username").
+		Where("u.role <> ?", "blocked").
 		OrderExpr("u.id ASC").
 		Scan(ctx, &rows); err != nil {
 		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard", err)
@@ -96,7 +97,9 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardRes
 		TableExpr("submissions AS s").
 		ColumnExpr("s.user_id AS user_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
+		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
+		Where("u.role <> ?", "blocked").
 		Scan(ctx, &submissions); err != nil {
 		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard submissions", err)
 	}
@@ -130,7 +133,9 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardRes
 		ColumnExpr("s.challenge_id AS challenge_id").
 		ColumnExpr("MIN(s.submitted_at) AS solved_at").
 		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
+		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
+		Where("u.role <> ?", "blocked").
 		GroupExpr("s.user_id, s.challenge_id").
 		Scan(ctx, &solvedRows); err != nil {
 		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard solves", err)
@@ -201,6 +206,7 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeader
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
+		Where("u.role <> ?", "blocked").
 		Scan(ctx, &submissions); err != nil {
 		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard submissions", err)
 	}
@@ -243,6 +249,7 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeader
 		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
+		Where("u.role <> ?", "blocked").
 		GroupExpr("u.team_id, s.challenge_id").
 		Scan(ctx, &solvedRows); err != nil {
 		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard solves", err)
@@ -288,7 +295,8 @@ func (r *ScoreboardRepo) TimelineSubmissions(ctx context.Context, since *time.Ti
 		ColumnExpr("u.username AS username").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
-		Where("s.correct = true")
+		Where("s.correct = true").
+		Where("u.role <> ?", "blocked")
 
 	query = applyTimelineWindow(query, since)
 
@@ -318,7 +326,8 @@ func (r *ScoreboardRepo) TimelineTeamSubmissions(ctx context.Context, since *tim
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS g ON g.id = u.team_id").
-		Where("s.correct = true")
+		Where("s.correct = true").
+		Where("u.role <> ?", "blocked")
 
 	query = applyTimelineWindow(query, since)
 

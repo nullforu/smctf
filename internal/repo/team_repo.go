@@ -77,6 +77,7 @@ func (r *TeamRepo) ListWithStats(ctx context.Context) ([]models.TeamSummary, err
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
+		Where("u.role <> ?", "blocked").
 		Scan(ctx, &submissions); err != nil {
 		return nil, wrapError("teamRepo.ListWithStats submissions", err)
 	}
@@ -114,6 +115,7 @@ func (r *TeamRepo) GetStats(ctx context.Context, id int64) (*models.TeamSummary,
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
 		Where("u.team_id = ?", id).
+		Where("u.role <> ?", "blocked").
 		Scan(ctx, &submissions); err != nil {
 		return nil, wrapError("teamRepo.GetStats submissions", err)
 	}
@@ -138,7 +140,8 @@ func (r *TeamRepo) baseTeamSolvedQuery() *bun.SelectQuery {
 		ColumnExpr("MAX(s.submitted_at) AS last_solved_at").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN challenges AS c ON c.id = s.challenge_id").
-		Where("s.correct = true")
+		Where("s.correct = true").
+		Where("u.role <> ?", "blocked")
 }
 
 func (r *TeamRepo) ListMembers(ctx context.Context, id int64) ([]models.TeamMember, error) {

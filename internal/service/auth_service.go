@@ -239,7 +239,14 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string,
 		return "", "", fmt.Errorf("auth.Refresh revoke: %w", err)
 	}
 
-	user := &models.User{ID: claims.UserID, Role: claims.Role}
+	user, err := s.userRepo.GetByID(ctx, claims.UserID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return "", "", ErrInvalidCreds
+		}
+
+		return "", "", fmt.Errorf("auth.Refresh lookup: %w", err)
+	}
 
 	return s.issueTokens(ctx, user)
 }

@@ -64,6 +64,9 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	case errors.Is(err, service.ErrInvalidCreds):
 		status = http.StatusUnauthorized
 		resp.Error = service.ErrInvalidCreds.Error()
+	case errors.Is(err, service.ErrUserBlocked):
+		status = http.StatusForbidden
+		resp.Error = service.ErrUserBlocked.Error()
 	case errors.Is(err, service.ErrUserExists):
 		status = http.StatusConflict
 		resp.Error = service.ErrUserExists.Error()

@@ -110,6 +110,17 @@ type createTeamRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
+type adminMoveUserTeamRequest struct {
+	TeamID int64 `json:"team_id" binding:"required"`
+}
+
+type adminBlockUserRequest struct {
+	Reason string `json:"reason" binding:"required"`
+}
+
+type adminUnblockUserRequest struct {
+}
+
 type registerResponse struct {
 	ID       int64  `json:"id"`
 	Email    string `json:"email"`
@@ -135,12 +146,14 @@ type refreshResponse struct {
 }
 
 type userMeResponse struct {
-	ID       int64  `json:"id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
-	TeamID   int64  `json:"team_id"`
-	TeamName string `json:"team_name"`
+	ID            int64      `json:"id"`
+	Email         string     `json:"email"`
+	Username      string     `json:"username"`
+	Role          string     `json:"role"`
+	TeamID        int64      `json:"team_id"`
+	TeamName      string     `json:"team_name"`
+	BlockedReason *string    `json:"blocked_reason,omitempty"`
+	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
 }
 
 type userDetailResponse struct {
@@ -149,6 +162,17 @@ type userDetailResponse struct {
 	Role     string `json:"role"`
 	TeamID   int64  `json:"team_id"`
 	TeamName string `json:"team_name"`
+}
+
+type adminUserResponse struct {
+	ID            int64      `json:"id"`
+	Email         string     `json:"email"`
+	Username      string     `json:"username"`
+	Role          string     `json:"role"`
+	TeamID        int64      `json:"team_id"`
+	TeamName      string     `json:"team_name"`
+	BlockedReason *string    `json:"blocked_reason,omitempty"`
+	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
 }
 
 type challengeResponse struct {
@@ -247,12 +271,14 @@ func newStackResponse(stack *models.Stack, ctfState string) stackResponse {
 
 func newUserMeResponse(user *models.User) userMeResponse {
 	return userMeResponse{
-		ID:       user.ID,
-		Email:    user.Email,
-		Username: user.Username,
-		Role:     user.Role,
-		TeamID:   user.TeamID,
-		TeamName: user.TeamName,
+		ID:            user.ID,
+		Email:         user.Email,
+		Username:      user.Username,
+		Role:          user.Role,
+		TeamID:        user.TeamID,
+		TeamName:      user.TeamName,
+		BlockedReason: user.BlockedReason,
+		BlockedAt:     user.BlockedAt,
 	}
 }
 
@@ -263,6 +289,19 @@ func newUserDetailResponse(user *models.User) userDetailResponse {
 		Role:     user.Role,
 		TeamID:   user.TeamID,
 		TeamName: user.TeamName,
+	}
+}
+
+func newAdminUserResponse(user *models.User) adminUserResponse {
+	return adminUserResponse{
+		ID:            user.ID,
+		Email:         user.Email,
+		Username:      user.Username,
+		Role:          user.Role,
+		TeamID:        user.TeamID,
+		TeamName:      user.TeamName,
+		BlockedReason: user.BlockedReason,
+		BlockedAt:     user.BlockedAt,
 	}
 }
 

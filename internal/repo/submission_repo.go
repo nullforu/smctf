@@ -82,7 +82,9 @@ func (r *SubmissionRepo) correctSubmissionCountForChallenge(
 ) (int, error) {
 	return db.NewSelect().
 		TableExpr("submissions AS s").
+		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
+		Where("u.role <> ?", "blocked").
 		Where("s.challenge_id = ?", challengeID).
 		Count(ctx)
 }
@@ -91,7 +93,8 @@ func (r *SubmissionRepo) baseCorrectSubmissionsQuery(db bun.IDB) *bun.SelectQuer
 	return db.NewSelect().
 		TableExpr("submissions AS s").
 		Join("JOIN users AS u ON u.id = s.user_id").
-		Where("s.correct = true")
+		Where("s.correct = true").
+		Where("u.role <> ?", "blocked")
 }
 
 func (r *SubmissionRepo) solvedChallengesQuery(db bun.IDB) *bun.SelectQuery {
@@ -103,7 +106,8 @@ func (r *SubmissionRepo) solvedChallengesQuery(db bun.IDB) *bun.SelectQuery {
 		ColumnExpr("MIN(s.submitted_at) AS solved_at").
 		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
-		Where("s.correct = true")
+		Where("s.correct = true").
+		Where("u.role <> ?", "blocked")
 }
 
 func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub *models.Submission) (bool, error) {

@@ -63,16 +63,19 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		auth := api.Group("")
 		auth.Use(middleware.Auth(cfg.JWT))
 		auth.GET("/me", h.Me)
-		auth.PUT("/me", h.UpdateMe)
-		auth.POST("/challenges/:id/submit", h.SubmitFlag)
-		auth.POST("/challenges/:id/file/download", h.RequestChallengeFileDownload)
-		auth.GET("/stacks", h.ListStacks)
-		auth.POST("/challenges/:id/stack", h.CreateStack)
-		auth.GET("/challenges/:id/stack", h.GetStack)
-		auth.DELETE("/challenges/:id/stack", h.DeleteStack)
+
+		active := auth.Group("")
+		active.Use(middleware.RequireActiveUser(userRepo))
+		active.PUT("/me", h.UpdateMe)
+		active.POST("/challenges/:id/submit", h.SubmitFlag)
+		active.POST("/challenges/:id/file/download", h.RequestChallengeFileDownload)
+		active.GET("/stacks", h.ListStacks)
+		active.POST("/challenges/:id/stack", h.CreateStack)
+		active.GET("/challenges/:id/stack", h.GetStack)
+		active.DELETE("/challenges/:id/stack", h.DeleteStack)
 
 		admin := api.Group("/admin")
-		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireRole("admin"))
+		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireActiveUser(userRepo), middleware.RequireRole("admin"))
 		admin.PUT("/config", h.AdminUpdateConfig)
 		admin.POST("/challenges", h.CreateChallenge)
 		admin.GET("/challenges/:id", h.AdminGetChallenge)
@@ -83,6 +86,9 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.POST("/registration-keys", h.CreateRegistrationKeys)
 		admin.GET("/registration-keys", h.ListRegistrationKeys)
 		admin.POST("/teams", h.CreateTeam)
+		admin.PUT("/users/:id/team", h.AdminMoveUserTeam)
+		admin.POST("/users/:id/block", h.AdminBlockUser)
+		admin.POST("/users/:id/unblock", h.AdminUnblockUser)
 	}
 
 	return r
