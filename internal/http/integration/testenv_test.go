@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -85,6 +84,11 @@ var (
 	regKeyCounter   int64 = 100000
 	testLogger      *logging.Logger
 	logDir          string
+)
+
+const (
+	testRegistrationCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	testRegistrationCodeLength   = 16
 )
 
 func TestMain(m *testing.M) {
@@ -509,7 +513,20 @@ func ensureAdminUser(t *testing.T, env testEnv) *models.User {
 
 func nextRegistrationCode() string {
 	value := atomic.AddInt64(&regKeyCounter, 1)
-	return fmt.Sprintf("TESTKEY%04d", value)
+	return formatRegistrationCode(uint64(value))
+}
+
+func formatRegistrationCode(value uint64) string {
+	alphabet := testRegistrationCodeAlphabet
+	base := uint64(len(alphabet))
+	out := make([]byte, testRegistrationCodeLength)
+
+	for i := testRegistrationCodeLength - 1; i >= 0; i-- {
+		out[i] = alphabet[value%base]
+		value /= base
+	}
+
+	return string(out)
 }
 
 func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.RegistrationKey {

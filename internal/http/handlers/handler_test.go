@@ -256,7 +256,7 @@ func TestHandlerAdminConfigCTFWindowClear(t *testing.T) {
 func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	env := setupHandlerTest(t)
 	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
-	key := createHandlerRegistrationKey(t, env, "TESTKEY01", admin.ID)
+	key := createHandlerRegistrationKey(t, env, "ABCDEFGHJKLMNPQ2", admin.ID)
 
 	regBody := map[string]string{
 		"email":            "user@example.com",

@@ -18,7 +18,7 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 	usedAt := time.Now().UTC()
 
 	key := &models.RegistrationKey{
-		Code:      "TESTKEY01",
+		Code:      "ABCDEFGHJKLMNPQ2",
 		CreatedBy: admin.ID,
 		TeamID:    team.ID,
 		MaxUses:   3,
@@ -39,7 +39,7 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 		t.Fatalf("Create use: %v", err)
 	}
 
-	got, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "TESTKEY01")
+	got, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "ABCDEFGHJKLMNPQ2")
 	if err != nil {
 		t.Fatalf("GetByCodeForUpdate: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestRegistrationKeyRepoNotUsed(t *testing.T) {
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 
 	key := &models.RegistrationKey{
-		Code:      "TESTKEY02",
+		Code:      "ABCDEFGHJKLMNPQ3",
 		CreatedBy: admin.ID,
 		TeamID:    team.ID,
 		MaxUses:   3,
@@ -99,7 +99,7 @@ func TestRegistrationKeyRepoNotUsed(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	got, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "TESTKEY02")
+	got, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "ABCDEFGHJKLMNPQ3")
 	if err != nil {
 		t.Fatalf("GetByCodeForUpdate: %v", err)
 	}

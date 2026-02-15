@@ -13,7 +13,7 @@ func TestTrimTo(t *testing.T) {
 }
 
 func TestIsRegistrationCode(t *testing.T) {
-	if !isRegistrationCode("ABCDEF12") {
+	if !isRegistrationCode("ABCDEFGHJKLMNPQ2") {
 		t.Fatalf("expected valid code")
 	}
 
@@ -22,6 +22,14 @@ func TestIsRegistrationCode(t *testing.T) {
 	}
 
 	if isRegistrationCode("invalid-key!") {
+		t.Fatalf("expected invalid code")
+	}
+
+	if isRegistrationCode("ABCDEFGHJKLMNPQ0") {
+		t.Fatalf("expected invalid code")
+	}
+
+	if isRegistrationCode("abcdefghjklmnpq2") {
 		t.Fatalf("expected invalid code")
 	}
 }

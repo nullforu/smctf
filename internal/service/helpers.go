@@ -5,6 +5,19 @@ import (
 	"strings"
 )
 
+const (
+	registrationCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	registrationCodeLength   = 16
+)
+
+var registrationCodeAllowed = func() [256]bool {
+	var allowed [256]bool
+	for i := 0; i < len(registrationCodeAlphabet); i++ {
+		allowed[registrationCodeAlphabet[i]] = true
+	}
+	return allowed
+}()
+
 func trimTo(value string, max int) string {
 	if len(value) <= max {
 		return value
@@ -14,37 +27,29 @@ func trimTo(value string, max int) string {
 }
 
 func isRegistrationCode(value string) bool {
-	if len(value) < 8 || len(value) > 64 {
+	if len(value) != registrationCodeLength {
 		return false
 	}
 
-	for _, r := range value {
-		if r >= 'a' && r <= 'z' {
-			continue
+	for i := 0; i < len(value); i++ {
+		if !registrationCodeAllowed[value[i]] {
+			return false
 		}
-		if r >= 'A' && r <= 'Z' {
-			continue
-		}
-		if r >= '0' && r <= '9' {
-			continue
-		}
-		return false
 	}
 
 	return true
 }
 
 func generateRegistrationCode() (string, error) {
-	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-	const length = 16
-
+	alphabet := registrationCodeAlphabet
+	length := registrationCodeLength
 	buf := make([]byte, length)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
-
 	var b strings.Builder
 	b.Grow(length)
+
 	for _, v := range buf {
 		b.WriteByte(alphabet[int(v)%len(alphabet)])
 	}

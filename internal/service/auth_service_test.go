@@ -15,7 +15,7 @@ import (
 func TestAuthServiceRegisterSuccess(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
-	key := createRegistrationKey(t, env, "TESTKEY01", admin.ID)
+	key := createRegistrationKey(t, env, "ABCDEFGHJKLMNPQ2", admin.ID)
 
 	user, err := env.authSvc.Register(context.Background(), "USER@Example.com", "  user1  ", "pass1", key.Code, "127.0.0.1")
 	if err != nil {
@@ -57,10 +57,10 @@ func TestAuthServiceRegisterValidation(t *testing.T) {
 func TestAuthServiceRegisterUserExists(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
-	_ = createRegistrationKey(t, env, "TESTKEY02", admin.ID)
+	_ = createRegistrationKey(t, env, "ABCDEFGHJKLMNPQ3", admin.ID)
 	_ = createUser(t, env, "user@example.com", "user1", "pass", "user")
 
-	_, err := env.authSvc.Register(context.Background(), "user@example.com", "newuser", "pass", "TESTKEY02", "")
+	_, err := env.authSvc.Register(context.Background(), "user@example.com", "newuser", "pass", "ABCDEFGHJKLMNPQ3", "")
 	if !errors.Is(err, ErrUserExists) {
 		t.Fatalf("expected ErrUserExists, got %v", err)
 	}
@@ -125,7 +125,7 @@ func TestAuthServiceRegisterAssignsTeam(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	team := createTeam(t, env, "Alpha")
-	key := createRegistrationKeyWithTeam(t, env, "TESTKEY03", admin.ID, team.ID)
+	key := createRegistrationKeyWithTeam(t, env, "ABCDEFGHJKLMNPQ4", admin.ID, team.ID)
 
 	user, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass1", key.Code, "")
 	if err != nil {
@@ -143,7 +143,7 @@ func TestAuthServiceRegisterUsedRegistrationKey(t *testing.T) {
 	team := createTeam(t, env, "Key Team")
 
 	key := &models.RegistrationKey{
-		Code:      "TESTKEYUSED",
+		Code:      "ABCDEFGHJKLMNPQ5",
 		CreatedBy: admin.ID,
 		TeamID:    team.ID,
 		MaxUses:   1,
@@ -168,7 +168,7 @@ func TestAuthServiceListRegistrationKeys(t *testing.T) {
 
 	usedAt := time.Now().UTC()
 	key := &models.RegistrationKey{
-		Code:      "TESTKEY04",
+		Code:      "ABCDEFGHJKLMNPQ6",
 		CreatedBy: admin.ID,
 		TeamID:    createTeam(t, env, "Key Team").ID,
 		MaxUses:   3,
