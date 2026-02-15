@@ -67,11 +67,13 @@ Request
 ```json
 {
     "count": 5,
-    "team_id": 1
+    "team_id": 1,
+    "max_uses": 3
 }
 ```
 
 `team_id` is required.
+`max_uses` defaults to 1.
 
 Response 201
 
@@ -79,16 +81,15 @@ Response 201
 [
     {
         "id": 10,
-        "code": "123456",
+        "code": "TESTKEY0001",
         "created_by": 2,
         "created_by_username": "admin",
         "team_id": 1,
         "team_name": "서울고등학교",
-        "used_by": null,
-        "used_by_username": null,
-        "used_by_ip": null,
+        "max_uses": 3,
+        "used_count": 0,
         "created_at": "2026-01-26T12:00:00Z",
-        "used_at": null
+        "last_used_at": null
     }
 ]
 ```
@@ -117,16 +118,23 @@ Response 200
 [
     {
         "id": 10,
-        "code": "123456",
+        "code": "TESTKEY0001",
         "created_by": 2,
         "created_by_username": "admin",
         "team_id": 1,
         "team_name": "서울고등학교",
-        "used_by": 5,
-        "used_by_username": "user1",
-        "used_by_ip": "203.0.113.7",
+        "max_uses": 3,
+        "used_count": 2,
         "created_at": "2026-01-26T12:00:00Z",
-        "used_at": "2026-01-26T12:30:00Z"
+        "last_used_at": "2026-01-26T12:30:00Z",
+        "uses": [
+            {
+                "used_by": 5,
+                "used_by_username": "user1",
+                "used_by_ip": "203.0.113.7",
+                "used_at": "2026-01-26T12:30:00Z"
+            }
+        ]
     }
 ]
 ```

@@ -47,6 +47,8 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 
 ## Features
 
+See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README only provides a brief overview.
+
 ### Available/Stable features:
 
 - AuthN/AuthZ (JWT), including registration keys management
@@ -61,8 +63,9 @@ As a result, we decided to develop our own CTF platform as a long term project. 
     - Ref Issue: [#11](https://github.com/nullforu/smctf/issues/11), [#22](https://github.com/nullforu/smctf/issues/22), PR: [#12](https://github.com/nullforu/smctf/pull/12), [#15](https://github.com/nullforu/smctf/pull/15), [#23](https://github.com/nullforu/smctf/pull/23)
 - Dynamic scoring (ref: [CTFd - Dynamic Value](https://docs.ctfd.io/docs/custom-challenges/dynamic-value/))
     - Ref Issue: [#14](https://github.com/nullforu/smctf/issues/14), PR: [#16](https://github.com/nullforu/smctf/pull/16)
-- UI customization and detailed configuration options (WIP)
-    - Ref Issue: [#18](https://github.com/nullforu/smctf/issues/18), PR: [#19](https://github.com/nullforu/smctf/pull/19)
+- ~~UI customization and detailed configuration options (WIP)~~
+    - ~~Ref Issue: [#18](https://github.com/nullforu/smctf/issues/18), PR: [#19](https://github.com/nullforu/smctf/pull/19)~~
+    - Frontend has been moved to a separate repository ([nullforu/smctfe](https://github.com/nullforu/smctfe))
 - Challenge file upload/download support via AWS S3 Presigned URL
     - Ref Issue: [#20](https://github.com/nullforu/smctf/issues/20), PR: [#21](https://github.com/nullforu/smctf/pull/21)
 - Per challenge individual Stack(instance/VM) provisioning support via Kubernetes
@@ -72,7 +75,6 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 
 Also, the following features are planned to be implemented. see [issues](https://github.com/nullforu/smctf/issues) for more details.
 
-- Multi language support (i18n) and RTL language support (for global service expansion)
 - (WIP) Systematized admin dashboard and behavior log/monitoring system integration
 - ... and more features to be added.
 
@@ -231,123 +233,6 @@ go test -v -race -cover -coverprofile=coverage.out ./internal/...
 Check the Codecov report for test coverage:
 
 - https://codecov.io/github/nullforu/smctf
-
-## Previews
-
-<div align="center">
-    <img src="./assets/1_challenges_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/2_challenges_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/7_groups_dark.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/5_scoreboard_group_timeline_light.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<details>
-<summary>See more preview/screenshots (Click)</summary>
-
-<div align="center">
-    <img src="./assets/0_main_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/0_main_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/1_challenges_dark.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/1_challenges_light.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/2_challenges_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/2_challenges_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/3_scoreboard_timeline_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/3_scoreboard_timeline_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/3_scoreboard_timeline_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/3_scoreboard_timeline_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/4_scoreboard_leaderboard_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/4_scoreboard_leaderboard_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/5_scoreboard_group_timeline_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/5_scoreboard_group_timeline_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/6_scoreboard_group_leaderboard_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/6_scoreboard_group_leaderboard_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/7_groups_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/7_groups_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/8_groups_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/8_groups_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/9_users_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/9_users_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/10_users_detail_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/10_users_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/11_profile_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/11_profile_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/12_admin_create_challenge_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/12_admin_create_challenge_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/13_admin_challenge_management_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/13_admin_challenge_management_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/14_admin_challenge_management_edit_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/14_admin_challenge_management_edit_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/15_admin_registration_keys_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/15_admin_registration_keys_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/16_admin_registration_keys_ip_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/16_admin_registration_keys_ip_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/17_admin_groups_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/17_admin_groups_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-<div align="center">
-    <img src="./assets/18_mobile_sidebar_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/18_mobile_sidebar_dark.jpeg" alt="SMCTF Preview" width="45%" />
-</div>
-
-</details>
 
 ## Dummy/Sample SQL Data
 
