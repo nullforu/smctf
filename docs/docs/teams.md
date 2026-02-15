@@ -62,6 +62,8 @@ Response 200
 ]
 ```
 
+Blocked users are still listed with `role: "blocked"`, but they are excluded from all score/solve aggregates.
+
 Errors:
 
 - 400 `invalid input`
@@ -90,6 +92,7 @@ Response 200
 Notes:
 
 - `points` is dynamically calculated based on solves.
+- Blocked users are excluded from solved challenge stats.
 
 Errors:
 

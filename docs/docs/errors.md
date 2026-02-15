@@ -82,3 +82,9 @@ X-RateLimit-Reset
 ```json
 { "error": "forbidden" }
 ```
+
+For blocked users:
+
+```json
+{ "error": "user blocked" }
+```

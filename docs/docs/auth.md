@@ -14,7 +14,7 @@ Request
     "email": "user@example.com",
     "username": "user1",
     "password": "strong-password",
-    "registration_key": "TESTKEY0001"
+    "registration_key": "ABCDEFGHJKLMNPQ2"
 }
 ```
 
@@ -31,6 +31,7 @@ Response 201
 Errors:
 
 - 400 `invalid input`
+- 403 `user blocked`
 - 409 `user already exists`
 
 `registration_key` must be an admin-created alphanumeric code.
