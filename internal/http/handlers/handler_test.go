@@ -368,6 +368,20 @@ func TestHandlerAdminMoveUserTeam(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/users/1/team", map[string]any{"team_id": 9999})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+	env.handler.AdminMoveUserTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	env.handler.AdminMoveUserTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
 }
 
 func TestHandlerAdminBlockUser(t *testing.T) {
@@ -391,6 +405,20 @@ func TestHandlerAdminBlockUser(t *testing.T) {
 	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(admin.ID, 10)}}
+	env.handler.AdminBlockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": " "})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+	env.handler.AdminBlockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
 	env.handler.AdminBlockUser(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
@@ -419,6 +447,21 @@ func TestHandlerAdminUnblockUser(t *testing.T) {
 	decodeJSON(t, rec, &resp)
 	if resp.Role != "user" || resp.BlockedReason != nil || resp.BlockedAt != nil {
 		t.Fatalf("expected unblocked user, got %+v", resp)
+	}
+
+	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/unblock", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(admin.ID, 10)}}
+	env.handler.AdminUnblockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/unblock", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	env.handler.AdminUnblockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
 

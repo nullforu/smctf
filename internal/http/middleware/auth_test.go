@@ -162,13 +162,20 @@ func TestRequireActiveUser(t *testing.T) {
 		ctx.Status(http.StatusOK)
 	})
 
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/active", nil)
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+
 	accessUser, err := auth.GenerateAccessToken(cfg, user.ID, "user")
 	if err != nil {
 		t.Fatalf("token: %v", err)
 	}
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/active", nil)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/active", nil)
 	req.Header.Set("Authorization", "Bearer "+accessUser)
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

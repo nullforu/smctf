@@ -298,6 +298,24 @@ func TestAuthServiceRefreshBlocked(t *testing.T) {
 	}
 }
 
+func TestAuthServiceRefreshUserNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
+
+	_, refresh, _, err := env.authSvc.Login(context.Background(), "user@example.com", "pass")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	if _, err := env.db.NewDelete().Model(&models.User{}).Where("id = ?", user.ID).Exec(context.Background()); err != nil {
+		t.Fatalf("delete user: %v", err)
+	}
+
+	if _, _, err := env.authSvc.Refresh(context.Background(), refresh); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds, got %v", err)
+	}
+}
+
 func TestAuthServiceRegisterMissingKey(t *testing.T) {
 	env := setupServiceTest(t)
 	_, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass", "MISSING1", "")
