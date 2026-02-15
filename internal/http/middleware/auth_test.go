@@ -205,6 +205,28 @@ func TestRequireActiveUser(t *testing.T) {
 	}
 }
 
+func TestRequireActiveUserMissingUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	users := &stubUserLookup{
+		users: map[int64]*models.User{
+			1: {ID: 1, Role: "user"},
+		},
+	}
+
+	router := gin.New()
+	router.GET("/active", RequireActiveUser(users), func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/active", nil)
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+}
+
 type stubUserLookup struct {
 	users map[int64]*models.User
 	err   error
