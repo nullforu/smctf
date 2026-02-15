@@ -15,7 +15,7 @@ import (
 func TestAuthServiceRegisterSuccess(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
-	key := createRegistrationKey(t, env, "123456", admin.ID)
+	key := createRegistrationKey(t, env, "TESTKEY01", admin.ID)
 
 	user, err := env.authSvc.Register(context.Background(), "USER@Example.com", "  user1  ", "pass1", key.Code, "127.0.0.1")
 	if err != nil {
@@ -31,16 +31,16 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 		t.Fatalf("fetch key: %v", err)
 	}
 
-	if stored.UsedBy == nil || *stored.UsedBy != user.ID {
-		t.Fatalf("expected used_by to be set, got %+v", stored.UsedBy)
+	if stored.UsedCount != 1 {
+		t.Fatalf("expected used_count 1, got %d", stored.UsedCount)
 	}
 
-	if stored.UsedByIP == nil || *stored.UsedByIP != "127.0.0.1" {
-		t.Fatalf("expected used_by_ip to be set, got %+v", stored.UsedByIP)
+	var uses []models.RegistrationKeyUse
+	if err := env.db.NewSelect().Model(&uses).Where("registration_key_id = ?", stored.ID).Scan(context.Background()); err != nil {
+		t.Fatalf("load uses: %v", err)
 	}
-
-	if stored.UsedAt == nil {
-		t.Fatalf("expected used_at to be set")
+	if len(uses) != 1 || uses[0].UsedBy != user.ID || uses[0].UsedByIP != "127.0.0.1" {
+		t.Fatalf("unexpected uses: %+v", uses)
 	}
 }
 
@@ -57,10 +57,10 @@ func TestAuthServiceRegisterValidation(t *testing.T) {
 func TestAuthServiceRegisterUserExists(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
-	_ = createRegistrationKey(t, env, "111111", admin.ID)
+	_ = createRegistrationKey(t, env, "TESTKEY02", admin.ID)
 	_ = createUser(t, env, "user@example.com", "user1", "pass", "user")
 
-	_, err := env.authSvc.Register(context.Background(), "user@example.com", "newuser", "pass", "111111", "")
+	_, err := env.authSvc.Register(context.Background(), "user@example.com", "newuser", "pass", "TESTKEY02", "")
 	if !errors.Is(err, ErrUserExists) {
 		t.Fatalf("expected ErrUserExists, got %v", err)
 	}
@@ -71,11 +71,11 @@ func TestAuthServiceCreateRegistrationKeys(t *testing.T) {
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	team := createTeam(t, env, "Alpha")
 
-	if _, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 0, team.ID); err == nil {
+	if _, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 0, team.ID, 1); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 2, team.ID)
+	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 2, team.ID, 2)
 	if err != nil {
 		t.Fatalf("create keys: %v", err)
 	}
@@ -84,8 +84,11 @@ func TestAuthServiceCreateRegistrationKeys(t *testing.T) {
 		t.Fatalf("expected 2 keys, got %d", len(keys))
 	}
 
-	if keys[0].Code == keys[1].Code || len(keys[0].Code) != 6 || len(keys[1].Code) != 6 {
+	if keys[0].Code == keys[1].Code || len(keys[0].Code) != 16 || len(keys[1].Code) != 16 {
 		t.Fatalf("unexpected key codes: %+v", keys)
+	}
+	if keys[0].MaxUses != 2 {
+		t.Fatalf("expected max_uses 2, got %d", keys[0].MaxUses)
 	}
 }
 
@@ -94,7 +97,7 @@ func TestAuthServiceCreateRegistrationKeysWithTeam(t *testing.T) {
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	team := createTeam(t, env, "Alpha")
 
-	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, team.ID)
+	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, team.ID, 1)
 	if err != nil {
 		t.Fatalf("create keys: %v", err)
 	}
@@ -108,7 +111,7 @@ func TestAuthServiceCreateRegistrationKeysInvalidTeam(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 
-	_, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, 9999)
+	_, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, 9999, 1)
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %v", err)
@@ -119,7 +122,7 @@ func TestAuthServiceRegisterAssignsTeam(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	team := createTeam(t, env, "Alpha")
-	key := createRegistrationKeyWithTeam(t, env, "654321", admin.ID, team.ID)
+	key := createRegistrationKeyWithTeam(t, env, "TESTKEY03", admin.ID, team.ID)
 
 	user, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass1", key.Code, "")
 	if err != nil {
@@ -136,21 +139,28 @@ func TestAuthServiceListRegistrationKeys(t *testing.T) {
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
 
-	usedBy := user.ID
 	usedAt := time.Now().UTC()
-	usedByIP := "192.0.2.1"
 	key := &models.RegistrationKey{
-		Code:      "222222",
+		Code:      "TESTKEY04",
 		CreatedBy: admin.ID,
 		TeamID:    createTeam(t, env, "Key Team").ID,
+		MaxUses:   3,
+		UsedCount: 1,
 		CreatedAt: time.Now().UTC(),
-		UsedBy:    &usedBy,
-		UsedAt:    &usedAt,
-		UsedByIP:  &usedByIP,
 	}
 
 	if err := env.regKeyRepo.Create(context.Background(), key); err != nil {
 		t.Fatalf("create key: %v", err)
+	}
+
+	use := &models.RegistrationKeyUse{
+		RegistrationKeyID: key.ID,
+		UsedBy:            user.ID,
+		UsedByIP:          "192.0.2.1",
+		UsedAt:            usedAt,
+	}
+	if _, err := env.db.NewInsert().Model(use).Exec(context.Background()); err != nil {
+		t.Fatalf("create use: %v", err)
 	}
 
 	rows, err := env.authSvc.ListRegistrationKeys(context.Background())
@@ -162,7 +172,7 @@ func TestAuthServiceListRegistrationKeys(t *testing.T) {
 		t.Fatalf("expected 1 key, got %d", len(rows))
 	}
 
-	if rows[0].CreatedByUsername != admin.Username || rows[0].UsedByUsername == nil || *rows[0].UsedByUsername != user.Username {
+	if rows[0].CreatedByUsername != admin.Username || len(rows[0].Uses) != 1 || rows[0].Uses[0].UsedByUsername != user.Username {
 		t.Fatalf("unexpected key summary: %+v", rows[0])
 	}
 }
@@ -231,7 +241,7 @@ func TestAuthServiceLoginRefreshLogout(t *testing.T) {
 
 func TestAuthServiceRegisterMissingKey(t *testing.T) {
 	env := setupServiceTest(t)
-	_, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass", "123456", "")
+	_, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", "pass", "MISSING1", "")
 	if err == nil {
 		t.Fatalf("expected error")
 	}

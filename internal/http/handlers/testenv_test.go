@@ -249,7 +249,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 func resetHandlerState(t *testing.T) {
 	t.Helper()
 
-	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -306,6 +306,8 @@ func createHandlerRegistrationKey(t *testing.T, env handlerEnv, code string, cre
 		Code:      code,
 		CreatedBy: createdBy,
 		TeamID:    team.ID,
+		MaxUses:   1,
+		UsedCount: 0,
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -323,6 +325,8 @@ func createHandlerRegistrationKeyWithTeam(t *testing.T, env handlerEnv, code str
 		Code:      code,
 		CreatedBy: createdBy,
 		TeamID:    teamID,
+		MaxUses:   1,
+		UsedCount: 0,
 		CreatedAt: time.Now().UTC(),
 	}
 

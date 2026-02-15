@@ -256,7 +256,7 @@ func TestHandlerAdminConfigCTFWindowClear(t *testing.T) {
 func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	env := setupHandlerTest(t)
 	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
-	key := createHandlerRegistrationKey(t, env, "123456", admin.ID)
+	key := createHandlerRegistrationKey(t, env, "TESTKEY01", admin.ID)
 
 	regBody := map[string]string{
 		"email":            "user@example.com",
@@ -900,7 +900,7 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 		t.Fatalf("create keys invalid status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2, "team_id": int(team.ID)})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 2, "team_id": int(team.ID), "max_uses": 3})
 	ctx.Set("userID", admin.ID)
 
 	env.handler.CreateRegistrationKeys(ctx)

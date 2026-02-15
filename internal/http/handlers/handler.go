@@ -708,6 +708,10 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 	if req.Count != nil {
 		count = *req.Count
 	}
+	maxUses := 1
+	if req.MaxUses != nil {
+		maxUses = *req.MaxUses
+	}
 
 	if req.TeamID == nil {
 		writeError(ctx, service.NewValidationError(service.FieldError{Field: "team_id", Reason: "required"}))
@@ -722,7 +726,7 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 		return
 	}
 
-	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count, teamID)
+	keys, err := h.auth.CreateRegistrationKeys(ctx.Request.Context(), adminID, count, teamID, maxUses)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -743,11 +747,9 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 			CreatedByUsername: admin.Username,
 			TeamID:            key.TeamID,
 			TeamName:          team.Name,
-			UsedBy:            key.UsedBy,
-			UsedByUsername:    nil,
-			UsedByIP:          nil,
+			MaxUses:           key.MaxUses,
+			UsedCount:         key.UsedCount,
 			CreatedAt:         key.CreatedAt,
-			UsedAt:            key.UsedAt,
 		})
 	}
 

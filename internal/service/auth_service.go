@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"smctf/internal/auth"
@@ -38,7 +39,7 @@ func NewAuthService(cfg config.Config, db *bun.DB, userRepo *repo.UserRepo, regi
 func (s *AuthService) Register(ctx context.Context, email, username, password, registrationKey, registrationIP string) (*models.User, error) {
 	email = normalizeEmail(email)
 	username = normalizeTrim(username)
-	registrationKey = normalizeTrim(registrationKey)
+	registrationKey = strings.ToUpper(normalizeTrim(registrationKey))
 	registrationIP = normalizeTrim(registrationIP)
 	validator := newFieldValidator()
 	validator.Required("email", email)
@@ -47,7 +48,7 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 	validator.Required("registration_key", registrationKey)
 	validator.Email("email", email)
 
-	if registrationKey != "" && !isSixDigitCode(registrationKey) {
+	if registrationKey != "" && !isRegistrationCode(registrationKey) {
 		validator.fields = append(validator.fields, FieldError{Field: "registration_key", Reason: "invalid"})
 	}
 
@@ -88,7 +89,7 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 			return fmt.Errorf("auth.Register key lookup: %w", err)
 		}
 
-		if key.UsedBy != nil {
+		if key.UsedCount >= key.MaxUses {
 			return NewValidationError(FieldError{Field: "registration_key", Reason: "used"})
 		}
 
@@ -102,20 +103,24 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 			return fmt.Errorf("auth.Register create: %w", err)
 		}
 
-		var usedByIP *string
-		if registrationIP != "" {
-			usedByIP = &registrationIP
+		usedAt := time.Now().UTC()
+		use := models.RegistrationKeyUse{
+			RegistrationKeyID: key.ID,
+			UsedBy:            user.ID,
+			UsedByIP:          registrationIP,
+			UsedAt:            usedAt,
 		}
 
-		usedAt := time.Now().UTC()
+		if _, err := tx.NewInsert().Model(&use).Exec(ctx); err != nil {
+			return fmt.Errorf("auth.Register use key: %w", err)
+		}
+
 		if _, err := tx.NewUpdate().
 			Model(key).
-			Set("used_by = ?", user.ID).
-			Set("used_by_ip = ?", usedByIP).
-			Set("used_at = ?", usedAt).
+			Set("used_count = used_count + 1").
 			Where("id = ?", key.ID).
 			Exec(ctx); err != nil {
-			return fmt.Errorf("auth.Register use key: %w", err)
+			return fmt.Errorf("auth.Register increment key usage: %w", err)
 		}
 
 		return nil
@@ -126,13 +131,16 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 	return user, nil
 }
 
-func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int, teamID int64) ([]models.RegistrationKey, error) {
+func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64, count int, teamID int64, maxUses int) ([]models.RegistrationKey, error) {
 	validator := newFieldValidator()
 	if count < 1 {
 		validator.fields = append(validator.fields, FieldError{Field: "count", Reason: "must be >= 1"})
 	}
 
 	validator.PositiveID("team_id", teamID)
+	if maxUses < 1 {
+		validator.fields = append(validator.fields, FieldError{Field: "max_uses", Reason: "must be >= 1"})
+	}
 
 	if err := validator.Error(); err != nil {
 		return nil, err
@@ -162,6 +170,7 @@ func (s *AuthService) CreateRegistrationKeys(ctx context.Context, adminID int64,
 			Code:      code,
 			CreatedBy: adminID,
 			TeamID:    teamID,
+			MaxUses:   maxUses,
 			CreatedAt: time.Now().UTC(),
 		}
 

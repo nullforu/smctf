@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestMockClient_Defaults(t *testing.T) {
+func TestMockClientDefaults(t *testing.T) {
 	m := &MockClient{}
 
 	if _, err := m.CreateStack(context.Background(), 80, "spec"); !errors.Is(err, ErrUnexpected) {
@@ -22,7 +22,7 @@ func TestMockClient_Defaults(t *testing.T) {
 	}
 }
 
-func TestMockClient_Functions(t *testing.T) {
+func TestMockClientFunctions(t *testing.T) {
 	m := &MockClient{}
 
 	m.CreateStackFn = func(ctx context.Context, targetPort int, podSpec string) (*StackInfo, error) {

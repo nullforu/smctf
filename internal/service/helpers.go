@@ -2,8 +2,7 @@ package service
 
 import (
 	"crypto/rand"
-	"encoding/binary"
-	"fmt"
+	"strings"
 )
 
 func trimTo(value string, max int) string {
@@ -14,27 +13,41 @@ func trimTo(value string, max int) string {
 	return value[:max]
 }
 
-func isSixDigitCode(value string) bool {
-	if len(value) != 6 {
+func isRegistrationCode(value string) bool {
+	if len(value) < 8 || len(value) > 64 {
 		return false
 	}
 
 	for _, r := range value {
-		if r < '0' || r > '9' {
-			return false
+		if r >= 'a' && r <= 'z' {
+			continue
 		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		return false
 	}
 
 	return true
 }
 
 func generateRegistrationCode() (string, error) {
-	var buf [4]byte
-	if _, err := rand.Read(buf[:]); err != nil {
+	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	const length = 16
+
+	buf := make([]byte, length)
+	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 
-	value := binary.BigEndian.Uint32(buf[:]) % 1000000
+	var b strings.Builder
+	b.Grow(length)
+	for _, v := range buf {
+		b.WriteByte(alphabet[int(v)%len(alphabet)])
+	}
 
-	return fmt.Sprintf("%06d", value), nil
+	return b.String(), nil
 }

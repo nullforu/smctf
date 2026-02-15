@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func TestLoadConfig_Defaults(t *testing.T) {
+func TestLoadConfigDefaults(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
 	defer os.Clearenv()
@@ -68,7 +68,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_CustomValues(t *testing.T) {
+func TestLoadConfigCustomValues(t *testing.T) {
 	os.Clearenv()
 
 	os.Setenv("APP_ENV", "production")
@@ -222,7 +222,7 @@ func TestLoadConfig_CustomValues(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_InvalidValues(t *testing.T) {
+func TestLoadConfigInvalidValues(t *testing.T) {
 	tests := []struct {
 		name   string
 		envKey string
@@ -262,7 +262,7 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_S3ValidationErrors(t *testing.T) {
+func TestLoadConfigS3ValidationErrors(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func()
@@ -310,7 +310,7 @@ func TestLoadConfig_S3ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_InvalidS3(t *testing.T) {
+func TestValidateConfigInvalidS3(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           ":8080",
 		PasswordBcryptCost: bcrypt.DefaultCost,
@@ -363,7 +363,7 @@ func TestValidateConfig_InvalidS3(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_ProductionValidation(t *testing.T) {
+func TestLoadConfigProductionValidation(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("APP_ENV", "production")
 	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
@@ -388,7 +388,7 @@ func TestLoadConfig_ProductionValidation(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_InvalidLogging(t *testing.T) {
+func TestValidateConfigInvalidLogging(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           ":8080",
 		PasswordBcryptCost: bcrypt.DefaultCost,
@@ -547,7 +547,7 @@ func TestGetDuration(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_EmptyValues(t *testing.T) {
+func TestValidateConfigEmptyValues(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           "",
 		PasswordBcryptCost: bcrypt.DefaultCost,
@@ -593,7 +593,7 @@ func TestValidateConfig_EmptyValues(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_InvalidDBConfig(t *testing.T) {
+func TestValidateConfigInvalidDBConfig(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           ":8080",
 		PasswordBcryptCost: bcrypt.DefaultCost,
@@ -639,7 +639,7 @@ func TestValidateConfig_InvalidDBConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_InvalidStackConfig(t *testing.T) {
+func TestValidateConfigInvalidStackConfig(t *testing.T) {
 	cfg := Config{
 		AppEnv:             "local",
 		HTTPAddr:           ":8080",
@@ -707,7 +707,7 @@ func TestValidateConfig_InvalidStackConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_AdditionalValidation(t *testing.T) {
+func TestValidateConfigAdditionalValidation(t *testing.T) {
 	cfg := Config{
 		AppEnv:             "local",
 		HTTPAddr:           ":8080",

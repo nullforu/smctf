@@ -15,24 +15,31 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
 	user := createUser(t, env, "user@example.com", "user", "pass", "user")
 
-	usedBy := user.ID
 	usedAt := time.Now().UTC()
-	usedByIP := "203.0.113.10"
 
 	key := &models.RegistrationKey{
-		Code:      "123456",
+		Code:      "TESTKEY01",
 		CreatedBy: admin.ID,
 		TeamID:    team.ID,
+		MaxUses:   3,
+		UsedCount: 1,
 		CreatedAt: time.Now().UTC(),
-		UsedBy:    &usedBy,
-		UsedAt:    &usedAt,
-		UsedByIP:  &usedByIP,
 	}
 	if err := env.regKeyRepo.Create(context.Background(), key); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	got, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "123456")
+	use := &models.RegistrationKeyUse{
+		RegistrationKeyID: key.ID,
+		UsedBy:            user.ID,
+		UsedByIP:          "203.0.113.10",
+		UsedAt:            usedAt,
+	}
+	if _, err := env.db.NewInsert().Model(use).Exec(context.Background()); err != nil {
+		t.Fatalf("Create use: %v", err)
+	}
+
+	got, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "TESTKEY01")
 	if err != nil {
 		t.Fatalf("GetByCodeForUpdate: %v", err)
 	}
@@ -54,8 +61,12 @@ func TestRegistrationKeyRepoCRUD(t *testing.T) {
 		t.Fatalf("expected creator username, got %s", rows[0].CreatedByUsername)
 	}
 
-	if rows[0].UsedByUsername == nil || *rows[0].UsedByUsername != user.Username {
-		t.Fatalf("expected used by username, got %+v", rows[0].UsedByUsername)
+	if rows[0].MaxUses != 3 || rows[0].UsedCount != 1 {
+		t.Fatalf("expected usage summary, got %+v", rows[0])
+	}
+
+	if len(rows[0].Uses) != 1 || rows[0].Uses[0].UsedByUsername != user.Username {
+		t.Fatalf("expected uses list, got %+v", rows[0].Uses)
 	}
 
 	if rows[0].TeamID != team.ID || rows[0].TeamName != team.Name {
@@ -68,5 +79,44 @@ func TestRegistrationKeyRepoNotFound(t *testing.T) {
 	_, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "missing")
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestRegistrationKeyRepoNotUsed(t *testing.T) {
+	env := setupRepoTest(t)
+	team := createTeam(t, env, "Beta")
+	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+
+	key := &models.RegistrationKey{
+		Code:      "TESTKEY02",
+		CreatedBy: admin.ID,
+		TeamID:    team.ID,
+		MaxUses:   3,
+		UsedCount: 0,
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := env.regKeyRepo.Create(context.Background(), key); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := env.regKeyRepo.GetByCodeForUpdate(context.Background(), env.db, "TESTKEY02")
+	if err != nil {
+		t.Fatalf("GetByCodeForUpdate: %v", err)
+	}
+
+	if got.ID != key.ID {
+		t.Fatalf("expected key id %d, got %d", key.ID, got.ID)
+	}
+}
+
+func TestRegistrationKeyRepoListEmpty(t *testing.T) {
+	env := setupRepoTest(t)
+	rows, err := env.regKeyRepo.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+
+	if len(rows) != 0 {
+		t.Fatalf("expected 0 rows, got %d", len(rows))
 	}
 }

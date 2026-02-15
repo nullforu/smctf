@@ -87,7 +87,7 @@ func TestRegister(t *testing.T) {
 			"email":            "user@example.com",
 			"username":         "user1",
 			"password":         "strong-password",
-			"registration_key": "123456",
+			"registration_key": "TESTKEY01",
 		}
 
 		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
