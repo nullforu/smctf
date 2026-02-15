@@ -12,20 +12,24 @@ func TestTrimTo(t *testing.T) {
 	}
 }
 
-func TestIsSixDigitCode(t *testing.T) {
-	if !isSixDigitCode("123456") {
+func TestIsRegistrationCode(t *testing.T) {
+	if !isRegistrationCode("ABCDEFGHJKLMNPQ2") {
 		t.Fatalf("expected valid code")
 	}
 
-	if isSixDigitCode("12345") {
+	if isRegistrationCode("123") {
 		t.Fatalf("expected invalid code")
 	}
 
-	if isSixDigitCode("1234567") {
+	if isRegistrationCode("invalid-key!") {
 		t.Fatalf("expected invalid code")
 	}
 
-	if isSixDigitCode("12a456") {
+	if isRegistrationCode("ABCDEFGHJKLMNPQ0") {
+		t.Fatalf("expected invalid code")
+	}
+
+	if isRegistrationCode("abcdefghjklmnpq2") {
 		t.Fatalf("expected invalid code")
 	}
 }
@@ -36,11 +40,11 @@ func TestGenerateRegistrationCode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(code) != 6 {
-		t.Fatalf("expected code length 6, got %d", len(code))
+	if len(code) != 16 {
+		t.Fatalf("expected code length 16, got %d", len(code))
 	}
 
-	if !isSixDigitCode(code) {
-		t.Fatalf("expected six digit code, got %s", code)
+	if !isRegistrationCode(code) {
+		t.Fatalf("expected registration code, got %s", code)
 	}
 }

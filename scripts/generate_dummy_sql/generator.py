@@ -11,6 +11,9 @@ except ImportError:
     bcrypt = None
 
 UTC = timezone.utc
+REGISTRATION_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+REGISTRATION_CODE_LENGTH = 16
+REGISTRATION_CODE_MAX_USES = 3
 
 
 def _ensure_bcrypt() -> None:
@@ -210,11 +213,15 @@ def generate_registration_keys(
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
     count: int,
-) -> List[Tuple[str, int, int, Optional[int], Optional[str], str, Optional[str]]]:
+) -> Tuple[
+    List[Tuple[int, str, int, int, int, int, str]],
+    List[Tuple[int, int, str, str]],
+]:
     if not team_ids:
         raise ValueError("team_ids must not be empty")
 
     keys = []
+    uses = []
     base_time = datetime.now(UTC) - timedelta(
         hours=timing["registration_keys_base_hours_ago"]
     )
@@ -225,29 +232,38 @@ def generate_registration_keys(
     seen_codes = set()
 
     for i in range(count):
-        code = f"{random.randint(0, 999999):06d}"
+        code = "".join(
+            random.choice(REGISTRATION_CODE_ALPHABET)
+            for _ in range(REGISTRATION_CODE_LENGTH)
+        )
         while code in seen_codes:
-            code = f"{random.randint(0, 999999):06d}"
+            code = "".join(
+                random.choice(REGISTRATION_CODE_ALPHABET)
+                for _ in range(REGISTRATION_CODE_LENGTH)
+            )
         seen_codes.add(code)
 
         created_at = base_time + timedelta(minutes=i * step_minutes)
         created_at_str = created_at.strftime("%Y-%m-%d %H:%M:%S")
-        used_by = None
-        used_by_ip = None
-        used_at_str = None
+        key_id = i + 1
         team_id = random.choice(team_ids)
+        max_uses = random.randint(1, REGISTRATION_CODE_MAX_USES)
+        used_count = 0
 
         if i < used_limit and user_count > 1:
-            used_by = random.randint(2, user_count)
-            used_by_ip = f"203.0.113.{random.randint(1, 254)}"
-            used_at = created_at + timedelta(minutes=random.randint(5, 180))
-            used_at_str = used_at.strftime("%Y-%m-%d %H:%M:%S")
+            used_count = random.randint(1, max_uses)
+            for _ in range(used_count):
+                used_by = random.randint(2, user_count)
+                used_by_ip = f"203.0.113.{random.randint(1, 254)}"
+                used_at = created_at + timedelta(minutes=random.randint(5, 180))
+                used_at_str = used_at.strftime("%Y-%m-%d %H:%M:%S")
+                uses.append((key_id, used_by, used_by_ip, used_at_str))
 
         keys.append(
-            (code, 1, team_id, used_by, used_by_ip, created_at_str, used_at_str)
+            (key_id, code, 1, team_id, max_uses, used_count, created_at_str)
         )
 
-    return keys
+    return keys, uses
 
 
 def generate_submissions(

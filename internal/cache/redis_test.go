@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestNew_DefaultValues(t *testing.T) {
+func TestNewDefaultValues(t *testing.T) {
 	cfg := config.RedisConfig{
 		Addr: "localhost:6379",
 	}

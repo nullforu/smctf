@@ -9,9 +9,9 @@ import (
 // Database model for teams
 type Team struct {
 	bun.BaseModel `bun:"table:teams"`
-	ID            int64     `bun:",pk,autoincrement"`
-	Name          string    `bun:",unique,notnull"`
-	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	ID            int64     `bun:"id,pk,autoincrement"`
+	Name          string    `bun:"name,unique,notnull"`
+	CreatedAt     time.Time `bun:"created_at,nullzero,notnull,default:current_timestamp"`
 }
 
 type TeamSummary struct {

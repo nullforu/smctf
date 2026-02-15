@@ -28,9 +28,8 @@ def write_sql_file(
             Optional[str],
         ]
     ],
-    registration_keys: List[
-        Tuple[str, int, int, Optional[int], Optional[str], str, Optional[str]]
-    ],
+    registration_keys: List[Tuple[int, str, int, int, int, int, str]],
+    registration_key_uses: List[Tuple[int, int, str, str]],
     submissions: List[Tuple[int, int, str, bool, str, bool]],
     meta: Dict[str, Any],
 ) -> None:
@@ -49,7 +48,7 @@ def write_sql_file(
 
         f.write("-- Clear existing data\n")
         f.write(
-            "TRUNCATE TABLE submissions, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE;\n\n"
+            "TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE;\n\n"
         )
 
         f.write("-- Insert teams\n")
@@ -77,26 +76,32 @@ def write_sql_file(
 
         f.write("-- Insert registration keys\n")
         for (
+            key_id,
             code,
             created_by,
             team_id,
-            used_by,
-            used_by_ip,
+            max_uses,
+            used_count,
             created_at,
-            used_at,
         ) in registration_keys:
             code_esc = escape_sql_string(code)
-            used_by_value = "NULL" if used_by is None else str(used_by)
-            used_at_value = "NULL" if used_at is None else f"'{used_at}'"
-            used_by_ip_value = (
-                "NULL" if used_by_ip is None else f"'{escape_sql_string(used_by_ip)}'"
-            )
 
             f.write(
-                "INSERT INTO registration_keys (code, created_by, team_id, used_by, used_by_ip, created_at, used_at) VALUES "
+                "INSERT INTO registration_keys (id, code, created_by, team_id, max_uses, used_count, created_at) VALUES "
             )
             f.write(
-                f"('{code_esc}', {created_by}, {team_id}, {used_by_value}, {used_by_ip_value}, '{created_at}', {used_at_value});\n"
+                f"({key_id}, '{code_esc}', {created_by}, {team_id}, {max_uses}, {used_count}, '{created_at}');\n"
+            )
+
+        f.write("\n")
+        f.write("-- Insert registration key uses\n")
+        for key_id, used_by, used_by_ip, used_at in registration_key_uses:
+            used_by_ip_value = f"'{escape_sql_string(used_by_ip)}'"
+            f.write(
+                "INSERT INTO registration_key_uses (registration_key_id, used_by, used_by_ip, used_at) VALUES "
+            )
+            f.write(
+                f"({key_id}, {used_by}, {used_by_ip_value}, '{used_at}');\n"
             )
 
         f.write("\n")
@@ -163,6 +168,9 @@ def write_sql_file(
         )
         f.write(
             "SELECT setval('registration_keys_id_seq', (SELECT MAX(id) FROM registration_keys));\n"
+        )
+        f.write(
+            "SELECT setval('registration_key_uses_id_seq', (SELECT MAX(id) FROM registration_key_uses));\n"
         )
         f.write(
             "SELECT setval('submissions_id_seq', (SELECT MAX(id) FROM submissions));\n"

@@ -185,7 +185,7 @@ def main(argv: List[str]) -> int:
         stack_pod_spec,
         files_config,
     )
-    registration_keys = generate_registration_keys(
+    registration_keys, registration_key_uses = generate_registration_keys(
         len(users),
         team_ids,
         settings["timing"],
@@ -206,6 +206,7 @@ def main(argv: List[str]) -> int:
         users,
         challenges,
         registration_keys,
+        registration_key_uses,
         submissions,
         {
             "flag_hmac_secret": flag_secret,

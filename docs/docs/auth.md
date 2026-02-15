@@ -14,7 +14,7 @@ Request
     "email": "user@example.com",
     "username": "user1",
     "password": "strong-password",
-    "registration_key": "123456"
+    "registration_key": "TESTKEY0001"
 }
 ```
 
@@ -33,8 +33,8 @@ Errors:
 - 400 `invalid input`
 - 409 `user already exists`
 
-`registration_key` must be a 6-digit one-time code created by an admin.
-The registration key assigns the user to its team.
+`registration_key` must be an admin-created alphanumeric code.
+Keys can be reused up to their configured `max_uses` and assign the user to the key's team.
 
 ---
 

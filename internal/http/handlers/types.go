@@ -101,8 +101,9 @@ type submitRequest struct {
 }
 
 type createRegistrationKeysRequest struct {
-	Count  *int   `json:"count" binding:"required"`
-	TeamID *int64 `json:"team_id" binding:"required"`
+	Count   *int   `json:"count" binding:"required"`
+	TeamID  *int64 `json:"team_id" binding:"required"`
+	MaxUses *int   `json:"max_uses"`
 }
 
 type createTeamRequest struct {

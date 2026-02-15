@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -63,11 +62,16 @@ type registrationKeyResp struct {
 	CreatedByUsername string     `json:"created_by_username"`
 	TeamID            int64      `json:"team_id"`
 	TeamName          string     `json:"team_name"`
-	UsedBy            *int64     `json:"used_by"`
-	UsedByUsername    *string    `json:"used_by_username"`
-	UsedByIP          *string    `json:"used_by_ip"`
+	MaxUses           int        `json:"max_uses"`
+	UsedCount         int        `json:"used_count"`
 	CreatedAt         time.Time  `json:"created_at"`
-	UsedAt            *time.Time `json:"used_at"`
+	LastUsedAt        *time.Time `json:"last_used_at"`
+	Uses              []struct {
+		UsedBy         int64     `json:"used_by"`
+		UsedByUsername string    `json:"used_by_username"`
+		UsedByIP       string    `json:"used_by_ip"`
+		UsedAt         time.Time `json:"used_at"`
+	} `json:"uses"`
 }
 
 var (
@@ -80,6 +84,11 @@ var (
 	regKeyCounter   int64 = 100000
 	testLogger      *logging.Logger
 	logDir          string
+)
+
+const (
+	testRegistrationCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	testRegistrationCodeLength   = 16
 )
 
 func TestMain(m *testing.M) {
@@ -312,7 +321,7 @@ func setCTFWindow(t *testing.T, env testEnv, startAt, endAt *time.Time) {
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -503,8 +512,21 @@ func ensureAdminUser(t *testing.T, env testEnv) *models.User {
 }
 
 func nextRegistrationCode() string {
-	value := atomic.AddInt64(&regKeyCounter, 1) % 1000000
-	return fmt.Sprintf("%06d", value)
+	value := atomic.AddInt64(&regKeyCounter, 1)
+	return formatRegistrationCode(uint64(value))
+}
+
+func formatRegistrationCode(value uint64) string {
+	alphabet := testRegistrationCodeAlphabet
+	base := uint64(len(alphabet))
+	out := make([]byte, testRegistrationCodeLength)
+
+	for i := testRegistrationCodeLength - 1; i >= 0; i-- {
+		out[i] = alphabet[value%base]
+		value /= base
+	}
+
+	return string(out)
 }
 
 func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.RegistrationKey {
@@ -515,6 +537,8 @@ func createRegistrationKey(t *testing.T, env testEnv, createdBy int64) *models.R
 		Code:      nextRegistrationCode(),
 		CreatedBy: createdBy,
 		TeamID:    team.ID,
+		MaxUses:   1,
+		UsedCount: 0,
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -532,6 +556,8 @@ func createRegistrationKeyWithTeam(t *testing.T, env testEnv, createdBy int64, t
 		Code:      nextRegistrationCode(),
 		CreatedBy: createdBy,
 		TeamID:    teamID,
+		MaxUses:   1,
+		UsedCount: 0,
 		CreatedAt: time.Now().UTC(),
 	}
 

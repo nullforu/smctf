@@ -211,7 +211,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 func resetServiceState(t *testing.T) {
 	t.Helper()
 
-	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -281,6 +281,8 @@ func createRegistrationKeyWithTeam(t *testing.T, env serviceEnv, code string, cr
 		Code:      code,
 		CreatedBy: createdBy,
 		TeamID:    teamID,
+		MaxUses:   1,
+		UsedCount: 0,
 		CreatedAt: time.Now().UTC(),
 	}
 

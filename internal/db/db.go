@@ -44,6 +44,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 		(*models.Stack)(nil),
 		(*models.Submission)(nil),
 		(*models.RegistrationKey)(nil),
+		(*models.RegistrationKeyUse)(nil),
 	}
 
 	if err := createTables(ctx, db, modelsToCreate); err != nil {
@@ -91,6 +92,10 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 		{
 			name:  "idx_registration_keys_team_id",
 			query: "CREATE INDEX IF NOT EXISTS idx_registration_keys_team_id ON registration_keys (team_id)",
+		},
+		{
+			name:  "idx_registration_key_uses_key_id",
+			query: "CREATE INDEX IF NOT EXISTS idx_registration_key_uses_key_id ON registration_key_uses (registration_key_id)",
 		},
 		{
 			name:  "idx_stacks_user_id",

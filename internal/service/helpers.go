@@ -2,9 +2,21 @@ package service
 
 import (
 	"crypto/rand"
-	"encoding/binary"
-	"fmt"
+	"strings"
 )
+
+const (
+	registrationCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	registrationCodeLength   = 16
+)
+
+var registrationCodeAllowed = func() [256]bool {
+	var allowed [256]bool
+	for i := 0; i < len(registrationCodeAlphabet); i++ {
+		allowed[registrationCodeAlphabet[i]] = true
+	}
+	return allowed
+}()
 
 func trimTo(value string, max int) string {
 	if len(value) <= max {
@@ -14,13 +26,13 @@ func trimTo(value string, max int) string {
 	return value[:max]
 }
 
-func isSixDigitCode(value string) bool {
-	if len(value) != 6 {
+func isRegistrationCode(value string) bool {
+	if len(value) != registrationCodeLength {
 		return false
 	}
 
-	for _, r := range value {
-		if r < '0' || r > '9' {
+	for i := 0; i < len(value); i++ {
+		if !registrationCodeAllowed[value[i]] {
 			return false
 		}
 	}
@@ -29,12 +41,18 @@ func isSixDigitCode(value string) bool {
 }
 
 func generateRegistrationCode() (string, error) {
-	var buf [4]byte
-	if _, err := rand.Read(buf[:]); err != nil {
+	alphabet := registrationCodeAlphabet
+	length := registrationCodeLength
+	buf := make([]byte, length)
+	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
+	var b strings.Builder
+	b.Grow(length)
 
-	value := binary.BigEndian.Uint32(buf[:]) % 1000000
+	for _, v := range buf {
+		b.WriteByte(alphabet[int(v)%len(alphabet)])
+	}
 
-	return fmt.Sprintf("%06d", value), nil
+	return b.String(), nil
 }

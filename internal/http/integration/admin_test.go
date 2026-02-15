@@ -2,8 +2,10 @@ package http_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestAdminCreateChallenge(t *testing.T) {
@@ -224,7 +226,7 @@ func TestAdminDeleteChallenge(t *testing.T) {
 func TestAdminRegistrationKeys(t *testing.T) {
 	env := setupTest(t, testCfg)
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
-	team := createTeam(t, env, "Alpha")
+	team := createTeam(t, env, fmt.Sprintf("Alpha-%d", time.Now().UnixNano()))
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1, "team_id": int(team.ID)}, nil)
 	if rec.Code != http.StatusUnauthorized {
@@ -259,8 +261,8 @@ func TestAdminRegistrationKeys(t *testing.T) {
 		t.Fatalf("expected 2 keys, got %d", len(created))
 	}
 
-	if len(created[0].Code) != 6 || len(created[1].Code) != 6 {
-		t.Fatalf("expected 6-digit codes, got %q and %q", created[0].Code, created[1].Code)
+	if len(created[0].Code) != 16 || len(created[1].Code) != 16 {
+		t.Fatalf("expected 16-char codes, got %q and %q", created[0].Code, created[1].Code)
 	}
 
 	if created[0].CreatedByUsername != "admin" {
@@ -304,11 +306,15 @@ func TestAdminRegistrationKeys(t *testing.T) {
 		t.Fatalf("expected created_by_username admin, got %q", found.CreatedByUsername)
 	}
 
-	if found.UsedByUsername == nil || *found.UsedByUsername != "user1" {
-		t.Fatalf("expected used_by_username user1, got %v", found.UsedByUsername)
+	if found.UsedCount != 1 || len(found.Uses) != 1 {
+		t.Fatalf("expected uses list, got %+v", found)
 	}
 
-	if found.UsedByIP == nil || *found.UsedByIP != "203.0.113.7" {
-		t.Fatalf("expected used_by_ip 203.0.113.7, got %v", found.UsedByIP)
+	if found.Uses[0].UsedByUsername != "user1" {
+		t.Fatalf("expected used_by_username user1, got %v", found.Uses[0].UsedByUsername)
+	}
+
+	if found.Uses[0].UsedByIP != "203.0.113.7" {
+		t.Fatalf("expected used_by_ip 203.0.113.7, got %v", found.Uses[0].UsedByIP)
 	}
 }
