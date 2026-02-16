@@ -140,8 +140,7 @@ func (r *TeamRepo) baseTeamSolvedQuery() *bun.SelectQuery {
 		ColumnExpr("MAX(s.submitted_at) AS last_solved_at").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN challenges AS c ON c.id = s.challenge_id").
-		Where("s.correct = true").
-		Where("u.role <> ?", "blocked")
+		Where("s.correct = true")
 }
 
 func (r *TeamRepo) ListMembers(ctx context.Context, id int64) ([]models.TeamMember, error) {

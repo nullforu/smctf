@@ -206,7 +206,7 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 		t.Fatalf("unexpected first row: %+v", rows[0])
 	}
 
-	if rows[1].ChallengeID != chal1.ID || rows[1].SolveCount != 1 || rows[1].Points != 50 {
+	if rows[1].ChallengeID != chal1.ID || rows[1].SolveCount != 2 || rows[1].Points != 50 {
 		t.Fatalf("unexpected second row: %+v", rows[1])
 	}
 
