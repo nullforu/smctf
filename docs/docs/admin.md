@@ -81,7 +81,7 @@ Response 201
 [
     {
         "id": 10,
-        "code": "TESTKEY0001",
+        "code": "ABCDEFGHJKLMNPQ2",
         "created_by": 2,
         "created_by_username": "admin",
         "team_id": 1,
@@ -118,7 +118,7 @@ Response 200
 [
     {
         "id": 10,
-        "code": "TESTKEY0001",
+        "code": "ABCDEFGHJKLMNPQ2",
         "created_by": 2,
         "created_by_username": "admin",
         "team_id": 1,
@@ -179,6 +179,124 @@ Errors:
 - 400 `invalid input`
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 403 `forbidden`
+
+---
+
+## Move User Team
+
+`POST /api/admin/users/:id/team`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Request
+
+```json
+{
+    "team_id": 2
+}
+```
+
+Response 200
+
+```json
+{
+    "id": 10,
+    "email": "user1@example.com",
+    "username": "user1",
+    "role": "user",
+    "team_id": 2,
+    "team_name": "New Team",
+    "blocked_reason": null,
+    "blocked_at": null
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `not found`
+
+---
+
+## Block User
+
+`POST /api/admin/users/:id/block`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Request
+
+```json
+{
+    "reason": "policy violation"
+}
+```
+
+Response 200
+
+```json
+{
+    "id": 10,
+    "email": "user1@example.com",
+    "username": "user1",
+    "role": "blocked",
+    "team_id": 2,
+    "team_name": "New Team",
+    "blocked_reason": "policy violation",
+    "blocked_at": "2026-01-26T12:00:00Z"
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `not found`
+
+---
+
+## Unblock User
+
+`POST /api/admin/users/:id/unblock`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Response 200
+
+```json
+{
+    "id": 10,
+    "email": "user1@example.com",
+    "username": "user1",
+    "role": "user",
+    "team_id": 2,
+    "team_name": "New Team",
+    "blocked_reason": null,
+    "blocked_at": null
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `not found`
 
 ---
 

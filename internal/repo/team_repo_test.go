@@ -58,6 +58,11 @@ func TestTeamRepoListWithStats(t *testing.T) {
 
 	userA1 := createUserWithTeam(t, env, "a1@example.com", "alpha1", "pass", "user", teamA.ID)
 	userA2 := createUserWithTeam(t, env, "a2@example.com", "alpha2", "pass", "user", teamA.ID)
+	blockedA := createUserWithTeam(t, env, "a3@example.com", "alpha3", "pass", "user", teamA.ID)
+	blockedA.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blockedA); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 	_ = createUserWithTeam(t, env, "b1@example.com", "beta1", "pass", "user", teamB.ID)
 
 	chal1 := createChallenge(t, env, "Basic", 100, "flag{basic}", true)
@@ -67,6 +72,7 @@ func TestTeamRepoListWithStats(t *testing.T) {
 	createSubmission(t, env, userA1.ID, chal1.ID, true, now.Add(-2*time.Minute))
 	createSubmission(t, env, userA2.ID, chal2.ID, true, now.Add(-1*time.Minute))
 	createSubmission(t, env, userA1.ID, chal2.ID, false, now.Add(-30*time.Second))
+	createSubmission(t, env, blockedA.ID, chal1.ID, true, now.Add(-90*time.Second))
 
 	rows, err := env.teamRepo.ListWithStats(context.Background())
 	if err != nil {
@@ -93,7 +99,7 @@ func TestTeamRepoListWithStats(t *testing.T) {
 		t.Fatalf("missing team rows: %+v", rows)
 	}
 
-	if gotA.MemberCount != 2 || gotA.TotalScore != 300 {
+	if gotA.MemberCount != 3 || gotA.TotalScore != 300 {
 		t.Fatalf("unexpected alpha stats: %+v", *gotA)
 	}
 
@@ -111,15 +117,21 @@ func TestTeamRepoGetStats(t *testing.T) {
 
 	team := createTeam(t, env, "Gamma School")
 	user := createUserWithTeam(t, env, "g1@example.com", "gamma1", "pass", "user", team.ID)
+	blocked := createUserWithTeam(t, env, "g2@example.com", "gamma2", "pass", "user", team.ID)
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 	chal := createChallenge(t, env, "Gamma", 150, "flag{gamma}", true)
 	createSubmission(t, env, user.ID, chal.ID, true, time.Now().UTC())
+	createSubmission(t, env, blocked.ID, chal.ID, true, time.Now().UTC())
 
 	row, err := env.teamRepo.GetStats(context.Background(), team.ID)
 	if err != nil {
 		t.Fatalf("GetStats: %v", err)
 	}
 
-	if row.ID != team.ID || row.MemberCount != 1 || row.TotalScore != 150 {
+	if row.ID != team.ID || row.MemberCount != 2 || row.TotalScore != 150 {
 		t.Fatalf("unexpected stats: %+v", row)
 	}
 }
@@ -165,6 +177,11 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 	team := createTeam(t, env, "Solves School")
 	user1 := createUserWithTeam(t, env, "s1@example.com", "solver1", "pass", "user", team.ID)
 	user2 := createUserWithTeam(t, env, "s2@example.com", "solver2", "pass", "user", team.ID)
+	blocked := createUserWithTeam(t, env, "s3@example.com", "solver3", "pass", "user", team.ID)
+	blocked.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
 
 	chal1 := createChallenge(t, env, "Intro", 50, "flag{intro}", true)
 	chal2 := createChallenge(t, env, "Advanced", 250, "flag{adv}", true)
@@ -174,6 +191,7 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 	createSubmission(t, env, user2.ID, chal1.ID, false, now.Add(-2*time.Minute))
 	createSubmission(t, env, user1.ID, chal2.ID, true, now.Add(-1*time.Minute))
 	createSubmission(t, env, user2.ID, chal2.ID, false, now.Add(-30*time.Second))
+	createSubmission(t, env, blocked.ID, chal1.ID, true, now.Add(-90*time.Second))
 
 	rows, err := env.teamRepo.ListSolvedChallenges(context.Background(), team.ID)
 	if err != nil {
@@ -188,7 +206,7 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 		t.Fatalf("unexpected first row: %+v", rows[0])
 	}
 
-	if rows[1].ChallengeID != chal1.ID || rows[1].SolveCount != 1 || rows[1].Points != 50 {
+	if rows[1].ChallengeID != chal1.ID || rows[1].SolveCount != 2 || rows[1].Points != 50 {
 		t.Fatalf("unexpected second row: %+v", rows[1])
 	}
 

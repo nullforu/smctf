@@ -14,7 +14,7 @@ Request
     "email": "user@example.com",
     "username": "user1",
     "password": "strong-password",
-    "registration_key": "TESTKEY0001"
+    "registration_key": "ABCDEFGHJKLMNPQ2"
 }
 ```
 

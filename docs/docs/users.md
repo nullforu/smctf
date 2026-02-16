@@ -22,7 +22,9 @@ Response 200
     "username": "user1",
     "role": "user",
     "team_id": 1,
-    "team_name": "서울고등학교"
+    "team_name": "서울고등학교",
+    "blocked_reason": null,
+    "blocked_at": null
 }
 ```
 
@@ -59,7 +61,9 @@ Response 200
     "username": "new_username",
     "role": "user",
     "team_id": 1,
-    "team_name": "서울고등학교"
+    "team_name": "서울고등학교",
+    "blocked_reason": null,
+    "blocked_at": null
 }
 ```
 
@@ -67,6 +71,7 @@ Errors:
 
 - 400 `invalid input`
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `user blocked`
 
 ---
 
@@ -87,14 +92,18 @@ Response 200
         "username": "user1",
         "role": "user",
         "team_id": 1,
-        "team_name": "서울고등학교"
+        "team_name": "서울고등학교",
+        "blocked_reason": null,
+        "blocked_at": null
     },
     {
         "id": 2,
         "username": "admin",
         "role": "admin",
         "team_id": 2,
-        "team_name": "운영팀"
+        "team_name": "운영팀",
+        "blocked_reason": null,
+        "blocked_at": null
     }
 ]
 ```
@@ -113,7 +122,9 @@ Response 200
     "username": "user1",
     "role": "user",
     "team_id": 1,
-    "team_name": "서울고등학교"
+    "team_name": "서울고등학교",
+    "blocked_reason": null,
+    "blocked_at": null
 }
 ```
 
@@ -146,6 +157,7 @@ Response 200
 Notes:
 
 - `points` is dynamically calculated based on solves.
+- Blocked users are excluded from solved challenge stats.
 
 Errors:
 

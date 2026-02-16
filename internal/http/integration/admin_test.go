@@ -318,3 +318,164 @@ func TestAdminRegistrationKeys(t *testing.T) {
 		t.Fatalf("expected used_by_ip 203.0.113.7, got %v", found.Uses[0].UsedByIP)
 	}
 }
+
+func TestAdminMoveUserTeam(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	key := createRegistrationKeyWithTeam(t, env, admin.ID, teamA.ID)
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", map[string]string{
+		"email":            "user@example.com",
+		"username":         "user1",
+		"password":         "strong-password",
+		"registration_key": key.Code,
+	}, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("register status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var regResp struct {
+		ID int64 `json:"id"`
+	}
+	decodeJSON(t, rec, &regResp)
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/users/"+itoa(regResp.ID)+"/team", map[string]int64{"team_id": teamB.ID}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var adminResp struct {
+		TeamID int64 `json:"team_id"`
+	}
+	decodeJSON(t, rec, &adminResp)
+
+	if adminResp.TeamID != teamB.ID {
+		t.Fatalf("expected team_id %d, got %d", teamB.ID, adminResp.TeamID)
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/users/"+itoa(regResp.ID), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var userResp struct {
+		TeamID int64 `json:"team_id"`
+	}
+	decodeJSON(t, rec, &userResp)
+
+	if userResp.TeamID != teamB.ID {
+		t.Fatalf("expected user team_id %d, got %d", teamB.ID, userResp.TeamID)
+	}
+}
+
+func TestAdminBlockUser(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	key := createRegistrationKey(t, env, admin.ID)
+	regBody := map[string]string{
+		"email":            "user@example.com",
+		"username":         "user1",
+		"password":         "strong-password",
+		"registration_key": key.Code,
+	}
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", regBody, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("register status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var regResp struct {
+		ID int64 `json:"id"`
+	}
+	decodeJSON(t, rec, &regResp)
+
+	access, _, _ := loginUser(t, env.router, regBody["email"], regBody["password"])
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/users/"+itoa(regResp.ID)+"/block", map[string]string{
+		"reason": "policy violation",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("block status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/me", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var meResp struct {
+		Role          string  `json:"role"`
+		BlockedReason *string `json:"blocked_reason"`
+	}
+	decodeJSON(t, rec, &meResp)
+
+	if meResp.Role != "blocked" || meResp.BlockedReason == nil {
+		t.Fatalf("expected blocked info, got %+v", meResp)
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/auth/login", map[string]string{
+		"email":    regBody["email"],
+		"password": regBody["password"],
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminUnblockUser(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	key := createRegistrationKey(t, env, admin.ID)
+	regBody := map[string]string{
+		"email":            "user@example.com",
+		"username":         "user1",
+		"password":         "strong-password",
+		"registration_key": key.Code,
+	}
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", regBody, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("register status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var regResp struct {
+		ID int64 `json:"id"`
+	}
+	decodeJSON(t, rec, &regResp)
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/users/"+itoa(regResp.ID)+"/block", map[string]string{
+		"reason": "policy violation",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("block status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/users/"+itoa(regResp.ID)+"/unblock", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unblock status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var userResp struct {
+		Role          string  `json:"role"`
+		BlockedReason *string `json:"blocked_reason"`
+	}
+	decodeJSON(t, rec, &userResp)
+	if userResp.Role != "user" || userResp.BlockedReason != nil {
+		t.Fatalf("expected unblocked user, got %+v", userResp)
+	}
+
+	access, _, _ := loginUser(t, env.router, regBody["email"], regBody["password"])
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/me", map[string]string{"username": "newuser"}, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected update ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

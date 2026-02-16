@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -54,6 +55,10 @@ func newJSONContext(t *testing.T, method, path string, body any) (*gin.Context, 
 	ctx.Request = req
 
 	return ctx, rec
+}
+
+func ptrString(value string) *string {
+	return &value
 }
 
 func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest any) {
@@ -338,6 +343,129 @@ func TestHandlerBindErrorDetails(t *testing.T) {
 	env.handler.Login(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("bind type status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandlerAdminMoveUserTeam(t *testing.T) {
+	env := setupHandlerTest(t)
+	teamA := createHandlerTeam(t, env, "Alpha")
+	teamB := createHandlerTeam(t, env, "Beta")
+	user := createHandlerUserWithTeam(t, env, "user@example.com", "user1", "pass", "user", teamA.ID)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+
+	env.handler.AdminMoveUserTeam(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("move team status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp adminUserResponse
+	decodeJSON(t, rec, &resp)
+	if resp.TeamID != teamB.ID {
+		t.Fatalf("expected team_id %d, got %d", teamB.ID, resp.TeamID)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": -1})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+	env.handler.AdminMoveUserTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": 9999})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+	env.handler.AdminMoveUserTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	env.handler.AdminMoveUserTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandlerAdminBlockUser(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+
+	env.handler.AdminBlockUser(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("block status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp adminUserResponse
+	decodeJSON(t, rec, &resp)
+	if resp.Role != "blocked" || resp.BlockedReason == nil {
+		t.Fatalf("expected blocked user, got %+v", resp)
+	}
+
+	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(admin.ID, 10)}}
+	env.handler.AdminBlockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": " "})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+	env.handler.AdminBlockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	env.handler.AdminBlockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandlerAdminUnblockUser(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+	env.handler.AdminBlockUser(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("block status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/unblock", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
+	env.handler.AdminUnblockUser(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unblock status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp adminUserResponse
+	decodeJSON(t, rec, &resp)
+	if resp.Role != "user" || resp.BlockedReason != nil || resp.BlockedAt != nil {
+		t.Fatalf("expected unblocked user, got %+v", resp)
+	}
+
+	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/unblock", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(admin.ID, 10)}}
+	env.handler.AdminUnblockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/unblock", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "0"}}
+	env.handler.AdminUnblockUser(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
 
@@ -1251,6 +1379,37 @@ func newClosedHandlerDB(t *testing.T) *bun.DB {
 
 // Team Handler Tests
 
+func TestHandlerCreateTeam(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"})
+	env.handler.CreateTeam(ctx)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create team status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.ID == 0 || resp.Name != "Alpha" {
+		t.Fatalf("unexpected team response: %+v", resp)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]string{})
+	env.handler.CreateTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"})
+	env.handler.CreateTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected duplicate 400, got %d", rec.Code)
+	}
+}
+
 func TestHandlerTeams(t *testing.T) {
 	env := setupHandlerTest(t)
 	team := createHandlerTeam(t, env, "Alpha")
@@ -1341,6 +1500,39 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 	env.handler.ListUsers(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list users status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var users []struct {
+		ID            int64   `json:"id"`
+		BlockedReason *string `json:"blocked_reason"`
+	}
+	decodeJSON(t, rec, &users)
+	if len(users) == 0 {
+		t.Fatalf("expected users list")
+	}
+
+	user.BlockedReason = ptrString("policy")
+	now := time.Now().UTC()
+	user.BlockedAt = &now
+	if err := env.userRepo.Update(context.Background(), user); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", user.ID)}}
+
+	env.handler.GetUser(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get user status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var detail struct {
+		ID            int64   `json:"id"`
+		BlockedReason *string `json:"blocked_reason"`
+	}
+	decodeJSON(t, rec, &detail)
+	if detail.ID != user.ID || detail.BlockedReason == nil {
+		t.Fatalf("expected blocked reason, got %+v", detail)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/users/0", nil)

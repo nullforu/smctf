@@ -61,10 +61,12 @@ func listChallengesForScoring(ctx context.Context, db *bun.DB) ([]challengeScore
 func solveCountsByChallenge(ctx context.Context, db *bun.DB) (map[int64]int, error) {
 	rows := make([]challengeSolveCountRow, 0)
 	if err := db.NewSelect().
-		TableExpr("submissions").
-		ColumnExpr("challenge_id").
+		TableExpr("submissions AS s").
+		ColumnExpr("s.challenge_id").
 		ColumnExpr("COUNT(*) AS solve_count").
-		Where("correct = true").
+		Join("JOIN users AS u ON u.id = s.user_id").
+		Where("s.correct = true").
+		Where("u.role <> ?", "blocked").
 		GroupExpr("challenge_id").
 		Scan(ctx, &rows); err != nil {
 		return nil, wrapError("score.solveCountsByChallenge", err)
@@ -90,8 +92,10 @@ func challengeSolveCounts(ctx context.Context, db *bun.DB) (map[int64]int, error
 func decayFactor(ctx context.Context, db *bun.DB) (int, error) {
 	var teamCount int
 	if err := db.NewSelect().
-		TableExpr("teams").
-		ColumnExpr("COUNT(*)").
+		TableExpr("teams AS t").
+		ColumnExpr("COUNT(DISTINCT t.id)").
+		Join("JOIN users AS u ON u.team_id = t.id").
+		Where("u.role <> ?", "blocked").
 		Scan(ctx, &teamCount); err != nil {
 		return 0, wrapError("score.teamCount", err)
 	}

@@ -12,9 +12,10 @@ const (
 
 var registrationCodeAllowed = func() [256]bool {
 	var allowed [256]bool
-	for i := 0; i < len(registrationCodeAlphabet); i++ {
+	for i := range len(registrationCodeAlphabet) {
 		allowed[registrationCodeAlphabet[i]] = true
 	}
+
 	return allowed
 }()
 
@@ -47,6 +48,7 @@ func generateRegistrationCode() (string, error) {
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
+
 	var b strings.Builder
 	b.Grow(length)
 

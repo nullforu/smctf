@@ -766,6 +766,147 @@ func (h *Handler) ListRegistrationKeys(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rows)
 }
 
+func (h *Handler) AdminMoveUserTeam(ctx *gin.Context) {
+	userID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	var req adminMoveUserTeamRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	if req.TeamID <= 0 {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "team_id", Reason: "invalid"}))
+		return
+	}
+
+	if _, err := h.teams.GetTeam(ctx.Request.Context(), req.TeamID); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			writeError(ctx, service.NewValidationError(service.FieldError{Field: "team_id", Reason: "invalid"}))
+			return
+		}
+
+		writeError(ctx, err)
+		return
+	}
+
+	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	user.TeamID = req.TeamID
+	user.UpdatedAt = time.Now().UTC()
+
+	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
+}
+
+func (h *Handler) AdminBlockUser(ctx *gin.Context) {
+	userID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	var req adminBlockUserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "reason", Reason: "required"}))
+		return
+	}
+
+	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	if user.Role == "admin" {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "user_id", Reason: "admin_blocked"}))
+		return
+	}
+
+	user.Role = "blocked"
+	user.BlockedReason = &reason
+	blockedAt := time.Now().UTC()
+	user.BlockedAt = &blockedAt
+	user.UpdatedAt = time.Now().UTC()
+
+	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
+
+	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
+}
+
+func (h *Handler) AdminUnblockUser(ctx *gin.Context) {
+	userID, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	if user.Role == "admin" {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "user_id", Reason: "admin_blocked"}))
+		return
+	}
+
+	user.Role = "user"
+	user.BlockedReason = nil
+	user.BlockedAt = nil
+	user.UpdatedAt = time.Now().UTC()
+
+	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
+
+	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
+}
+
 // Scoreboard Handlers
 
 func aggregateUserTimeline(raw []models.UserTimelineRow) []models.TimelineSubmission {

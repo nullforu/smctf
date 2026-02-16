@@ -23,9 +23,11 @@ type TeamSummary struct {
 }
 
 type TeamMember struct {
-	ID       int64  `bun:"id" json:"id"`
-	Username string `bun:"username" json:"username"`
-	Role     string `bun:"role" json:"role"`
+	ID            int64      `bun:"id" json:"id"`
+	Username      string     `bun:"username" json:"username"`
+	Role          string     `bun:"role" json:"role"`
+	BlockedReason *string    `bun:"blocked_reason" json:"blocked_reason"`
+	BlockedAt     *time.Time `bun:"blocked_at" json:"blocked_at"`
 }
 
 type TeamSolvedChallenge struct {

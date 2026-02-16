@@ -38,6 +38,7 @@ Response 200
 
 Returns all users sorted by score (descending).
 `solves` includes earliest solve timestamp per challenge and `is_first_blood` for the first solver.
+Blocked users are excluded from leaderboard scores and solves.
 
 ---
 
@@ -76,6 +77,7 @@ Response 200
 
 Returns all teams sorted by score (descending).
 `solves` includes earliest solve timestamp per challenge and `is_first_blood` for the first solver.
+Blocked users are excluded from team scores and solves.
 
 ---
 
@@ -106,6 +108,7 @@ Response 200
 Returns all submissions teamed by user and 10 minute intervals.
 If multiple challenges are solved by the same user within 10 minutes, they are teamed together with cumulative points and challenge count.
 `points` is dynamically calculated based on solves.
+Blocked users are excluded.
 
 Errors:
 
@@ -140,6 +143,7 @@ Response 200
 Returns all submissions teamed by team and 10 minute intervals.
 
 `points` is dynamically calculated based on solves.
+Blocked users are excluded.
 
 Errors:
 

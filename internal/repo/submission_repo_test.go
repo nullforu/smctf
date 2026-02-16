@@ -50,6 +50,22 @@ func TestSubmissionRepoHasCorrectTeam(t *testing.T) {
 	}
 }
 
+func TestSubmissionRepoHasCorrectTeamBlockedSolve(t *testing.T) {
+	env := setupRepoTest(t)
+	team := createTeam(t, env, "Alpha")
+	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "blocked", team.ID)
+	user := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+
+	createSubmission(t, env, blocked.ID, ch.ID, true, time.Now().UTC())
+
+	if ok, err := env.submissionRepo.HasCorrect(context.Background(), user.ID, ch.ID); err != nil {
+		t.Fatalf("HasCorrect blocked teammate: %v", err)
+	} else if !ok {
+		t.Fatalf("expected blocked teammate solve to count for team")
+	}
+}
+
 func TestSubmissionRepoHasCorrectDifferentTeam(t *testing.T) {
 	env := setupRepoTest(t)
 	teamA := createTeam(t, env, "Alpha")
@@ -104,6 +120,27 @@ func TestSubmissionRepoSolvedChallengesEmpty(t *testing.T) {
 
 	if len(rows) != 0 {
 		t.Fatalf("expected empty rows, got %d", len(rows))
+	}
+}
+
+func TestSubmissionRepoSolvedChallengesBlockedUser(t *testing.T) {
+	env := setupRepoTest(t)
+	user := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
+	user.Role = "blocked"
+	if err := env.userRepo.Update(context.Background(), user); err != nil {
+		t.Fatalf("block user: %v", err)
+	}
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+
+	createSubmission(t, env, user.ID, ch.ID, true, time.Now().UTC())
+
+	rows, err := env.submissionRepo.SolvedChallenges(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("SolvedChallenges: %v", err)
+	}
+
+	if len(rows) != 1 || rows[0].ChallengeID != ch.ID {
+		t.Fatalf("unexpected solved rows: %+v", rows)
 	}
 }
 
@@ -164,6 +201,46 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 
 	if count != 1 {
 		t.Fatalf("expected 1 correct submission, got %d", count)
+	}
+}
+
+func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamBlockedSolve(t *testing.T) {
+	env := setupRepoTest(t)
+	team := createTeam(t, env, "Alpha")
+	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "blocked", team.ID)
+	user := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+
+	now := time.Now().UTC()
+	sub1 := &models.Submission{
+		UserID:      blocked.ID,
+		ChallengeID: ch.ID,
+		Provided:    "flag{1}",
+		Correct:     true,
+		SubmittedAt: now,
+	}
+
+	inserted, err := env.submissionRepo.CreateCorrectIfNotSolvedByTeam(context.Background(), sub1)
+	if err != nil {
+		t.Fatalf("CreateCorrectIfNotSolvedByTeam blocked: %v", err)
+	}
+	if !inserted {
+		t.Fatalf("expected blocked user solve to insert")
+	}
+
+	sub2 := &models.Submission{
+		UserID:      user.ID,
+		ChallengeID: ch.ID,
+		Provided:    "flag{1}",
+		Correct:     true,
+		SubmittedAt: now.Add(time.Second),
+	}
+	inserted, err = env.submissionRepo.CreateCorrectIfNotSolvedByTeam(context.Background(), sub2)
+	if err != nil {
+		t.Fatalf("CreateCorrectIfNotSolvedByTeam after blocked: %v", err)
+	}
+	if inserted {
+		t.Fatalf("expected team solve to block after blocked user submission")
 	}
 }
 
