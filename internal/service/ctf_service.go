@@ -156,33 +156,46 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 }
 
 func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPort *int, stackPodSpec *string) (*models.Challenge, error) {
-	normalizedTitle := normalizeOptional(title)
-	normalizedDescription := normalizeOptional(description)
-	normalizedCategory := normalizeOptional(category)
-	normalizedPodSpec := normalizeOptional(stackPodSpec)
-
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
 
-	if flag != nil {
-		return nil, NewValidationError(FieldError{Field: "flag", Reason: "immutable"})
+	var normalizedTitle *string
+	if title != nil {
+		value := *title
+		normalizedTitle = &value
 	}
 
-	if normalizedTitle != nil {
-		validator.Required("title", *normalizedTitle)
+	var normalizedDescription *string
+	if description != nil {
+		value := *description
+		normalizedDescription = &value
 	}
 
-	if normalizedDescription != nil {
-		validator.Required("description", *normalizedDescription)
-	}
-
-	if normalizedCategory != nil {
-		validator.Required("category", *normalizedCategory)
-		if *normalizedCategory != "" {
-			if _, ok := challengeCategories[*normalizedCategory]; !ok {
-				validator.fields = append(validator.fields, FieldError{Field: "category", Reason: "invalid"})
-			}
+	var normalizedCategory *string
+	if category != nil {
+		value := strings.TrimSpace(*category)
+		normalizedCategory = &value
+		if value == "" {
+			validator.fields = append(validator.fields, FieldError{Field: "category", Reason: "required"})
+		} else if _, ok := challengeCategories[value]; !ok {
+			validator.fields = append(validator.fields, FieldError{Field: "category", Reason: "invalid"})
 		}
+	}
+
+	var normalizedFlag *string
+	if flag != nil {
+		value := strings.TrimSpace(*flag)
+		if value == "" {
+			validator.fields = append(validator.fields, FieldError{Field: "flag", Reason: "required"})
+		} else {
+			normalizedFlag = &value
+		}
+	}
+
+	var normalizedPodSpec *string
+	if stackPodSpec != nil {
+		value := strings.TrimSpace(*stackPodSpec)
+		normalizedPodSpec = &value
 	}
 
 	if points != nil {
@@ -258,6 +271,10 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 		} else {
 			challenge.StackPodSpec = normalizedPodSpec
 		}
+	}
+
+	if normalizedFlag != nil {
+		challenge.FlagHash = utils.HMACFlag(s.cfg.Security.FlagHMACSecret, *normalizedFlag)
 	}
 
 	if challenge.StackEnabled {

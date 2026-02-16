@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -51,7 +52,64 @@ func TestConfigEndpoints(t *testing.T) {
 		t.Fatalf("unexpected config after update: %+v", publicResp)
 	}
 
-	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]string{"title": ""}, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{"title": nil}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"header_title":       "   ",
+		"header_description": "   ",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"description": nil,
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"ctf_start_at": "   ",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"ctf_end_at": "   ",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"title": strings.Repeat("a", 201),
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"description": strings.Repeat("b", 2001),
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"header_title": strings.Repeat("c", 81),
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]any{
+		"header_description": strings.Repeat("d", 201),
+	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

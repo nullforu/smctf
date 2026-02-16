@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"smctf/internal/utils"
 )
 
 func TestAdminCreateChallenge(t *testing.T) {
@@ -144,13 +146,76 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
 		"flag": "flag{rotated}",
 	}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	updatedModel, err := env.challengeRepo.GetByID(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+
+	expectedHash := utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag{rotated}")
+	if updatedModel.FlagHash != expectedHash {
+		t.Fatalf("expected flag hash to be updated")
+	}
+
+	nullCases := []struct {
+		name string
+		body map[string]any
+	}{
+		{"title null", map[string]any{"title": nil}},
+		{"description null", map[string]any{"description": nil}},
+		{"category null", map[string]any{"category": nil}},
+		{"flag null", map[string]any{"flag": nil}},
+	}
+	for _, tc := range nullCases {
+		rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), tc.body, authHeader(adminAccess))
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("%s status %d: %s", tc.name, rec.Code, rec.Body.String())
+		}
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"title": "   ",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"stack_enabled":     true,
+		"stack_target_port": 80,
+		"stack_pod_spec":    nil,
+	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	decodeJSON(t, rec, &errResp)
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"stack_enabled":  false,
+		"stack_pod_spec": "   ",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
 
-	assertFieldErrors(t, errResp.Details, map[string]string{"flag": "immutable"})
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"stack_enabled":     true,
+		"stack_target_port": 70000,
+		"stack_pod_spec":    "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n",
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"points":         10,
+		"minimum_points": 20,
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestAdminGetChallengeDetail(t *testing.T) {

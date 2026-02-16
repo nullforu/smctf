@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,7 +72,9 @@ func TestAppConfigServiceUpdatePartial(t *testing.T) {
 	}
 
 	title := "New Title"
-	cfg, _, _, err := svc.Update(context.Background(), &title, nil, nil, nil, nil, nil)
+	cfg, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		Title: AppConfigUpdateInput{Set: true, Value: title},
+	})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -90,15 +93,113 @@ func TestAppConfigServiceUpdateValidation(t *testing.T) {
 	appRepo := repo.NewAppConfigRepo(env.db)
 	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
 
-	empty := ""
-	_, _, _, err := svc.Update(context.Background(), &empty, nil, nil, nil, nil, nil)
-	if err == nil {
-		t.Fatal("expected validation error")
+	whitespaceCases := []struct {
+		name  string
+		input AppConfigUpdate
+	}{
+		{
+			name: "title whitespace",
+			input: AppConfigUpdate{
+				Title: AppConfigUpdateInput{Set: true, Value: "   "},
+			},
+		},
+		{
+			name: "description whitespace",
+			input: AppConfigUpdate{
+				Description: AppConfigUpdateInput{Set: true, Value: "   "},
+			},
+		},
+		{
+			name: "header_title whitespace",
+			input: AppConfigUpdate{
+				HeaderTitle: AppConfigUpdateInput{Set: true, Value: "   "},
+			},
+		},
+		{
+			name: "header_description whitespace",
+			input: AppConfigUpdate{
+				HeaderDescription: AppConfigUpdateInput{Set: true, Value: "   "},
+			},
+		},
 	}
 
-	var ve *ValidationError
-	if !errors.As(err, &ve) {
-		t.Fatalf("expected validation error, got %T", err)
+	for _, tc := range whitespaceCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, _, err := svc.Update(context.Background(), tc.input); err != nil {
+				t.Fatalf("expected whitespace to be allowed, got %v", err)
+			}
+		})
+	}
+
+	nullCases := []struct {
+		name  string
+		input AppConfigUpdate
+	}{
+		{
+			name: "title null",
+			input: AppConfigUpdate{
+				Title: AppConfigUpdateInput{Set: true, Null: true},
+			},
+		},
+		{
+			name: "description null",
+			input: AppConfigUpdate{
+				Description: AppConfigUpdateInput{Set: true, Null: true},
+			},
+		},
+		{
+			name: "header_title null",
+			input: AppConfigUpdate{
+				HeaderTitle: AppConfigUpdateInput{Set: true, Null: true},
+			},
+		},
+		{
+			name: "header_description null",
+			input: AppConfigUpdate{
+				HeaderDescription: AppConfigUpdateInput{Set: true, Null: true},
+			},
+		},
+	}
+	for _, tc := range nullCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, err := svc.Update(context.Background(), tc.input)
+			if err == nil {
+				t.Fatal("expected validation error for null value")
+			}
+
+			var ve *ValidationError
+			if !errors.As(err, &ve) {
+				t.Fatalf("expected validation error, got %T", err)
+			}
+		})
+	}
+
+	longTitle := strings.Repeat("a", 201)
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		Title: AppConfigUpdateInput{Set: true, Value: longTitle},
+	}); err == nil {
+		t.Fatal("expected validation error for title length")
+	}
+
+	longDescription := strings.Repeat("b", 2001)
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		Description: AppConfigUpdateInput{Set: true, Value: longDescription},
+	}); err == nil {
+		t.Fatal("expected validation error for description length")
+	}
+
+	longHeaderTitle := strings.Repeat("c", 81)
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		HeaderTitle: AppConfigUpdateInput{Set: true, Value: longHeaderTitle},
+	}); err == nil {
+		t.Fatal("expected validation error for header_title length")
+	}
+
+	longHeaderDescription := strings.Repeat("d", 201)
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		HeaderDescription: AppConfigUpdateInput{Set: true, Value: longHeaderDescription},
+	}); err == nil {
+		t.Fatal("expected validation error for header_description length")
 	}
 }
 
@@ -112,7 +213,10 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	endTime := startTime.Add(2 * time.Hour)
 	start := startTime.Format(time.RFC3339)
 	end := endTime.Format(time.RFC3339)
-	cfg, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end)
+	cfg, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: start},
+		CTFEndAt:   AppConfigUpdateInput{Set: true, Value: end},
+	})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -122,7 +226,9 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	}
 
 	invalid := "nope"
-	_, _, _, err = svc.Update(context.Background(), nil, nil, nil, nil, &invalid, nil)
+	_, _, _, err = svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: invalid},
+	})
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -132,7 +238,10 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	}
 
 	badEnd := "2026-02-10T09:00:00Z"
-	_, _, _, err = svc.Update(context.Background(), nil, nil, nil, nil, &start, &badEnd)
+	_, _, _, err = svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: start},
+		CTFEndAt:   AppConfigUpdateInput{Set: true, Value: badEnd},
+	})
 	if err == nil {
 		t.Fatalf("expected validation error for end before start")
 	}
@@ -140,9 +249,32 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 		t.Fatalf("expected end_before_start, got %v", err)
 	}
 
-	empty := ""
-	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &empty, &empty); err != nil {
-		t.Fatalf("expected empty times to be allowed, got %v", err)
+	null := AppConfigUpdateInput{Set: true, Null: true}
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: null,
+		CTFEndAt:   null,
+	}); err != nil {
+		t.Fatalf("expected null times to be allowed, got %v", err)
+	}
+
+	whitespace := "   "
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: whitespace},
+	}); err == nil {
+		t.Fatalf("expected whitespace ctf_start_at to be invalid")
+	}
+
+	longCTFValue := strings.Repeat("e", 65)
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: longCTFValue},
+	}); err == nil {
+		t.Fatalf("expected ctf_start_at length to be invalid")
+	}
+
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFEndAt: AppConfigUpdateInput{Set: true, Value: longCTFValue},
+	}); err == nil {
+		t.Fatalf("expected ctf_end_at length to be invalid")
 	}
 }
 
@@ -156,7 +288,7 @@ func TestAppConfigServiceUpdateNoChanges(t *testing.T) {
 		t.Fatalf("Get: %v", err)
 	}
 
-	outCfg, outUpdatedAt, outETag, err := svc.Update(context.Background(), nil, nil, nil, nil, nil, nil)
+	outCfg, outUpdatedAt, outETag, err := svc.Update(context.Background(), AppConfigUpdate{})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -239,7 +371,10 @@ func TestAppConfigServiceCTFState(t *testing.T) {
 	start := now.Add(2 * time.Hour).Format(time.RFC3339)
 	end := now.Add(4 * time.Hour).Format(time.RFC3339)
 
-	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end); err != nil {
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: start},
+		CTFEndAt:   AppConfigUpdateInput{Set: true, Value: end},
+	}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
@@ -253,7 +388,10 @@ func TestAppConfigServiceCTFState(t *testing.T) {
 
 	start = now.Add(-time.Hour).Format(time.RFC3339)
 	end = now.Add(time.Hour).Format(time.RFC3339)
-	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end); err != nil {
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: start},
+		CTFEndAt:   AppConfigUpdateInput{Set: true, Value: end},
+	}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
@@ -266,7 +404,10 @@ func TestAppConfigServiceCTFState(t *testing.T) {
 	}
 
 	end = now.Add(-time.Minute).Format(time.RFC3339)
-	if _, _, _, err := svc.Update(context.Background(), nil, nil, nil, nil, &start, &end); err != nil {
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: start},
+		CTFEndAt:   AppConfigUpdateInput{Set: true, Value: end},
+	}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 

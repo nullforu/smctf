@@ -197,10 +197,16 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 		return
 	}
 
-	ctfStartAt := optionalStringValue(req.CTFStartAt)
-	ctfEndAt := optionalStringValue(req.CTFEndAt)
+	input := service.AppConfigUpdate{
+		Title:             appConfigInputFromOptional(req.Title),
+		Description:       appConfigInputFromOptional(req.Description),
+		HeaderTitle:       appConfigInputFromOptional(req.HeaderTitle),
+		HeaderDescription: appConfigInputFromOptional(req.HeaderDescription),
+		CTFStartAt:        appConfigInputFromOptional(req.CTFStartAt),
+		CTFEndAt:          appConfigInputFromOptional(req.CTFEndAt),
+	}
 
-	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), req.Title, req.Description, req.HeaderTitle, req.HeaderDescription, ctfStartAt, ctfEndAt)
+	cfg, updatedAt, _, err := h.app.Update(ctx.Request.Context(), input)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -218,15 +224,14 @@ func (h *Handler) AdminUpdateConfig(ctx *gin.Context) {
 	})
 }
 
-func optionalStringValue(value optionalString) *string {
+func appConfigInputFromOptional(value optionalString) service.AppConfigUpdateInput {
 	if !value.Set {
-		return nil
+		return service.AppConfigUpdateInput{}
 	}
 	if value.Value == nil {
-		empty := ""
-		return &empty
+		return service.AppConfigUpdateInput{Set: true, Null: true}
 	}
-	return value.Value
+	return service.AppConfigUpdateInput{Set: true, Value: *value.Value}
 }
 
 // Auth Handlers
@@ -578,7 +583,32 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, req.Title, req.Description, req.Category, req.Points, req.MinimumPoints, req.Flag, req.IsActive, req.StackEnabled, req.StackTargetPort, req.StackPodSpec)
+	title, err := requireNonNullOptionalString("title", req.Title)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	description, err := requireNonNullOptionalString("description", req.Description)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	category, err := requireNonNullOptionalString("category", req.Category)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	flag, err := requireNonNullOptionalString("flag", req.Flag)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	stackPodSpec := optionalStringToPointer(req.StackPodSpec)
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, title, description, category, req.Points, req.MinimumPoints, flag, req.IsActive, req.StackEnabled, req.StackTargetPort, stackPodSpec)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -586,6 +616,29 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 
 	h.invalidateLeaderboardCache()
 	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
+}
+
+func requireNonNullOptionalString(field string, value optionalString) (*string, error) {
+	if !value.Set {
+		return nil, nil
+	}
+	if value.Value == nil {
+		return nil, service.NewValidationError(service.FieldError{Field: field, Reason: "invalid"})
+	}
+	return value.Value, nil
+}
+
+func optionalStringToPointer(value optionalString) *string {
+	if !value.Set {
+		return nil
+	}
+
+	if value.Value == nil {
+		empty := ""
+		return &empty
+	}
+
+	return value.Value
 }
 
 func (h *Handler) AdminGetChallenge(ctx *gin.Context) {
