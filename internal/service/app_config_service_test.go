@@ -201,6 +201,13 @@ func TestAppConfigServiceUpdateValidation(t *testing.T) {
 	}); err == nil {
 		t.Fatal("expected validation error for header_description length")
 	}
+
+	cfg := AppConfig{}
+	if _, err := applyAppConfigUpdates(&cfg, map[string]AppConfigUpdateInput{
+		"bad_key": {Set: true, Value: "x"},
+	}); err == nil {
+		t.Fatal("expected validation error for invalid key")
+	}
 }
 
 func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
@@ -262,6 +269,13 @@ func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 		CTFStartAt: AppConfigUpdateInput{Set: true, Value: whitespace},
 	}); err == nil {
 		t.Fatalf("expected whitespace ctf_start_at to be invalid")
+	}
+
+	empty := ""
+	if _, _, _, err := svc.Update(context.Background(), AppConfigUpdate{
+		CTFStartAt: AppConfigUpdateInput{Set: true, Value: empty},
+	}); err == nil {
+		t.Fatalf("expected empty ctf_start_at to be invalid")
 	}
 
 	longCTFValue := strings.Repeat("e", 65)

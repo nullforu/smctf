@@ -637,6 +637,10 @@ func TestCTFServiceStackFields(t *testing.T) {
 		}
 	}
 
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, nil, &podSpec); err == nil {
+		t.Fatalf("expected validation error for missing stack_target_port when stack enabled")
+	}
+
 	outOfRangePort := 70000
 	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &outOfRangePort, &podSpec); err == nil {
 		t.Fatalf("expected validation error for out-of-range port")

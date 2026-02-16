@@ -190,6 +190,16 @@ func TestHandlerAdminConfigValidation(t *testing.T) {
 	}
 }
 
+func TestHandlerAdminConfigBindError(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", "{")
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
 func TestHandlerAdminConfigFieldMatrix(t *testing.T) {
 	env := setupHandlerTest(t)
 
@@ -643,6 +653,13 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 		t.Fatalf("expected 400 for null stack_pod_spec with stack_enabled, got %d", rec.Code)
 	}
 
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", "{")
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid JSON, got %d", rec.Code)
+	}
+
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"stack_enabled": false, "stack_pod_spec": "   "})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 	env.handler.UpdateChallenge(ctx)
@@ -1041,6 +1058,17 @@ func TestAdminGetChallengeIncludesStackSpec(t *testing.T) {
 
 	if resp["stack_pod_spec"] == nil {
 		t.Fatalf("expected stack_pod_spec in response")
+	}
+}
+
+func TestAdminGetChallengeInvalidID(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/challenges/bad", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "bad"}}
+	env.handler.AdminGetChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
 
