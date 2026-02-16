@@ -90,14 +90,6 @@ func (r *SubmissionRepo) correctSubmissionCountForChallenge(
 		Count(ctx)
 }
 
-func (r *SubmissionRepo) baseCorrectSubmissionsQuery(db bun.IDB) *bun.SelectQuery {
-	return db.NewSelect().
-		TableExpr("submissions AS s").
-		Join("JOIN users AS u ON u.id = s.user_id").
-		Where("s.correct = true").
-		Where("u.role <> ?", "blocked")
-}
-
 func (r *SubmissionRepo) solvedChallengesQuery(db bun.IDB) *bun.SelectQuery {
 	return db.NewSelect().
 		TableExpr("submissions AS s").
