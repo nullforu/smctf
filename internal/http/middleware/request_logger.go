@@ -23,7 +23,7 @@ var bodyLogMethods = map[string]struct{}{
 
 func RequestLogger(cfg config.LoggingConfig, logger *logging.Logger) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		start := time.Now()
+		start := time.Now().UTC()
 
 		_, bodyStr := readRequestBody(ctx, cfg.MaxBodyBytes)
 

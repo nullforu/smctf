@@ -41,7 +41,7 @@ func windowStartFromMinutes(windowMinutes int) *time.Time {
 	if windowMinutes <= 0 {
 		return nil
 	}
-	start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
+	start := time.Now().UTC().Add(-time.Duration(windowMinutes) * time.Minute)
 	return &start
 }
 

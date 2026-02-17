@@ -72,7 +72,7 @@ func newRotatingFileWriter(dir, prefix string) (*rotatingFileWriter, error) {
 		prefix: prefix,
 	}
 
-	if err := w.rotate(time.Now()); err != nil {
+	if err := w.rotate(time.Now().UTC()); err != nil {
 		return nil, err
 	}
 
@@ -83,7 +83,7 @@ func (w *rotatingFileWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	now := time.Now()
+	now := time.Now().UTC()
 	if !sameHour(now, w.currentHour) {
 		if err := w.rotate(now); err != nil {
 			return 0, err
