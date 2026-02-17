@@ -1531,13 +1531,7 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 		t.Fatalf("leaderboard status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/timeline?window=bad", nil)
-	env.handler.Timeline(ctx)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("timeline invalid status %d: %s", rec.Code, rec.Body.String())
-	}
-
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/timeline?window=5", nil)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/timeline", nil)
 	env.handler.Timeline(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("timeline status %d: %s", rec.Code, rec.Body.String())
@@ -1644,7 +1638,6 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/timeline/teams", nil)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/timeline/teams?window=60", nil)
 	env.handler.TeamTimeline(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("team timeline status %d: %s", rec.Code, rec.Body.String())
@@ -1668,7 +1661,7 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 
 func TestHandlerTimelineUsesCache(t *testing.T) {
 	env := setupHandlerTest(t)
-	cacheKey := "timeline:0"
+	cacheKey := "timeline:users"
 	payload := []byte(`{"submissions":[]}`)
 
 	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {
@@ -1688,7 +1681,7 @@ func TestHandlerTimelineUsesCache(t *testing.T) {
 
 func TestHandlerTeamTimelineUsesCache(t *testing.T) {
 	env := setupHandlerTest(t)
-	cacheKey := "timeline:teams:0"
+	cacheKey := "timeline:teams"
 	payload := []byte(`{"submissions":[]}`)
 
 	if err := env.redis.Set(context.Background(), cacheKey, payload, time.Minute).Err(); err != nil {

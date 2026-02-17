@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -37,14 +36,6 @@ func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, 
 	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, teams: teams, stacks: stacks, redis: redis}
 }
 
-func windowStartFromMinutes(windowMinutes int) *time.Time {
-	if windowMinutes <= 0 {
-		return nil
-	}
-	start := time.Now().UTC().Add(-time.Duration(windowMinutes) * time.Minute)
-	return &start
-}
-
 func (h *Handler) respondFromCache(ctx *gin.Context, cacheKey string) bool {
 	cached, err := h.redis.Get(ctx.Request.Context(), cacheKey).Result()
 	if err != nil {
@@ -67,37 +58,15 @@ func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response any, tt
 func (h *Handler) invalidateTimelineCache() {
 	go func() {
 		bgCtx := context.Background()
-		keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
-		if err != nil || len(keys) == 0 {
-			return
-		}
-		_ = h.redis.Del(bgCtx, keys...).Err()
+		_ = h.redis.Del(bgCtx, "timeline:users", "timeline:teams").Err()
 	}()
 }
 
 func (h *Handler) invalidateLeaderboardCache() {
 	go func() {
 		bgCtx := context.Background()
-		keys, err := h.redis.Keys(bgCtx, "leaderboard:*").Result()
-		if err != nil || len(keys) == 0 {
-			return
-		}
-		_ = h.redis.Del(bgCtx, keys...).Err()
+		_ = h.redis.Del(bgCtx, "leaderboard:users", "leaderboard:teams").Err()
 	}()
-}
-
-func parseWindowQuery(ctx *gin.Context) (int, error) {
-	value := strings.TrimSpace(ctx.Query("window"))
-	if value == "" {
-		return 0, nil
-	}
-
-	window, err := strconv.Atoi(value)
-	if err != nil || window <= 0 {
-		return 0, errors.New("invalid window")
-	}
-
-	return window, nil
 }
 
 func parseIDParam(ctx *gin.Context, name string) (int64, bool) {
@@ -1224,18 +1193,6 @@ func aggregateTeamTimeline(raw []models.TeamTimelineRow) []models.TeamTimelineSu
 	return result
 }
 
-func parseWindowOrError(ctx *gin.Context) (int, bool) {
-	windowMinutes, err := parseWindowQuery(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "window", Reason: "invalid"}},
-		})
-		return 0, false
-	}
-	return windowMinutes, true
-}
-
 func (h *Handler) Leaderboard(ctx *gin.Context) {
 	cacheKey := "leaderboard:users"
 	if h.respondFromCache(ctx, cacheKey) {
@@ -1269,20 +1226,13 @@ func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
 }
 
 func (h *Handler) Timeline(ctx *gin.Context) {
-	windowMinutes, ok := parseWindowOrError(ctx)
-	if !ok {
-		return
-	}
-
-	cacheKey := fmt.Sprintf("timeline:%d", windowMinutes)
+	cacheKey := "timeline:users"
 
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	windowStart := windowStartFromMinutes(windowMinutes)
-
-	raw, err := h.score.TimelineSubmissions(ctx.Request.Context(), windowStart)
+	raw, err := h.score.TimelineSubmissions(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1297,20 +1247,13 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 }
 
 func (h *Handler) TeamTimeline(ctx *gin.Context) {
-	windowMinutes, ok := parseWindowOrError(ctx)
-	if !ok {
-		return
-	}
-
-	cacheKey := fmt.Sprintf("timeline:teams:%d", windowMinutes)
+	cacheKey := "timeline:teams"
 
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	windowStart := windowStartFromMinutes(windowMinutes)
-
-	raw, err := h.score.TimelineTeamSubmissions(ctx.Request.Context(), windowStart)
+	raw, err := h.score.TimelineTeamSubmissions(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
