@@ -423,9 +423,8 @@ func (s *CTFService) RequestChallengeFileUpload(ctx context.Context, id int64, f
 	}
 
 	if previousKey != nil && *previousKey != "" && s.fileStore != nil {
-		if err := s.fileStore.Delete(ctx, *previousKey); err != nil {
-			return nil, storage.PresignedPost{}, fmt.Errorf("ctf.RequestChallengeFileUpload delete: %w", err)
-		}
+		// Best-effort cleanup. Keep the new file active even if cleanup fails. See https://github.com/nullforu/smctf/pull/38 for more details.
+		_ = s.fileStore.Delete(ctx, *previousKey)
 	}
 
 	return challenge, upload, nil
