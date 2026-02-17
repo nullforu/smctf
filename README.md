@@ -12,8 +12,8 @@
 <br />
 
 <div align="center">
-    <img src="./assets/1_challenges_light.jpeg" alt="SMCTF Preview" width="45%" />
-    <img src="./assets/3_scoreboard_timeline_detail_dark.jpeg" alt="SMCTF Preview" width="45%" />
+    <img src="https://github.com/nullforu/smctf-docs/blob/main/src/content/docs/smctf/images/10-theme/image-1.png?raw=true" alt="SMCTF Preview" width="45%" />
+    <img src="https://github.com/nullforu/smctf-docs/blob/main/src/content/docs/smctf/images/10-theme/image-3.png?raw=true" alt="SMCTF Preview" width="45%" />
 </div>
 
 <br />
@@ -22,11 +22,11 @@
     <a href="https://ctf.null4u.cloud/">
         Docs
     </a>
-    &nbsp; | <strong>Backend</strong> | &nbsp;
+    | <strong>Backend</strong> |
     <a href="https://github.com/nullforu/smctfe">
         Frontend
     </a>
-    &nbsp; | &nbsp;
+    |
     <a href="https://github.com/nullforu/container-provisioner-k8s">
         Container Provisioner
     </a>
@@ -89,7 +89,7 @@ Also, the following features are planned to be implemented. see [issues](https:/
 
 ## Installation and Usage
 
-See [`/docs`](./docs) for more details. This README only provides a quick start guide.
+See [docs](https://ctf.null4u.cloud) for more details. This README only provides a quick start guide.
 
 > [!NOTE]
 >
