@@ -20,3 +20,18 @@ type Stack struct {
 	CreatedAt     time.Time  `bun:"created_at,nullzero,notnull,default:current_timestamp"`
 	UpdatedAt     time.Time  `bun:"updated_at,nullzero,notnull,default:current_timestamp"`
 }
+
+type AdminStackSummary struct {
+	StackID           string     `bun:"stack_id" json:"stack_id"`
+	TTLExpiresAt      *time.Time `bun:"ttl_expires_at" json:"ttl_expires_at,omitempty"`
+	CreatedAt         time.Time  `bun:"created_at" json:"created_at"`
+	UpdatedAt         time.Time  `bun:"updated_at" json:"updated_at"`
+	UserID            int64      `bun:"user_id" json:"user_id"`
+	Username          string     `bun:"username" json:"username"`
+	Email             string     `bun:"email" json:"email"`
+	TeamID            int64      `bun:"team_id" json:"team_id"`
+	TeamName          string     `bun:"team_name" json:"team_name"`
+	ChallengeID       int64      `bun:"challenge_id" json:"challenge_id"`
+	ChallengeTitle    string     `bun:"challenge_title" json:"challenge_title"`
+	ChallengeCategory string     `bun:"challenge_category" json:"challenge_category"`
+}

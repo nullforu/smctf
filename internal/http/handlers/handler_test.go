@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -866,7 +868,7 @@ func TestStackHandlersCRUD(t *testing.T) {
 	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
 	challenge := createHandlerStackChallenge(t, env, "stack")
 
-	deleteCalls := 0
+	var deleteCalls atomic.Int32
 	mock := &stack.MockClient{
 		CreateStackFn: func(ctx context.Context, targetPort int, podSpec string) (*stack.StackInfo, error) {
 			return &stack.StackInfo{StackID: "stack-1", Status: "running", TargetPort: targetPort}, nil
@@ -875,7 +877,7 @@ func TestStackHandlersCRUD(t *testing.T) {
 			return &stack.StackStatus{StackID: stackID, Status: "running", TargetPort: 80}, nil
 		},
 		DeleteStackFn: func(ctx context.Context, stackID string) error {
-			deleteCalls++
+			deleteCalls.Add(1)
 			return nil
 		},
 	}
@@ -916,8 +918,8 @@ func TestStackHandlersCRUD(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	if deleteCalls != 1 {
-		t.Fatalf("expected delete call, got %d", deleteCalls)
+	if deleteCalls.Load() != 1 {
+		t.Fatalf("expected delete call, got %d", deleteCalls.Load())
 	}
 }
 
@@ -964,6 +966,204 @@ func TestStackHandlersList(t *testing.T) {
 
 	if len(resp.Stacks) != 2 {
 		t.Fatalf("expected 2 stacks, got %d", len(resp.Stacks))
+	}
+}
+
+func TestAdminStackHandlersList(t *testing.T) {
+	env := setupHandlerTest(t)
+	team := createHandlerTeam(t, env, "Alpha")
+	user := createHandlerUserWithTeam(t, env, "admin@example.com", "uadmin", "pass", "user", team.ID)
+	challenge := createHandlerStackChallenge(t, env, "admin-stack")
+
+	mock := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running", TargetPort: 80}, nil
+		},
+	}
+
+	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	stackModel := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-admin-1",
+		Status:      "running",
+		TargetPort:  80,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks", nil)
+	env.handler.AdminListStacks(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp adminStacksListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if len(resp.Stacks) != 1 {
+		t.Fatalf("expected 1 stack, got %d", len(resp.Stacks))
+	}
+
+	item := resp.Stacks[0]
+	if item.StackID != "stack-admin-1" || item.Username != user.Username || item.TeamName != team.Name || item.ChallengeTitle != challenge.Title {
+		t.Fatalf("unexpected admin stack response: %+v", item)
+	}
+}
+
+func TestAdminStackHandlersListDisabled(t *testing.T) {
+	env := setupHandlerTest(t)
+	env.handler.stacks = nil
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks", nil)
+	env.handler.AdminListStacks(ctx)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", rec.Code)
+	}
+}
+
+func TestAdminStackHandlersDelete(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "admin@example.com", "uadmin-del", "pass", "user")
+	challenge := createHandlerStackChallenge(t, env, "admin-del")
+
+	var deleteCalls atomic.Int32
+	mock := &stack.MockClient{
+		DeleteStackFn: func(ctx context.Context, stackID string) error {
+			deleteCalls.Add(1)
+			return nil
+		},
+	}
+
+	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	stackModel := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-admin-del",
+		Status:      "running",
+		TargetPort:  80,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodDelete, "/api/admin/stacks/stack-admin-del", nil)
+	ctx.Params = gin.Params{{Key: "stack_id", Value: "stack-admin-del"}}
+	env.handler.AdminDeleteStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	if deleteCalls.Load() != 1 {
+		t.Fatalf("expected delete call, got %d", deleteCalls.Load())
+	}
+
+	if _, err := stackRepo.GetByStackID(context.Background(), "stack-admin-del"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("expected stack deleted, got %v", err)
+	}
+}
+
+func TestAdminStackHandlersDeleteMissingStackID(t *testing.T) {
+	env := setupHandlerTest(t)
+	mock := &stack.MockClient{}
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodDelete, "/api/admin/stacks/", nil)
+	env.handler.AdminDeleteStack(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	var resp errorResponse
+	decodeJSON(t, rec, &resp)
+	if resp.Error != service.ErrInvalidInput.Error() {
+		t.Fatalf("expected invalid input, got %s", resp.Error)
+	}
+}
+
+func TestAdminStackHandlersGet(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "u-admin-get@example.com", "uadmin-get", "pass", "user")
+	challenge := createHandlerStackChallenge(t, env, "admin-get")
+
+	mock := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running", TargetPort: 80}, nil
+		},
+	}
+
+	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	stackModel := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-admin-get",
+		Status:      "running",
+		TargetPort:  80,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/stack-admin-get", nil)
+	ctx.Params = gin.Params{{Key: "stack_id", Value: "stack-admin-get"}}
+	env.handler.AdminGetStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp stackResponse
+	decodeJSON(t, rec, &resp)
+	if resp.StackID != "stack-admin-get" || resp.ChallengeID != challenge.ID {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
+func TestAdminStackHandlersGetMissingStackID(t *testing.T) {
+	env := setupHandlerTest(t)
+	mock := &stack.MockClient{}
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/", nil)
+	env.handler.AdminGetStack(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	var resp errorResponse
+	decodeJSON(t, rec, &resp)
+	if resp.Error != service.ErrInvalidInput.Error() {
+		t.Fatalf("expected invalid input, got %s", resp.Error)
+	}
+}
+
+func TestAdminStackHandlersGetNotFound(t *testing.T) {
+	env := setupHandlerTest(t)
+	mock := &stack.MockClient{}
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/missing", nil)
+	ctx.Params = gin.Params{{Key: "stack_id", Value: "missing"}}
+	env.handler.AdminGetStack(ctx)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
 	}
 }
 

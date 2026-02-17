@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"smctf/internal/config"
+	"smctf/internal/stack"
 	"smctf/internal/utils"
 )
 
@@ -542,5 +545,109 @@ func TestAdminUnblockUser(t *testing.T) {
 	rec = doRequest(t, env.router, http.MethodPut, "/api/me", map[string]string{"username": "newuser"}, authHeader(access))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected update ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminStackManagement(t *testing.T) {
+	stub := newProvisionerStub()
+	server := httptest.NewServer(http.HandlerFunc(stub.handler))
+	defer server.Close()
+
+	cfg := testCfg
+	cfg.Stack = config.StackConfig{
+		Enabled:            true,
+		MaxPerUser:         3,
+		ProvisionerBaseURL: server.URL,
+		ProvisionerAPIKey:  "test-key",
+		ProvisionerTimeout: 2 * time.Second,
+		CreateWindow:       time.Minute,
+		CreateMax:          1,
+	}
+
+	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+	env := setupStackTest(t, cfg, client)
+
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
+	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	challenge := createStackChallenge(t, env, "StackChal")
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(userAccess))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var created struct {
+		StackID string `json:"stack_id"`
+	}
+	decodeJSON(t, rec, &created)
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin list stacks status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var listResp struct {
+		Stacks []struct {
+			StackID string `json:"stack_id"`
+		} `json:"stacks"`
+	}
+	decodeJSON(t, rec, &listResp)
+	if len(listResp.Stacks) != 1 || listResp.Stacks[0].StackID != created.StackID {
+		t.Fatalf("unexpected admin stacks response: %+v", listResp.Stacks)
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks/"+created.StackID, nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin get stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var detailResp struct {
+		StackID string `json:"stack_id"`
+	}
+	decodeJSON(t, rec, &detailResp)
+	if detailResp.StackID != created.StackID {
+		t.Fatalf("unexpected admin stack detail: %+v", detailResp)
+	}
+
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/stacks/"+created.StackID, nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin delete stack status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminStackEndpointsAuth(t *testing.T) {
+	env := setupTest(t, testCfg)
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/admin/stacks", nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("admin stacks unauth status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks/stack-missing", nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("admin stack detail unauth status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/stacks/stack-missing", nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("admin stack delete unauth status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	accessUser, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks", nil, authHeader(accessUser))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("admin stacks forbidden status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks/stack-missing", nil, authHeader(accessUser))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("admin stack detail forbidden status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/stacks/stack-missing", nil, authHeader(accessUser))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("admin stack delete forbidden status %d: %s", rec.Code, rec.Body.String())
 	}
 }

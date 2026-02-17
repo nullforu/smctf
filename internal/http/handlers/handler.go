@@ -534,6 +534,67 @@ func (h *Handler) ListStacks(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, stacksListResponse{CTFState: string(state), Stacks: resp})
 }
 
+func (h *Handler) AdminListStacks(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	stacks, err := h.stacks.ListAdminStacks(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	resp := make([]adminStackResponse, 0, len(stacks))
+	for i := range stacks {
+		resp = append(resp, newAdminStackResponse(stacks[i]))
+	}
+
+	ctx.JSON(http.StatusOK, adminStacksListResponse{Stacks: resp})
+}
+
+func (h *Handler) AdminDeleteStack(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	stackID := strings.TrimSpace(ctx.Param("stack_id"))
+	if stackID == "" {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "stack_id", Reason: "required"}))
+		return
+	}
+
+	if err := h.stacks.DeleteStackByStackID(ctx.Request.Context(), stackID); err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"deleted": true, "stack_id": stackID})
+}
+
+func (h *Handler) AdminGetStack(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	stackID := strings.TrimSpace(ctx.Param("stack_id"))
+	if stackID == "" {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "stack_id", Reason: "required"}))
+		return
+	}
+
+	stackModel, err := h.stacks.GetStackByStackID(ctx.Request.Context(), stackID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newStackResponse(stackModel, ""))
+}
+
 func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	var req createChallengeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
