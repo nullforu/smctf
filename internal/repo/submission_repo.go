@@ -16,6 +16,18 @@ func NewSubmissionRepo(db *bun.DB) *SubmissionRepo {
 	return &SubmissionRepo{db: db}
 }
 
+func (r *SubmissionRepo) ListAll(ctx context.Context) ([]models.Submission, error) {
+	rows := make([]models.Submission, 0)
+	if err := r.db.NewSelect().
+		Model(&rows).
+		OrderExpr("submitted_at DESC, id DESC").
+		Scan(ctx); err != nil {
+		return nil, wrapError("submissionRepo.ListAll", err)
+	}
+
+	return rows, nil
+}
+
 func (r *SubmissionRepo) Create(ctx context.Context, sub *models.Submission) error {
 	if _, err := r.db.NewInsert().Model(sub).Exec(ctx); err != nil {
 		return wrapError("submissionRepo.Create", err)

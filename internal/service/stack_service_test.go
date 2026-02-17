@@ -426,3 +426,32 @@ func TestStackServiceGetStackByStackIDDisabled(t *testing.T) {
 		t.Fatalf("expected ErrStackDisabled, got %v", err)
 	}
 }
+
+func TestStackServiceListAllStacks(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUser(t, env, "stack-all@example.com", "stackall", "pass", "user")
+	challenge := createStackChallenge(t, env, "stack-all")
+
+	stackSvc, stackRepo := newStackService(env, &stack.MockClient{}, config.StackConfig{Enabled: false})
+
+	stackModel := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-all",
+		Status:      "running",
+		TargetPort:  80,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	stacks, err := stackSvc.ListAllStacks(context.Background())
+	if err != nil {
+		t.Fatalf("ListAllStacks: %v", err)
+	}
+	if len(stacks) != 1 || stacks[0].StackID != "stack-all" {
+		t.Fatalf("unexpected stacks: %+v", stacks)
+	}
+}

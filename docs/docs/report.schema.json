@@ -1,0 +1,452 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Admin Report Schema",
+    "type": "object",
+    "properties": {
+        "challenges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "number"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "points": {
+                        "type": "number"
+                    },
+                    "initial_points": {
+                        "type": "number"
+                    },
+                    "minimum_points": {
+                        "type": "number"
+                    },
+                    "solve_count": {
+                        "type": "number"
+                    },
+                    "is_active": {
+                        "type": "boolean"
+                    },
+                    "stack_enabled": {
+                        "type": "boolean"
+                    },
+                    "stack_target_port": {
+                        "type": "number"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "file_key": {
+                        "type": "string"
+                    },
+                    "file_name": {
+                        "type": "string"
+                    },
+                    "file_uploaded_at": {
+                        "type": "string"
+                    },
+                    "stack_pod_spec": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "title",
+                    "description",
+                    "category",
+                    "points",
+                    "initial_points",
+                    "minimum_points",
+                    "solve_count",
+                    "is_active",
+                    "stack_enabled",
+                    "stack_target_port",
+                    "created_at"
+                ]
+            }
+        },
+        "teams": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "number"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "member_count": {
+                        "type": "number"
+                    },
+                    "total_score": {
+                        "type": "number"
+                    }
+                },
+                "required": ["id", "name", "created_at", "member_count", "total_score"]
+            }
+        },
+        "users": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "number"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "team_id": {
+                        "type": "number"
+                    },
+                    "team_name": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "required": ["id", "email", "username", "role", "team_id", "team_name", "created_at", "updated_at"]
+            }
+        },
+        "stacks": {
+            "type": "array",
+            "items": {}
+        },
+        "registration_keys": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "number"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "number"
+                    },
+                    "created_by_username": {
+                        "type": "string"
+                    },
+                    "team_id": {
+                        "type": "number"
+                    },
+                    "team_name": {
+                        "type": "string"
+                    },
+                    "max_uses": {
+                        "type": "number"
+                    },
+                    "used_count": {
+                        "type": "number"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "last_used_at": {
+                        "type": "string"
+                    },
+                    "uses": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "used_by": {
+                                    "type": "number"
+                                },
+                                "used_by_username": {
+                                    "type": "string"
+                                },
+                                "used_by_ip": {
+                                    "type": "string"
+                                },
+                                "used_at": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["used_by", "used_by_username", "used_by_ip", "used_at"]
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "code",
+                    "created_by",
+                    "created_by_username",
+                    "team_id",
+                    "team_name",
+                    "max_uses",
+                    "used_count",
+                    "created_at"
+                ]
+            }
+        },
+        "submissions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "number"
+                    },
+                    "user_id": {
+                        "type": "number"
+                    },
+                    "challenge_id": {
+                        "type": "number"
+                    },
+                    "correct": {
+                        "type": "boolean"
+                    },
+                    "is_first_blood": {
+                        "type": "boolean"
+                    },
+                    "submitted_at": {
+                        "type": "string"
+                    }
+                },
+                "required": ["id", "user_id", "challenge_id", "correct", "is_first_blood", "submitted_at"]
+            }
+        },
+        "app_config": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Key": {
+                        "type": "string"
+                    },
+                    "Value": {
+                        "type": "string"
+                    },
+                    "UpdatedAt": {
+                        "type": "string"
+                    }
+                },
+                "required": ["Key", "Value", "UpdatedAt"]
+            }
+        },
+        "timeline": {
+            "type": "object",
+            "properties": {
+                "submissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "timestamp": {
+                                "type": "string"
+                            },
+                            "user_id": {
+                                "type": "number"
+                            },
+                            "username": {
+                                "type": "string"
+                            },
+                            "points": {
+                                "type": "number"
+                            },
+                            "challenge_count": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["timestamp", "user_id", "username", "points", "challenge_count"]
+                    }
+                }
+            },
+            "required": ["submissions"]
+        },
+        "team_timeline": {
+            "type": "object",
+            "properties": {
+                "submissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "timestamp": {
+                                "type": "string"
+                            },
+                            "team_id": {
+                                "type": "number"
+                            },
+                            "team_name": {
+                                "type": "string"
+                            },
+                            "points": {
+                                "type": "number"
+                            },
+                            "challenge_count": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["timestamp", "team_id", "team_name", "points", "challenge_count"]
+                    }
+                }
+            },
+            "required": ["submissions"]
+        },
+        "leaderboard": {
+            "type": "object",
+            "properties": {
+                "challenges": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "number"
+                            },
+                            "title": {
+                                "type": "string"
+                            },
+                            "category": {
+                                "type": "string"
+                            },
+                            "points": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["id", "title", "category", "points"]
+                    }
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "user_id": {
+                                "type": "number"
+                            },
+                            "username": {
+                                "type": "string"
+                            },
+                            "score": {
+                                "type": "number"
+                            },
+                            "solves": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "challenge_id": {
+                                            "type": "number"
+                                        },
+                                        "solved_at": {
+                                            "type": "string"
+                                        },
+                                        "is_first_blood": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": ["challenge_id", "solved_at", "is_first_blood"]
+                                }
+                            }
+                        },
+                        "required": ["user_id", "username", "score", "solves"]
+                    }
+                }
+            },
+            "required": ["challenges", "entries"]
+        },
+        "team_leaderboard": {
+            "type": "object",
+            "properties": {
+                "challenges": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "number"
+                            },
+                            "title": {
+                                "type": "string"
+                            },
+                            "category": {
+                                "type": "string"
+                            },
+                            "points": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["id", "title", "category", "points"]
+                    }
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "team_id": {
+                                "type": "number"
+                            },
+                            "team_name": {
+                                "type": "string"
+                            },
+                            "score": {
+                                "type": "number"
+                            },
+                            "solves": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "challenge_id": {
+                                            "type": "number"
+                                        },
+                                        "solved_at": {
+                                            "type": "string"
+                                        },
+                                        "is_first_blood": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": ["challenge_id", "solved_at", "is_first_blood"]
+                                }
+                            }
+                        },
+                        "required": ["team_id", "team_name", "score", "solves"]
+                    }
+                }
+            },
+            "required": ["challenges", "entries"]
+        }
+    },
+    "required": [
+        "challenges",
+        "teams",
+        "users",
+        "stacks",
+        "registration_keys",
+        "submissions",
+        "app_config",
+        "timeline",
+        "team_timeline",
+        "leaderboard",
+        "team_leaderboard"
+    ]
+}

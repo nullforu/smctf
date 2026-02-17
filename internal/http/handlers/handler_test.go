@@ -1167,6 +1167,93 @@ func TestAdminStackHandlersGetNotFound(t *testing.T) {
 	}
 }
 
+func TestAdminReport(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	user := createHandlerUser(t, env, "report@example.com", "reporter", "pass", "user")
+	challenge := createHandlerStackChallenge(t, env, "report-challenge")
+
+	stackRepo := repo.NewStackRepo(env.db)
+	stackModel := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-report",
+		Status:      "running",
+		TargetPort:  80,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	mock := &stack.MockClient{}
+	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPerUser: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
+	env.handler.stacks = stackSvc
+
+	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC())
+
+	if _, err := env.appConfigRepo.Upsert(context.Background(), "title", "Report CTF"); err != nil {
+		t.Fatalf("upsert app config: %v", err)
+	}
+
+	key := createHandlerRegistrationKey(t, env, "ABCDEFGHJKLMNPQ2", user.ID)
+	use := &models.RegistrationKeyUse{
+		RegistrationKeyID: key.ID,
+		UsedBy:            user.ID,
+		UsedByIP:          "127.0.0.1",
+		UsedAt:            time.Now().UTC(),
+	}
+	if _, err := env.db.NewInsert().Model(use).Exec(context.Background()); err != nil {
+		t.Fatalf("create registration key use: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/report", nil)
+	env.handler.AdminReport(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+
+	challenges, ok := resp["challenges"].([]any)
+	if !ok || len(challenges) == 0 {
+		t.Fatalf("expected challenges in report")
+	}
+	challengeMap, ok := challenges[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected challenge object")
+	}
+	if _, exists := challengeMap["flag_hash"]; exists {
+		t.Fatalf("expected flag_hash to be omitted")
+	}
+
+	users, ok := resp["users"].([]any)
+	if !ok || len(users) == 0 {
+		t.Fatalf("expected users in report")
+	}
+	userMap, ok := users[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected user object")
+	}
+	if _, exists := userMap["password_hash"]; exists {
+		t.Fatalf("expected password_hash to be omitted")
+	}
+
+	submissions, ok := resp["submissions"].([]any)
+	if !ok || len(submissions) == 0 {
+		t.Fatalf("expected submissions in report")
+	}
+	submissionMap, ok := submissions[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected submission object")
+	}
+	if _, exists := submissionMap["provided"]; exists {
+		t.Fatalf("expected provided to be omitted")
+	}
+}
+
 func TestStackHandlersNotStarted(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", "user")

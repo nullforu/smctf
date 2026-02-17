@@ -72,6 +72,10 @@ func (s *StackService) ListAdminStacks(ctx context.Context) ([]models.AdminStack
 	return s.stackRepo.ListAdmin(ctx)
 }
 
+func (s *StackService) ListAllStacks(ctx context.Context) ([]models.Stack, error) {
+	return s.stackRepo.ListAll(ctx)
+}
+
 func (s *StackService) DeleteStackByStackID(ctx context.Context, stackID string) error {
 	if err := s.ensureEnabled(); err != nil {
 		return err

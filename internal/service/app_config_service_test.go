@@ -210,6 +210,25 @@ func TestAppConfigServiceUpdateValidation(t *testing.T) {
 	}
 }
 
+func TestAppConfigServiceGetAllRows(t *testing.T) {
+	env := setupServiceTest(t)
+	appRepo := repo.NewAppConfigRepo(env.db)
+	svc := NewAppConfigService(appRepo, env.redis, env.cfg.Cache.AppConfigTTL)
+
+	if _, err := appRepo.Upsert(context.Background(), "title", "Report"); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	rows, err := svc.GetAllRows(context.Background())
+	if err != nil {
+		t.Fatalf("GetAllRows: %v", err)
+	}
+
+	if len(rows) == 0 {
+		t.Fatalf("expected app config rows")
+	}
+}
+
 func TestAppConfigServiceUpdateCTFTimes(t *testing.T) {
 	env := setupServiceTest(t)
 	appRepo := repo.NewAppConfigRepo(env.db)

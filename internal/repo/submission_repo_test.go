@@ -144,6 +144,27 @@ func TestSubmissionRepoSolvedChallengesBlockedUser(t *testing.T) {
 	}
 }
 
+func TestSubmissionRepoListAll(t *testing.T) {
+	env := setupRepoTest(t)
+
+	user := createUser(t, env, "sub@example.com", "sub", "pass", "user")
+	challenge := createChallenge(t, env, "Sub", 100, "flag{sub}", true)
+
+	createSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC().Add(-time.Minute))
+	createSubmission(t, env, user.ID, challenge.ID, false, time.Now().UTC())
+
+	rows, err := env.submissionRepo.ListAll(context.Background())
+	if err != nil {
+		t.Fatalf("ListAll: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 submissions, got %d", len(rows))
+	}
+	if rows[0].SubmittedAt.Before(rows[1].SubmittedAt) {
+		t.Fatalf("expected newest submission first")
+	}
+}
+
 func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Alpha")

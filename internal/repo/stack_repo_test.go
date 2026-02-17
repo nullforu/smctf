@@ -108,6 +108,30 @@ func TestStackRepoListByUserOrdering(t *testing.T) {
 	}
 }
 
+func TestStackRepoListAll(t *testing.T) {
+	env := setupRepoTest(t)
+
+	user := createUser(t, env, "all@example.com", "all", "pass", "user")
+	challenge1 := createChallenge(t, env, "ChAll1", 100, "flag{all1}", true)
+	challenge2 := createChallenge(t, env, "ChAll2", 100, "flag{all2}", true)
+
+	createStack(t, env, user.ID, challenge1.ID, "stack-all-1", time.Now().UTC().Add(-time.Minute))
+	createStack(t, env, user.ID, challenge2.ID, "stack-all-2", time.Now().UTC())
+
+	stacks, err := env.stackRepo.ListAll(context.Background())
+	if err != nil {
+		t.Fatalf("ListAll: %v", err)
+	}
+
+	if len(stacks) != 2 {
+		t.Fatalf("expected 2 stacks, got %d", len(stacks))
+	}
+
+	if stacks[0].StackID != "stack-all-2" {
+		t.Fatalf("expected newest stack first, got %s", stacks[0].StackID)
+	}
+}
+
 func TestStackRepoListAdmin(t *testing.T) {
 	env := setupRepoTest(t)
 

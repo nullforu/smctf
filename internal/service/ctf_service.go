@@ -523,6 +523,15 @@ func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]mode
 	return rows, nil
 }
 
+func (s *CTFService) ListAllSubmissions(ctx context.Context) ([]models.Submission, error) {
+	rows, err := s.submissionRepo.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ctf.ListAllSubmissions: %w", err)
+	}
+
+	return rows, nil
+}
+
 func (s *CTFService) applyDynamicPoints(ctx context.Context, challenges []*models.Challenge) error {
 	pointsMap, err := s.challengeRepo.DynamicPoints(ctx)
 	if err != nil {

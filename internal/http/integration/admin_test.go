@@ -651,3 +651,80 @@ func TestAdminStackEndpointsAuth(t *testing.T) {
 		t.Fatalf("admin stack delete forbidden status %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestAdminReportAuth(t *testing.T) {
+	env := setupTest(t, testCfg)
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/admin/report", nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("admin report unauth status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	accessUser, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/report", nil, authHeader(accessUser))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("admin report forbidden status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminReportSuccess(t *testing.T) {
+	stub := newProvisionerStub()
+	server := httptest.NewServer(http.HandlerFunc(stub.handler))
+	defer server.Close()
+
+	cfg := testCfg
+	cfg.Stack = config.StackConfig{
+		Enabled:            true,
+		MaxPerUser:         3,
+		ProvisionerBaseURL: server.URL,
+		ProvisionerAPIKey:  "test-key",
+		ProvisionerTimeout: 2 * time.Second,
+		CreateWindow:       time.Minute,
+		CreateMax:          1,
+	}
+
+	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+	env := setupStackTest(t, cfg, client)
+
+	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
+	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	challenge := createStackChallenge(t, env, "StackChal")
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(userAccess))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{stack}"}, authHeader(userAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit flag status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/report", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin report status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if _, ok := resp["challenges"]; !ok {
+		t.Fatalf("expected challenges in report")
+	}
+
+	if _, ok := resp["users"]; !ok {
+		t.Fatalf("expected users in report")
+	}
+
+	if _, ok := resp["stacks"]; !ok {
+		t.Fatalf("expected stacks in report")
+	}
+
+	if _, ok := resp["leaderboard"]; !ok {
+		t.Fatalf("expected leaderboard in report")
+	}
+
+	if _, ok := resp["timeline"]; !ok {
+		t.Fatalf("expected timeline in report")
+	}
+}

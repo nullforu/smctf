@@ -29,6 +29,18 @@ func (r *StackRepo) ListByUser(ctx context.Context, userID int64) ([]models.Stac
 	return stacks, nil
 }
 
+func (r *StackRepo) ListAll(ctx context.Context) ([]models.Stack, error) {
+	stacks := make([]models.Stack, 0)
+	if err := r.db.NewSelect().
+		Model(&stacks).
+		Order("created_at DESC").
+		Scan(ctx); err != nil {
+		return nil, wrapError("stackRepo.ListAll", err)
+	}
+
+	return stacks, nil
+}
+
 func (r *StackRepo) ListAdmin(ctx context.Context) ([]models.AdminStackSummary, error) {
 	stacks := make([]models.AdminStackSummary, 0)
 	if err := r.db.NewSelect().

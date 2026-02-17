@@ -66,6 +66,98 @@ Notes:
 
 ---
 
+## Admin Report
+
+`GET /api/admin/report`
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+Response 200
+
+```json
+{
+    "challenges": [
+        {
+            "id": 1,
+            "title": "Challenge",
+            "description": "...",
+            "category": "Web",
+            "points": 100,
+            "initial_points": 100,
+            "minimum_points": 50,
+            "solve_count": 3,
+            "is_active": true,
+            "file_key": null,
+            "file_name": null,
+            "file_uploaded_at": null,
+            "stack_enabled": false,
+            "stack_target_port": 0,
+            "stack_pod_spec": null,
+            "created_at": "2026-02-17T12:00:00Z"
+        }
+    ],
+    "teams": [
+        {
+            "id": 1,
+            "name": "Alpha",
+            "created_at": "2026-02-17T10:00:00Z",
+            "member_count": 2,
+            "total_score": 200
+        }
+    ],
+    "users": [
+        {
+            "id": 1,
+            "email": "user@example.com",
+            "username": "user",
+            "role": "user",
+            "team_id": 1,
+            "team_name": "Alpha",
+            "blocked_reason": null,
+            "blocked_at": null,
+            "created_at": "2026-02-17T10:00:00Z",
+            "updated_at": "2026-02-17T10:00:00Z"
+        }
+    ],
+    "stacks": [],
+    "registration_keys": [],
+    "submissions": [],
+    "app_config": [],
+    "timeline": {
+        "submissions": []
+    },
+    "team_timeline": {
+        "submissions": []
+    },
+    "leaderboard": {
+        "challenges": [],
+        "entries": []
+    },
+    "team_leaderboard": {
+        "challenges": [],
+        "entries": []
+    }
+}
+```
+
+Notes:
+
+- Password hashes are excluded from user records.
+- Challenge flag data is excluded from the report.
+- Submission provided flag data are excluded from the report.
+- See [report.schema.json](./report.schema.json) for the full schema. (there may be slight differences from the actual response)
+
+Errors:
+
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+
+---
+
 ## Create Registration Keys
 
 `POST /api/admin/registration-keys`

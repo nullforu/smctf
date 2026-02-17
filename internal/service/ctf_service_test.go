@@ -338,6 +338,26 @@ func TestCTFServiceSolvedChallengesEmpty(t *testing.T) {
 	}
 }
 
+func TestCTFServiceListAllSubmissions(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUser(t, env, "sub-all@example.com", "suball", "pass", "user")
+	challenge := createChallenge(t, env, "SubAll", 100, "flag{sub}", true)
+
+	_ = createSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC().Add(-time.Minute))
+	_ = createSubmission(t, env, user.ID, challenge.ID, false, time.Now().UTC())
+
+	rows, err := env.ctfSvc.ListAllSubmissions(context.Background())
+	if err != nil {
+		t.Fatalf("ListAllSubmissions: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 submissions, got %d", len(rows))
+	}
+	if rows[0].SubmittedAt.Before(rows[1].SubmittedAt) {
+		t.Fatalf("expected newest submission first")
+	}
+}
+
 func TestCTFServiceListChallengesError(t *testing.T) {
 	closedDB := newClosedServiceDB(t)
 	challengeRepo := repo.NewChallengeRepo(closedDB)
