@@ -1227,7 +1227,6 @@ func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
 
 func (h *Handler) Timeline(ctx *gin.Context) {
 	cacheKey := "timeline:users"
-
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
@@ -1248,7 +1247,6 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 
 func (h *Handler) TeamTimeline(ctx *gin.Context) {
 	cacheKey := "timeline:teams"
-
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}

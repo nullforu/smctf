@@ -106,6 +106,66 @@ func TestRequestLoggerSkipsBodyForGET(t *testing.T) {
 	}
 }
 
+func TestRequestLoggerSkipsBodyForSensitivePaths(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	dir := t.TempDir()
+
+	logger, err := logging.New(config.LoggingConfig{
+		Dir:              dir,
+		FilePrefix:       "req",
+		MaxBodyBytes:     1024,
+		WebhookQueueSize: 10,
+		WebhookTimeout:   time.Second,
+		WebhookBatchSize: 1,
+		WebhookBatchWait: time.Millisecond,
+		WebhookMaxChars:  1000,
+	})
+	if err != nil {
+		t.Fatalf("logger init: %v", err)
+	}
+
+	defer func() {
+		_ = logger.Close()
+	}()
+
+	r := gin.New()
+	r.Use(RequestLogger(config.LoggingConfig{MaxBodyBytes: 1024}, logger))
+	r.POST("/api/auth/login", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+	r.POST("/api/challenges/:id/submit", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"password":"secret"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+
+	line := readLogLine(t, dir, "req")
+	if strings.Contains(line, "body=") {
+		t.Fatalf("expected no body in log: %s", line)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/challenges/123/submit", strings.NewReader(`{"flag":"FLAG{1}"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+
+	line = readLogLine(t, dir, "req")
+	if strings.Contains(line, "body=") {
+		t.Fatalf("expected no body in log: %s", line)
+	}
+}
+
 func readLogLine(t *testing.T, dir, prefix string) string {
 	t.Helper()
 

@@ -21,6 +21,13 @@ var bodyLogMethods = map[string]struct{}{
 	http.MethodPatch: {},
 }
 
+var bodyLogSkipPaths = map[string]struct{}{
+	"/api/auth/login":    {},
+	"/api/auth/register": {},
+	"/api/auth/refresh":  {},
+	"/api/auth/logout":   {},
+}
+
 func RequestLogger(cfg config.LoggingConfig, logger *logging.Logger) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		start := time.Now().UTC()
@@ -90,17 +97,53 @@ func readRequestBody(ctx *gin.Context, maxBodyBytes int) ([]byte, string) {
 		return nil, ""
 	}
 
-	bodyBytes, err := io.ReadAll(ctx.Request.Body)
+	if shouldSkipBodyLog(ctx.Request.URL.Path) {
+		return nil, ""
+	}
+
+	if maxBodyBytes <= 0 {
+		return nil, ""
+	}
+
+	limited := io.LimitReader(ctx.Request.Body, int64(maxBodyBytes))
+	bodyBytes, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, ""
 	}
 
-	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	ctx.Request.Body = io.NopCloser(io.MultiReader(bytes.NewReader(bodyBytes), ctx.Request.Body))
 
 	bodyStr := string(bodyBytes)
-	if maxBodyBytes > 0 && len(bodyStr) > maxBodyBytes {
-		bodyStr = bodyStr[:maxBodyBytes] + "...(truncated)"
+	if len(bodyStr) == maxBodyBytes {
+		bodyStr = bodyStr + "...(truncated)"
 	}
 
 	return bodyBytes, bodyStr
+}
+
+func shouldSkipBodyLog(path string) bool {
+	if _, ok := bodyLogSkipPaths[path]; ok {
+		return true
+	}
+
+	return isChallengeSubmitPath(path)
+}
+
+func isChallengeSubmitPath(path string) bool {
+	const (
+		prefix = "/api/challenges/"
+		suffix = "/submit"
+	)
+
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return false
+	}
+
+	rest := strings.TrimPrefix(path, prefix)       // "{id}/submit"
+	idPart := strings.TrimSuffix(rest, suffix)     // "{id}"
+	if idPart == "" || strings.Contains(idPart, "/") {
+		return false
+	}
+
+	return true
 }
