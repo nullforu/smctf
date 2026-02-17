@@ -528,6 +528,96 @@ Errors:
 
 ---
 
+## Stack Management (Admin)
+
+Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+### List All Stacks
+
+`GET /api/admin/stacks`
+
+Response 200
+
+```json
+{
+    "stacks": [
+        {
+            "stack_id": "stack-716b6384dd477b0b",
+            "ttl_expires_at": "2026-02-10T04:02:26.535664Z",
+            "created_at": "2026-02-10T02:02:26.535664Z",
+            "updated_at": "2026-02-10T02:06:33.16031Z",
+            "user_id": 12,
+            "username": "alice",
+            "email": "alice@example.com",
+            "team_id": 2,
+            "team_name": "Red",
+            "challenge_id": 5,
+            "challenge_title": "Web 1",
+            "challenge_category": "Web"
+        }
+    ]
+}
+```
+
+Errors:
+
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 503 `stack feature disabled` or `stack provisioner unavailable`
+
+### Get Stack Detail
+
+`GET /api/admin/stacks/{stack_id}`
+
+Response 200
+
+```json
+{
+    "stack_id": "stack-716b6384dd477b0b",
+    "challenge_id": 5,
+    "status": "running",
+    "node_public_ip": "12.34.56.78",
+    "node_port": 31538,
+    "target_port": 80,
+    "ttl_expires_at": "2026-02-10T04:02:26.535664Z",
+    "created_at": "2026-02-10T02:02:26.535664Z",
+    "updated_at": "2026-02-10T02:06:33.16031Z"
+}
+```
+
+Errors:
+
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `stack not found`
+- 503 `stack feature disabled` or `stack provisioner unavailable`
+
+### Delete Stack
+
+`DELETE /api/admin/stacks/{stack_id}`
+
+Response 200
+
+```json
+{
+    "deleted": true,
+    "stack_id": "stack-716b6384dd477b0b"
+}
+```
+
+Errors:
+
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+- 404 `stack not found`
+- 503 `stack feature disabled` or `stack provisioner unavailable`
+
+---
+
 ## Upload Challenge File
 
 `POST /api/admin/challenges/{id}/file/upload`

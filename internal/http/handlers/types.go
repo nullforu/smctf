@@ -256,6 +256,25 @@ type stacksListResponse struct {
 	Stacks   []stackResponse `json:"stacks,omitempty"`
 }
 
+type adminStackResponse struct {
+	StackID           string     `json:"stack_id"`
+	TTLExpiresAt      *time.Time `json:"ttl_expires_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	UserID            int64      `json:"user_id"`
+	Username          string     `json:"username"`
+	Email             string     `json:"email"`
+	TeamID            int64      `json:"team_id"`
+	TeamName          string     `json:"team_name"`
+	ChallengeID       int64      `json:"challenge_id"`
+	ChallengeTitle    string     `json:"challenge_title"`
+	ChallengeCategory string     `json:"challenge_category"`
+}
+
+type adminStacksListResponse struct {
+	Stacks []adminStackResponse `json:"stacks,omitempty"`
+}
+
 func newStackResponse(stack *models.Stack, ctfState string) stackResponse {
 	return stackResponse{
 		StackID:      stack.StackID,
@@ -269,6 +288,31 @@ func newStackResponse(stack *models.Stack, ctfState string) stackResponse {
 		UpdatedAt:    stack.UpdatedAt.UTC(),
 		CTFState:     ctfState,
 	}
+}
+
+func newAdminStackResponse(stack models.AdminStackSummary) adminStackResponse {
+	return adminStackResponse{
+		StackID:           stack.StackID,
+		TTLExpiresAt:      timePtrUTC(stack.TTLExpiresAt),
+		CreatedAt:         stack.CreatedAt.UTC(),
+		UpdatedAt:         stack.UpdatedAt.UTC(),
+		UserID:            stack.UserID,
+		Username:          stack.Username,
+		Email:             stack.Email,
+		TeamID:            stack.TeamID,
+		TeamName:          stack.TeamName,
+		ChallengeID:       stack.ChallengeID,
+		ChallengeTitle:    stack.ChallengeTitle,
+		ChallengeCategory: stack.ChallengeCategory,
+	}
+}
+
+func timePtrUTC(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	utc := value.UTC()
+	return &utc
 }
 
 func newUserMeResponse(user *models.User) userMeResponse {

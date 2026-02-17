@@ -64,6 +64,56 @@ func (s *StackService) ListUserStacks(ctx context.Context, userID int64) ([]mode
 	return updated, nil
 }
 
+func (s *StackService) ListAdminStacks(ctx context.Context) ([]models.AdminStackSummary, error) {
+	if err := s.ensureEnabled(); err != nil {
+		return nil, err
+	}
+
+	return s.stackRepo.ListAdmin(ctx)
+}
+
+func (s *StackService) DeleteStackByStackID(ctx context.Context, stackID string) error {
+	if err := s.ensureEnabled(); err != nil {
+		return err
+	}
+
+	existing, err := s.stackRepo.GetByStackID(ctx, stackID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return ErrStackNotFound
+		}
+
+		return fmt.Errorf("stack.DeleteStackByStackID lookup: %w", err)
+	}
+
+	if err := s.client.DeleteStack(ctx, existing.StackID); err != nil && !errors.Is(err, stack.ErrNotFound) {
+		return mapProvisionerError(err)
+	}
+
+	if err := s.stackRepo.Delete(ctx, existing); err != nil {
+		return fmt.Errorf("stack.DeleteStackByStackID delete: %w", err)
+	}
+
+	return nil
+}
+
+func (s *StackService) GetStackByStackID(ctx context.Context, stackID string) (*models.Stack, error) {
+	if err := s.ensureEnabled(); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.stackRepo.GetByStackID(ctx, stackID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrStackNotFound
+		}
+
+		return nil, fmt.Errorf("stack.GetStackByStackID lookup: %w", err)
+	}
+
+	return s.refreshStack(ctx, existing)
+}
+
 func (s *StackService) GetOrCreateStack(ctx context.Context, userID, challengeID int64) (*models.Stack, error) {
 	if err := s.ensureEnabled(); err != nil {
 		return nil, err

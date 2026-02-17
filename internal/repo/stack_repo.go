@@ -29,6 +29,33 @@ func (r *StackRepo) ListByUser(ctx context.Context, userID int64) ([]models.Stac
 	return stacks, nil
 }
 
+func (r *StackRepo) ListAdmin(ctx context.Context) ([]models.AdminStackSummary, error) {
+	stacks := make([]models.AdminStackSummary, 0)
+	if err := r.db.NewSelect().
+		TableExpr("stacks AS s").
+		ColumnExpr("s.stack_id AS stack_id").
+		ColumnExpr("s.ttl_expires_at AS ttl_expires_at").
+		ColumnExpr("s.created_at AS created_at").
+		ColumnExpr("s.updated_at AS updated_at").
+		ColumnExpr("s.user_id AS user_id").
+		ColumnExpr("u.username AS username").
+		ColumnExpr("u.email AS email").
+		ColumnExpr("u.team_id AS team_id").
+		ColumnExpr("g.name AS team_name").
+		ColumnExpr("s.challenge_id AS challenge_id").
+		ColumnExpr("c.title AS challenge_title").
+		ColumnExpr("c.category AS challenge_category").
+		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS g ON g.id = u.team_id").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
+		OrderExpr("s.created_at DESC").
+		Scan(ctx, &stacks); err != nil {
+		return nil, wrapError("stackRepo.ListAdmin", err)
+	}
+
+	return stacks, nil
+}
+
 func (r *StackRepo) CountByUser(ctx context.Context, userID int64) (int, error) {
 	count, err := r.db.NewSelect().
 		Model((*models.Stack)(nil)).
