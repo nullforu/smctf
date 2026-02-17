@@ -479,9 +479,8 @@ func TestChallengeFileUploadDeletePreviousError(t *testing.T) {
 
 	ctfSvc := NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, errorFileStore{deleteErr: errors.New("delete fail")})
 
-	_, _, err := ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "bundle.zip")
-	if err == nil || !strings.Contains(err.Error(), "delete") {
-		t.Fatalf("expected delete error, got %v", err)
+	if _, _, err := ctfSvc.RequestChallengeFileUpload(context.Background(), challenge.ID, "bundle.zip"); err != nil {
+		t.Fatalf("expected upload success despite delete failure, got %v", err)
 	}
 }
 
