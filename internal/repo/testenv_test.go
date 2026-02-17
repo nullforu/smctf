@@ -26,6 +26,7 @@ type repoEnv struct {
 	teamRepo       *TeamRepo
 	challengeRepo  *ChallengeRepo
 	submissionRepo *SubmissionRepo
+	stackRepo      *StackRepo
 }
 
 var (
@@ -148,6 +149,7 @@ func setupRepoTest(t *testing.T) repoEnv {
 		teamRepo:       NewTeamRepo(repoDB),
 		challengeRepo:  NewChallengeRepo(repoDB),
 		submissionRepo: NewSubmissionRepo(repoDB),
+		stackRepo:      NewStackRepo(repoDB),
 	}
 }
 

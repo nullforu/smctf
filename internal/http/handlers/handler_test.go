@@ -1018,6 +1018,17 @@ func TestAdminStackHandlersList(t *testing.T) {
 	}
 }
 
+func TestAdminStackHandlersListDisabled(t *testing.T) {
+	env := setupHandlerTest(t)
+	env.handler.stacks = nil
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks", nil)
+	env.handler.AdminListStacks(ctx)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", rec.Code)
+	}
+}
+
 func TestAdminStackHandlersDelete(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "admin@example.com", "uadmin-del", "pass", "user")
@@ -1063,6 +1074,25 @@ func TestAdminStackHandlersDelete(t *testing.T) {
 	}
 }
 
+func TestAdminStackHandlersDeleteMissingStackID(t *testing.T) {
+	env := setupHandlerTest(t)
+	mock := &stack.MockClient{}
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodDelete, "/api/admin/stacks/", nil)
+	env.handler.AdminDeleteStack(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	var resp errorResponse
+	decodeJSON(t, rec, &resp)
+	if resp.Error != service.ErrInvalidInput.Error() {
+		t.Fatalf("expected invalid input, got %s", resp.Error)
+	}
+}
+
 func TestAdminStackHandlersGet(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "u-admin-get@example.com", "uadmin-get", "pass", "user")
@@ -1101,6 +1131,39 @@ func TestAdminStackHandlersGet(t *testing.T) {
 	decodeJSON(t, rec, &resp)
 	if resp.StackID != "stack-admin-get" || resp.ChallengeID != challenge.ID {
 		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
+func TestAdminStackHandlersGetMissingStackID(t *testing.T) {
+	env := setupHandlerTest(t)
+	mock := &stack.MockClient{}
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/", nil)
+	env.handler.AdminGetStack(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	var resp errorResponse
+	decodeJSON(t, rec, &resp)
+	if resp.Error != service.ErrInvalidInput.Error() {
+		t.Fatalf("expected invalid input, got %s", resp.Error)
+	}
+}
+
+func TestAdminStackHandlersGetNotFound(t *testing.T) {
+	env := setupHandlerTest(t)
+	mock := &stack.MockClient{}
+	stackSvc, _ := setupHandlerStackService(t, env, mock)
+	env.handler.stacks = stackSvc
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/missing", nil)
+	ctx.Params = gin.Params{{Key: "stack_id", Value: "missing"}}
+	env.handler.AdminGetStack(ctx)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
 	}
 }
 
