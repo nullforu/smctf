@@ -314,6 +314,9 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 		return
 	}
 
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
+
 	ctx.JSON(http.StatusOK, newUserMeResponse(user))
 }
 
@@ -703,6 +706,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	}
 
 	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 	ctx.JSON(http.StatusCreated, newChallengeResponse(challenge))
 }
 
@@ -750,6 +754,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 	}
 
 	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
 }
 
@@ -808,6 +813,7 @@ func (h *Handler) DeleteChallenge(ctx *gin.Context) {
 	}
 
 	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -994,6 +1000,9 @@ func (h *Handler) AdminMoveUserTeam(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 
 	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
 	if err != nil {

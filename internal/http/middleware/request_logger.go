@@ -139,8 +139,8 @@ func isChallengeSubmitPath(path string) bool {
 		return false
 	}
 
-	rest := strings.TrimPrefix(path, prefix)       // "{id}/submit"
-	idPart := strings.TrimSuffix(rest, suffix)     // "{id}"
+	rest := strings.TrimPrefix(path, prefix)   // "{id}/submit"
+	idPart := strings.TrimSuffix(rest, suffix) // "{id}"
 	if idPart == "" || strings.Contains(idPart, "/") {
 		return false
 	}

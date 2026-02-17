@@ -72,6 +72,35 @@ func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest any) {
 	}
 }
 
+func setCachePayload(t *testing.T, env handlerEnv, key string, payload []byte) {
+	t.Helper()
+
+	if err := env.redis.Set(context.Background(), key, payload, time.Minute).Err(); err != nil {
+		t.Fatalf("set cache: %v", err)
+	}
+}
+
+func waitForCacheClear(t *testing.T, env handlerEnv, keys ...string) {
+	t.Helper()
+
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for {
+		exists, err := env.redis.Exists(context.Background(), keys...).Result()
+		if err != nil {
+			t.Fatalf("cache exists: %v", err)
+		}
+
+		if exists == 0 {
+			return
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("expected cache cleared: %v", keys)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // Helper Tests
 
 func TestParseIDParam(t *testing.T) {
@@ -398,6 +427,11 @@ func TestHandlerAdminMoveUserTeam(t *testing.T) {
 	teamB := createHandlerTeam(t, env, "Beta")
 	user := createHandlerUserWithTeam(t, env, "user@example.com", "user1", "pass", "user", teamA.ID)
 
+	setCachePayload(t, env, "leaderboard:users", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "leaderboard:teams", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "timeline:users", []byte(`{"submissions":[]}`))
+	setCachePayload(t, env, "timeline:teams", []byte(`{"submissions":[]}`))
+
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": teamB.ID})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
 
@@ -411,6 +445,8 @@ func TestHandlerAdminMoveUserTeam(t *testing.T) {
 	if resp.TeamID != teamB.ID {
 		t.Fatalf("expected team_id %d, got %d", teamB.ID, resp.TeamID)
 	}
+
+	waitForCacheClear(t, env, "leaderboard:users", "leaderboard:teams", "timeline:users", "timeline:teams")
 
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/team", map[string]any{"team_id": -1})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
@@ -797,6 +833,52 @@ func TestHandlerRequestChallengeFileUploadStorageUnavailable(t *testing.T) {
 	}
 }
 
+func TestHandlerChallengeCacheInvalidation(t *testing.T) {
+	env := setupHandlerTest(t)
+	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	challenge := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
+
+	updateReq := map[string]any{
+		"title":       "Updated",
+		"description": "New",
+		"category":    "Crypto",
+		"points":      200,
+		"is_active":   false,
+	}
+
+	setCachePayload(t, env, "leaderboard:users", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "leaderboard:teams", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "timeline:users", []byte(`{"submissions":[]}`))
+	setCachePayload(t, env, "timeline:teams", []byte(`{"submissions":[]}`))
+
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", updateReq)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	ctx.Set("userID", admin.ID)
+
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update challenge status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	waitForCacheClear(t, env, "leaderboard:users", "leaderboard:teams", "timeline:users", "timeline:teams")
+
+	setCachePayload(t, env, "leaderboard:users", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "leaderboard:teams", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "timeline:users", []byte(`{"submissions":[]}`))
+	setCachePayload(t, env, "timeline:teams", []byte(`{"submissions":[]}`))
+
+	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/admin/challenges/1", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	ctx.Set("userID", admin.ID)
+
+	env.handler.DeleteChallenge(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete challenge status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	waitForCacheClear(t, env, "leaderboard:users", "leaderboard:teams", "timeline:users", "timeline:teams")
+}
+
 func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 	env := setupHandlerTest(t)
 
@@ -819,10 +901,17 @@ func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/challenges", body)
 	ctx.Set("userID", admin.ID)
 
+	setCachePayload(t, env, "leaderboard:users", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "leaderboard:teams", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "timeline:users", []byte(`{"submissions":[]}`))
+	setCachePayload(t, env, "timeline:teams", []byte(`{"submissions":[]}`))
+
 	env.handler.CreateChallenge(ctx)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create challenge status %d: %s", rec.Code, rec.Body.String())
 	}
+
+	waitForCacheClear(t, env, "leaderboard:users", "leaderboard:teams", "timeline:users", "timeline:teams")
 }
 
 func createHandlerStackChallenge(t *testing.T, env handlerEnv, title string) *models.Challenge {
@@ -1887,10 +1976,17 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "user2"})
 	ctx.Set("userID", user.ID)
 
+	setCachePayload(t, env, "leaderboard:users", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "leaderboard:teams", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "timeline:users", []byte(`{"submissions":[]}`))
+	setCachePayload(t, env, "timeline:teams", []byte(`{"submissions":[]}`))
+
 	env.handler.UpdateMe(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update me status %d: %s", rec.Code, rec.Body.String())
 	}
+
+	waitForCacheClear(t, env, "leaderboard:users", "leaderboard:teams", "timeline:users", "timeline:teams")
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", "")
 	ctx.Set("userID", user.ID)
