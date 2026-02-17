@@ -238,6 +238,61 @@ type teamTimelineResponse struct {
 	Submissions []models.TeamTimelineSubmission `json:"submissions"`
 }
 
+type adminReportChallenge struct {
+	ID              int64      `json:"id"`
+	Title           string     `json:"title"`
+	Description     string     `json:"description"`
+	Category        string     `json:"category"`
+	Points          int        `json:"points"`
+	InitialPoints   int        `json:"initial_points"`
+	MinimumPoints   int        `json:"minimum_points"`
+	SolveCount      int        `json:"solve_count"`
+	IsActive        bool       `json:"is_active"`
+	FileKey         *string    `json:"file_key,omitempty"`
+	FileName        *string    `json:"file_name,omitempty"`
+	FileUploadedAt  *time.Time `json:"file_uploaded_at,omitempty"`
+	StackEnabled    bool       `json:"stack_enabled"`
+	StackTargetPort int        `json:"stack_target_port"`
+	StackPodSpec    *string    `json:"stack_pod_spec,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
+
+type adminReportUser struct {
+	ID            int64      `json:"id"`
+	Email         string     `json:"email"`
+	Username      string     `json:"username"`
+	Role          string     `json:"role"`
+	TeamID        int64      `json:"team_id"`
+	TeamName      string     `json:"team_name"`
+	BlockedReason *string    `json:"blocked_reason,omitempty"`
+	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+}
+
+type adminReportSubmission struct {
+	ID           int64     `json:"id"`
+	UserID       int64     `json:"user_id"`
+	ChallengeID  int64     `json:"challenge_id"`
+	Correct      bool      `json:"correct"`
+	IsFirstBlood bool      `json:"is_first_blood"`
+	SubmittedAt  time.Time `json:"submitted_at"`
+}
+
+type adminReportResponse struct {
+	Challenges       []adminReportChallenge          `json:"challenges"`
+	Teams            []models.TeamSummary            `json:"teams"`
+	Users            []adminReportUser               `json:"users"`
+	Stacks           []models.Stack                  `json:"stacks"`
+	RegistrationKeys []models.RegistrationKeySummary `json:"registration_keys"`
+	Submissions      []adminReportSubmission         `json:"submissions"`
+	AppConfig        []models.AppConfig              `json:"app_config"`
+	Timeline         timelineResponse                `json:"timeline"`
+	TeamTimeline     teamTimelineResponse            `json:"team_timeline"`
+	Leaderboard      models.LeaderboardResponse      `json:"leaderboard"`
+	TeamLeaderboard  models.TeamLeaderboardResponse  `json:"team_leaderboard"`
+}
+
 type stackResponse struct {
 	StackID      string     `json:"stack_id"`
 	ChallengeID  int64      `json:"challenge_id"`
@@ -304,6 +359,53 @@ func newAdminStackResponse(stack models.AdminStackSummary) adminStackResponse {
 		ChallengeID:       stack.ChallengeID,
 		ChallengeTitle:    stack.ChallengeTitle,
 		ChallengeCategory: stack.ChallengeCategory,
+	}
+}
+
+func newAdminReportChallenge(challenge models.Challenge) adminReportChallenge {
+	return adminReportChallenge{
+		ID:              challenge.ID,
+		Title:           challenge.Title,
+		Description:     challenge.Description,
+		Category:        challenge.Category,
+		Points:          challenge.Points,
+		InitialPoints:   challenge.InitialPoints,
+		MinimumPoints:   challenge.MinimumPoints,
+		SolveCount:      challenge.SolveCount,
+		IsActive:        challenge.IsActive,
+		FileKey:         challenge.FileKey,
+		FileName:        challenge.FileName,
+		FileUploadedAt:  challenge.FileUploadedAt,
+		StackEnabled:    challenge.StackEnabled,
+		StackTargetPort: challenge.StackTargetPort,
+		StackPodSpec:    challenge.StackPodSpec,
+		CreatedAt:       challenge.CreatedAt.UTC(),
+	}
+}
+
+func newAdminReportUser(user models.User) adminReportUser {
+	return adminReportUser{
+		ID:            user.ID,
+		Email:         user.Email,
+		Username:      user.Username,
+		Role:          user.Role,
+		TeamID:        user.TeamID,
+		TeamName:      user.TeamName,
+		BlockedReason: user.BlockedReason,
+		BlockedAt:     user.BlockedAt,
+		CreatedAt:     user.CreatedAt.UTC(),
+		UpdatedAt:     user.UpdatedAt.UTC(),
+	}
+}
+
+func newAdminReportSubmission(sub models.Submission) adminReportSubmission {
+	return adminReportSubmission{
+		ID:           sub.ID,
+		UserID:       sub.UserID,
+		ChallengeID:  sub.ChallengeID,
+		Correct:      sub.Correct,
+		IsFirstBlood: sub.IsFirstBlood,
+		SubmittedAt:  sub.SubmittedAt.UTC(),
 	}
 }
 

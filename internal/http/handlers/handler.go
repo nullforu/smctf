@@ -595,6 +595,111 @@ func (h *Handler) AdminGetStack(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, newStackResponse(stackModel, ""))
 }
 
+func (h *Handler) AdminReport(ctx *gin.Context) {
+	if h.stacks == nil {
+		writeError(ctx, service.ErrStackDisabled)
+		return
+	}
+
+	challenges, err := h.ctf.ListChallenges(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	teams, err := h.teams.ListTeams(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	users, err := h.users.List(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	stacks, err := h.stacks.ListAllStacks(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	keys, err := h.auth.ListRegistrationKeys(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	submissions, err := h.ctf.ListAllSubmissions(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	appConfigs, err := h.app.GetAllRows(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	leaderboard, err := h.score.Leaderboard(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	teamLeaderboard, err := h.score.TeamLeaderboard(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	rawTimeline, err := h.score.TimelineSubmissions(ctx.Request.Context(), nil)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	rawTeamTimeline, err := h.score.TimelineTeamSubmissions(ctx.Request.Context(), nil)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	reportChallenges := make([]adminReportChallenge, 0, len(challenges))
+	for i := range challenges {
+		reportChallenges = append(reportChallenges, newAdminReportChallenge(challenges[i]))
+	}
+
+	reportUsers := make([]adminReportUser, 0, len(users))
+	for i := range users {
+		reportUsers = append(reportUsers, newAdminReportUser(users[i]))
+	}
+
+	reportSubmissions := make([]adminReportSubmission, 0, len(submissions))
+	for i := range submissions {
+		reportSubmissions = append(reportSubmissions, newAdminReportSubmission(submissions[i]))
+	}
+
+	timeline := timelineResponse{Submissions: aggregateUserTimeline(rawTimeline)}
+	teamTimeline := teamTimelineResponse{Submissions: aggregateTeamTimeline(rawTeamTimeline)}
+
+	ctx.JSON(http.StatusOK, adminReportResponse{
+		Challenges:       reportChallenges,
+		Teams:            teams,
+		Users:            reportUsers,
+		Stacks:           stacks,
+		RegistrationKeys: keys,
+		Submissions:      reportSubmissions,
+		AppConfig:        appConfigs,
+		Timeline:         timeline,
+		TeamTimeline:     teamTimeline,
+		Leaderboard:      leaderboard,
+		TeamLeaderboard:  teamLeaderboard,
+	})
+}
+
 func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	var req createChallengeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

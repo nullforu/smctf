@@ -195,6 +195,15 @@ func (s *AppConfigService) Update(ctx context.Context, input AppConfigUpdate) (A
 	return cfg, updatedAt, etag, nil
 }
 
+func (s *AppConfigService) GetAllRows(ctx context.Context) ([]models.AppConfig, error) {
+	rows, err := s.repo.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
+
 func (s *AppConfigService) CTFState(ctx context.Context, now time.Time) (CTFState, error) {
 	cfg, _, _, err := s.Get(ctx)
 	if err != nil {

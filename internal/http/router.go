@@ -89,6 +89,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.GET("/stacks", h.AdminListStacks)
 		admin.GET("/stacks/:stack_id", h.AdminGetStack)
 		admin.DELETE("/stacks/:stack_id", h.AdminDeleteStack)
+		admin.GET("/report", h.AdminReport)
 		admin.POST("/users/:id/team", h.AdminMoveUserTeam)
 		admin.POST("/users/:id/block", h.AdminBlockUser)
 		admin.POST("/users/:id/unblock", h.AdminUnblockUser)
