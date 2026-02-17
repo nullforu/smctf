@@ -295,25 +295,26 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 func setCTFWindow(t *testing.T, env testEnv, startAt, endAt *time.Time) {
 	t.Helper()
 
-	var startValue *string
+	var startValue service.AppConfigUpdateInput
 	if startAt != nil {
 		value := startAt.UTC().Format(time.RFC3339)
-		startValue = &value
+		startValue = service.AppConfigUpdateInput{Set: true, Value: value}
 	} else {
-		value := ""
-		startValue = &value
+		startValue = service.AppConfigUpdateInput{Set: true, Null: true}
 	}
 
-	var endValue *string
+	var endValue service.AppConfigUpdateInput
 	if endAt != nil {
 		value := endAt.UTC().Format(time.RFC3339)
-		endValue = &value
+		endValue = service.AppConfigUpdateInput{Set: true, Value: value}
 	} else {
-		value := ""
-		endValue = &value
+		endValue = service.AppConfigUpdateInput{Set: true, Null: true}
 	}
 
-	if _, _, _, err := env.appConfigSvc.Update(context.Background(), nil, nil, nil, nil, startValue, endValue); err != nil {
+	if _, _, _, err := env.appConfigSvc.Update(context.Background(), service.AppConfigUpdate{
+		CTFStartAt: startValue,
+		CTFEndAt:   endValue,
+	}); err != nil {
 		t.Fatalf("set ctf window: %v", err)
 	}
 }

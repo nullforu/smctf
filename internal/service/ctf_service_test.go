@@ -183,14 +183,54 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 		t.Fatalf("unexpected updated challenge: %+v", updated)
 	}
 
-	flag := "FLAG{IMMUTABLE}"
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &flag, nil, nil, nil, nil); err == nil {
-		t.Fatalf("expected flag immutable error")
+	emptyFlag := "   "
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &emptyFlag, nil, nil, nil, nil); err == nil {
+		t.Fatalf("expected empty flag to be rejected")
+	}
+
+	newFlag := "FLAG{UPDATED}"
+	updatedFlag, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &newFlag, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("expected flag update, got %v", err)
+	}
+	expectedHash := utils.HMACFlag(env.cfg.Security.FlagHMACSecret, newFlag)
+	if updatedFlag.FlagHash != expectedHash {
+		t.Fatalf("expected updated flag hash")
 	}
 
 	badCat := "Bad"
 	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &badCat, nil, nil, nil, nil, nil, nil, nil); err == nil {
 		t.Fatalf("expected validation error")
+	}
+
+	whitespaceTitle := "   "
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &whitespaceTitle, nil, nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("expected whitespace title to be allowed, got %v", err)
+	}
+
+	whitespaceDesc := "   "
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, &whitespaceDesc, nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("expected whitespace description to be allowed, got %v", err)
+	}
+
+	whitespaceCat := "   "
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &whitespaceCat, nil, nil, nil, nil, nil, nil, nil); err == nil {
+		t.Fatalf("expected whitespace category to be rejected")
+	}
+
+	negPoints := -1
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, &negPoints, nil, nil, nil, nil, nil, nil); err == nil {
+		t.Fatalf("expected negative points to be rejected")
+	}
+
+	negMin := -1
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, &negMin, nil, nil, nil, nil, nil); err == nil {
+		t.Fatalf("expected negative minimum_points to be rejected")
+	}
+
+	badMin := 200
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, &newPoints, &badMin, nil, nil, nil, nil, nil); err == nil {
+		t.Fatalf("expected minimum_points > points to be rejected")
 	}
 
 	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), 9999, &newTitle, nil, nil, nil, nil, nil, nil, nil, nil, nil); !errors.Is(err, ErrChallengeNotFound) {
@@ -595,6 +635,20 @@ func TestCTFServiceStackFields(t *testing.T) {
 		if !errors.As(err, &ve) {
 			t.Fatalf("expected validation error, got %v", err)
 		}
+	}
+
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, nil, &podSpec); err == nil {
+		t.Fatalf("expected validation error for missing stack_target_port when stack enabled")
+	}
+
+	outOfRangePort := 70000
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &outOfRangePort, &podSpec); err == nil {
+		t.Fatalf("expected validation error for out-of-range port")
+	}
+
+	zeroPort := 0
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &zeroPort, &podSpec); err == nil {
+		t.Fatalf("expected validation error for zero port")
 	}
 }
 

@@ -15,6 +15,20 @@ Authorization: Bearer <access_token>
 
 Request
 
+All fields are optional. Only provided fields are validated and updated.
+To keep existing values, omit the field entirely.
+
+Field behavior:
+
+| Field                | Type             | Omit          | null        | Empty/Whitespace String | Other String    |
+| -------------------- | ---------------- | ------------- | ----------- | ----------------------- | --------------- |
+| `title`              | string           | Keep existing | Error       | Allowed                 | Allowed         |
+| `description`        | string           | Keep existing | Error       | Allowed                 | Allowed         |
+| `header_title`       | string           | Keep existing | Error       | Allowed                 | Allowed         |
+| `header_description` | string           | Keep existing | Error       | Allowed                 | Allowed         |
+| `ctf_start_at`       | string (RFC3339) | Keep existing | Clear value | Error                   | Must be RFC3339 |
+| `ctf_end_at`         | string (RFC3339) | Keep existing | Clear value | Error                   | Must be RFC3339 |
+
 ```json
 {
     "title": "My CTF",
@@ -379,13 +393,32 @@ Authorization: Bearer <access_token>
 Request
 
 All fields are optional. Only provided fields are validated and updated.
-`flag` cannot be changed via this endpoint.
+To keep existing values, omit the field entirely.
+
+Field behavior:
+
+| Field               | Type   | Omit          | null  | Empty/Whitespace String | Other                                                     |
+| ------------------- | ------ | ------------- | ----- | ----------------------- | --------------------------------------------------------- |
+| `title`             | string | Keep existing | Error | Allowed                 | Allowed                                                   |
+| `description`       | string | Keep existing | Error | Allowed                 | Allowed                                                   |
+| `category`          | string | Keep existing | Error | Error                   | Must be a valid category                                  |
+| `points`            | int    | Keep existing | Error | Error                   | Must be >= 0                                              |
+| `minimum_points`    | int    | Keep existing | Error | Error                   | Must be >= 0 and <= `points`                              |
+| `flag`              | string | Keep existing | Error | Error                   | Updates flag                                              |
+| `is_active`         | bool   | Keep existing | Error | Error                   | Sets value                                                |
+| `stack_enabled`     | bool   | Keep existing | Error | Error                   | If `false`, clears `stack_target_port` + `stack_pod_spec` |
+| `stack_target_port` | int    | Keep existing | Error | Error                   | Requires `stack_enabled` true; 1-65535                    |
+| `stack_pod_spec`    | string | Keep existing | Error | Error                   | Requires `stack_enabled` true and non-empty value         |
+
+If `stack_enabled` is true after updates, `stack_target_port` and `stack_pod_spec` are required (non-empty).
+To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_port` / `stack_pod_spec`).
 
 ```json
 {
     "title": "Updated Challenge",
     "points": 250,
     "minimum_points": 100,
+    "flag": "flag{rotated}",
     "is_active": false,
     "stack_enabled": true,
     "stack_target_port": 80,
@@ -412,6 +445,10 @@ Response 200
     "stack_target_port": 80
 }
 ```
+
+Notes:
+
+- `has_file` and `file_name` are not updated via this endpoint. They are managed by the file upload/delete endpoints.
 
 Errors:
 

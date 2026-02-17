@@ -129,6 +129,21 @@ type AppConfigService struct {
 	cacheTTL time.Duration
 }
 
+type AppConfigUpdateInput struct {
+	Set   bool
+	Null  bool
+	Value string
+}
+
+type AppConfigUpdate struct {
+	Title             AppConfigUpdateInput
+	Description       AppConfigUpdateInput
+	HeaderTitle       AppConfigUpdateInput
+	HeaderDescription AppConfigUpdateInput
+	CTFStartAt        AppConfigUpdateInput
+	CTFEndAt          AppConfigUpdateInput
+}
+
 const appConfigCacheKey = "app_config:cached"
 
 func NewAppConfigService(repo *repo.AppConfigRepo, redisClient *redis.Client, cacheTTL time.Duration) *AppConfigService {
@@ -143,19 +158,19 @@ func (s *AppConfigService) Get(ctx context.Context) (AppConfig, time.Time, strin
 	return s.load(ctx)
 }
 
-func (s *AppConfigService) Update(ctx context.Context, title *string, description *string, headerTitle *string, headerDescription *string, ctfStartAt *string, ctfEndAt *string) (AppConfig, time.Time, string, error) {
+func (s *AppConfigService) Update(ctx context.Context, input AppConfigUpdate) (AppConfig, time.Time, string, error) {
 	cfg, cachedUpdatedAt, cachedETag, err := s.Get(ctx)
 	if err != nil {
 		return AppConfig{}, time.Time{}, "", err
 	}
 
-	inputs := map[string]*string{
-		appConfigKeyTitle:       title,
-		appConfigKeyDescription: description,
-		appConfigKeyHeaderTitle: headerTitle,
-		appConfigKeyHeaderDesc:  headerDescription,
-		appConfigKeyCTFStartAt:  ctfStartAt,
-		appConfigKeyCTFEndAt:    ctfEndAt,
+	inputs := map[string]AppConfigUpdateInput{
+		appConfigKeyTitle:       input.Title,
+		appConfigKeyDescription: input.Description,
+		appConfigKeyHeaderTitle: input.HeaderTitle,
+		appConfigKeyHeaderDesc:  input.HeaderDescription,
+		appConfigKeyCTFStartAt:  input.CTFStartAt,
+		appConfigKeyCTFEndAt:    input.CTFEndAt,
 	}
 
 	updates, err := applyAppConfigUpdates(&cfg, inputs)
@@ -339,12 +354,12 @@ func appConfigFieldMap() map[string]appConfigField {
 	return fields
 }
 
-func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]*string) (map[string]string, error) {
+func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]AppConfigUpdateInput) (map[string]string, error) {
 	fields := appConfigFieldMap()
 	updates := make(map[string]string)
 
-	for key, valuePtr := range inputs {
-		if valuePtr == nil {
+	for key, input := range inputs {
+		if !input.Set {
 			continue
 		}
 
@@ -353,17 +368,25 @@ func applyAppConfigUpdates(cfg *AppConfig, inputs map[string]*string) (map[strin
 			return nil, NewValidationError(FieldError{Field: key, Reason: "invalid"})
 		}
 
-		value := strings.TrimSpace(*valuePtr)
-		if value == "" && !isOptionalConfigField(key) {
-			return nil, NewValidationError(FieldError{Field: key, Reason: "required"})
+		if input.Null {
+			if !isOptionalConfigField(key) {
+				return nil, NewValidationError(FieldError{Field: key, Reason: "invalid"})
+			}
+			field.set(cfg, "")
+			updates[key] = ""
+			continue
 		}
 
+		value := input.Value
 		if field.maxLen > 0 && len(value) > field.maxLen {
 			return nil, NewValidationError(FieldError{Field: key, Reason: "too_long"})
 		}
 
 		if key == appConfigKeyCTFStartAt || key == appConfigKeyCTFEndAt {
-			if _, _, err := parseRFC3339Optional(value); err != nil {
+			if value == "" {
+				return nil, NewValidationError(FieldError{Field: key, Reason: "invalid_format"})
+			}
+			if _, err := time.Parse(time.RFC3339, value); err != nil {
 				return nil, NewValidationError(FieldError{Field: key, Reason: "invalid_format"})
 			}
 		}

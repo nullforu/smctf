@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,11 +182,54 @@ func TestHandlerAdminConfigUpdate(t *testing.T) {
 func TestHandlerAdminConfigValidation(t *testing.T) {
 	env := setupHandlerTest(t)
 
-	body := map[string]string{"title": ""}
+	body := map[string]any{"title": nil}
 	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", body)
 	env.handler.AdminUpdateConfig(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandlerAdminConfigBindError(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", "{")
+	env.handler.AdminUpdateConfig(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandlerAdminConfigFieldMatrix(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	cases := []struct {
+		name       string
+		body       map[string]any
+		wantStatus int
+	}{
+		{"header_title whitespace allowed", map[string]any{"header_title": "   "}, http.StatusOK},
+		{"header_description whitespace allowed", map[string]any{"header_description": "   "}, http.StatusOK},
+		{"description null rejected", map[string]any{"description": nil}, http.StatusBadRequest},
+		{"header_title null rejected", map[string]any{"header_title": nil}, http.StatusBadRequest},
+		{"header_description null rejected", map[string]any{"header_description": nil}, http.StatusBadRequest},
+		{"ctf_start_at whitespace rejected", map[string]any{"ctf_start_at": "   "}, http.StatusBadRequest},
+		{"ctf_end_at whitespace rejected", map[string]any{"ctf_end_at": "   "}, http.StatusBadRequest},
+		{"title too long rejected", map[string]any{"title": strings.Repeat("a", 201)}, http.StatusBadRequest},
+		{"description too long rejected", map[string]any{"description": strings.Repeat("b", 2001)}, http.StatusBadRequest},
+		{"header_title too long rejected", map[string]any{"header_title": strings.Repeat("c", 81)}, http.StatusBadRequest},
+		{"header_description too long rejected", map[string]any{"header_description": strings.Repeat("d", 201)}, http.StatusBadRequest},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/config", tc.body)
+			env.handler.AdminUpdateConfig(ctx)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 
@@ -571,8 +615,77 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 
 	env.handler.UpdateChallenge(ctx)
-	if rec.Code != http.StatusBadRequest {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("update challenge flag status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	nullCases := []struct {
+		name string
+		body map[string]any
+	}{
+		{"title null", map[string]any{"title": nil}},
+		{"description null", map[string]any{"description": nil}},
+		{"category null", map[string]any{"category": nil}},
+		{"flag null", map[string]any{"flag": nil}},
+	}
+	for _, tc := range nullCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", tc.body)
+			ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+			env.handler.UpdateChallenge(ctx)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d", rec.Code)
+			}
+		})
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"title": "   "})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected whitespace title to be allowed, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"stack_enabled": true, "stack_pod_spec": nil, "stack_target_port": 80})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for null stack_pod_spec with stack_enabled, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", "{")
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid JSON, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"stack_enabled": false, "stack_pod_spec": "   "})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for stack_pod_spec when stack disabled, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{
+		"stack_enabled":     true,
+		"stack_target_port": 70000,
+		"stack_pod_spec":    "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n",
+	})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for out-of-range stack_target_port, got %d", rec.Code)
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{
+		"points":         10,
+		"minimum_points": 20,
+	})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
+	env.handler.UpdateChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for minimum_points > points, got %d", rec.Code)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/admin/challenges/1", nil)
@@ -945,6 +1058,17 @@ func TestAdminGetChallengeIncludesStackSpec(t *testing.T) {
 
 	if resp["stack_pod_spec"] == nil {
 		t.Fatalf("expected stack_pod_spec in response")
+	}
+}
+
+func TestAdminGetChallengeInvalidID(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/challenges/bad", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "bad"}}
+	env.handler.AdminGetChallenge(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
 

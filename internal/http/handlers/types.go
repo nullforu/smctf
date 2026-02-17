@@ -38,10 +38,10 @@ func (o *optionalString) UnmarshalJSON(data []byte) error {
 }
 
 type adminConfigUpdateRequest struct {
-	Title             *string        `json:"title"`
-	Description       *string        `json:"description"`
-	HeaderTitle       *string        `json:"header_title"`
-	HeaderDescription *string        `json:"header_description"`
+	Title             optionalString `json:"title"`
+	Description       optionalString `json:"description"`
+	HeaderTitle       optionalString `json:"header_title"`
+	HeaderDescription optionalString `json:"header_description"`
 	CTFStartAt        optionalString `json:"ctf_start_at"`
 	CTFEndAt          optionalString `json:"ctf_end_at"`
 }
@@ -80,16 +80,16 @@ type createChallengeRequest struct {
 }
 
 type updateChallengeRequest struct {
-	Title           *string `json:"title"`
-	Description     *string `json:"description"`
-	Category        *string `json:"category"`
-	Points          *int    `json:"points"`
-	MinimumPoints   *int    `json:"minimum_points"`
-	Flag            *string `json:"flag"`
-	IsActive        *bool   `json:"is_active"`
-	StackEnabled    *bool   `json:"stack_enabled"`
-	StackTargetPort *int    `json:"stack_target_port"`
-	StackPodSpec    *string `json:"stack_pod_spec"`
+	Title           optionalString `json:"title"`
+	Description     optionalString `json:"description"`
+	Category        optionalString `json:"category"`
+	Points          *int           `json:"points"`
+	MinimumPoints   *int           `json:"minimum_points"`
+	Flag            optionalString `json:"flag"`
+	IsActive        *bool          `json:"is_active"`
+	StackEnabled    *bool          `json:"stack_enabled"`
+	StackTargetPort *int           `json:"stack_target_port"`
+	StackPodSpec    optionalString `json:"stack_pod_spec"`
 }
 
 type challengeFileUploadRequest struct {
