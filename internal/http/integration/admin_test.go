@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -549,23 +548,16 @@ func TestAdminUnblockUser(t *testing.T) {
 }
 
 func TestAdminStackManagement(t *testing.T) {
-	stub := newProvisionerStub()
-	server := httptest.NewServer(http.HandlerFunc(stub.handler))
-	defer server.Close()
-
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
-		Enabled:            true,
-		MaxPerUser:         3,
-		ProvisionerBaseURL: server.URL,
-		ProvisionerAPIKey:  "test-key",
-		ProvisionerTimeout: 2 * time.Second,
-		CreateWindow:       time.Minute,
-		CreateMax:          1,
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
 	}
 
-	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	env := setupStackTest(t, cfg, client)
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
 
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
@@ -668,23 +660,16 @@ func TestAdminReportAuth(t *testing.T) {
 }
 
 func TestAdminReportSuccess(t *testing.T) {
-	stub := newProvisionerStub()
-	server := httptest.NewServer(http.HandlerFunc(stub.handler))
-	defer server.Close()
-
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
-		Enabled:            true,
-		MaxPerUser:         3,
-		ProvisionerBaseURL: server.URL,
-		ProvisionerAPIKey:  "test-key",
-		ProvisionerTimeout: 2 * time.Second,
-		CreateWindow:       time.Minute,
-		CreateMax:          1,
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
 	}
 
-	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	env := setupStackTest(t, cfg, client)
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
 
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")

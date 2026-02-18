@@ -22,6 +22,7 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
 
@@ -43,10 +44,12 @@ type testEnv struct {
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	appConfigRepo  *repo.AppConfigRepo
+	stackRepo      *repo.StackRepo
 	authSvc        *service.AuthService
 	ctfSvc         *service.CTFService
 	teamSvc        *service.TeamService
 	appConfigSvc   *service.AppConfigService
+	stackSvc       *service.StackService
 }
 
 type errorResp struct {
@@ -266,15 +269,19 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	submissionRepo := repo.NewSubmissionRepo(testDB)
 	scoreRepo := repo.NewScoreboardRepo(testDB)
 	appConfigRepo := repo.NewAppConfigRepo(testDB)
+	stackRepo := repo.NewStackRepo(testDB)
 
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
+	userSvc := service.NewUserService(userRepo, teamRepo)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
+	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, testRedis)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, nil, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
@@ -285,10 +292,12 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		appConfigRepo:  appConfigRepo,
+		stackRepo:      stackRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
 		teamSvc:        teamSvc,
 		appConfigSvc:   appConfigSvc,
+		stackSvc:       stackSvc,
 	}
 }
 

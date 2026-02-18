@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"smctf/internal/repo"
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -103,7 +102,7 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	case errors.Is(err, service.ErrStackInvalidSpec):
 		status = http.StatusBadRequest
 		resp.Error = service.ErrStackInvalidSpec.Error()
-	case errors.Is(err, repo.ErrNotFound):
+	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 		resp.Error = "not found"
 	}

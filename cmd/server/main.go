@@ -81,6 +81,8 @@ func main() {
 	}
 
 	authSvc := service.NewAuthService(cfg, database, userRepo, registrationKeyRepo, teamRepo, redisClient)
+	userSvc := service.NewUserService(userRepo, teamRepo)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
@@ -93,7 +95,7 @@ func main() {
 		log.Printf("warning: ctf_start_at and ctf_end_at not configured; competition will always be active at all times")
 	}
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, redisClient, logger)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,

@@ -2,11 +2,7 @@ package http_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -20,102 +16,7 @@ import (
 	"smctf/internal/utils"
 )
 
-type provisionerStub struct {
-	mu     sync.Mutex
-	nextID int
-	stacks map[string]stack.StackInfo
-}
-
-func newProvisionerStub() *provisionerStub {
-	return &provisionerStub{
-		nextID: 1,
-		stacks: make(map[string]stack.StackInfo),
-	}
-}
-
-func (p *provisionerStub) handler(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case r.Method == http.MethodPost && r.URL.Path == "/stacks":
-		var req stack.CreateRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		p.mu.Lock()
-		id := p.nextID
-		p.nextID++
-		stackID := "stack-test-" + itoa(int64(id))
-		now := time.Now().UTC()
-		info := stack.StackInfo{
-			StackID:      stackID,
-			PodID:        stackID,
-			Namespace:    "stacks",
-			NodeID:       "dev-worker",
-			NodePublicIP: "127.0.0.1",
-			PodSpec:      req.PodSpec,
-			TargetPort:   req.TargetPort,
-			NodePort:     31001 + id,
-			ServiceName:  "svc-" + stackID,
-			Status:       "running",
-			TTLExpiresAt: now.Add(2 * time.Hour),
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		}
-		p.stacks[stackID] = info
-		p.mu.Unlock()
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(info)
-		return
-	case r.Method == http.MethodGet && r.URL.Path == "/stacks":
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{"stacks": []stack.StackInfo{}})
-		return
-	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/stacks/") && strings.HasSuffix(r.URL.Path, "/status"):
-		stackID := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/stacks/"), "/status")
-		p.mu.Lock()
-		info, ok := p.stacks[stackID]
-		p.mu.Unlock()
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		resp := stack.StackStatus{
-			StackID:      info.StackID,
-			Status:       info.Status,
-			TTL:          info.TTLExpiresAt,
-			NodePort:     info.NodePort,
-			TargetPort:   info.TargetPort,
-			NodePublicIP: info.NodePublicIP,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(resp)
-		return
-	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/stacks/"):
-		stackID := strings.TrimPrefix(r.URL.Path, "/stacks/")
-		p.mu.Lock()
-		_, ok := p.stacks[stackID]
-		delete(p.stacks, stackID)
-		p.mu.Unlock()
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{"deleted": true, "stack_id": stackID})
-		return
-	default:
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-}
-
-func setupStackTest(t *testing.T, cfg config.Config, client *stack.Client) testEnv {
+func setupStackTest(t *testing.T, cfg config.Config, client stack.API) testEnv {
 	t.Helper()
 	skipIfIntegrationDisabled(t)
 	resetState(t)
@@ -132,12 +33,14 @@ func setupStackTest(t *testing.T, cfg config.Config, client *stack.Client) testE
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
+	userSvc := service.NewUserService(userRepo, teamRepo)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, client, testRedis)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, testRedis, testLogger)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, testRedis, testLogger)
 
 	return testEnv{
 		cfg:            cfg,
@@ -181,23 +84,16 @@ func createStackChallenge(t *testing.T, env testEnv, title string) *models.Chall
 }
 
 func TestStackLifecycle(t *testing.T) {
-	stub := newProvisionerStub()
-	server := httptest.NewServer(http.HandlerFunc(stub.handler))
-	defer server.Close()
-
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
-		Enabled:            true,
-		MaxPerUser:         3,
-		ProvisionerBaseURL: server.URL,
-		ProvisionerAPIKey:  "test-key",
-		ProvisionerTimeout: 2 * time.Second,
-		CreateWindow:       time.Minute,
-		CreateMax:          1,
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
 	}
 
-	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	env := setupStackTest(t, cfg, client)
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
 
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
 	user, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
@@ -220,23 +116,16 @@ func TestStackLifecycle(t *testing.T) {
 }
 
 func TestStackCreateBlockedAfterSolve(t *testing.T) {
-	stub := newProvisionerStub()
-	server := httptest.NewServer(http.HandlerFunc(stub.handler))
-	defer server.Close()
-
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
-		Enabled:            true,
-		MaxPerUser:         3,
-		ProvisionerBaseURL: server.URL,
-		ProvisionerAPIKey:  "test-key",
-		ProvisionerTimeout: 2 * time.Second,
-		CreateWindow:       time.Minute,
-		CreateMax:          1,
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
 	}
 
-	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	env := setupStackTest(t, cfg, client)
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
 
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
 	access, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-pass")
@@ -254,23 +143,16 @@ func TestStackCreateBlockedAfterSolve(t *testing.T) {
 }
 
 func TestStackCreateRateLimit(t *testing.T) {
-	stub := newProvisionerStub()
-	server := httptest.NewServer(http.HandlerFunc(stub.handler))
-	defer server.Close()
-
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
-		Enabled:            true,
-		MaxPerUser:         3,
-		ProvisionerBaseURL: server.URL,
-		ProvisionerAPIKey:  "test-key",
-		ProvisionerTimeout: 2 * time.Second,
-		CreateWindow:       time.Minute,
-		CreateMax:          1,
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
 	}
 
-	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	env := setupStackTest(t, cfg, client)
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
 
 	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
 	access, _, _ := registerAndLogin(t, env, "user3@example.com", "user3", "strong-pass")
@@ -289,23 +171,16 @@ func TestStackCreateRateLimit(t *testing.T) {
 }
 
 func TestStacksBlockedBeforeStart(t *testing.T) {
-	stub := newProvisionerStub()
-	server := httptest.NewServer(http.HandlerFunc(stub.handler))
-	defer server.Close()
-
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
-		Enabled:            true,
-		MaxPerUser:         3,
-		ProvisionerBaseURL: server.URL,
-		ProvisionerAPIKey:  "test-key",
-		ProvisionerTimeout: 2 * time.Second,
-		CreateWindow:       time.Minute,
-		CreateMax:          1,
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
 	}
 
-	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	env := setupStackTest(t, cfg, client)
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
 	start := time.Now().Add(2 * time.Hour)
 	end := time.Now().Add(4 * time.Hour)
 	setCTFWindow(t, env, &start, &end)
@@ -318,6 +193,7 @@ func TestStacksBlockedBeforeStart(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp map[string]any
 	decodeJSON(t, rec, &resp)
 	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
@@ -328,6 +204,7 @@ func TestStacksBlockedBeforeStart(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list stack status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	resp = map[string]any{}
 	decodeJSON(t, rec, &resp)
 	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
@@ -338,6 +215,7 @@ func TestStacksBlockedBeforeStart(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get stack status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	resp = map[string]any{}
 	decodeJSON(t, rec, &resp)
 	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
@@ -348,6 +226,7 @@ func TestStacksBlockedBeforeStart(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("delete stack status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	resp = map[string]any{}
 	decodeJSON(t, rec, &resp)
 	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
@@ -356,23 +235,16 @@ func TestStacksBlockedBeforeStart(t *testing.T) {
 }
 
 func TestStacksCreateBlockedAfterEnd(t *testing.T) {
-	stub := newProvisionerStub()
-	server := httptest.NewServer(http.HandlerFunc(stub.handler))
-	defer server.Close()
-
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
-		Enabled:            true,
-		MaxPerUser:         3,
-		ProvisionerBaseURL: server.URL,
-		ProvisionerAPIKey:  "test-key",
-		ProvisionerTimeout: 2 * time.Second,
-		CreateWindow:       time.Minute,
-		CreateMax:          1,
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
 	}
 
-	client := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	env := setupStackTest(t, cfg, client)
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
 	end := time.Now().Add(-2 * time.Hour)
 	setCTFWindow(t, env, nil, &end)
 
@@ -384,6 +256,7 @@ func TestStacksCreateBlockedAfterEnd(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
 	}
+
 	var resp map[string]any
 	decodeJSON(t, rec, &resp)
 	if resp["ctf_state"] != string(service.CTFStateEnded) {

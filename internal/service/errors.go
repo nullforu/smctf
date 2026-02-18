@@ -18,6 +18,7 @@ var (
 	ErrStackNotFound         = errors.New("stack not found")
 	ErrStackProvisionerDown  = errors.New("stack provisioner unavailable")
 	ErrStackInvalidSpec      = errors.New("stack spec invalid")
+	ErrNotFound              = errors.New("not found")
 )
 
 type FieldError struct {

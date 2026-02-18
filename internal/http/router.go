@@ -9,14 +9,13 @@ import (
 	"smctf/internal/http/handlers"
 	"smctf/internal/http/middleware"
 	"smctf/internal/logging"
-	"smctf/internal/repo"
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userRepo *repo.UserRepo, scoreRepo *repo.ScoreboardRepo, teamSvc *service.TeamService, stackSvc *service.StackService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userSvc *service.UserService, scoreSvc *service.ScoreboardService, teamSvc *service.TeamService, stackSvc *service.StackService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -32,7 +31,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
 	r.Use(middleware.CORS(cfg.AppEnv != "production", cfg.CORS.AllowedOrigins))
 
-	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, stackSvc, redis)
+	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redis)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
@@ -67,7 +66,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		auth.GET("/challenges/:id/stack", h.GetStack)
 
 		unblocked := auth.Group("")
-		unblocked.Use(middleware.RequireActiveUser(userRepo))
+		unblocked.Use(middleware.RequireActiveUser(userSvc))
 		unblocked.PUT("/me", h.UpdateMe)
 		unblocked.POST("/challenges/:id/submit", h.SubmitFlag)
 		unblocked.POST("/challenges/:id/file/download", h.RequestChallengeFileDownload)
@@ -75,7 +74,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		unblocked.DELETE("/challenges/:id/stack", h.DeleteStack)
 
 		admin := api.Group("/admin")
-		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireActiveUser(userRepo), middleware.RequireRole("admin"))
+		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireActiveUser(userSvc), middleware.RequireRole("admin"))
 		admin.PUT("/config", h.AdminUpdateConfig)
 		admin.POST("/challenges", h.CreateChallenge)
 		admin.GET("/challenges/:id", h.AdminGetChallenge)

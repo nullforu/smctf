@@ -754,6 +754,7 @@ func TestHandlerListChallengesNotStarted(t *testing.T) {
 	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
 		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
 	}
+
 	if _, ok := resp["challenges"]; ok {
 		t.Fatalf("expected challenges to be omitted before start")
 	}
@@ -822,7 +823,8 @@ func TestHandlerRequestChallengeFileUploadStorageUnavailable(t *testing.T) {
 
 	ctfSvc := service.NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
 	scoreRepo := repo.NewScoreboardRepo(env.db)
-	handler := New(env.cfg, env.authSvc, ctfSvc, env.appConfigSvc, env.userRepo, scoreRepo, env.teamSvc, nil, env.redis)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
+	handler := New(env.cfg, env.authSvc, ctfSvc, env.appConfigSvc, env.userSvc, scoreSvc, env.teamSvc, nil, env.redis)
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges/1/file/upload", map[string]string{"filename": "bundle.zip"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
@@ -1310,10 +1312,12 @@ func TestAdminReport(t *testing.T) {
 	if !ok || len(challenges) == 0 {
 		t.Fatalf("expected challenges in report")
 	}
+
 	challengeMap, ok := challenges[0].(map[string]any)
 	if !ok {
 		t.Fatalf("expected challenge object")
 	}
+
 	if _, exists := challengeMap["flag_hash"]; exists {
 		t.Fatalf("expected flag_hash to be omitted")
 	}
@@ -1322,10 +1326,12 @@ func TestAdminReport(t *testing.T) {
 	if !ok || len(users) == 0 {
 		t.Fatalf("expected users in report")
 	}
+
 	userMap, ok := users[0].(map[string]any)
 	if !ok {
 		t.Fatalf("expected user object")
 	}
+
 	if _, exists := userMap["password_hash"]; exists {
 		t.Fatalf("expected password_hash to be omitted")
 	}
@@ -1334,10 +1340,12 @@ func TestAdminReport(t *testing.T) {
 	if !ok || len(submissions) == 0 {
 		t.Fatalf("expected submissions in report")
 	}
+
 	submissionMap, ok := submissions[0].(map[string]any)
 	if !ok {
 		t.Fatalf("expected submission object")
 	}
+
 	if _, exists := submissionMap["provided"]; exists {
 		t.Fatalf("expected provided to be omitted")
 	}
@@ -1542,63 +1550,6 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 	env.handler.ListRegistrationKeys(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list keys status %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-// Scoreboard Helper Tests
-
-func TestTeamSubmissions(t *testing.T) {
-	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
-
-	raw := []models.UserTimelineRow{
-		{SubmittedAt: base.Add(2 * time.Minute), UserID: 1, Username: "user1", Points: 100},
-		{SubmittedAt: base.Add(5 * time.Minute), UserID: 1, Username: "user1", Points: 200},
-		{SubmittedAt: base.Add(15 * time.Minute), UserID: 1, Username: "user1", Points: 50},
-		{SubmittedAt: base.Add(3 * time.Minute), UserID: 2, Username: "user2", Points: 150},
-	}
-
-	result := aggregateUserTimeline(raw)
-
-	if len(result) != 3 {
-		t.Fatalf("expected 3 teams, got %d", len(result))
-	}
-
-	if result[0].UserID != 1 || result[0].Points != 300 || result[0].ChallengeCount != 2 {
-		t.Fatalf("unexpected first team: %+v", result[0])
-	}
-
-	if result[1].UserID != 2 || result[1].Points != 150 || result[1].ChallengeCount != 1 {
-		t.Fatalf("unexpected second team: %+v", result[1])
-	}
-
-	if result[2].UserID != 1 || result[2].Points != 50 || result[2].ChallengeCount != 1 {
-		t.Fatalf("unexpected third team: %+v", result[2])
-	}
-}
-
-func TestTeamTeamSubmissions(t *testing.T) {
-	base := time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
-	teamID := int64(10)
-	teamID2 := int64(11)
-
-	raw := []models.TeamTimelineRow{
-		{SubmittedAt: base.Add(2 * time.Minute), TeamID: teamID, TeamName: "Alpha", Points: 100},
-		{SubmittedAt: base.Add(7 * time.Minute), TeamID: teamID, TeamName: "Alpha", Points: 50},
-		{SubmittedAt: base.Add(12 * time.Minute), TeamID: teamID2, TeamName: "Beta", Points: 30},
-	}
-
-	result := aggregateTeamTimeline(raw)
-
-	if len(result) != 2 {
-		t.Fatalf("expected 2 teams, got %d", len(result))
-	}
-
-	if result[0].TeamName != "Alpha" || result[0].Points != 150 || result[0].ChallengeCount != 2 {
-		t.Fatalf("unexpected first team: %+v", result[0])
-	}
-
-	if result[1].TeamName != "Beta" || result[1].Points != 30 || result[1].ChallengeCount != 1 {
-		t.Fatalf("unexpected second team: %+v", result[1])
 	}
 }
 
@@ -1831,7 +1782,8 @@ func TestHandlerTeamLeaderboardUsesCache(t *testing.T) {
 func TestHandlerLeaderboardError(t *testing.T) {
 	closedDB := newClosedHandlerDB(t)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
-	handler := New(handlerCfg, nil, nil, nil, nil, scoreRepo, nil, nil, handlerRedis)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
+	handler := New(handlerCfg, nil, nil, nil, nil, scoreSvc, nil, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/leaderboard", nil)
 	handler.Leaderboard(ctx)
@@ -1848,9 +1800,10 @@ func TestHandlerListChallengesError(t *testing.T) {
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
 	appConfigRepo := repo.NewAppConfigRepo(closedDB)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, handlerRedis, handlerCfg.Cache.AppConfigTTL)
-	handler := New(handlerCfg, nil, ctfSvc, appConfigSvc, nil, scoreRepo, nil, nil, handlerRedis)
+	handler := New(handlerCfg, nil, ctfSvc, appConfigSvc, nil, scoreSvc, nil, nil, handlerRedis)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
 	handler.ListChallenges(ctx)

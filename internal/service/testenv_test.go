@@ -11,6 +11,7 @@ import (
 	"smctf/internal/db"
 	"smctf/internal/models"
 	"smctf/internal/repo"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
 
@@ -32,9 +33,14 @@ type serviceEnv struct {
 	teamRepo       *repo.TeamRepo
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
+	scoreRepo      *repo.ScoreboardRepo
+	stackRepo      *repo.StackRepo
 	authSvc        *AuthService
+	userSvc        *UserService
+	scoreSvc       *ScoreboardService
 	ctfSvc         *CTFService
 	teamSvc        *TeamService
+	stackSvc       *StackService
 }
 
 var (
@@ -186,12 +192,17 @@ func setupServiceTest(t *testing.T) serviceEnv {
 	teamRepo := repo.NewTeamRepo(serviceDB)
 	challengeRepo := repo.NewChallengeRepo(serviceDB)
 	submissionRepo := repo.NewSubmissionRepo(serviceDB)
+	scoreRepo := repo.NewScoreboardRepo(serviceDB)
+	stackRepo := repo.NewStackRepo(serviceDB)
 
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
 	authSvc := NewAuthService(serviceCfg, serviceDB, userRepo, regRepo, teamRepo, serviceRedis)
+	userSvc := NewUserService(userRepo, teamRepo)
+	scoreSvc := NewScoreboardService(scoreRepo)
 	teamSvc := NewTeamService(teamRepo)
 	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis, fileStore)
+	stackSvc := NewStackService(serviceCfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, serviceRedis)
 
 	return serviceEnv{
 		cfg:            serviceCfg,
@@ -202,9 +213,14 @@ func setupServiceTest(t *testing.T) serviceEnv {
 		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
+		scoreRepo:      scoreRepo,
+		stackRepo:      stackRepo,
 		authSvc:        authSvc,
+		userSvc:        userSvc,
+		scoreSvc:       scoreSvc,
 		ctfSvc:         ctfSvc,
 		teamSvc:        teamSvc,
+		stackSvc:       stackSvc,
 	}
 }
 
@@ -231,6 +247,7 @@ func skipIfServiceDisabled(t *testing.T) {
 func createUser(t *testing.T, env serviceEnv, email, username, password, role string) *models.User {
 	t.Helper()
 	team := createTeam(t, env, "team-"+username)
+
 	return createUserWithTeam(t, env, email, username, password, role, team.ID)
 }
 

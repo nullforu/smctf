@@ -63,7 +63,7 @@ func (s *TeamService) GetTeam(ctx context.Context, id int64) (*models.TeamSummar
 	team, err := s.teamRepo.GetStats(ctx, id)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			return nil, repo.ErrNotFound
+			return nil, ErrNotFound
 		}
 
 		return nil, fmt.Errorf("team.GetTeam: %w", err)
@@ -75,7 +75,7 @@ func (s *TeamService) GetTeam(ctx context.Context, id int64) (*models.TeamSummar
 func (s *TeamService) ensureTeamExists(ctx context.Context, id int64, contextLabel string) error {
 	if _, err := s.teamRepo.GetByID(ctx, id); err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			return repo.ErrNotFound
+			return ErrNotFound
 		}
 		return fmt.Errorf("%s lookup: %w", contextLabel, err)
 	}
