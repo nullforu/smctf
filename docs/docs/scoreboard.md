@@ -132,7 +132,3 @@ Returns all submissions teamed by team and 10 minute intervals.
 
 `points` is dynamically calculated based on solves.
 Blocked users are excluded.
-
-Errors:
-
-- 400 `invalid input`
