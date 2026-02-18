@@ -126,7 +126,7 @@ func shouldSkipBodyLog(path string) bool {
 		return true
 	}
 
-	return isChallengeSubmitPath(path)
+	return isChallengeSubmitPath(path) || isAdminChallengePath(path)
 }
 
 func isChallengeSubmitPath(path string) bool {
@@ -141,6 +141,25 @@ func isChallengeSubmitPath(path string) bool {
 
 	rest := strings.TrimPrefix(path, prefix)   // "{id}/submit"
 	idPart := strings.TrimSuffix(rest, suffix) // "{id}"
+	if idPart == "" || strings.Contains(idPart, "/") {
+		return false
+	}
+
+	return true
+}
+
+func isAdminChallengePath(path string) bool {
+	const prefix = "/api/admin/challenges"
+
+	if path == prefix {
+		return true
+	}
+
+	if !strings.HasPrefix(path, prefix+"/") {
+		return false
+	}
+
+	idPart := strings.TrimPrefix(path, prefix+"/")
 	if idPart == "" || strings.Contains(idPart, "/") {
 		return false
 	}

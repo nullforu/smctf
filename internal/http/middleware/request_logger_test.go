@@ -133,7 +133,16 @@ func TestRequestLoggerSkipsBodyForSensitivePaths(t *testing.T) {
 	r.POST("/api/auth/login", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"ok": true})
 	})
+
 	r.POST("/api/challenges/:id/submit", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	r.POST("/api/admin/challenges", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	r.PUT("/api/admin/challenges/:id", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 
@@ -152,6 +161,34 @@ func TestRequestLoggerSkipsBodyForSensitivePaths(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodPost, "/api/challenges/123/submit", strings.NewReader(`{"flag":"FLAG{1}"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+
+	line = readLogLine(t, dir, "req")
+	if strings.Contains(line, "body=") {
+		t.Fatalf("expected no body in log: %s", line)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/admin/challenges", strings.NewReader(`{"title":"Secret"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+
+	line = readLogLine(t, dir, "req")
+	if strings.Contains(line, "body=") {
+		t.Fatalf("expected no body in log: %s", line)
+	}
+
+	req = httptest.NewRequest(http.MethodPut, "/api/admin/challenges/123", strings.NewReader(`{"title":"Secret 2"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
