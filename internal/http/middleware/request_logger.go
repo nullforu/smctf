@@ -111,7 +111,7 @@ func readRequestBody(ctx *gin.Context, maxBodyBytes int) ([]byte, string) {
 		return nil, ""
 	}
 
-	ctx.Request.Body = io.NopCloser(io.MultiReader(bytes.NewReader(bodyBytes), ctx.Request.Body))
+	ctx.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	bodyStr := string(bodyBytes)
 	if len(bodyStr) == maxBodyBytes {
