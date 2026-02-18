@@ -3,10 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,7 +11,6 @@ import (
 	"smctf/internal/config"
 	"smctf/internal/http/middleware"
 	"smctf/internal/models"
-	"smctf/internal/repo"
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -26,23 +22,15 @@ type Handler struct {
 	auth   *service.AuthService
 	ctf    *service.CTFService
 	app    *service.AppConfigService
-	users  *repo.UserRepo
-	score  *repo.ScoreboardRepo
+	users  *service.UserService
+	score  *service.ScoreboardService
 	teams  *service.TeamService
 	stacks *service.StackService
 	redis  *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *repo.UserRepo, score *repo.ScoreboardRepo, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *service.UserService, score *service.ScoreboardService, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
 	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, teams: teams, stacks: stacks, redis: redis}
-}
-
-func windowStartFromMinutes(windowMinutes int) *time.Time {
-	if windowMinutes <= 0 {
-		return nil
-	}
-	start := time.Now().Add(-time.Duration(windowMinutes) * time.Minute)
-	return &start
 }
 
 func (h *Handler) respondFromCache(ctx *gin.Context, cacheKey string) bool {
@@ -67,37 +55,15 @@ func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response any, tt
 func (h *Handler) invalidateTimelineCache() {
 	go func() {
 		bgCtx := context.Background()
-		keys, err := h.redis.Keys(bgCtx, "timeline:*").Result()
-		if err != nil || len(keys) == 0 {
-			return
-		}
-		_ = h.redis.Del(bgCtx, keys...).Err()
+		_ = h.redis.Del(bgCtx, "timeline:users", "timeline:teams").Err()
 	}()
 }
 
 func (h *Handler) invalidateLeaderboardCache() {
 	go func() {
 		bgCtx := context.Background()
-		keys, err := h.redis.Keys(bgCtx, "leaderboard:*").Result()
-		if err != nil || len(keys) == 0 {
-			return
-		}
-		_ = h.redis.Del(bgCtx, keys...).Err()
+		_ = h.redis.Del(bgCtx, "leaderboard:users", "leaderboard:teams").Err()
 	}()
-}
-
-func parseWindowQuery(ctx *gin.Context) (int, error) {
-	value := strings.TrimSpace(ctx.Query("window"))
-	if value == "" {
-		return 0, nil
-	}
-
-	window, err := strconv.Atoi(value)
-	if err != nil || window <= 0 {
-		return 0, errors.New("invalid window")
-	}
-
-	return window, nil
 }
 
 func parseIDParam(ctx *gin.Context, name string) (int64, bool) {
@@ -123,6 +89,7 @@ func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
 		})
 		return 0, false
 	}
+
 	return id, true
 }
 
@@ -132,6 +99,7 @@ func (h *Handler) ctfState(ctx *gin.Context) (service.CTFState, bool) {
 		writeError(ctx, err)
 		return service.CTFStateActive, false
 	}
+
 	return state, true
 }
 
@@ -152,10 +120,10 @@ func (h *Handler) GetConfig(ctx *gin.Context) {
 	}
 
 	ctx.Header("ETag", etag)
+	ctx.Header("Cache-Control", "no-cache")
 	if !updatedAt.IsZero() {
 		ctx.Header("Last-Modified", updatedAt.UTC().Format(http.TimeFormat))
 	}
-	ctx.Header("Cache-Control", "no-cache")
 
 	ctx.JSON(http.StatusOK, appConfigResponse{
 		Title:             cfg.Title,
@@ -175,10 +143,12 @@ func etagMatches(ifNoneMatch, etag string) bool {
 		if trimmed == "*" {
 			return true
 		}
+
 		if normalizeETag(trimmed) == needle {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -187,6 +157,7 @@ func normalizeETag(tag string) string {
 	if after, ok := strings.CutPrefix(tag, "W/"); ok {
 		tag = strings.TrimSpace(after)
 	}
+
 	return strings.Trim(tag, "\"")
 }
 
@@ -228,9 +199,11 @@ func appConfigInputFromOptional(value optionalString) service.AppConfigUpdateInp
 	if !value.Set {
 		return service.AppConfigUpdateInput{}
 	}
+
 	if value.Value == nil {
 		return service.AppConfigUpdateInput{Set: true, Null: true}
 	}
+
 	return service.AppConfigUpdateInput{Set: true, Value: *value.Value}
 }
 
@@ -264,11 +237,13 @@ func (h *Handler) Login(ctx *gin.Context) {
 		writeBindError(ctx, err)
 		return
 	}
+
 	accessToken, refreshToken, user, err := h.auth.Login(ctx.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusOK, loginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -287,11 +262,13 @@ func (h *Handler) Refresh(ctx *gin.Context) {
 		writeBindError(ctx, err)
 		return
 	}
+
 	accessToken, refreshToken, err := h.auth.Refresh(ctx.Request.Context(), req.RefreshToken)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusOK, refreshResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -304,10 +281,12 @@ func (h *Handler) Logout(ctx *gin.Context) {
 		writeBindError(ctx, err)
 		return
 	}
+
 	if err := h.auth.Logout(ctx.Request.Context(), req.RefreshToken); err != nil {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -318,6 +297,7 @@ func (h *Handler) Me(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+
 	ctx.JSON(http.StatusOK, newUserMeResponse(user))
 }
 
@@ -329,21 +309,14 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 	}
 
 	userID := middleware.UserID(ctx)
-
-	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	user, err := h.users.UpdateProfile(ctx.Request.Context(), userID, req.Username)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	if req.Username != nil {
-		user.Username = *req.Username
-	}
-
-	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
-		writeError(ctx, err)
-		return
-	}
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 
 	ctx.JSON(http.StatusOK, newUserMeResponse(user))
 }
@@ -366,11 +339,13 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+
 	resp := make([]challengeResponse, 0, len(challenges))
 	for _, challenge := range challenges {
 		ch := challenge
 		resp = append(resp, newChallengeResponse(&ch))
 	}
+
 	ctx.JSON(http.StatusOK, challengesListResponse{CTFState: string(state), Challenges: resp})
 }
 
@@ -389,11 +364,13 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+
 	var req submitRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		writeBindError(ctx, err)
 		return
 	}
+
 	correct, err := h.ctf.SubmitFlag(ctx.Request.Context(), middleware.UserID(ctx), challengeID, req.Flag)
 	if err != nil {
 		writeError(ctx, err)
@@ -655,18 +632,6 @@ func (h *Handler) AdminReport(ctx *gin.Context) {
 		return
 	}
 
-	rawTimeline, err := h.score.TimelineSubmissions(ctx.Request.Context(), nil)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	rawTeamTimeline, err := h.score.TimelineTeamSubmissions(ctx.Request.Context(), nil)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
 	reportChallenges := make([]adminReportChallenge, 0, len(challenges))
 	for i := range challenges {
 		reportChallenges = append(reportChallenges, newAdminReportChallenge(challenges[i]))
@@ -682,8 +647,20 @@ func (h *Handler) AdminReport(ctx *gin.Context) {
 		reportSubmissions = append(reportSubmissions, newAdminReportSubmission(submissions[i]))
 	}
 
-	timeline := timelineResponse{Submissions: aggregateUserTimeline(rawTimeline)}
-	teamTimeline := teamTimelineResponse{Submissions: aggregateTeamTimeline(rawTeamTimeline)}
+	userTimeline, err := h.score.UserTimeline(ctx.Request.Context(), nil)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	teamTimelineRows, err := h.score.TeamTimeline(ctx.Request.Context(), nil)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	timeline := timelineResponse{Submissions: userTimeline}
+	teamTimeline := teamTimelineResponse{Submissions: teamTimelineRows}
 
 	ctx.JSON(http.StatusOK, adminReportResponse{
 		Challenges:       reportChallenges,
@@ -734,6 +711,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 	}
 
 	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 	ctx.JSON(http.StatusCreated, newChallengeResponse(challenge))
 }
 
@@ -781,6 +759,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 	}
 
 	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
 }
 
@@ -788,9 +767,11 @@ func requireNonNullOptionalString(field string, value optionalString) (*string, 
 	if !value.Set {
 		return nil, nil
 	}
+
 	if value.Value == nil {
 		return nil, service.NewValidationError(service.FieldError{Field: field, Reason: "invalid"})
 	}
+
 	return value.Value, nil
 }
 
@@ -839,6 +820,7 @@ func (h *Handler) DeleteChallenge(ctx *gin.Context) {
 	}
 
 	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -927,6 +909,7 @@ func (h *Handler) CreateRegistrationKeys(ctx *gin.Context) {
 	if req.Count != nil {
 		count = *req.Count
 	}
+
 	maxUses := 1
 	if req.MaxUses != nil {
 		maxUses = *req.MaxUses
@@ -997,40 +980,14 @@ func (h *Handler) AdminMoveUserTeam(ctx *gin.Context) {
 		return
 	}
 
-	if req.TeamID <= 0 {
-		writeError(ctx, service.NewValidationError(service.FieldError{Field: "team_id", Reason: "invalid"}))
-		return
-	}
-
-	if _, err := h.teams.GetTeam(ctx.Request.Context(), req.TeamID); err != nil {
-		if errors.Is(err, repo.ErrNotFound) {
-			writeError(ctx, service.NewValidationError(service.FieldError{Field: "team_id", Reason: "invalid"}))
-			return
-		}
-
-		writeError(ctx, err)
-		return
-	}
-
-	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	updated, err := h.users.MoveUserTeam(ctx.Request.Context(), userID, req.TeamID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	user.TeamID = req.TeamID
-	user.UpdatedAt = time.Now().UTC()
-
-	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1047,42 +1004,14 @@ func (h *Handler) AdminBlockUser(ctx *gin.Context) {
 		return
 	}
 
-	reason := strings.TrimSpace(req.Reason)
-	if reason == "" {
-		writeError(ctx, service.NewValidationError(service.FieldError{Field: "reason", Reason: "required"}))
-		return
-	}
-
-	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	updated, err := h.users.BlockUser(ctx.Request.Context(), userID, req.Reason)
 	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	if user.Role == "admin" {
-		writeError(ctx, service.NewValidationError(service.FieldError{Field: "user_id", Reason: "admin_blocked"}))
-		return
-	}
-
-	user.Role = "blocked"
-	user.BlockedReason = &reason
-	blockedAt := time.Now().UTC()
-	user.BlockedAt = &blockedAt
-	user.UpdatedAt = time.Now().UTC()
-
-	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
 		writeError(ctx, err)
 		return
 	}
 
 	h.invalidateLeaderboardCache()
 	h.invalidateTimelineCache()
-
-	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1093,23 +1022,8 @@ func (h *Handler) AdminUnblockUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := h.users.GetByID(ctx.Request.Context(), userID)
+	updated, err := h.users.UnblockUser(ctx.Request.Context(), userID)
 	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
-	if user.Role == "admin" {
-		writeError(ctx, service.NewValidationError(service.FieldError{Field: "user_id", Reason: "admin_blocked"}))
-		return
-	}
-
-	user.Role = "user"
-	user.BlockedReason = nil
-	user.BlockedAt = nil
-	user.UpdatedAt = time.Now().UTC()
-
-	if err := h.users.Update(ctx.Request.Context(), user); err != nil {
 		writeError(ctx, err)
 		return
 	}
@@ -1117,124 +1031,10 @@ func (h *Handler) AdminUnblockUser(ctx *gin.Context) {
 	h.invalidateLeaderboardCache()
 	h.invalidateTimelineCache()
 
-	updated, err := h.users.GetByID(ctx.Request.Context(), userID)
-	if err != nil {
-		writeError(ctx, err)
-		return
-	}
-
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
 
 // Scoreboard Handlers
-
-func aggregateUserTimeline(raw []models.UserTimelineRow) []models.TimelineSubmission {
-	if len(raw) == 0 {
-		return []models.TimelineSubmission{}
-	}
-
-	type teamKey struct {
-		userID int64
-		bucket time.Time
-	}
-
-	teams := make(map[teamKey]*models.TimelineSubmission)
-
-	for _, sub := range raw {
-		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
-		key := teamKey{userID: sub.UserID, bucket: bucket}
-
-		if team, exists := teams[key]; exists {
-			team.Points += sub.Points
-			team.ChallengeCount++
-		} else {
-			teams[key] = &models.TimelineSubmission{
-				Timestamp:      bucket,
-				UserID:         sub.UserID,
-				Username:       sub.Username,
-				Points:         sub.Points,
-				ChallengeCount: 1,
-			}
-		}
-	}
-
-	result := make([]models.TimelineSubmission, 0, len(teams))
-	for _, team := range teams {
-		result = append(result, *team)
-	}
-
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Timestamp.Equal(result[j].Timestamp) {
-			return result[i].UserID < result[j].UserID
-		}
-
-		return result[i].Timestamp.Before(result[j].Timestamp)
-	})
-
-	return result
-}
-
-func aggregateTeamTimeline(raw []models.TeamTimelineRow) []models.TeamTimelineSubmission {
-	if len(raw) == 0 {
-		return []models.TeamTimelineSubmission{}
-	}
-
-	type teamKey struct {
-		teamID int64
-		bucket time.Time
-	}
-
-	teams := make(map[teamKey]*models.TeamTimelineSubmission)
-
-	for _, sub := range raw {
-		bucket := sub.SubmittedAt.Truncate(10 * time.Minute)
-		key := teamKey{teamID: sub.TeamID, bucket: bucket}
-
-		if team, exists := teams[key]; exists {
-			team.Points += sub.Points
-			team.ChallengeCount++
-		} else {
-			teams[key] = &models.TeamTimelineSubmission{
-				Timestamp:      bucket,
-				TeamID:         sub.TeamID,
-				TeamName:       sub.TeamName,
-				Points:         sub.Points,
-				ChallengeCount: 1,
-			}
-		}
-	}
-
-	result := make([]models.TeamTimelineSubmission, 0, len(teams))
-	for _, team := range teams {
-		result = append(result, *team)
-	}
-
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Timestamp.Equal(result[j].Timestamp) {
-			if result[i].TeamName == result[j].TeamName {
-				return result[i].TeamID < result[j].TeamID
-			}
-
-			return result[i].TeamName < result[j].TeamName
-		}
-
-		return result[i].Timestamp.Before(result[j].Timestamp)
-	})
-
-	return result
-}
-
-func parseWindowOrError(ctx *gin.Context) (int, bool) {
-	windowMinutes, err := parseWindowQuery(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse{
-			Error:   service.ErrInvalidInput.Error(),
-			Details: []service.FieldError{{Field: "window", Reason: "invalid"}},
-		})
-		return 0, false
-	}
-	return windowMinutes, true
-}
 
 func (h *Handler) Leaderboard(ctx *gin.Context) {
 	cacheKey := "leaderboard:users"
@@ -1269,54 +1069,35 @@ func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
 }
 
 func (h *Handler) Timeline(ctx *gin.Context) {
-	windowMinutes, ok := parseWindowOrError(ctx)
-	if !ok {
-		return
-	}
-
-	cacheKey := fmt.Sprintf("timeline:%d", windowMinutes)
-
+	cacheKey := "timeline:users"
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	windowStart := windowStartFromMinutes(windowMinutes)
-
-	raw, err := h.score.TimelineSubmissions(ctx.Request.Context(), windowStart)
+	submissions, err := h.score.UserTimeline(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	submissions := aggregateUserTimeline(raw)
 	response := timelineResponse{Submissions: submissions}
-
 	h.storeCache(ctx, cacheKey, response, h.cfg.Cache.TimelineTTL)
 
 	ctx.JSON(http.StatusOK, response)
 }
 
 func (h *Handler) TeamTimeline(ctx *gin.Context) {
-	windowMinutes, ok := parseWindowOrError(ctx)
-	if !ok {
-		return
-	}
-
-	cacheKey := fmt.Sprintf("timeline:teams:%d", windowMinutes)
-
+	cacheKey := "timeline:teams"
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	windowStart := windowStartFromMinutes(windowMinutes)
-
-	raw, err := h.score.TimelineTeamSubmissions(ctx.Request.Context(), windowStart)
+	submissions, err := h.score.TeamTimeline(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	submissions := aggregateTeamTimeline(raw)
 	response := teamTimelineResponse{Submissions: submissions}
 
 	h.storeCache(ctx, cacheKey, response, h.cfg.Cache.TimelineTTL)

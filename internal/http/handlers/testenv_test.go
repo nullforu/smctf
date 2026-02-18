@@ -12,6 +12,7 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
 
@@ -34,10 +35,14 @@ type handlerEnv struct {
 	challengeRepo  *repo.ChallengeRepo
 	submissionRepo *repo.SubmissionRepo
 	appConfigRepo  *repo.AppConfigRepo
+	stackRepo      *repo.StackRepo
 	authSvc        *service.AuthService
+	userSvc        *service.UserService
+	scoreSvc       *service.ScoreboardService
 	ctfSvc         *service.CTFService
 	teamSvc        *service.TeamService
 	appConfigSvc   *service.AppConfigService
+	stackSvc       *service.StackService
 	handler        *Handler
 }
 
@@ -219,15 +224,19 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
 	scoreRepo := repo.NewScoreboardRepo(handlerDB)
 	appConfigRepo := repo.NewAppConfigRepo(handlerDB)
+	stackRepo := repo.NewStackRepo(handlerDB)
 
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, handlerRedis, handlerCfg.Cache.AppConfigTTL)
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, teamRepo, handlerRedis)
+	userSvc := service.NewUserService(userRepo, teamRepo)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
 	teamSvc := service.NewTeamService(teamRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
+	stackSvc := service.NewStackService(handlerCfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, handlerRedis)
 
-	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userRepo, scoreRepo, teamSvc, nil, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, handlerRedis)
 
 	return handlerEnv{
 		cfg:            handlerCfg,
@@ -239,10 +248,14 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		appConfigRepo:  appConfigRepo,
+		stackRepo:      stackRepo,
 		authSvc:        authSvc,
+		userSvc:        userSvc,
+		scoreSvc:       scoreSvc,
 		ctfSvc:         ctfSvc,
 		teamSvc:        teamSvc,
 		appConfigSvc:   appConfigSvc,
+		stackSvc:       stackSvc,
 		handler:        handler,
 	}
 }

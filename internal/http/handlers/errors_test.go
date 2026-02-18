@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	"smctf/internal/repo"
 	"smctf/internal/service"
 
 	"github.com/go-playground/validator/v10"
@@ -77,7 +76,7 @@ func TestMapErrorSentinels(t *testing.T) {
 		{service.ErrStackNotFound, http.StatusNotFound, service.ErrStackNotFound.Error(), 0},
 		{service.ErrStackProvisionerDown, http.StatusServiceUnavailable, service.ErrStackProvisionerDown.Error(), 0},
 		{service.ErrStackInvalidSpec, http.StatusBadRequest, service.ErrStackInvalidSpec.Error(), 0},
-		{repo.ErrNotFound, http.StatusNotFound, "not found", 0},
+		{service.ErrNotFound, http.StatusNotFound, "not found", 0},
 	}
 
 	for _, tc := range cases {

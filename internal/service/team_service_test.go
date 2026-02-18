@@ -5,8 +5,6 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"smctf/internal/repo"
 )
 
 func TestTeamServiceCreateAndList(t *testing.T) {
@@ -80,7 +78,7 @@ func TestTeamServiceStatsMembersSolved(t *testing.T) {
 func TestTeamServiceNotFound(t *testing.T) {
 	env := setupServiceTest(t)
 	_, err := env.teamSvc.GetTeam(context.Background(), 999)
-	if !errors.Is(err, repo.ErrNotFound) {
+	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

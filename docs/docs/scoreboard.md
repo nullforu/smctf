@@ -83,11 +83,7 @@ Blocked users are excluded from team scores and solves.
 
 ## Get Timeline
 
-`GET /api/timeline?window=60`
-
-Query
-
-- `window`: lookback window in minutes (optional, when omitted returns all time)
+`GET /api/timeline`
 
 Response 200
 
@@ -110,19 +106,11 @@ If multiple challenges are solved by the same user within 10 minutes, they are t
 `points` is dynamically calculated based on solves.
 Blocked users are excluded.
 
-Errors:
-
-- 400 `invalid input`
-
 ---
 
 ## Get Team Timeline
 
-`GET /api/timeline/teams?window=60`
-
-Query
-
-- `window`: lookback window in minutes (optional, when omitted returns all time)
+`GET /api/timeline/teams`
 
 Response 200
 
@@ -144,7 +132,3 @@ Returns all submissions teamed by team and 10 minute intervals.
 
 `points` is dynamically calculated based on solves.
 Blocked users are excluded.
-
-Errors:
-
-- 400 `invalid input`
