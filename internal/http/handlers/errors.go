@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"smctf/internal/http/middleware"
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +27,33 @@ func writeError(ctx *gin.Context, err error) {
 	for key, value := range headers {
 		ctx.Header(key, value)
 	}
+
+	if err != nil && status >= http.StatusInternalServerError {
+		attrs := make([]slog.Attr, 0, 4)
+		if ctx != nil && ctx.Request != nil {
+			attrs = append(attrs,
+				slog.String("method", ctx.Request.Method),
+				slog.String("path", ctx.Request.URL.Path),
+			)
+		}
+
+		if ctx != nil {
+			if userID := middleware.UserID(ctx); userID > 0 {
+				attrs = append(attrs, slog.Int64("user_id", userID))
+			}
+		}
+
+		anyAttrs := make([]any, 0, len(attrs))
+		for _, attr := range attrs {
+			anyAttrs = append(anyAttrs, attr)
+		}
+
+		slog.Default().Error("http handler error",
+			slog.Any("error", err),
+			slog.Group("http", anyAttrs...),
+		)
+	}
+
 	ctx.JSON(status, resp)
 }
 
