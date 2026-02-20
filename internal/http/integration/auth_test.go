@@ -285,7 +285,7 @@ func TestMe(t *testing.T) {
 	}
 	decodeJSON(t, rec, &resp)
 
-	if resp.Email != "user@example.com" || resp.Username != "user1" || resp.Role != "user" {
+	if resp.Email != "user@example.com" || resp.Username != "user1" || resp.Role != models.UserRole {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 }
@@ -312,7 +312,7 @@ func TestUpdateMe(t *testing.T) {
 	}
 	decodeJSON(t, rec, &resp)
 
-	if resp.ID != userID || resp.Email != "user@example.com" || resp.Username != "newuser" || resp.Role != "user" {
+	if resp.ID != userID || resp.Email != "user@example.com" || resp.Username != "newuser" || resp.Role != models.UserRole {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 }

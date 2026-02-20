@@ -30,7 +30,7 @@ func createStack(t *testing.T, env repoEnv, userID, challengeID int64, stackID s
 func TestStackRepoCRUD(t *testing.T) {
 	env := setupRepoTest(t)
 
-	user := createUser(t, env, "stacker@example.com", "stacker", "pass", "user")
+	user := createUser(t, env, "stacker@example.com", "stacker", "pass", models.UserRole)
 	challenge := createChallenge(t, env, "Stacked", 100, "flag{1}", true)
 
 	now := time.Now().UTC()
@@ -87,7 +87,7 @@ func TestStackRepoCRUD(t *testing.T) {
 func TestStackRepoListByUserOrdering(t *testing.T) {
 	env := setupRepoTest(t)
 
-	user := createUser(t, env, "order@example.com", "order", "pass", "user")
+	user := createUser(t, env, "order@example.com", "order", "pass", models.UserRole)
 	challenge1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	challenge2 := createChallenge(t, env, "Ch2", 100, "flag{2}", true)
 
@@ -111,7 +111,7 @@ func TestStackRepoListByUserOrdering(t *testing.T) {
 func TestStackRepoListAll(t *testing.T) {
 	env := setupRepoTest(t)
 
-	user := createUser(t, env, "all@example.com", "all", "pass", "user")
+	user := createUser(t, env, "all@example.com", "all", "pass", models.UserRole)
 	challenge1 := createChallenge(t, env, "ChAll1", 100, "flag{all1}", true)
 	challenge2 := createChallenge(t, env, "ChAll2", 100, "flag{all2}", true)
 
@@ -136,7 +136,7 @@ func TestStackRepoListAdmin(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Alpha")
-	user := createUserWithTeam(t, env, "admin-stack@example.com", "adminstack", "pass", "user", team.ID)
+	user := createUserWithTeam(t, env, "admin-stack@example.com", "adminstack", "pass", models.UserRole, team.ID)
 	challenge := createChallenge(t, env, "AdminStack", 200, "flag{admin}", true)
 
 	createStack(t, env, user.ID, challenge.ID, "stack-admin", time.Now().UTC())

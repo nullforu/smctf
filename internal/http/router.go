@@ -7,6 +7,7 @@ import (
 	"smctf/internal/http/handlers"
 	"smctf/internal/http/middleware"
 	"smctf/internal/logging"
+	"smctf/internal/models"
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -68,7 +69,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		unblocked.DELETE("/challenges/:id/stack", h.DeleteStack)
 
 		admin := api.Group("/admin")
-		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireActiveUser(userSvc), middleware.RequireRole("admin"))
+		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireActiveUser(userSvc), middleware.RequireRole(models.AdminRole))
 		admin.PUT("/config", h.AdminUpdateConfig)
 		admin.POST("/challenges", h.CreateChallenge)
 		admin.GET("/challenges/:id", h.AdminGetChallenge)

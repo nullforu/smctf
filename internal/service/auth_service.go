@@ -74,7 +74,7 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 		Email:        email,
 		Username:     username,
 		PasswordHash: hash,
-		Role:         "user",
+		Role:         models.UserRole,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}

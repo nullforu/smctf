@@ -66,7 +66,7 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Fatalf("expected 401, got %d", rec.Code)
 	}
 
-	refresh, err := auth.GenerateRefreshToken(cfg, 42, "user", "jti-1")
+	refresh, err := auth.GenerateRefreshToken(cfg, 42, models.UserRole, "jti-1")
 	if err != nil {
 		t.Fatalf("refresh token: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Fatalf("expected 401, got %d", rec.Code)
 	}
 
-	access, err := auth.GenerateAccessToken(cfg, 42, "admin")
+	access, err := auth.GenerateAccessToken(cfg, 42, models.AdminRole)
 	if err != nil {
 		t.Fatalf("access token: %v", err)
 	}
@@ -105,11 +105,11 @@ func TestRequireRole(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.GET("/admin", Auth(cfg), RequireRole("admin"), func(ctx *gin.Context) {
+	router.GET("/admin", Auth(cfg), RequireRole(models.AdminRole), func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
 
-	userToken, err := auth.GenerateAccessToken(cfg, 1, "user")
+	userToken, err := auth.GenerateAccessToken(cfg, 1, models.UserRole)
 	if err != nil {
 		t.Fatalf("user token: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestRequireRole(t *testing.T) {
 		t.Fatalf("expected 403, got %d", rec.Code)
 	}
 
-	adminToken, err := auth.GenerateAccessToken(cfg, 1, "admin")
+	adminToken, err := auth.GenerateAccessToken(cfg, 1, models.AdminRole)
 	if err != nil {
 		t.Fatalf("admin token: %v", err)
 	}
@@ -147,8 +147,8 @@ func TestRequireActiveUser(t *testing.T) {
 		RefreshTTL: time.Hour,
 	}
 
-	user := &models.User{ID: 1, Role: "user"}
-	blocked := &models.User{ID: 2, Role: "blocked"}
+	user := &models.User{ID: 1, Role: models.UserRole}
+	blocked := &models.User{ID: 2, Role: models.BlockedRole}
 
 	users := &stubUserLookup{
 		users: map[int64]*models.User{
@@ -169,7 +169,7 @@ func TestRequireActiveUser(t *testing.T) {
 		t.Fatalf("expected 401, got %d", rec.Code)
 	}
 
-	accessUser, err := auth.GenerateAccessToken(cfg, user.ID, "user")
+	accessUser, err := auth.GenerateAccessToken(cfg, user.ID, models.UserRole)
 	if err != nil {
 		t.Fatalf("token: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestRequireActiveUser(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	accessBlocked, err := auth.GenerateAccessToken(cfg, blocked.ID, "user")
+	accessBlocked, err := auth.GenerateAccessToken(cfg, blocked.ID, models.UserRole)
 	if err != nil {
 		t.Fatalf("token blocked: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestRequireActiveUserMissingUserID(t *testing.T) {
 
 	users := &stubUserLookup{
 		users: map[int64]*models.User{
-			1: {ID: 1, Role: "user"},
+			1: {ID: 1, Role: models.UserRole},
 		},
 	}
 

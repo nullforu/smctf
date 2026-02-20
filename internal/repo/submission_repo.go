@@ -97,7 +97,7 @@ func (r *SubmissionRepo) correctSubmissionCountForChallenge(
 		TableExpr("submissions AS s").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
-		Where("u.role <> ?", "blocked").
+		Where("u.role <> ?", models.BlockedRole).
 		Where("s.challenge_id = ?", challengeID).
 		Count(ctx)
 }

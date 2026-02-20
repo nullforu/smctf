@@ -56,14 +56,14 @@ func TestTeamRepoListWithStats(t *testing.T) {
 	teamB := createTeam(t, env, "Beta School")
 	teamC := createTeam(t, env, "Gamma School")
 
-	userA1 := createUserWithTeam(t, env, "a1@example.com", "alpha1", "pass", "user", teamA.ID)
-	userA2 := createUserWithTeam(t, env, "a2@example.com", "alpha2", "pass", "user", teamA.ID)
-	blockedA := createUserWithTeam(t, env, "a3@example.com", "alpha3", "pass", "user", teamA.ID)
-	blockedA.Role = "blocked"
+	userA1 := createUserWithTeam(t, env, "a1@example.com", "alpha1", "pass", models.UserRole, teamA.ID)
+	userA2 := createUserWithTeam(t, env, "a2@example.com", "alpha2", "pass", models.UserRole, teamA.ID)
+	blockedA := createUserWithTeam(t, env, "a3@example.com", "alpha3", "pass", models.UserRole, teamA.ID)
+	blockedA.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blockedA); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
-	_ = createUserWithTeam(t, env, "b1@example.com", "beta1", "pass", "user", teamB.ID)
+	_ = createUserWithTeam(t, env, "b1@example.com", "beta1", "pass", models.UserRole, teamB.ID)
 
 	chal1 := createChallenge(t, env, "Basic", 100, "flag{basic}", true)
 	chal2 := createChallenge(t, env, "Hard", 200, "flag{hard}", true)
@@ -116,9 +116,9 @@ func TestTeamRepoGetStats(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Gamma School")
-	user := createUserWithTeam(t, env, "g1@example.com", "gamma1", "pass", "user", team.ID)
-	blocked := createUserWithTeam(t, env, "g2@example.com", "gamma2", "pass", "user", team.ID)
-	blocked.Role = "blocked"
+	user := createUserWithTeam(t, env, "g1@example.com", "gamma1", "pass", models.UserRole, team.ID)
+	blocked := createUserWithTeam(t, env, "g2@example.com", "gamma2", "pass", models.UserRole, team.ID)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -149,9 +149,9 @@ func TestTeamRepoListMembers(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Members School")
-	user1 := createUserWithTeam(t, env, "m1@example.com", "member1", "pass", "user", team.ID)
-	user2 := createUserWithTeam(t, env, "m2@example.com", "member2", "pass", "admin", team.ID)
-	_ = createUser(t, env, "other@example.com", "other", "pass", "user")
+	user1 := createUserWithTeam(t, env, "m1@example.com", "member1", "pass", models.UserRole, team.ID)
+	user2 := createUserWithTeam(t, env, "m2@example.com", "member2", "pass", models.AdminRole, team.ID)
+	_ = createUser(t, env, "other@example.com", "other", "pass", models.UserRole)
 
 	rows, err := env.teamRepo.ListMembers(context.Background(), team.ID)
 	if err != nil {
@@ -175,10 +175,10 @@ func TestTeamRepoListSolvedChallenges(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Solves School")
-	user1 := createUserWithTeam(t, env, "s1@example.com", "solver1", "pass", "user", team.ID)
-	user2 := createUserWithTeam(t, env, "s2@example.com", "solver2", "pass", "user", team.ID)
-	blocked := createUserWithTeam(t, env, "s3@example.com", "solver3", "pass", "user", team.ID)
-	blocked.Role = "blocked"
+	user1 := createUserWithTeam(t, env, "s1@example.com", "solver1", "pass", models.UserRole, team.ID)
+	user2 := createUserWithTeam(t, env, "s2@example.com", "solver2", "pass", models.UserRole, team.ID)
+	blocked := createUserWithTeam(t, env, "s3@example.com", "solver3", "pass", models.UserRole, team.ID)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}

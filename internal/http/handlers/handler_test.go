@@ -335,7 +335,7 @@ func TestHandlerAdminConfigCTFWindowClear(t *testing.T) {
 
 func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	env := setupHandlerTest(t)
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	key := createHandlerRegistrationKey(t, env, "ABCDEFGHJKLMNPQ2", admin.ID)
 
 	regBody := map[string]string{
@@ -425,7 +425,7 @@ func TestHandlerAdminMoveUserTeam(t *testing.T) {
 	env := setupHandlerTest(t)
 	teamA := createHandlerTeam(t, env, "Alpha")
 	teamB := createHandlerTeam(t, env, "Beta")
-	user := createHandlerUserWithTeam(t, env, "user@example.com", "user1", "pass", "user", teamA.ID)
+	user := createHandlerUserWithTeam(t, env, "user@example.com", "user1", "pass", models.UserRole, teamA.ID)
 
 	setCachePayload(t, env, "leaderboard:users", []byte(`{"challenges":[],"entries":[]}`))
 	setCachePayload(t, env, "leaderboard:teams", []byte(`{"challenges":[],"entries":[]}`))
@@ -472,7 +472,7 @@ func TestHandlerAdminMoveUserTeam(t *testing.T) {
 
 func TestHandlerAdminBlockUser(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
@@ -484,11 +484,11 @@ func TestHandlerAdminBlockUser(t *testing.T) {
 
 	var resp adminUserResponse
 	decodeJSON(t, rec, &resp)
-	if resp.Role != "blocked" || resp.BlockedReason == nil {
+	if resp.Role != models.BlockedRole || resp.BlockedReason == nil {
 		t.Fatalf("expected blocked user, got %+v", resp)
 	}
 
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(admin.ID, 10)}}
 	env.handler.AdminBlockUser(ctx)
@@ -513,7 +513,7 @@ func TestHandlerAdminBlockUser(t *testing.T) {
 
 func TestHandlerAdminUnblockUser(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/users/1/block", map[string]any{"reason": "policy"})
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(user.ID, 10)}}
@@ -531,11 +531,11 @@ func TestHandlerAdminUnblockUser(t *testing.T) {
 
 	var resp adminUserResponse
 	decodeJSON(t, rec, &resp)
-	if resp.Role != "user" || resp.BlockedReason != nil || resp.BlockedAt != nil {
+	if resp.Role != models.UserRole || resp.BlockedReason != nil || resp.BlockedAt != nil {
 		t.Fatalf("expected unblocked user, got %+v", resp)
 	}
 
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/users/1/unblock", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.FormatInt(admin.ID, 10)}}
 	env.handler.AdminUnblockUser(ctx)
@@ -555,7 +555,7 @@ func TestHandlerAdminUnblockUser(t *testing.T) {
 
 func TestHandlerChallengesAndSubmit(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 	challenge := createHandlerChallenge(t, env, "Challenge", 100, "FLAG{1}", true)
 	other := createHandlerChallenge(t, env, "Other", 50, "FLAG{2}", true)
 
@@ -594,8 +594,8 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 	}
 
 	team := createHandlerTeam(t, env, "Alpha")
-	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
-	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", team.ID)
+	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
+	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", models.UserRole, team.ID)
 	teamChallenge := createHandlerChallenge(t, env, "Team", 120, "FLAG{TEAM}", true)
 
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/3/submit", map[string]string{"flag": "FLAG{TEAM}"})
@@ -837,7 +837,7 @@ func TestHandlerRequestChallengeFileUploadStorageUnavailable(t *testing.T) {
 
 func TestHandlerChallengeCacheInvalidation(t *testing.T) {
 	env := setupHandlerTest(t)
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	challenge := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
 
 	updateReq := map[string]any{
@@ -884,7 +884,7 @@ func TestHandlerChallengeCacheInvalidation(t *testing.T) {
 func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 	env := setupHandlerTest(t)
 
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges", "")
 	env.handler.CreateChallenge(ctx)
@@ -956,7 +956,7 @@ func setupHandlerStackService(t *testing.T, env handlerEnv, client stack.API) (*
 
 func TestStackHandlersCRUD(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", "user")
+	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	challenge := createHandlerStackChallenge(t, env, "stack")
 
 	var deleteCalls atomic.Int32
@@ -1016,7 +1016,7 @@ func TestStackHandlersCRUD(t *testing.T) {
 
 func TestStackHandlersList(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "u2@example.com", "u2", "pass", "user")
+	user := createHandlerUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
 	challenge1 := createHandlerStackChallenge(t, env, "stack-1")
 	challenge2 := createHandlerStackChallenge(t, env, "stack-2")
 
@@ -1063,7 +1063,7 @@ func TestStackHandlersList(t *testing.T) {
 func TestAdminStackHandlersList(t *testing.T) {
 	env := setupHandlerTest(t)
 	team := createHandlerTeam(t, env, "Alpha")
-	user := createHandlerUserWithTeam(t, env, "admin@example.com", "uadmin", "pass", "user", team.ID)
+	user := createHandlerUserWithTeam(t, env, "admin@example.com", "uadmin", "pass", models.UserRole, team.ID)
 	challenge := createHandlerStackChallenge(t, env, "admin-stack")
 
 	mock := &stack.MockClient{
@@ -1122,7 +1122,7 @@ func TestAdminStackHandlersListDisabled(t *testing.T) {
 
 func TestAdminStackHandlersDelete(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "admin@example.com", "uadmin-del", "pass", "user")
+	user := createHandlerUser(t, env, "admin@example.com", "uadmin-del", "pass", models.UserRole)
 	challenge := createHandlerStackChallenge(t, env, "admin-del")
 
 	var deleteCalls atomic.Int32
@@ -1186,7 +1186,7 @@ func TestAdminStackHandlersDeleteMissingStackID(t *testing.T) {
 
 func TestAdminStackHandlersGet(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "u-admin-get@example.com", "uadmin-get", "pass", "user")
+	user := createHandlerUser(t, env, "u-admin-get@example.com", "uadmin-get", "pass", models.UserRole)
 	challenge := createHandlerStackChallenge(t, env, "admin-get")
 
 	mock := &stack.MockClient{
@@ -1261,7 +1261,7 @@ func TestAdminStackHandlersGetNotFound(t *testing.T) {
 func TestAdminReport(t *testing.T) {
 	env := setupHandlerTest(t)
 
-	user := createHandlerUser(t, env, "report@example.com", "reporter", "pass", "user")
+	user := createHandlerUser(t, env, "report@example.com", "reporter", "pass", models.UserRole)
 	challenge := createHandlerStackChallenge(t, env, "report-challenge")
 
 	stackRepo := repo.NewStackRepo(env.db)
@@ -1353,7 +1353,7 @@ func TestAdminReport(t *testing.T) {
 
 func TestStackHandlersNotStarted(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", "user")
+	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", models.UserRole)
 	challenge := createHandlerStackChallenge(t, env, "stack")
 
 	start := time.Now().Add(2 * time.Hour)
@@ -1458,7 +1458,7 @@ func TestAdminGetChallengeInvalidID(t *testing.T) {
 
 func TestSubmitFlagDeletesStack(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", "user")
+	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", models.UserRole)
 	challenge := createHandlerStackChallenge(t, env, "stack")
 
 	stackRepo := repo.NewStackRepo(env.db)
@@ -1517,7 +1517,7 @@ func TestHandlerDownloadNotStarted(t *testing.T) {
 
 func TestHandlerRegistrationKeys(t *testing.T) {
 	env := setupHandlerTest(t)
-	admin := createHandlerUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	team := createHandlerTeam(t, env, "Alpha")
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1})
@@ -1557,8 +1557,8 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 
 func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 	env := setupHandlerTest(t)
-	user1 := createHandlerUser(t, env, "user1@example.com", "user1", "pass", "user")
-	user2 := createHandlerUser(t, env, "user2@example.com", "user2", "pass", "user")
+	user1 := createHandlerUser(t, env, "user1@example.com", "user1", "pass", models.UserRole)
+	user2 := createHandlerUser(t, env, "user2@example.com", "user2", "pass", models.UserRole)
 	ch1 := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
 	ch2 := createHandlerChallenge(t, env, "Ch2", 50, "FLAG{2}", true)
 
@@ -1599,8 +1599,8 @@ func TestHandlerLeaderboardTimelineSolved(t *testing.T) {
 	}
 
 	team := createHandlerTeam(t, env, "Alpha")
-	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
-	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", team.ID)
+	teamUser1 := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
+	teamUser2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", models.UserRole, team.ID)
 	teamChallenge := createHandlerChallenge(t, env, "TeamSolved", 120, "FLAG{TEAM}", true)
 
 	createHandlerSubmission(t, env, teamUser1.ID, teamChallenge.ID, true, time.Now().Add(-time.Minute))
@@ -1636,9 +1636,9 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 	teamA := createHandlerTeam(t, env, "Alpha")
 	teamB := createHandlerTeam(t, env, "Beta")
 	teamC := createHandlerTeam(t, env, "Gamma")
-	user1 := createHandlerUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
-	user2 := createHandlerUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
-	user3 := createHandlerUserWithTeam(t, env, "u3@example.com", "u3", "pass", "user", teamC.ID)
+	user1 := createHandlerUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, teamA.ID)
+	user2 := createHandlerUserWithTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole, teamB.ID)
+	user3 := createHandlerUserWithTeam(t, env, "u3@example.com", "u3", "pass", models.UserRole, teamC.ID)
 
 	ch1 := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
 	ch2 := createHandlerChallenge(t, env, "Ch2", 50, "FLAG{2}", true)
@@ -1859,7 +1859,7 @@ func TestHandlerCreateTeam(t *testing.T) {
 func TestHandlerTeams(t *testing.T) {
 	env := setupHandlerTest(t)
 	team := createHandlerTeam(t, env, "Alpha")
-	user := createHandlerUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
+	user := createHandlerUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, team.ID)
 
 	challenge := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
 	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().Add(-time.Minute))
@@ -1916,7 +1916,7 @@ func TestHandlerTeams(t *testing.T) {
 
 func TestHandlerMeUpdateUsers(t *testing.T) {
 	env := setupHandlerTest(t)
-	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createHandlerUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/me", nil)
 	ctx.Set("userID", user.ID)

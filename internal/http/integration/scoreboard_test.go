@@ -11,10 +11,10 @@ import (
 
 func TestScoreboard(t *testing.T) {
 	env := setupTest(t, testCfg)
-	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
-	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
-	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
-	blocked.Role = "blocked"
+	user1 := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user2 := createUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
+	blocked := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -47,11 +47,11 @@ func TestScoreboardTeams(t *testing.T) {
 	env := setupTest(t, testCfg)
 	teamA := createTeam(t, env, "Alpha")
 	teamB := createTeam(t, env, "Beta")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
-	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
-	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "user", teamB.ID)
-	blocked.Role = "blocked"
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole, teamB.ID)
+	user3 := createUser(t, env, "u3@example.com", "u3", "pass", models.UserRole)
+	blocked := createUserWithTeam(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole, teamB.ID)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -87,10 +87,10 @@ func TestScoreboardTeams(t *testing.T) {
 func TestScoreboardTeamTimeline(t *testing.T) {
 	env := setupTest(t, testCfg)
 	teamA := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
-	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
-	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "user", teamA.ID)
-	blocked.Role = "blocked"
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, teamA.ID)
+	user2 := createUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
+	blocked := createUserWithTeam(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole, teamA.ID)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -129,10 +129,10 @@ func TestScoreboardTeamTimeline(t *testing.T) {
 
 func TestScoreboardTimeline(t *testing.T) {
 	env := setupTest(t, testCfg)
-	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
-	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
-	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
-	blocked.Role = "blocked"
+	user1 := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user2 := createUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
+	blocked := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -181,10 +181,10 @@ func TestScoreboardTimeline(t *testing.T) {
 func TestScoreboardDynamicScoring(t *testing.T) {
 	env := setupTest(t, testCfg)
 	team := createTeam(t, env, fmt.Sprintf("Alpha-%d", time.Now().UnixNano()))
-	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", "user", team.ID)
-	userSolo := createUser(t, env, "solo@example.com", "solo", "pass123", "user")
-	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass123", "user")
-	blocked.Role = "blocked"
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass123", models.UserRole, team.ID)
+	userSolo := createUser(t, env, "solo@example.com", "solo", "pass123", models.UserRole)
+	blocked := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass123", models.UserRole)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}

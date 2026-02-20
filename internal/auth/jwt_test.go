@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"smctf/internal/config"
+	"smctf/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -20,7 +21,7 @@ func TestGenerateAccessToken(t *testing.T) {
 		RefreshTTL: 24 * time.Hour,
 	}
 
-	token, err := GenerateAccessToken(cfg, 42, "admin")
+	token, err := GenerateAccessToken(cfg, 42, models.AdminRole)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken failed: %v", err)
 	}
@@ -38,8 +39,8 @@ func TestGenerateAccessToken(t *testing.T) {
 		t.Errorf("expected UserID 42, got %d", claims.UserID)
 	}
 
-	if claims.Role != "admin" {
-		t.Errorf("expected Role admin, got %s", claims.Role)
+	if claims.Role != models.AdminRole {
+		t.Errorf("expected Role %s, got %s", models.AdminRole, claims.Role)
 	}
 
 	if claims.Type != TokenTypeAccess {
@@ -60,7 +61,7 @@ func TestGenerateRefreshToken(t *testing.T) {
 	}
 
 	jti := "test-jti-123"
-	token, err := GenerateRefreshToken(cfg, 42, "user", jti)
+	token, err := GenerateRefreshToken(cfg, 42, models.UserRole, jti)
 	if err != nil {
 		t.Fatalf("GenerateRefreshToken failed: %v", err)
 	}
@@ -78,8 +79,8 @@ func TestGenerateRefreshToken(t *testing.T) {
 		t.Errorf("expected UserID 42, got %d", claims.UserID)
 	}
 
-	if claims.Role != "user" {
-		t.Errorf("expected Role user, got %s", claims.Role)
+	if claims.Role != models.UserRole {
+		t.Errorf("expected Role %s, got %s", models.UserRole, claims.Role)
 	}
 
 	if claims.Type != TokenTypeRefresh {
@@ -129,7 +130,7 @@ func TestParseTokenWrongSecret(t *testing.T) {
 		RefreshTTL: 24 * time.Hour,
 	}
 
-	token, err := GenerateAccessToken(cfg, 42, "admin")
+	token, err := GenerateAccessToken(cfg, 42, models.AdminRole)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken failed: %v", err)
 	}
@@ -151,7 +152,7 @@ func TestParseTokenWrongIssuer(t *testing.T) {
 		RefreshTTL: 24 * time.Hour,
 	}
 
-	token, err := GenerateAccessToken(cfg, 42, "admin")
+	token, err := GenerateAccessToken(cfg, 42, models.AdminRole)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken failed: %v", err)
 	}
@@ -173,7 +174,7 @@ func TestParseTokenExpiredToken(t *testing.T) {
 		RefreshTTL: 24 * time.Hour,
 	}
 
-	token, err := GenerateAccessToken(cfg, 42, "admin")
+	token, err := GenerateAccessToken(cfg, 42, models.AdminRole)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken failed: %v", err)
 	}
@@ -207,7 +208,7 @@ func TestParseTokenUnexpectedSigningMethod(t *testing.T) {
 
 	claims := Claims{
 		UserID: 1,
-		Role:   "admin",
+		Role:   models.AdminRole,
 		Type:   TokenTypeAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    cfg.Issuer,

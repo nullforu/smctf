@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"smctf/internal/config"
+	"smctf/internal/models"
 	"smctf/internal/stack"
 	"smctf/internal/utils"
 )
 
 func TestAdminCreateChallenge(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]string{"title": "Ch1"}, nil)
 	if rec.Code != http.StatusUnauthorized {
@@ -77,7 +78,7 @@ func TestAdminCreateChallenge(t *testing.T) {
 
 func TestAdminUpdateChallenge(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 
@@ -222,7 +223,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 
 func TestAdminGetChallengeDetail(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
@@ -248,7 +249,7 @@ func TestAdminGetChallengeDetail(t *testing.T) {
 
 func TestAdminDeleteChallenge(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
@@ -292,7 +293,7 @@ func TestAdminDeleteChallenge(t *testing.T) {
 
 func TestAdminRegistrationKeys(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	team := createTeam(t, env, fmt.Sprintf("Alpha-%d", time.Now().UnixNano()))
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys", map[string]int{"count": 1, "team_id": int(team.ID)}, nil)
@@ -332,7 +333,7 @@ func TestAdminRegistrationKeys(t *testing.T) {
 		t.Fatalf("expected 16-char codes, got %q and %q", created[0].Code, created[1].Code)
 	}
 
-	if created[0].CreatedByUsername != "admin" {
+	if created[0].CreatedByUsername != models.AdminRole {
 		t.Fatalf("expected created_by_username admin, got %q", created[0].CreatedByUsername)
 	}
 
@@ -369,7 +370,7 @@ func TestAdminRegistrationKeys(t *testing.T) {
 		t.Fatalf("expected key %s in list", created[0].Code)
 	}
 
-	if found.CreatedByUsername != "admin" {
+	if found.CreatedByUsername != models.AdminRole {
 		t.Fatalf("expected created_by_username admin, got %q", found.CreatedByUsername)
 	}
 
@@ -482,7 +483,7 @@ func TestAdminBlockUser(t *testing.T) {
 	}
 	decodeJSON(t, rec, &meResp)
 
-	if meResp.Role != "blocked" || meResp.BlockedReason == nil {
+	if meResp.Role != models.BlockedRole || meResp.BlockedReason == nil {
 		t.Fatalf("expected blocked info, got %+v", meResp)
 	}
 
@@ -535,7 +536,7 @@ func TestAdminUnblockUser(t *testing.T) {
 		BlockedReason *string `json:"blocked_reason"`
 	}
 	decodeJSON(t, rec, &userResp)
-	if userResp.Role != "user" || userResp.BlockedReason != nil {
+	if userResp.Role != models.UserRole || userResp.BlockedReason != nil {
 		t.Fatalf("expected unblocked user, got %+v", userResp)
 	}
 
@@ -559,9 +560,9 @@ func TestAdminStackManagement(t *testing.T) {
 	mock := stack.NewProvisionerMock()
 	env := setupStackTest(t, cfg, mock.Client())
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
-	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
 	challenge := createStackChallenge(t, env, "StackChal")
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(userAccess))
@@ -626,7 +627,7 @@ func TestAdminStackEndpointsAuth(t *testing.T) {
 		t.Fatalf("admin stack delete unauth status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	accessUser, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	accessUser, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
 
 	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks", nil, authHeader(accessUser))
 	if rec.Code != http.StatusForbidden {
@@ -652,7 +653,7 @@ func TestAdminReportAuth(t *testing.T) {
 		t.Fatalf("admin report unauth status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	accessUser, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	accessUser, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
 	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/report", nil, authHeader(accessUser))
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("admin report forbidden status %d: %s", rec.Code, rec.Body.String())
@@ -671,9 +672,9 @@ func TestAdminReportSuccess(t *testing.T) {
 	mock := stack.NewProvisionerMock()
 	env := setupStackTest(t, cfg, mock.Client())
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
-	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
 	challenge := createStackChallenge(t, env, "StackChal")
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(userAccess))

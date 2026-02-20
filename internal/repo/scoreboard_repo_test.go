@@ -13,10 +13,10 @@ func TestScoreboardRepoLeaderboardAndTimeline(t *testing.T) {
 	scoreRepo := NewScoreboardRepo(env.db)
 
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
-	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
-	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
-	blocked.Role = "blocked"
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, team.ID)
+	user2 := createUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
+	blocked := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -75,11 +75,11 @@ func TestScoreboardRepoTeamLeaderboardAndTimeline(t *testing.T) {
 
 	teamA := createTeam(t, env, "Alpha")
 	teamB := createTeam(t, env, "Beta")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", teamB.ID)
-	user3 := createUser(t, env, "u3@example.com", "u3", "pass", "user")
-	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "user", teamB.ID)
-	blocked.Role = "blocked"
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, teamA.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole, teamB.ID)
+	user3 := createUser(t, env, "u3@example.com", "u3", "pass", models.UserRole)
+	blocked := createUserWithTeam(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole, teamB.ID)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -127,9 +127,9 @@ func TestScoreboardRepoTimelineNoSince(t *testing.T) {
 	env := setupRepoTest(t)
 	scoreRepo := NewScoreboardRepo(env.db)
 
-	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
-	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
-	blocked.Role = "blocked"
+	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	blocked := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -152,9 +152,9 @@ func TestScoreboardRepoTimelineOrdering(t *testing.T) {
 	env := setupRepoTest(t)
 	scoreRepo := NewScoreboardRepo(env.db)
 
-	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
-	blocked := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
-	blocked.Role = "blocked"
+	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	blocked := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}
@@ -183,8 +183,8 @@ func TestScoreboardRepoLeaderboardTieBreak(t *testing.T) {
 	env := setupRepoTest(t)
 	scoreRepo := NewScoreboardRepo(env.db)
 
-	user1 := createUser(t, env, "u1@example.com", "u1", "pass", "user")
-	user2 := createUser(t, env, "u2@example.com", "u2", "pass", "user")
+	user1 := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user2 := createUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
 
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().Add(-time.Minute))
@@ -208,7 +208,7 @@ func TestScoreboardRepoTimelineIncludesUsername(t *testing.T) {
 	env := setupRepoTest(t)
 	scoreRepo := NewScoreboardRepo(env.db)
 
-	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
+	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 
 	createSubmission(t, env, user.ID, ch.ID, true, time.Now().Add(-time.Minute))
@@ -229,9 +229,9 @@ func TestScoreboardRepoTeamLeaderboardIncludesEmptyTeam(t *testing.T) {
 
 	teamA := createTeam(t, env, "Alpha")
 	teamB := createTeam(t, env, "Beta")
-	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", teamA.ID)
-	blocked := createUserWithTeam(t, env, "blocked@example.com", "blocked", "pass", "user", teamB.ID)
-	blocked.Role = "blocked"
+	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, teamA.ID)
+	blocked := createUserWithTeam(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole, teamB.ID)
+	blocked.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), blocked); err != nil {
 		t.Fatalf("block user: %v", err)
 	}

@@ -137,7 +137,7 @@ type loginUserResponse struct {
 type loginResponse struct {
 	AccessToken  string            `json:"access_token"`
 	RefreshToken string            `json:"refresh_token"`
-	User         loginUserResponse `json:"user"`
+	User         loginUserResponse `json:models.UserRole`
 }
 
 type refreshResponse struct {

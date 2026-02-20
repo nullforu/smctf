@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"smctf/internal/db"
+	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
@@ -107,8 +108,8 @@ func TestCTFServiceCreateChallengeValidation(t *testing.T) {
 func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	env := setupServiceTest(t)
 	team := createTeam(t, env, "Alpha")
-	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
-	soloUser := createUser(t, env, "s1@example.com", "s1", "pass", "user")
+	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
+	soloUser := createUser(t, env, "s1@example.com", "s1", "pass", models.UserRole)
 
 	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true, false, 0, nil)
 	if err != nil {
@@ -253,7 +254,7 @@ func TestCTFServiceDeleteChallenge(t *testing.T) {
 
 func TestCTFServiceSubmitFlag(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
+	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	challenge := createChallenge(t, env, "Solve", 100, "FLAG{4}", true)
 
 	if _, err := env.ctfSvc.SubmitFlag(context.Background(), 0, challenge.ID, "flag"); err == nil {
@@ -288,8 +289,8 @@ func TestCTFServiceSubmitFlag(t *testing.T) {
 	}
 
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", "user", team.ID)
-	user2 := createUserWithTeam(t, env, "t2@example.com", "t2", "pass", "user", team.ID)
+	user1 := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
+	user2 := createUserWithTeam(t, env, "t2@example.com", "t2", "pass", models.UserRole, team.ID)
 	teamChallenge := createChallenge(t, env, "Team", 120, "FLAG{TEAM}", true)
 
 	if _, err := env.ctfSvc.SubmitFlag(context.Background(), user1.ID, teamChallenge.ID, "FLAG{TEAM}"); err != nil {
@@ -309,7 +310,7 @@ func TestCTFServiceSubmitFlag(t *testing.T) {
 
 func TestCTFServiceSolvedChallenges(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
+	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	challenge := createChallenge(t, env, "Solved", 100, "FLAG{6}", true)
 	now := time.Now().UTC()
 	_ = createSubmission(t, env, user.ID, challenge.ID, true, now.Add(-time.Minute))
@@ -326,7 +327,7 @@ func TestCTFServiceSolvedChallenges(t *testing.T) {
 
 func TestCTFServiceSolvedChallengesEmpty(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", "user")
+	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 
 	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), user.ID)
 	if err != nil {
@@ -340,7 +341,7 @@ func TestCTFServiceSolvedChallengesEmpty(t *testing.T) {
 
 func TestCTFServiceListAllSubmissions(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "sub-all@example.com", "suball", "pass", "user")
+	user := createUser(t, env, "sub-all@example.com", "suball", "pass", models.UserRole)
 	challenge := createChallenge(t, env, "SubAll", 100, "flag{sub}", true)
 
 	_ = createSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC().Add(-time.Minute))

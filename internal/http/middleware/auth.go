@@ -83,7 +83,7 @@ func RequireActiveUser(users UserLookup) gin.HandlerFunc {
 			return
 		}
 
-		if user.Role == "blocked" {
+		if user.Role == models.BlockedRole {
 			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": service.ErrUserBlocked.Error()})
 			return
 		}

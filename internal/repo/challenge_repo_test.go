@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"smctf/internal/db"
+	"smctf/internal/models"
 
 	"github.com/uptrace/bun"
 )
@@ -69,8 +70,8 @@ func TestChallengeRepoDynamicPointsAndSolveCounts(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Alpha")
-	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", "user", team.ID)
-	userSolo := createUser(t, env, "solo@example.com", "solo", "pass", "user")
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", models.UserRole, team.ID)
+	userSolo := createUser(t, env, "solo@example.com", "solo", "pass", models.UserRole)
 
 	challenge := createChallenge(t, env, "Dynamic", 500, "FLAG{DYN}", true)
 	challenge.MinimumPoints = 100

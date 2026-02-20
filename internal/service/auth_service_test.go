@@ -14,7 +14,7 @@ import (
 
 func TestAuthServiceRegisterSuccess(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	key := createRegistrationKey(t, env, "ABCDEFGHJKLMNPQ2", admin.ID)
 
 	user, err := env.authSvc.Register(context.Background(), "USER@Example.com", "  user1  ", "pass1", key.Code, "127.0.0.1")
@@ -56,9 +56,9 @@ func TestAuthServiceRegisterValidation(t *testing.T) {
 
 func TestAuthServiceRegisterUserExists(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	_ = createRegistrationKey(t, env, "ABCDEFGHJKLMNPQ3", admin.ID)
-	_ = createUser(t, env, "user@example.com", "user1", "pass", "user")
+	_ = createUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	_, err := env.authSvc.Register(context.Background(), "user@example.com", "newuser", "pass", "ABCDEFGHJKLMNPQ3", "")
 	if !errors.Is(err, ErrUserExists) {
@@ -68,7 +68,7 @@ func TestAuthServiceRegisterUserExists(t *testing.T) {
 
 func TestAuthServiceCreateRegistrationKeys(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	team := createTeam(t, env, "Alpha")
 
 	if _, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 0, team.ID, 1); err == nil {
@@ -97,7 +97,7 @@ func TestAuthServiceCreateRegistrationKeys(t *testing.T) {
 
 func TestAuthServiceCreateRegistrationKeysWithTeam(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	team := createTeam(t, env, "Alpha")
 
 	keys, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, team.ID, 1)
@@ -112,7 +112,7 @@ func TestAuthServiceCreateRegistrationKeysWithTeam(t *testing.T) {
 
 func TestAuthServiceCreateRegistrationKeysInvalidTeam(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 
 	_, err := env.authSvc.CreateRegistrationKeys(context.Background(), admin.ID, 1, 9999, 1)
 	var ve *ValidationError
@@ -123,7 +123,7 @@ func TestAuthServiceCreateRegistrationKeysInvalidTeam(t *testing.T) {
 
 func TestAuthServiceRegisterAssignsTeam(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	team := createTeam(t, env, "Alpha")
 	key := createRegistrationKeyWithTeam(t, env, "ABCDEFGHJKLMNPQ4", admin.ID, team.ID)
 
@@ -139,7 +139,7 @@ func TestAuthServiceRegisterAssignsTeam(t *testing.T) {
 
 func TestAuthServiceRegisterUsedRegistrationKey(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	team := createTeam(t, env, "Key Team")
 
 	key := &models.RegistrationKey{
@@ -163,8 +163,8 @@ func TestAuthServiceRegisterUsedRegistrationKey(t *testing.T) {
 
 func TestAuthServiceListRegistrationKeys(t *testing.T) {
 	env := setupServiceTest(t)
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
-	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	user := createUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	usedAt := time.Now().UTC()
 	key := &models.RegistrationKey{
@@ -206,7 +206,7 @@ func TestAuthServiceListRegistrationKeys(t *testing.T) {
 
 func TestAuthServiceLoginRefreshLogout(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	if _, _, _, err := env.authSvc.Login(context.Background(), "user@example.com", "wrong"); !errors.Is(err, ErrInvalidCreds) {
 		t.Fatalf("expected ErrInvalidCreds, got %v", err)
@@ -268,8 +268,8 @@ func TestAuthServiceLoginRefreshLogout(t *testing.T) {
 
 func TestAuthServiceLoginBlocked(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "blocked@example.com", "blocked", "pass", "user")
-	user.Role = "blocked"
+	user := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
+	user.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), user); err != nil {
 		t.Fatalf("update user: %v", err)
 	}
@@ -281,14 +281,14 @@ func TestAuthServiceLoginBlocked(t *testing.T) {
 
 func TestAuthServiceRefreshBlocked(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	_, refresh, _, err := env.authSvc.Login(context.Background(), "user@example.com", "pass")
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
 
-	user.Role = "blocked"
+	user.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), user); err != nil {
 		t.Fatalf("update user: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestAuthServiceRefreshBlocked(t *testing.T) {
 
 func TestAuthServiceRefreshUserNotFound(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	_, refresh, _, err := env.authSvc.Login(context.Background(), "user@example.com", "pass")
 	if err != nil {

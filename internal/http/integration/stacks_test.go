@@ -95,8 +95,8 @@ func TestStackLifecycle(t *testing.T) {
 	mock := stack.NewProvisionerMock()
 	env := setupStackTest(t, cfg, mock.Client())
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
-	user, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
+	user, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
 	challenge := createStackChallenge(t, env, "StackChal")
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(user))
@@ -127,7 +127,7 @@ func TestStackCreateBlockedAfterSolve(t *testing.T) {
 	mock := stack.NewProvisionerMock()
 	env := setupStackTest(t, cfg, mock.Client())
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	access, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-pass")
 	challenge := createStackChallenge(t, env, "SolvedStack")
 
@@ -154,7 +154,7 @@ func TestStackCreateRateLimit(t *testing.T) {
 	mock := stack.NewProvisionerMock()
 	env := setupStackTest(t, cfg, mock.Client())
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	access, _, _ := registerAndLogin(t, env, "user3@example.com", "user3", "strong-pass")
 	challenge1 := createStackChallenge(t, env, "RateLimit1")
 	challenge2 := createStackChallenge(t, env, "RateLimit2")
@@ -185,8 +185,8 @@ func TestStacksBlockedBeforeStart(t *testing.T) {
 	end := time.Now().Add(4 * time.Hour)
 	setCTFWindow(t, env, &start, &end)
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
-	access, _, _ := registerAndLogin(t, env, "user@example.com", "user", "strong-pass")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
+	access, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
 	challenge := createStackChallenge(t, env, "StackChal")
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(access))
@@ -248,7 +248,7 @@ func TestStacksCreateBlockedAfterEnd(t *testing.T) {
 	end := time.Now().Add(-2 * time.Hour)
 	setCTFWindow(t, env, nil, &end)
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	access, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-pass")
 	challenge := createStackChallenge(t, env, "EndedStack")
 

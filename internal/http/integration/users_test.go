@@ -3,15 +3,16 @@ package http_test
 import (
 	"context"
 	"net/http"
+	"smctf/internal/models"
 	"testing"
 	"time"
 )
 
 func TestListUsers(t *testing.T) {
 	env := setupTest(t, testCfg)
-	user1 := createUser(t, env, "user1@example.com", "user1", "pass1", "user")
-	_ = createUser(t, env, "user2@example.com", "user2", "pass2", "user")
-	_ = createUser(t, env, "admin@example.com", "admin", "pass3", "admin")
+	user1 := createUser(t, env, "user1@example.com", "user1", "pass1", models.UserRole)
+	_ = createUser(t, env, "user2@example.com", "user2", "pass2", models.UserRole)
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "pass3", models.AdminRole)
 
 	reason := "policy"
 	user1.BlockedReason = &reason
@@ -38,7 +39,7 @@ func TestListUsers(t *testing.T) {
 		t.Fatalf("expected 3 users, got %d", len(resp))
 	}
 
-	if resp[0].Username != "user1" || resp[1].Username != "user2" || resp[2].Username != "admin" {
+	if resp[0].Username != "user1" || resp[1].Username != "user2" || resp[2].Username != models.AdminRole {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 
@@ -50,7 +51,7 @@ func TestListUsers(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		user := createUser(t, env, "user1@example.com", "user1", "pass1", "user")
+		user := createUser(t, env, "user1@example.com", "user1", "pass1", models.UserRole)
 		reason := "policy"
 		user.BlockedReason = &reason
 		now := time.Now().UTC()
@@ -72,7 +73,7 @@ func TestGetUser(t *testing.T) {
 		}
 		decodeJSON(t, rec, &resp)
 
-		if resp.ID != user.ID || resp.Username != "user1" || resp.Role != "user" || resp.BlockedReason == nil {
+		if resp.ID != user.ID || resp.Username != "user1" || resp.Role != models.UserRole || resp.BlockedReason == nil {
 			t.Fatalf("unexpected response: %+v", resp)
 		}
 	})
@@ -99,7 +100,7 @@ func TestGetUser(t *testing.T) {
 func TestGetUserSolved(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		user := createUser(t, env, "user1@example.com", "user1", "pass1", "user")
+		user := createUser(t, env, "user1@example.com", "user1", "pass1", models.UserRole)
 		challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 		createSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC())
 
@@ -127,7 +128,7 @@ func TestGetUserSolved(t *testing.T) {
 
 	t.Run("empty list", func(t *testing.T) {
 		env := setupTest(t, testCfg)
-		user := createUser(t, env, "user1@example.com", "user1", "pass1", "user")
+		user := createUser(t, env, "user1@example.com", "user1", "pass1", models.UserRole)
 
 		rec := doRequest(t, env.router, http.MethodGet, "/api/users/"+itoa(user.ID)+"/solved", nil, nil)
 		if rec.Code != http.StatusOK {

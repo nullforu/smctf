@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"smctf/internal/models"
 	"testing"
 	"time"
 )
@@ -10,8 +11,8 @@ func TestDynamicPointsMapUsesTeamDecay(t *testing.T) {
 	env := setupRepoTest(t)
 
 	team := createTeam(t, env, "Alpha")
-	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", "user", team.ID)
-	_ = createUser(t, env, "solo@example.com", "solo", "pass", "user")
+	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", models.UserRole, team.ID)
+	_ = createUser(t, env, "solo@example.com", "solo", "pass", models.UserRole)
 
 	challenge := createChallenge(t, env, "Dynamic", 500, "FLAG{DYN}", true)
 	challenge.MinimumPoints = 100

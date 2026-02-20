@@ -3,6 +3,7 @@ package http_test
 import (
 	"context"
 	"net/http"
+	"smctf/internal/models"
 	"testing"
 	"time"
 )
@@ -10,7 +11,7 @@ import (
 func TestAdminTeams(t *testing.T) {
 	env := setupTest(t, testCfg)
 	adminTeam := createTeam(t, env, "Admins")
-	_ = createUserWithTeam(t, env, "admin@example.com", "admin", "adminpass", "admin", adminTeam.ID)
+	_ = createUserWithTeam(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole, adminTeam.ID)
 
 	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"}, nil)
 	if rec.Code != http.StatusUnauthorized {
@@ -60,7 +61,7 @@ func TestAdminTeams(t *testing.T) {
 
 func TestRegistrationKeyTeamAssignment(t *testing.T) {
 	env := setupTest(t, testCfg)
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	team := createTeam(t, env, "Alpha")
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
@@ -123,9 +124,9 @@ func TestRegistrationKeyTeamAssignment(t *testing.T) {
 func TestTeamsDetailMembersSolved(t *testing.T) {
 	env := setupTest(t, testCfg)
 	team := createTeam(t, env, "Alpha")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team.ID)
-	blocked := createUserWithTeam(t, env, "b1@example.com", "blocked", "pass", "user", team.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole, team.ID)
+	blocked := createUserWithTeam(t, env, "b1@example.com", models.BlockedRole, "pass", models.UserRole, team.ID)
 	reason := "policy"
 	blocked.BlockedReason = &reason
 	now := time.Now().UTC()

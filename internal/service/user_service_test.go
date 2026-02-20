@@ -2,12 +2,13 @@ package service
 
 import (
 	"context"
+	"smctf/internal/models"
 	"testing"
 )
 
 func TestUserServiceMoveUserTeam(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "move@example.com", "move", "pass", "user")
+	user := createUser(t, env, "move@example.com", "move", "pass", models.UserRole)
 	newTeam := createTeam(t, env, "new-team")
 
 	updated, err := env.userSvc.MoveUserTeam(context.Background(), user.ID, newTeam.ID)
@@ -30,14 +31,14 @@ func TestUserServiceMoveUserTeam(t *testing.T) {
 
 func TestUserServiceBlockUnblock(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "block@example.com", "block", "pass", "user")
+	user := createUser(t, env, "block@example.com", "block", "pass", models.UserRole)
 
 	blocked, err := env.userSvc.BlockUser(context.Background(), user.ID, "bad")
 	if err != nil {
 		t.Fatalf("block user: %v", err)
 	}
 
-	if blocked.Role != "blocked" || blocked.BlockedReason == nil {
+	if blocked.Role != models.BlockedRole || blocked.BlockedReason == nil {
 		t.Fatalf("expected blocked user, got %+v", blocked)
 	}
 
@@ -46,11 +47,11 @@ func TestUserServiceBlockUnblock(t *testing.T) {
 		t.Fatalf("unblock user: %v", err)
 	}
 
-	if unblocked.Role != "user" || unblocked.BlockedReason != nil {
+	if unblocked.Role != models.UserRole || unblocked.BlockedReason != nil {
 		t.Fatalf("expected unblocked user, got %+v", unblocked)
 	}
 
-	admin := createUser(t, env, "admin@example.com", "admin", "pass", "admin")
+	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	if _, err := env.userSvc.BlockUser(context.Background(), admin.ID, "bad"); err == nil {
 		t.Fatalf("expected admin block error")
 	}
@@ -63,7 +64,7 @@ func TestUserServiceBlockUnblock(t *testing.T) {
 func TestUserServiceGetByIDListUpdateProfile(t *testing.T) {
 	env := setupServiceTest(t)
 	team := createTeam(t, env, "team-a")
-	user := createUserWithTeam(t, env, "user@example.com", "user", "pass", "user", team.ID)
+	user := createUserWithTeam(t, env, "user@example.com", models.UserRole, "pass", models.UserRole, team.ID)
 
 	got, err := env.userSvc.GetByID(context.Background(), user.ID)
 	if err != nil {

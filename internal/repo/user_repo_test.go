@@ -12,7 +12,7 @@ import (
 func TestUserRepoCRUD(t *testing.T) {
 	env := setupRepoTest(t)
 
-	user := createUser(t, env, "user@example.com", "user1", "pass", "user")
+	user := createUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	got, err := env.userRepo.GetByEmail(context.Background(), "user@example.com")
 	if err != nil {
@@ -92,7 +92,7 @@ func TestUserRepoNotFound(t *testing.T) {
 func TestUserRepoGetByIDTeamName(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Alpha")
-	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team.ID)
+	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, team.ID)
 
 	got, err := env.userRepo.GetByID(context.Background(), user.ID)
 	if err != nil {
@@ -106,8 +106,8 @@ func TestUserRepoGetByIDTeamName(t *testing.T) {
 
 func TestUserRepoListOrdering(t *testing.T) {
 	env := setupRepoTest(t)
-	_ = createUser(t, env, "u1@example.com", "u1", "pass", "user")
-	_ = createUser(t, env, "u2@example.com", "u2", "pass", "user")
+	_ = createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	_ = createUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
 
 	users, err := env.userRepo.List(context.Background())
 	if err != nil {
@@ -130,7 +130,7 @@ func TestUserRepoCreateDuplicateEmail(t *testing.T) {
 		Email:        "dup@example.com",
 		Username:     "dup1",
 		PasswordHash: "hash",
-		Role:         "user",
+		Role:         models.UserRole,
 		TeamID:       team.ID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
@@ -143,7 +143,7 @@ func TestUserRepoCreateDuplicateEmail(t *testing.T) {
 		Email:        "dup@example.com",
 		Username:     "dup2",
 		PasswordHash: "hash",
-		Role:         "user",
+		Role:         models.UserRole,
 		TeamID:       team.ID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
@@ -165,7 +165,7 @@ func TestUserRepoCreateError(t *testing.T) {
 		Email:        "err@example.com",
 		Username:     "erruser",
 		PasswordHash: "hash",
-		Role:         "user",
+		Role:         models.UserRole,
 		TeamID:       team.ID,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),

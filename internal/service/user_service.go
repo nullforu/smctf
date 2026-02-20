@@ -119,11 +119,11 @@ func (s *UserService) BlockUser(ctx context.Context, userID int64, reason string
 		return nil, fmt.Errorf("user.BlockUser lookup: %w", err)
 	}
 
-	if user.Role == "admin" {
+	if user.Role == models.AdminRole {
 		return nil, NewValidationError(FieldError{Field: "user_id", Reason: "admin_blocked"})
 	}
 
-	user.Role = "blocked"
+	user.Role = models.BlockedRole
 	user.BlockedReason = &reason
 	blockedAt := time.Now().UTC()
 	user.BlockedAt = &blockedAt
@@ -151,11 +151,11 @@ func (s *UserService) UnblockUser(ctx context.Context, userID int64) (*models.Us
 		return nil, fmt.Errorf("user.UnblockUser lookup: %w", err)
 	}
 
-	if user.Role == "admin" {
+	if user.Role == models.AdminRole {
 		return nil, NewValidationError(FieldError{Field: "user_id", Reason: "admin_blocked"})
 	}
 
-	user.Role = "user"
+	user.Role = models.UserRole
 	user.BlockedReason = nil
 	user.BlockedAt = nil
 	user.UpdatedAt = time.Now().UTC()

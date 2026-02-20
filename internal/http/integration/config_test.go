@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"net/http"
+	"smctf/internal/models"
 	"strings"
 	"testing"
 )
@@ -25,7 +26,7 @@ func TestConfigEndpoints(t *testing.T) {
 		t.Fatalf("expected default config, got %+v", publicResp)
 	}
 
-	_ = createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/config", map[string]string{

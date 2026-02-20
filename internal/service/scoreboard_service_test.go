@@ -99,8 +99,8 @@ func TestScoreboardServiceLeaderboardAndTimeline(t *testing.T) {
 	env := setupServiceTest(t)
 	team1 := createTeam(t, env, "Alpha")
 	team2 := createTeam(t, env, "Beta")
-	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", "user", team1.ID)
-	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", "user", team2.ID)
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, team1.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole, team2.ID)
 
 	ch1 := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
 	ch2 := createChallenge(t, env, "Ch2", 50, "flag{2}", true)

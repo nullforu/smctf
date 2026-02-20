@@ -513,7 +513,7 @@ func ensureAdminUser(t *testing.T, env testEnv) *models.User {
 		t.Fatalf("get admin: %v", err)
 	}
 
-	return createUser(t, env, "admin@example.com", "admin", "adminpass", "admin")
+	return createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 }
 
 func nextRegistrationCode() string {
