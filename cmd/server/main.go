@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"io"
-	"log"
+	"log/slog"
 	nethttp "net/http"
 	"os"
 	"os/signal"
@@ -24,41 +23,54 @@ import (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config error: %v", err)
+		boot := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+		boot.Error("config error", slog.Any("error", err))
+		os.Exit(1)
 	}
 
-	logger, err := logging.New(cfg.Logging)
+	logger, err := logging.New(cfg.Logging, logging.Options{
+		Service:   "smctf",
+		Env:       cfg.AppEnv,
+		AddSource: false,
+	})
 	if err != nil {
-		log.Fatalf("logging init error: %v", err)
+		boot := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+		boot.Error("logging init error", slog.Any("error", err))
+		os.Exit(1)
 	}
+
+	slog.SetDefault(logger.Logger)
 
 	defer func() {
 		if err := logger.Close(); err != nil {
-			log.Printf("log close error: %v", err)
+			logger.Error("log close error", slog.Any("error", err))
 		}
 	}()
 
-	log.SetOutput(io.MultiWriter(os.Stdout, logger))
-	log.Printf("config loaded:\n%s", config.FormatForLog(cfg))
+	logger.Info("config loaded", slog.Any("config", config.FormatForLog(cfg)))
 
 	ctx := context.Background()
 	database, err := db.New(cfg.DB, cfg.AppEnv)
 	if err != nil {
-		log.Fatalf("db init error: %v", err)
+		logger.Error("db init error", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	if err := database.PingContext(ctx); err != nil {
-		log.Fatalf("db ping error: %v", err)
+		logger.Error("db ping error", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	redisClient := cache.New(cfg.Redis)
 	if err := redisClient.Ping(ctx).Err(); err != nil {
-		log.Fatalf("redis ping error: %v", err)
+		logger.Error("redis ping error", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	if cfg.AutoMigrate {
 		if err := db.AutoMigrate(ctx, database); err != nil {
-			log.Fatalf("auto migrate error: %v", err)
+			logger.Error("auto migrate error", slog.Any("error", err))
+			os.Exit(1)
 		}
 	}
 
@@ -75,7 +87,8 @@ func main() {
 	if cfg.S3.Enabled {
 		store, err := storage.NewS3ChallengeFileStore(ctx, cfg.S3)
 		if err != nil {
-			log.Fatalf("s3 init error: %v", err)
+			logger.Error("s3 init error", slog.Any("error", err))
+			os.Exit(1)
 		}
 		fileStore = store
 	}
@@ -90,9 +103,9 @@ func main() {
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
 
 	if cfg, _, _, err := appConfigSvc.Get(ctx); err != nil {
-		log.Printf("app config load warning: %v", err)
+		logger.Warn("app config load warning", slog.Any("error", err))
 	} else if cfg.CTFStartAt == "" && cfg.CTFEndAt == "" {
-		log.Printf("warning: ctf_start_at and ctf_end_at not configured; competition will always be active at all times")
+		logger.Warn("ctf window not configured; competition always active")
 	}
 
 	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger)
@@ -109,9 +122,10 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("server listening on %s", cfg.HTTPAddr)
+		logger.Info("server listening", slog.String("addr", cfg.HTTPAddr))
 		if err := srv.ListenAndServe(); err != nil && err != nethttp.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+			logger.Error("server error", slog.Any("error", err))
+			os.Exit(1)
 		}
 	}()
 
@@ -120,14 +134,14 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("server shutdown error: %v", err)
+		logger.Error("server shutdown error", slog.Any("error", err))
 	}
 
 	if err := redisClient.Close(); err != nil {
-		log.Printf("redis close error: %v", err)
+		logger.Error("redis close error", slog.Any("error", err))
 	}
 
 	if err := database.Close(); err != nil {
-		log.Printf("db close error: %v", err)
+		logger.Error("db close error", slog.Any("error", err))
 	}
 }

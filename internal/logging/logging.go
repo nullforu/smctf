@@ -1,14 +1,13 @@
 package logging
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -16,21 +15,114 @@ import (
 	"smctf/internal/config"
 )
 
-type Logger struct {
-	writer *rotatingFileWriter
-	sender *webhookSender
+type Options struct {
+	Service   string
+	Env       string
+	AddSource bool
 }
 
-func New(cfg config.LoggingConfig) (*Logger, error) {
-	writer, err := newRotatingFileWriter(cfg.Dir, cfg.FilePrefix)
-	if err != nil {
-		return nil, err
+type Logger struct {
+	*slog.Logger
+	writer io.Writer
+	closer io.Closer
+}
+
+func ComponentLogger(logger *Logger, component string) *slog.Logger {
+	if logger == nil {
+		return nil
+	}
+
+	return logger.Logger
+}
+
+func New(cfg config.LoggingConfig, opts Options) (*Logger, error) {
+	var fileWriter *rotatingFileWriter
+	var err error
+	if cfg.Dir != "" {
+		fileWriter, err = newRotatingFileWriter(cfg.Dir, cfg.FilePrefix)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	handlerOptions := &slog.HandlerOptions{
+		AddSource: opts.AddSource,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			switch a.Key {
+			case slog.TimeKey:
+				a.Key = "ts"
+			case slog.LevelKey:
+				a.Value = slog.StringValue(strings.ToLower(a.Value.String()))
+			}
+			return a
+		},
+	}
+
+	handlers := make([]slog.Handler, 0, 3)
+
+	stdoutHandler := slog.NewJSONHandler(os.Stdout, handlerOptions)
+	handlers = append(handlers, levelRangeHandler{
+		min:     slog.LevelDebug,
+		max:     slog.LevelWarn,
+		hasMax:  true,
+		handler: stdoutHandler,
+	})
+
+	stderrHandler := slog.NewJSONHandler(os.Stderr, handlerOptions)
+	handlers = append(handlers, levelRangeHandler{
+		min:     slog.LevelError,
+		handler: stderrHandler,
+	})
+
+	if fileWriter != nil {
+		var w io.Writer
+		w = fileWriter
+
+		fileHandler := slog.NewJSONHandler(w, handlerOptions)
+		handlers = append(handlers, levelRangeHandler{
+			min:     slog.LevelDebug,
+			handler: fileHandler,
+		})
+	}
+
+	logger := slog.New(teeHandler{handlers: handlers})
+
+	baseAttrs := make([]slog.Attr, 0, 1)
+	if app := appName(opts.Service, opts.Env); app != "" {
+		baseAttrs = append(baseAttrs, slog.String("app", app))
+	}
+
+	if len(baseAttrs) > 0 {
+		anyAttrs := make([]any, 0, len(baseAttrs))
+		for _, attr := range baseAttrs {
+			anyAttrs = append(anyAttrs, attr)
+		}
+
+		logger = logger.With(anyAttrs...)
+	}
+
+	var closer io.Closer
+	if fileWriter != nil {
+		closer = fileWriter
 	}
 
 	return &Logger{
-		writer: writer,
-		sender: newWebhookSender(cfg),
+		Logger: logger,
+		writer: &logWriter{logger: logger},
+		closer: closer,
 	}, nil
+}
+
+func (l *Logger) Close() error {
+	if l == nil {
+		return nil
+	}
+
+	if l.closer != nil {
+		return l.closer.Close()
+	}
+
+	return nil
 }
 
 func (l *Logger) Write(p []byte) (int, error) {
@@ -38,24 +130,116 @@ func (l *Logger) Write(p []byte) (int, error) {
 		return len(p), nil
 	}
 
-	n, err := l.writer.Write(p)
-	if l.sender != nil {
-		_ = l.sender.Enqueue(context.Background(), string(p))
-	}
-
-	return n, err
+	return l.writer.Write(p)
 }
 
-func (l *Logger) Close() error {
-	if l == nil || l.writer == nil {
-		return nil
+func PanicLogger(logger *Logger, component string, ctx context.Context, recovered any) {
+	if logger == nil {
+		return
 	}
 
-	if l.sender != nil {
-		_ = l.sender.Close()
+	log := logger.Logger
+
+	err := fmt.Errorf("panic: %v", recovered)
+	log.Error("panic recovered",
+		slog.Any("error", err),
+		slog.String("stack", string(debug.Stack())),
+	)
+}
+
+type logWriter struct {
+	logger *slog.Logger
+}
+
+func (w *logWriter) Write(p []byte) (int, error) {
+	if w == nil || w.logger == nil {
+		return len(p), nil
 	}
 
-	return l.writer.Close()
+	msg := strings.TrimRight(string(p), "\n")
+	if msg == "" {
+		return len(p), nil
+	}
+
+	w.logger.Info(msg, slog.Bool("legacy", true))
+	return len(p), nil
+}
+
+type levelRangeHandler struct {
+	min     slog.Level
+	max     slog.Level
+	hasMax  bool
+	handler slog.Handler
+}
+
+func (h levelRangeHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	if level < h.min {
+		return false
+	}
+	if h.hasMax && level > h.max {
+		return false
+	}
+	return h.handler.Enabled(ctx, level)
+}
+
+func (h levelRangeHandler) Handle(ctx context.Context, record slog.Record) error {
+	return h.handler.Handle(ctx, record)
+}
+
+func (h levelRangeHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return levelRangeHandler{
+		min:     h.min,
+		max:     h.max,
+		hasMax:  h.hasMax,
+		handler: h.handler.WithAttrs(attrs),
+	}
+}
+
+func (h levelRangeHandler) WithGroup(name string) slog.Handler {
+	return levelRangeHandler{
+		min:     h.min,
+		max:     h.max,
+		hasMax:  h.hasMax,
+		handler: h.handler.WithGroup(name),
+	}
+}
+
+type teeHandler struct {
+	handlers []slog.Handler
+}
+
+func (t teeHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	for _, h := range t.handlers {
+		if h.Enabled(ctx, level) {
+			return true
+		}
+	}
+	return false
+}
+
+func (t teeHandler) Handle(ctx context.Context, record slog.Record) error {
+	for _, h := range t.handlers {
+		if h.Enabled(ctx, record.Level) {
+			_ = h.Handle(ctx, record)
+		}
+	}
+	return nil
+}
+
+func (t teeHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	next := make([]slog.Handler, 0, len(t.handlers))
+	for _, h := range t.handlers {
+		next = append(next, h.WithAttrs(attrs))
+	}
+	return teeHandler{handlers: next}
+}
+
+func (t teeHandler) WithGroup(name string) slog.Handler {
+	next := make([]slog.Handler, 0, len(t.handlers))
+	for _, h := range t.handlers {
+		next = append(next, h.WithGroup(name))
+	}
+	return teeHandler{handlers: next}
 }
 
 type rotatingFileWriter struct {
@@ -139,7 +323,7 @@ func (w *rotatingFileWriter) rotate(now time.Time) error {
 	}
 
 	path := w.pathForTime(now)
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // 0111b = execute for all, 0o644 = rw-r--r--
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -163,213 +347,15 @@ func sameHour(a, b time.Time) bool {
 	return !b.IsZero() && truncateToHour(a).Equal(truncateToHour(b))
 }
 
-type webhookSender struct {
-	discordURL string
-	slackURL   string
-	client     *http.Client
-	queue      chan string
-	wg         sync.WaitGroup
-	closeOnce  sync.Once
-	timeout    time.Duration
-	batchSize  int
-	batchWait  time.Duration
-	maxChars   int
-}
-
-func newWebhookSender(cfg config.LoggingConfig) *webhookSender {
-	if cfg.DiscordWebhookURL == "" && cfg.SlackWebhookURL == "" {
-		return nil
+func appName(service, env string) string {
+	parts := make([]string, 0, 3)
+	if service != "" {
+		parts = append(parts, service)
 	}
 
-	s := &webhookSender{
-		discordURL: cfg.DiscordWebhookURL,
-		slackURL:   cfg.SlackWebhookURL,
-		client: &http.Client{
-			Timeout: cfg.WebhookTimeout,
-		},
-		queue:     make(chan string, cfg.WebhookQueueSize),
-		timeout:   cfg.WebhookTimeout,
-		batchSize: cfg.WebhookBatchSize,
-		batchWait: cfg.WebhookBatchWait,
-		maxChars:  cfg.WebhookMaxChars,
-	}
-	s.wg.Add(1)
-	go s.worker()
-
-	return s
-}
-
-func (s *webhookSender) Enqueue(ctx context.Context, msg string) error {
-	if s == nil {
-		return nil
+	if env != "" {
+		parts = append(parts, env)
 	}
 
-	select {
-	case s.queue <- msg:
-		return nil
-	default:
-		return fmt.Errorf("webhook queue full")
-	}
-}
-
-func (s *webhookSender) Send(ctx context.Context, msg string) error {
-	if s == nil {
-		return nil
-	}
-
-	for _, chunk := range splitWebhookMessage(strings.TrimRight(msg, "\n"), s.maxChars) {
-		payload := "```\n" + chunk + "\n```"
-
-		if s.discordURL != "" {
-			if err := s.post(ctx, s.discordURL, map[string]string{"content": payload}); err != nil {
-				return err
-			}
-		}
-
-		if s.slackURL != "" {
-			if err := s.post(ctx, s.slackURL, map[string]string{"text": payload}); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *webhookSender) worker() {
-	defer s.wg.Done()
-	ticker := time.NewTicker(s.batchWait)
-	defer ticker.Stop()
-
-	batch := make([]string, 0, s.batchSize)
-
-	flush := func() {
-		if len(batch) == 0 {
-			return
-		}
-
-		payload := strings.Join(batch, "\n")
-		_ = s.Send(context.Background(), payload)
-		batch = batch[:0]
-	}
-
-	for {
-		select {
-		case msg, ok := <-s.queue:
-			if !ok {
-				flush()
-				return
-			}
-
-			batch = append(batch, msg)
-			if len(batch) >= s.batchSize {
-				flush()
-			}
-		case <-ticker.C:
-			flush()
-		}
-	}
-}
-
-func (s *webhookSender) Close() error {
-	if s == nil {
-		return nil
-	}
-
-	s.closeOnce.Do(func() {
-		close(s.queue)
-	})
-
-	s.wg.Wait()
-	return nil
-}
-
-func (s *webhookSender) post(ctx context.Context, url string, payload map[string]string) error {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	_, _ = io.Copy(io.Discard, resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("webhook status %d", resp.StatusCode)
-	}
-
-	return nil
-}
-
-func splitWebhookMessage(msg string, maxChars int) []string {
-	if maxChars <= 0 {
-		return []string{msg}
-	}
-
-	const wrapperLen = 8
-	if maxChars <= wrapperLen {
-		return []string{""}
-	}
-
-	limit := maxChars - wrapperLen
-	if len(msg) <= limit {
-		return []string{msg}
-	}
-
-	lines := strings.Split(msg, "\n")
-	chunks := make([]string, 0, (len(msg)/limit)+1)
-	var b strings.Builder
-
-	flush := func() {
-		if b.Len() == 0 {
-			return
-		}
-
-		chunks = append(chunks, b.String())
-		b.Reset()
-	}
-
-	for _, line := range lines {
-		if len(line) > limit {
-			flush()
-
-			for len(line) > 0 {
-				n := min(len(line), limit)
-				chunks = append(chunks, line[:n])
-				line = line[n:]
-			}
-
-			continue
-		}
-
-		if b.Len() == 0 {
-			b.WriteString(line)
-
-			continue
-		}
-
-		if b.Len()+1+len(line) > limit {
-			flush()
-			b.WriteString(line)
-
-			continue
-		}
-
-		b.WriteByte('\n')
-		b.WriteString(line)
-	}
-
-	flush()
-
-	return chunks
+	return strings.Join(parts, ":")
 }

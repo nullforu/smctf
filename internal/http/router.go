@@ -1,9 +1,7 @@
 package http
 
 import (
-	"io"
 	nethttp "net/http"
-	"os"
 
 	"smctf/internal/config"
 	"smctf/internal/http/handlers"
@@ -20,14 +18,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	if logger != nil {
-		gin.DefaultWriter = io.MultiWriter(os.Stdout, logger)
-		gin.DefaultErrorWriter = io.MultiWriter(os.Stderr, logger)
-	}
-
 	r := gin.New()
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
+	r.Use(middleware.RecoveryLogger(logger))
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
 	r.Use(middleware.CORS(cfg.AppEnv != "production", cfg.CORS.AllowedOrigins))
 

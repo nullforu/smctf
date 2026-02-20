@@ -89,14 +89,7 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	os.Setenv("SUBMIT_MAX", "5")
 	os.Setenv("LOG_DIR", "logs-test")
 	os.Setenv("LOG_FILE_PREFIX", "app-test")
-	os.Setenv("LOG_DISCORD_WEBHOOK_URL", "https://discord.example/hook")
-	os.Setenv("LOG_SLACK_WEBHOOK_URL", "https://slack.example/hook")
 	os.Setenv("LOG_MAX_BODY_BYTES", "2048")
-	os.Setenv("LOG_WEBHOOK_QUEUE_SIZE", "250")
-	os.Setenv("LOG_WEBHOOK_TIMEOUT", "3s")
-	os.Setenv("LOG_WEBHOOK_BATCH_SIZE", "5")
-	os.Setenv("LOG_WEBHOOK_BATCH_WAIT", "1s")
-	os.Setenv("LOG_WEBHOOK_MAX_CHARS", "1900")
 	os.Setenv("S3_ENABLED", "true")
 	os.Setenv("S3_REGION", "ap-northeast-2")
 	os.Setenv("S3_BUCKET", "smctf-test")
@@ -165,12 +158,6 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	if cfg.Logging.FilePrefix != "app-test" {
 		t.Errorf("expected Logging.FilePrefix app-test, got %s", cfg.Logging.FilePrefix)
 	}
-	if cfg.Logging.DiscordWebhookURL != "https://discord.example/hook" {
-		t.Errorf("expected Logging.DiscordWebhookURL, got %s", cfg.Logging.DiscordWebhookURL)
-	}
-	if cfg.Logging.SlackWebhookURL != "https://slack.example/hook" {
-		t.Errorf("expected Logging.SlackWebhookURL, got %s", cfg.Logging.SlackWebhookURL)
-	}
 
 	if !cfg.S3.Enabled {
 		t.Errorf("expected S3.Enabled true")
@@ -199,21 +186,6 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	if cfg.Logging.MaxBodyBytes != 2048 {
 		t.Errorf("expected Logging.MaxBodyBytes 2048, got %d", cfg.Logging.MaxBodyBytes)
 	}
-	if cfg.Logging.WebhookQueueSize != 250 {
-		t.Errorf("expected Logging.WebhookQueueSize 250, got %d", cfg.Logging.WebhookQueueSize)
-	}
-	if cfg.Logging.WebhookTimeout != 3*time.Second {
-		t.Errorf("expected Logging.WebhookTimeout 3s, got %s", cfg.Logging.WebhookTimeout)
-	}
-	if cfg.Logging.WebhookBatchSize != 5 {
-		t.Errorf("expected Logging.WebhookBatchSize 5, got %d", cfg.Logging.WebhookBatchSize)
-	}
-	if cfg.Logging.WebhookBatchWait != time.Second {
-		t.Errorf("expected Logging.WebhookBatchWait 1s, got %s", cfg.Logging.WebhookBatchWait)
-	}
-	if cfg.Logging.WebhookMaxChars != 1900 {
-		t.Errorf("expected Logging.WebhookMaxChars 1900, got %d", cfg.Logging.WebhookMaxChars)
-	}
 	if cfg.Stack.CreateWindow != 2*time.Minute {
 		t.Errorf("expected Stack.CreateWindow 2m, got %v", cfg.Stack.CreateWindow)
 	}
@@ -236,11 +208,6 @@ func TestLoadConfigInvalidValues(t *testing.T) {
 		{"negative db port", "DB_PORT", "-1"},
 		{"zero db port", "DB_PORT", "0"},
 		{"invalid log max body", "LOG_MAX_BODY_BYTES", "nope"},
-		{"invalid log queue size", "LOG_WEBHOOK_QUEUE_SIZE", "bad"},
-		{"invalid log timeout", "LOG_WEBHOOK_TIMEOUT", "bad"},
-		{"invalid log batch size", "LOG_WEBHOOK_BATCH_SIZE", "bad"},
-		{"invalid log batch wait", "LOG_WEBHOOK_BATCH_WAIT", "bad"},
-		{"invalid log max chars", "LOG_WEBHOOK_MAX_CHARS", "bad"},
 		{"invalid s3 enabled", "S3_ENABLED", "not-a-bool"},
 		{"invalid s3 presign ttl", "S3_PRESIGN_TTL", "bad-duration"},
 		{"invalid s3 force path", "S3_FORCE_PATH_STYLE", "bad-bool"},
@@ -339,14 +306,9 @@ func TestValidateConfigInvalidS3(t *testing.T) {
 			SubmissionMax:    10,
 		},
 		Logging: LoggingConfig{
-			Dir:              "logs",
-			FilePrefix:       "app",
-			MaxBodyBytes:     1024,
-			WebhookQueueSize: 10,
-			WebhookTimeout:   time.Second,
-			WebhookBatchSize: 5,
-			WebhookBatchWait: time.Second,
-			WebhookMaxChars:  100,
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
 		},
 		S3: S3Config{
 			Enabled:         true,
@@ -417,14 +379,9 @@ func TestValidateConfigInvalidLogging(t *testing.T) {
 			SubmissionMax:    10,
 		},
 		Logging: LoggingConfig{
-			Dir:              "",
-			FilePrefix:       "",
-			MaxBodyBytes:     0,
-			WebhookQueueSize: 0,
-			WebhookTimeout:   0,
-			WebhookBatchSize: 0,
-			WebhookBatchWait: 0,
-			WebhookMaxChars:  0,
+			Dir:          "",
+			FilePrefix:   "",
+			MaxBodyBytes: 0,
 		},
 	}
 
@@ -576,14 +533,9 @@ func TestValidateConfigEmptyValues(t *testing.T) {
 			SubmissionMax:    10,
 		},
 		Logging: LoggingConfig{
-			Dir:              "logs",
-			FilePrefix:       "app",
-			MaxBodyBytes:     1024,
-			WebhookQueueSize: 10,
-			WebhookTimeout:   time.Second,
-			WebhookBatchSize: 5,
-			WebhookBatchWait: time.Second,
-			WebhookMaxChars:  100,
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
 		},
 	}
 
@@ -622,14 +574,9 @@ func TestValidateConfigInvalidDBConfig(t *testing.T) {
 			SubmissionMax:    10,
 		},
 		Logging: LoggingConfig{
-			Dir:              "logs",
-			FilePrefix:       "app",
-			MaxBodyBytes:     1024,
-			WebhookQueueSize: 10,
-			WebhookTimeout:   time.Second,
-			WebhookBatchSize: 5,
-			WebhookBatchWait: time.Second,
-			WebhookMaxChars:  100,
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
 		},
 	}
 
@@ -677,14 +624,9 @@ func TestValidateConfigInvalidStackConfig(t *testing.T) {
 			AllowedOrigins: []string{"http://localhost:3000", "https://smctf.example.com"},
 		},
 		Logging: LoggingConfig{
-			Dir:              "logs",
-			FilePrefix:       "app",
-			MaxBodyBytes:     1024,
-			WebhookQueueSize: 10,
-			WebhookTimeout:   time.Second,
-			WebhookBatchSize: 5,
-			WebhookBatchWait: time.Second,
-			WebhookMaxChars:  100,
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
 		},
 		Stack: StackConfig{
 			Enabled:            true,
@@ -742,13 +684,9 @@ func TestValidateConfigAdditionalValidation(t *testing.T) {
 			AppConfigTTL:   2 * time.Minute,
 		},
 		Logging: LoggingConfig{
-			Dir:              "logs",
-			FilePrefix:       "app",
-			MaxBodyBytes:     1024,
-			WebhookQueueSize: 10,
-			WebhookTimeout:   time.Second,
-			WebhookBatchSize: 5,
-			WebhookBatchWait: time.Second,
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
 		},
 	}
 
@@ -770,8 +708,9 @@ func TestRedact(t *testing.T) {
 			FlagHMACSecret: "flagsecret",
 		},
 		Logging: LoggingConfig{
-			DiscordWebhookURL: "https://discord.example/hook",
-			SlackWebhookURL:   "https://slack.example/hook",
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
 		},
 		S3: S3Config{
 			AccessKeyID:     "access-key",
@@ -797,14 +736,6 @@ func TestRedact(t *testing.T) {
 
 	if redacted.Security.FlagHMACSecret == cfg.Security.FlagHMACSecret {
 		t.Fatalf("expected flag secret redacted")
-	}
-
-	if redacted.Logging.DiscordWebhookURL == cfg.Logging.DiscordWebhookURL {
-		t.Fatalf("expected discord webhook redacted")
-	}
-
-	if redacted.Logging.SlackWebhookURL == cfg.Logging.SlackWebhookURL {
-		t.Fatalf("expected slack webhook redacted")
 	}
 
 	if redacted.S3.AccessKeyID == cfg.S3.AccessKeyID {
@@ -879,16 +810,9 @@ func TestFormatForLog(t *testing.T) {
 			AppConfigTTL:   2 * time.Minute,
 		},
 		Logging: LoggingConfig{
-			Dir:               "logs",
-			FilePrefix:        "app",
-			DiscordWebhookURL: "https://discord.example/hook",
-			SlackWebhookURL:   "https://slack.example/hook",
-			MaxBodyBytes:      1024,
-			WebhookQueueSize:  10,
-			WebhookTimeout:    time.Second,
-			WebhookBatchSize:  5,
-			WebhookBatchWait:  time.Second,
-			WebhookMaxChars:   100,
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
 		},
 		S3: S3Config{
 			Enabled:         true,
@@ -910,15 +834,26 @@ func TestFormatForLog(t *testing.T) {
 	}
 
 	out := FormatForLog(cfg)
-	if out == "" {
+	if len(out) == 0 {
 		t.Fatalf("expected output")
 	}
 
-	if strings.Contains(out, "dbpass") || strings.Contains(out, "redispass") || strings.Contains(out, "jwtsecret") || strings.Contains(out, "flagsecret") || strings.Contains(out, "stack-key") {
+	db := out["db"].(map[string]any)
+	redis := out["redis"].(map[string]any)
+	jwt := out["jwt"].(map[string]any)
+	security := out["security"].(map[string]any)
+	stack := out["stack"].(map[string]any)
+
+	if db["password"].(string) == "dbpass" || redis["password"].(string) == "redispass" || jwt["secret"].(string) == "jwtsecret" || security["flag_hmac_secret"].(string) == "flagsecret" || stack["provisioner_api_key"].(string) == "stack-key" {
 		t.Fatalf("expected secrets redacted")
 	}
 
-	if !strings.Contains(out, "AppEnv=local") || !strings.Contains(out, "DB:") || !strings.Contains(out, "Cache:") {
-		t.Fatalf("expected formatted config fields")
+	if out["app_env"] != "local" || out["http_addr"] != ":8080" {
+		t.Fatalf("expected top-level config fields")
+	}
+
+	cache := out["cache"].(map[string]any)
+	if cache["timeline_ttl"] == nil || cache["leaderboard_ttl"] == nil {
+		t.Fatalf("expected cache fields")
 	}
 }

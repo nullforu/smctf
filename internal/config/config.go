@@ -73,16 +73,9 @@ type CORSConfig struct {
 }
 
 type LoggingConfig struct {
-	Dir               string
-	FilePrefix        string
-	DiscordWebhookURL string
-	SlackWebhookURL   string
-	MaxBodyBytes      int
-	WebhookQueueSize  int
-	WebhookTimeout    time.Duration
-	WebhookBatchSize  int
-	WebhookBatchWait  time.Duration
-	WebhookMaxChars   int
+	Dir          string
+	FilePrefix   string
+	MaxBodyBytes int
 }
 
 type S3Config struct {
@@ -209,31 +202,6 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
-	logWebhookQueueSize, err := getEnvInt("LOG_WEBHOOK_QUEUE_SIZE", 1000)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	logWebhookTimeout, err := getDuration("LOG_WEBHOOK_TIMEOUT", 5*time.Second)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	logWebhookBatchSize, err := getEnvInt("LOG_WEBHOOK_BATCH_SIZE", 20)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	logWebhookBatchWait, err := getDuration("LOG_WEBHOOK_BATCH_WAIT", 2*time.Second)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	logWebhookMaxChars, err := getEnvInt("LOG_WEBHOOK_MAX_CHARS", 1800)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
 	s3Enabled, err := getEnvBool("S3_ENABLED", false)
 	if err != nil {
 		errs = append(errs, err)
@@ -317,16 +285,9 @@ func Load() (Config, error) {
 			AllowedOrigins: corsAllowedOrigins,
 		},
 		Logging: LoggingConfig{
-			Dir:               logDir,
-			FilePrefix:        logPrefix,
-			DiscordWebhookURL: getEnv("LOG_DISCORD_WEBHOOK_URL", ""),
-			SlackWebhookURL:   getEnv("LOG_SLACK_WEBHOOK_URL", ""),
-			MaxBodyBytes:      logMaxBodyBytes,
-			WebhookQueueSize:  logWebhookQueueSize,
-			WebhookTimeout:    logWebhookTimeout,
-			WebhookBatchSize:  logWebhookBatchSize,
-			WebhookBatchWait:  logWebhookBatchWait,
-			WebhookMaxChars:   logWebhookMaxChars,
+			Dir:          logDir,
+			FilePrefix:   logPrefix,
+			MaxBodyBytes: logMaxBodyBytes,
 		},
 		S3: S3Config{
 			Enabled:         s3Enabled,
@@ -484,26 +445,6 @@ func validateConfig(cfg Config) error {
 		errs = append(errs, errors.New("LOG_MAX_BODY_BYTES must be positive"))
 	}
 
-	if cfg.Logging.WebhookQueueSize <= 0 {
-		errs = append(errs, errors.New("LOG_WEBHOOK_QUEUE_SIZE must be positive"))
-	}
-
-	if cfg.Logging.WebhookTimeout <= 0 {
-		errs = append(errs, errors.New("LOG_WEBHOOK_TIMEOUT must be positive"))
-	}
-
-	if cfg.Logging.WebhookBatchSize <= 0 {
-		errs = append(errs, errors.New("LOG_WEBHOOK_BATCH_SIZE must be positive"))
-	}
-
-	if cfg.Logging.WebhookBatchWait <= 0 {
-		errs = append(errs, errors.New("LOG_WEBHOOK_BATCH_WAIT must be positive"))
-	}
-
-	if cfg.Logging.WebhookMaxChars <= 0 {
-		errs = append(errs, errors.New("LOG_WEBHOOK_MAX_CHARS must be positive"))
-	}
-
 	if cfg.S3.Enabled {
 		if cfg.S3.Region == "" {
 			errs = append(errs, errors.New("S3_REGION must not be empty"))
@@ -552,8 +493,6 @@ func Redact(cfg Config) Config {
 	cfg.Redis.Password = redact(cfg.Redis.Password)
 	cfg.JWT.Secret = redact(cfg.JWT.Secret)
 	cfg.Security.FlagHMACSecret = redact(cfg.Security.FlagHMACSecret)
-	cfg.Logging.DiscordWebhookURL = redact(cfg.Logging.DiscordWebhookURL)
-	cfg.Logging.SlackWebhookURL = redact(cfg.Logging.SlackWebhookURL)
 	cfg.S3.AccessKeyID = redact(cfg.S3.AccessKeyID)
 	cfg.S3.SecretAccessKey = redact(cfg.S3.SecretAccessKey)
 	cfg.Stack.ProvisionerAPIKey = redact(cfg.Stack.ProvisionerAPIKey)
@@ -564,6 +503,7 @@ func redact(value string) string {
 	if value == "" {
 		return ""
 	}
+
 	const (
 		visiblePrefix = 2
 		visibleSuffix = 2
@@ -571,6 +511,7 @@ func redact(value string) string {
 	if len(value) <= visiblePrefix+visibleSuffix {
 		return "***"
 	}
+
 	return value[:visiblePrefix] + "***" + value[len(value)-visibleSuffix:]
 }
 
@@ -590,70 +531,77 @@ func parseCSV(value string) []string {
 	return out
 }
 
-func FormatForLog(cfg Config) string {
+func FormatForLog(cfg Config) map[string]any {
 	cfg = Redact(cfg)
-	var b strings.Builder
-	fmt.Fprintf(&b, "AppEnv=%s\n", cfg.AppEnv)
-	fmt.Fprintf(&b, "HTTPAddr=%s\n", cfg.HTTPAddr)
-	fmt.Fprintf(&b, "ShutdownTimeout=%s\n", cfg.ShutdownTimeout)
-	fmt.Fprintf(&b, "AutoMigrate=%t\n", cfg.AutoMigrate)
-	fmt.Fprintf(&b, "PasswordBcryptCost=%d\n", cfg.PasswordBcryptCost)
-	fmt.Fprintln(&b, "DB:")
-	fmt.Fprintf(&b, "  Host=%s\n", cfg.DB.Host)
-	fmt.Fprintf(&b, "  Port=%d\n", cfg.DB.Port)
-	fmt.Fprintf(&b, "  User=%s\n", cfg.DB.User)
-	fmt.Fprintf(&b, "  Password=%s\n", cfg.DB.Password)
-	fmt.Fprintf(&b, "  Name=%s\n", cfg.DB.Name)
-	fmt.Fprintf(&b, "  SSLMode=%s\n", cfg.DB.SSLMode)
-	fmt.Fprintf(&b, "  MaxOpenConns=%d\n", cfg.DB.MaxOpenConns)
-	fmt.Fprintf(&b, "  MaxIdleConns=%d\n", cfg.DB.MaxIdleConns)
-	fmt.Fprintf(&b, "  ConnMaxLifetime=%s\n", cfg.DB.ConnMaxLifetime)
-	fmt.Fprintln(&b, "Redis:")
-	fmt.Fprintf(&b, "  Addr=%s\n", cfg.Redis.Addr)
-	fmt.Fprintf(&b, "  Password=%s\n", cfg.Redis.Password)
-	fmt.Fprintf(&b, "  DB=%d\n", cfg.Redis.DB)
-	fmt.Fprintf(&b, "  PoolSize=%d\n", cfg.Redis.PoolSize)
-	fmt.Fprintln(&b, "JWT:")
-	fmt.Fprintf(&b, "  Secret=%s\n", cfg.JWT.Secret)
-	fmt.Fprintf(&b, "  Issuer=%s\n", cfg.JWT.Issuer)
-	fmt.Fprintf(&b, "  AccessTTL=%s\n", cfg.JWT.AccessTTL)
-	fmt.Fprintf(&b, "  RefreshTTL=%s\n", cfg.JWT.RefreshTTL)
-	fmt.Fprintln(&b, "Security:")
-	fmt.Fprintf(&b, "  FlagHMACSecret=%s\n", cfg.Security.FlagHMACSecret)
-	fmt.Fprintf(&b, "  SubmissionWindow=%s\n", cfg.Security.SubmissionWindow)
-	fmt.Fprintf(&b, "  SubmissionMax=%d\n", cfg.Security.SubmissionMax)
-	fmt.Fprintln(&b, "Cache:")
-	fmt.Fprintf(&b, "  TimelineTTL=%s\n", cfg.Cache.TimelineTTL)
-	fmt.Fprintf(&b, "  LeaderboardTTL=%s\n", cfg.Cache.LeaderboardTTL)
-	fmt.Fprintln(&b, "CORS:")
-	fmt.Fprintf(&b, "  AllowedOrigins=%s\n", strings.Join(cfg.CORS.AllowedOrigins, ","))
-	fmt.Fprintln(&b, "Logging:")
-	fmt.Fprintf(&b, "  Dir=%s\n", cfg.Logging.Dir)
-	fmt.Fprintf(&b, "  FilePrefix=%s\n", cfg.Logging.FilePrefix)
-	fmt.Fprintf(&b, "  DiscordWebhookURL=%s\n", cfg.Logging.DiscordWebhookURL)
-	fmt.Fprintf(&b, "  SlackWebhookURL=%s\n", cfg.Logging.SlackWebhookURL)
-	fmt.Fprintf(&b, "  MaxBodyBytes=%d\n", cfg.Logging.MaxBodyBytes)
-	fmt.Fprintf(&b, "  WebhookQueueSize=%d\n", cfg.Logging.WebhookQueueSize)
-	fmt.Fprintf(&b, "  WebhookTimeout=%s\n", cfg.Logging.WebhookTimeout)
-	fmt.Fprintf(&b, "  WebhookBatchSize=%d\n", cfg.Logging.WebhookBatchSize)
-	fmt.Fprintf(&b, "  WebhookBatchWait=%s\n", cfg.Logging.WebhookBatchWait)
-	fmt.Fprintf(&b, "  WebhookMaxChars=%d\n", cfg.Logging.WebhookMaxChars)
-	fmt.Fprintln(&b, "S3:")
-	fmt.Fprintf(&b, "  Enabled=%t\n", cfg.S3.Enabled)
-	fmt.Fprintf(&b, "  Region=%s\n", cfg.S3.Region)
-	fmt.Fprintf(&b, "  Bucket=%s\n", cfg.S3.Bucket)
-	fmt.Fprintf(&b, "  AccessKeyID=%s\n", cfg.S3.AccessKeyID)
-	fmt.Fprintf(&b, "  SecretAccessKey=%s\n", cfg.S3.SecretAccessKey)
-	fmt.Fprintf(&b, "  Endpoint=%s\n", cfg.S3.Endpoint)
-	fmt.Fprintf(&b, "  ForcePathStyle=%t\n", cfg.S3.ForcePathStyle)
-	fmt.Fprintf(&b, "  PresignTTL=%s\n", cfg.S3.PresignTTL)
-	fmt.Fprintln(&b, "Stack:")
-	fmt.Fprintf(&b, "  Enabled=%t\n", cfg.Stack.Enabled)
-	fmt.Fprintf(&b, "  MaxPerUser=%d\n", cfg.Stack.MaxPerUser)
-	fmt.Fprintf(&b, "  ProvisionerBaseURL=%s\n", cfg.Stack.ProvisionerBaseURL)
-	fmt.Fprintf(&b, "  ProvisionerAPIKey=%s\n", cfg.Stack.ProvisionerAPIKey)
-	fmt.Fprintf(&b, "  ProvisionerTimeout=%s\n", cfg.Stack.ProvisionerTimeout)
-	fmt.Fprintf(&b, "  CreateWindow=%s\n", cfg.Stack.CreateWindow)
-	fmt.Fprintf(&b, "  CreateMax=%d\n", cfg.Stack.CreateMax)
-	return b.String()
+	return map[string]any{
+		"app_env":              cfg.AppEnv,
+		"http_addr":            cfg.HTTPAddr,
+		"shutdown_timeout":     seconds(cfg.ShutdownTimeout),
+		"auto_migrate":         cfg.AutoMigrate,
+		"password_bcrypt_cost": cfg.PasswordBcryptCost,
+		"db": map[string]any{
+			"host":              cfg.DB.Host,
+			"port":              cfg.DB.Port,
+			"user":              cfg.DB.User,
+			"password":          cfg.DB.Password,
+			"name":              cfg.DB.Name,
+			"ssl_mode":          cfg.DB.SSLMode,
+			"max_open_conns":    cfg.DB.MaxOpenConns,
+			"max_idle_conns":    cfg.DB.MaxIdleConns,
+			"conn_max_lifetime": seconds(cfg.DB.ConnMaxLifetime),
+		},
+		"redis": map[string]any{
+			"addr":      cfg.Redis.Addr,
+			"password":  cfg.Redis.Password,
+			"db":        cfg.Redis.DB,
+			"pool_size": cfg.Redis.PoolSize,
+		},
+		"jwt": map[string]any{
+			"secret":      cfg.JWT.Secret,
+			"issuer":      cfg.JWT.Issuer,
+			"access_ttl":  seconds(cfg.JWT.AccessTTL),
+			"refresh_ttl": seconds(cfg.JWT.RefreshTTL),
+		},
+		"security": map[string]any{
+			"flag_hmac_secret":  cfg.Security.FlagHMACSecret,
+			"submission_window": seconds(cfg.Security.SubmissionWindow),
+			"submission_max":    cfg.Security.SubmissionMax,
+		},
+		"cache": map[string]any{
+			"timeline_ttl":    seconds(cfg.Cache.TimelineTTL),
+			"leaderboard_ttl": seconds(cfg.Cache.LeaderboardTTL),
+			"app_config_ttl":  seconds(cfg.Cache.AppConfigTTL),
+		},
+		"cors": map[string]any{
+			"allowed_origins": cfg.CORS.AllowedOrigins,
+		},
+		"logging": map[string]any{
+			"dir":            cfg.Logging.Dir,
+			"file_prefix":    cfg.Logging.FilePrefix,
+			"max_body_bytes": cfg.Logging.MaxBodyBytes,
+		},
+		"s3": map[string]any{
+			"enabled":           cfg.S3.Enabled,
+			"region":            cfg.S3.Region,
+			"bucket":            cfg.S3.Bucket,
+			"access_key_id":     cfg.S3.AccessKeyID,
+			"secret_access_key": cfg.S3.SecretAccessKey,
+			"endpoint":          cfg.S3.Endpoint,
+			"force_path_style":  cfg.S3.ForcePathStyle,
+			"presign_ttl":       seconds(cfg.S3.PresignTTL),
+		},
+		"stack": map[string]any{
+			"enabled":              cfg.Stack.Enabled,
+			"max_per_user":         cfg.Stack.MaxPerUser,
+			"provisioner_base_url": cfg.Stack.ProvisionerBaseURL,
+			"provisioner_api_key":  cfg.Stack.ProvisionerAPIKey,
+			"provisioner_timeout":  seconds(cfg.Stack.ProvisionerTimeout),
+			"create_window":        seconds(cfg.Stack.CreateWindow),
+			"create_max":           cfg.Stack.CreateMax,
+		},
+	}
+}
+
+func seconds(d time.Duration) int64 {
+	return int64(d.Seconds())
 }

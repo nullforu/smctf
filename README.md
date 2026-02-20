@@ -56,8 +56,7 @@ See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README 
 - Flag submission with rate limiting and HMAC verification
 - Scoreboard and Timeline (Redis caching support)
 - User profile with statistics (Some implementations are still WIP)
-- Logging middleware with file logging and webhook support (e.g., Discord, Slack, etc.)
-    - Supports queuing and batching for webhooks to prevent rate limiting issues, and splitting long messages.
+- Logging middleware with file logging support
     - Ref Issue: [#9](https://github.com/nullforu/smctf/issues/9), PR: [#10](https://github.com/nullforu/smctf/pull/10)
 - User and Team management (WIP)
     - Ref Issue: [#11](https://github.com/nullforu/smctf/issues/11), [#22](https://github.com/nullforu/smctf/issues/22), PR: [#12](https://github.com/nullforu/smctf/pull/12), [#15](https://github.com/nullforu/smctf/pull/15), [#23](https://github.com/nullforu/smctf/pull/23)
@@ -178,13 +177,6 @@ STACKS_CREATE_MAX=1
 LOG_DIR=logs
 LOG_FILE_PREFIX=app
 LOG_MAX_BODY_BYTES=1048576
-LOG_WEBHOOK_QUEUE_SIZE=1000
-LOG_WEBHOOK_TIMEOUT=5s
-LOG_WEBHOOK_BATCH_SIZE=20
-LOG_WEBHOOK_BATCH_WAIT=2s
-LOG_WEBHOOK_MAX_CHARS=1800
-LOG_DISCORD_WEBHOOK_URL=
-LOG_SLACK_WEBHOOK_URL=
 
 # S3 Challenge Files
 S3_ENABLED=false
@@ -218,6 +210,52 @@ go build -o smctf ./cmd/server
 > [!NOTE]
 >
 > Running in Docker environment will be supported in the future.
+
+**Logging Schema**
+
+```json
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "SMCTF Log Event",
+    "type": "object",
+    "additionalProperties": true,
+    "required": ["ts", "level", "msg", "app"],
+    "properties": {
+        "ts": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RFC3339 timestamp with timezone"
+        },
+        "level": {
+            "type": "string",
+            "enum": ["debug", "info", "warn", "error"]
+        },
+        "msg": { "type": "string" },
+        "app": { "type": "string" },
+        "legacy": { "type": "boolean" },
+        "error": {},
+        "stack": { "type": "string" },
+        "http": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "method": { "type": "string" },
+                "path": { "type": "string" },
+                "status": { "type": "integer" },
+                "latency": { "type": "string" },
+                "ip": { "type": "string" },
+                "query": { "type": "string" },
+                "user_agent": { "type": "string" },
+                "content_type": { "type": "string" },
+                "content_length": { "type": "integer" },
+                "user_id": { "type": "integer" },
+                "body": { "type": "string" }
+            }
+        }
+    }
+}
+```
+
 > Currently, please use local installation for development and testing. Requires Go and NodeJS, NPM installation.
 
 ## Testing
@@ -288,7 +326,7 @@ Defaults live in `./scripts/generate_dummy_sql/defaults/` and can be overridden 
 It provides sample challenges, 30 users (including admin), and random submissions data from the last ~48 hours.
 
 > [!WARNING]
-> 
+>
 > **This will TRUNCATE all tables in the database! Use only in development/test environments.**
 
 ## FAQ, Troubleshooting
