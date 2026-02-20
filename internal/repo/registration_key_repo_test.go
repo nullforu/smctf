@@ -12,8 +12,8 @@ import (
 func TestRegistrationKeyRepoCRUD(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Alpha")
-	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
-	user := createUser(t, env, "user@example.com", models.UserRole, "pass", models.UserRole)
+	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	user := createUserWithNewTeam(t, env, "user@example.com", models.UserRole, "pass", models.UserRole)
 
 	usedAt := time.Now().UTC()
 
@@ -85,7 +85,7 @@ func TestRegistrationKeyRepoNotFound(t *testing.T) {
 func TestRegistrationKeyRepoNotUsed(t *testing.T) {
 	env := setupRepoTest(t)
 	team := createTeam(t, env, "Beta")
-	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 
 	key := &models.RegistrationKey{
 		Code:      "ABCDEFGHJKLMNPQ3",

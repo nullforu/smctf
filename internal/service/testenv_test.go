@@ -244,13 +244,6 @@ func skipIfServiceDisabled(t *testing.T) {
 	}
 }
 
-func createUser(t *testing.T, env serviceEnv, email, username, password, role string) *models.User {
-	t.Helper()
-	team := createTeam(t, env, "team-"+username)
-
-	return createUserWithTeam(t, env, email, username, password, role, team.ID)
-}
-
 func createUserWithTeam(t *testing.T, env serviceEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 
@@ -274,6 +267,13 @@ func createUserWithTeam(t *testing.T, env serviceEnv, email, username, password,
 	}
 
 	return user
+}
+
+func createUserWithNewTeam(t *testing.T, env serviceEnv, email, username, password, role string) *models.User {
+	t.Helper()
+
+	team := createTeam(t, env, "team-"+username)
+	return createUserWithTeam(t, env, email, username, password, role, team.ID)
 }
 
 func createTeam(t *testing.T, env serviceEnv, name string) *models.Team {

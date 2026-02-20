@@ -67,7 +67,7 @@ func solveCountsByChallenge(ctx context.Context, db *bun.DB) (map[int64]int, err
 		ColumnExpr("COUNT(*) AS solve_count").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
-		Where("u.role <> ?", models.BlockedRole).
+		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		GroupExpr("challenge_id").
 		Scan(ctx, &rows); err != nil {
 		return nil, wrapError("score.solveCountsByChallenge", err)
@@ -96,7 +96,7 @@ func decayFactor(ctx context.Context, db *bun.DB) (int, error) {
 		TableExpr("teams AS t").
 		ColumnExpr("COUNT(DISTINCT t.id)").
 		Join("JOIN users AS u ON u.team_id = t.id").
-		Where("u.role <> ?", models.BlockedRole).
+		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		Scan(ctx, &teamCount); err != nil {
 		return 0, wrapError("score.teamCount", err)
 	}

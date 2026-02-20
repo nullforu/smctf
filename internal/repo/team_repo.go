@@ -77,7 +77,7 @@ func (r *TeamRepo) ListWithStats(ctx context.Context) ([]models.TeamSummary, err
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
-		Where("u.role <> ?", models.BlockedRole).
+		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		Scan(ctx, &submissions); err != nil {
 		return nil, wrapError("teamRepo.ListWithStats submissions", err)
 	}
@@ -115,7 +115,7 @@ func (r *TeamRepo) GetStats(ctx context.Context, id int64) (*models.TeamSummary,
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Where("s.correct = true").
 		Where("u.team_id = ?", id).
-		Where("u.role <> ?", models.BlockedRole).
+		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		Scan(ctx, &submissions); err != nil {
 		return nil, wrapError("teamRepo.GetStats submissions", err)
 	}

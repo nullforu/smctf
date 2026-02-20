@@ -155,7 +155,7 @@ func TestStackServiceTerminalStatusDeletes(t *testing.T) {
 
 func TestStackServiceAlreadySolvedDeletesExisting(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	challenge := createStackChallenge(t, env, "stack")
 
 	stackRepo := repo.NewStackRepo(env.db)
@@ -194,7 +194,7 @@ func TestStackServiceAlreadySolvedDeletesExisting(t *testing.T) {
 
 func TestStackServiceDeleteStackByStackID(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "admin-del@example.com", "admin-del", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "admin-del@example.com", "admin-del", "pass", models.UserRole)
 	challenge := createStackChallenge(t, env, "admin-del-stack")
 
 	mock := stack.NewProvisionerMock()
@@ -232,7 +232,7 @@ func TestStackServiceDeleteStackByStackID(t *testing.T) {
 
 func TestStackServiceGetStackByStackID(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "admin-get@example.com", "admin-get", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "admin-get@example.com", "admin-get", "pass", models.UserRole)
 	challenge := createStackChallenge(t, env, "admin-get-stack")
 
 	mock := stack.NewProvisionerMock()
@@ -267,7 +267,7 @@ func TestStackServiceGetStackByStackID(t *testing.T) {
 
 func TestStackServiceListAdminStacks(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "admin-list@example.com", "admin-list", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "admin-list@example.com", "admin-list", "pass", models.UserRole)
 	challenge := createStackChallenge(t, env, "admin-stack")
 
 	mock := stack.NewProvisionerMock()
@@ -322,7 +322,7 @@ func TestStackServiceDeleteStackByStackIDNotFound(t *testing.T) {
 
 func TestStackServiceDeleteStackByStackIDProvisionerDown(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "admin-del-down@example.com", "admin-del-down", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "admin-del-down@example.com", "admin-del-down", "pass", models.UserRole)
 	challenge := createStackChallenge(t, env, "admin-del-down")
 
 	mock := stack.NewProvisionerMock()
@@ -371,7 +371,7 @@ func TestStackServiceGetStackByStackIDDisabled(t *testing.T) {
 
 func TestStackServiceListAllStacks(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "stack-all@example.com", "stackall", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "stack-all@example.com", "stackall", "pass", models.UserRole)
 	challenge := createStackChallenge(t, env, "stack-all")
 
 	mock := stack.NewProvisionerMock()

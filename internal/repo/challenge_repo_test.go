@@ -71,7 +71,7 @@ func TestChallengeRepoDynamicPointsAndSolveCounts(t *testing.T) {
 
 	team := createTeam(t, env, "Alpha")
 	userTeam := createUserWithTeam(t, env, "team@example.com", "team", "pass", models.UserRole, team.ID)
-	userSolo := createUser(t, env, "solo@example.com", "solo", "pass", models.UserRole)
+	userSolo := createUserWithNewTeam(t, env, "solo@example.com", "solo", "pass", models.UserRole)
 
 	challenge := createChallenge(t, env, "Dynamic", 500, "FLAG{DYN}", true)
 	challenge.MinimumPoints = 100

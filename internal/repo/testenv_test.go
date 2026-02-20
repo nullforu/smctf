@@ -160,12 +160,6 @@ func resetRepoState(t *testing.T) {
 	}
 }
 
-func createUser(t *testing.T, env repoEnv, email, username, password, role string) *models.User {
-	t.Helper()
-	team := createTeam(t, env, "team-"+username)
-	return createUserWithTeam(t, env, email, username, password, role, team.ID)
-}
-
 func createUserWithTeam(t *testing.T, env repoEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
@@ -187,6 +181,12 @@ func createUserWithTeam(t *testing.T, env repoEnv, email, username, password, ro
 	}
 
 	return user
+}
+
+func createUserWithNewTeam(t *testing.T, env repoEnv, email, username, password, role string) *models.User {
+	t.Helper()
+	team := createTeam(t, env, "team-"+username)
+	return createUserWithTeam(t, env, email, username, password, role, team.ID)
 }
 
 func createTeam(t *testing.T, env repoEnv, name string) *models.Team {

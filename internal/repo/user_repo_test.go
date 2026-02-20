@@ -12,7 +12,7 @@ import (
 func TestUserRepoCRUD(t *testing.T) {
 	env := setupRepoTest(t)
 
-	user := createUser(t, env, "user@example.com", "user1", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "user@example.com", "user1", "pass", models.UserRole)
 
 	got, err := env.userRepo.GetByEmail(context.Background(), "user@example.com")
 	if err != nil {
@@ -106,8 +106,8 @@ func TestUserRepoGetByIDTeamName(t *testing.T) {
 
 func TestUserRepoListOrdering(t *testing.T) {
 	env := setupRepoTest(t)
-	_ = createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
-	_ = createUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
+	_ = createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	_ = createUserWithNewTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole)
 
 	users, err := env.userRepo.List(context.Background())
 	if err != nil {

@@ -151,7 +151,7 @@ func TestTeamRepoListMembers(t *testing.T) {
 	team := createTeam(t, env, "Members School")
 	user1 := createUserWithTeam(t, env, "m1@example.com", "member1", "pass", models.UserRole, team.ID)
 	user2 := createUserWithTeam(t, env, "m2@example.com", "member2", "pass", models.AdminRole, team.ID)
-	_ = createUser(t, env, "other@example.com", "other", "pass", models.UserRole)
+	_ = createUserWithNewTeam(t, env, "other@example.com", "other", "pass", models.UserRole)
 
 	rows, err := env.teamRepo.ListMembers(context.Background(), team.ID)
 	if err != nil {

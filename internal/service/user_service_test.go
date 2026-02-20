@@ -8,7 +8,7 @@ import (
 
 func TestUserServiceMoveUserTeam(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "move@example.com", "move", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "move@example.com", "move", "pass", models.UserRole)
 	newTeam := createTeam(t, env, "new-team")
 
 	updated, err := env.userSvc.MoveUserTeam(context.Background(), user.ID, newTeam.ID)
@@ -31,7 +31,7 @@ func TestUserServiceMoveUserTeam(t *testing.T) {
 
 func TestUserServiceBlockUnblock(t *testing.T) {
 	env := setupServiceTest(t)
-	user := createUser(t, env, "block@example.com", "block", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "block@example.com", "block", "pass", models.UserRole)
 
 	blocked, err := env.userSvc.BlockUser(context.Background(), user.ID, "bad")
 	if err != nil {
@@ -51,7 +51,7 @@ func TestUserServiceBlockUnblock(t *testing.T) {
 		t.Fatalf("expected unblocked user, got %+v", unblocked)
 	}
 
-	admin := createUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
 	if _, err := env.userSvc.BlockUser(context.Background(), admin.ID, "bad"); err == nil {
 		t.Fatalf("expected admin block error")
 	}

@@ -10,7 +10,7 @@ import (
 
 func TestSubmissionRepoCreateAndHasCorrect(t *testing.T) {
 	env := setupRepoTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 
 	if ok, err := env.submissionRepo.HasCorrect(context.Background(), user.ID, ch.ID); err != nil {
@@ -85,7 +85,7 @@ func TestSubmissionRepoHasCorrectDifferentTeam(t *testing.T) {
 
 func TestSubmissionRepoSolvedChallenges(t *testing.T) {
 	env := setupRepoTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 	ch2 := createChallenge(t, env, "ch2", 50, "FLAG{2}", true)
 
@@ -125,7 +125,7 @@ func TestSubmissionRepoSolvedChallengesEmpty(t *testing.T) {
 
 func TestSubmissionRepoSolvedChallengesBlockedUser(t *testing.T) {
 	env := setupRepoTest(t)
-	user := createUser(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
 	user.Role = models.BlockedRole
 	if err := env.userRepo.Update(context.Background(), user); err != nil {
 		t.Fatalf("block user: %v", err)
@@ -147,7 +147,7 @@ func TestSubmissionRepoSolvedChallengesBlockedUser(t *testing.T) {
 func TestSubmissionRepoListAll(t *testing.T) {
 	env := setupRepoTest(t)
 
-	user := createUser(t, env, "sub@example.com", "sub", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "sub@example.com", "sub", "pass", models.UserRole)
 	challenge := createChallenge(t, env, "Sub", 100, "flag{sub}", true)
 
 	createSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC().Add(-time.Minute))
@@ -325,7 +325,7 @@ func TestSubmissionRepoFirstBloodAcrossTeams(t *testing.T) {
 
 func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamSameUser(t *testing.T) {
 	env := setupRepoTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 
 	now := time.Now().UTC()
@@ -365,7 +365,7 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamSameUser(t *testing.T) {
 
 func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamIncorrect(t *testing.T) {
 	env := setupRepoTest(t)
-	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	user := createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
 
 	sub := &models.Submission{
