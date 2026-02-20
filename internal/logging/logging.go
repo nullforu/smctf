@@ -27,14 +27,6 @@ type Logger struct {
 	closer io.Closer
 }
 
-func ComponentLogger(logger *Logger, component string) *slog.Logger {
-	if logger == nil {
-		return nil
-	}
-
-	return logger.Logger
-}
-
 func New(cfg config.LoggingConfig, opts Options) (*Logger, error) {
 	var fileWriter *rotatingFileWriter
 	var err error
@@ -133,7 +125,7 @@ func (l *Logger) Write(p []byte) (int, error) {
 	return l.writer.Write(p)
 }
 
-func PanicLogger(logger *Logger, component string, ctx context.Context, recovered any) {
+func PanicLogger(logger *Logger, ctx context.Context, recovered any) {
 	if logger == nil {
 		return
 	}
@@ -348,7 +340,7 @@ func sameHour(a, b time.Time) bool {
 }
 
 func appName(service, env string) string {
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 2)
 	if service != "" {
 		parts = append(parts, service)
 	}

@@ -12,7 +12,10 @@ import (
 
 func RecoveryLogger(logger *logging.Logger) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		log := logging.ComponentLogger(logger, "http")
+		var log *slog.Logger
+		if logger != nil {
+			log = logger.Logger
+		}
 
 		defer func() {
 			if recovered := recover(); recovered != nil {

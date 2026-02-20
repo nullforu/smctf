@@ -30,7 +30,11 @@ var bodyLogSkipPaths = map[string]struct{}{
 
 func RequestLogger(cfg config.LoggingConfig, logger *logging.Logger) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		log := logging.ComponentLogger(logger, "http")
+		var log *slog.Logger
+		if logger != nil {
+			log = logger.Logger
+		}
+
 		start := time.Now().UTC()
 
 		_, bodyStr := readRequestBody(ctx, cfg.MaxBodyBytes)
@@ -86,7 +90,7 @@ func RequestLogger(cfg config.LoggingConfig, logger *logging.Logger) gin.Handler
 				anyAttrs = append(anyAttrs, attr)
 			}
 
-			log.Info("http", slog.Group("http", anyAttrs...))
+			log.Info("http request", slog.Group("http", anyAttrs...))
 		}
 	}
 }
