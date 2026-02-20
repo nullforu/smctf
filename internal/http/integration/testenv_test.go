@@ -158,14 +158,9 @@ func TestMain(m *testing.M) {
 			AppConfigTTL:   2 * time.Minute,
 		},
 		Logging: config.LoggingConfig{
-			Dir:              "",
-			FilePrefix:       "test",
-			MaxBodyBytes:     1024 * 1024,
-			WebhookQueueSize: 100,
-			WebhookTimeout:   time.Second,
-			WebhookBatchSize: 10,
-			WebhookBatchWait: time.Second,
-			WebhookMaxChars:  1000,
+			Dir:          "",
+			FilePrefix:   "test",
+			MaxBodyBytes: 1024 * 1024,
 		},
 	}
 
@@ -176,7 +171,7 @@ func TestMain(m *testing.M) {
 
 	testCfg.Logging.Dir = logDir
 
-	testLogger, err = logging.New(testCfg.Logging)
+	testLogger, err = logging.New(testCfg.Logging, logging.Options{Service: "smctf", Env: "test"})
 	if err != nil {
 		panic(err)
 	}

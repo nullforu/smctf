@@ -1,9 +1,7 @@
 package http
 
 import (
-	"io"
 	nethttp "net/http"
-	"os"
 
 	"smctf/internal/config"
 	"smctf/internal/http/handlers"
@@ -12,6 +10,7 @@ import (
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -20,14 +19,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	if logger != nil {
-		gin.DefaultWriter = io.MultiWriter(os.Stdout, logger)
-		gin.DefaultErrorWriter = io.MultiWriter(os.Stderr, logger)
-	}
-
 	r := gin.New()
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
+	r.Use(middleware.RecoveryLogger(logger))
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
 	r.Use(middleware.CORS(cfg.AppEnv != "production", cfg.CORS.AllowedOrigins))
 
@@ -36,6 +29,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
 	})
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	api := r.Group("/api")
 	{
