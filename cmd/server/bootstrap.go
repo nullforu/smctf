@@ -37,14 +37,19 @@ func bootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, us
 		return
 	}
 
-	team, err := ensureAdminTeam(ctx, cfg, database, teamRepo)
-	if err != nil {
-		logger.Error("bootstrap admin team error", slog.Any("error", err))
-		return
-	}
+	var team *models.Team
+	var err error
 
-	if team != nil {
-		logger.Info("admin team created", slog.Any("team_id", team.ID), slog.Any("team_name", team.Name))
+	if cfg.Bootstrap.AdminTeamEnabled {
+		team, err = ensureAdminTeam(ctx, cfg, database, teamRepo)
+		if err != nil {
+			logger.Error("bootstrap admin team error", slog.Any("error", err))
+			return
+		}
+
+		if team != nil {
+			logger.Info("admin team created", slog.Any("team_id", team.ID), slog.Any("team_name", team.Name))
+		}
 	}
 
 	if team != nil && cfg.Bootstrap.AdminUserEnabled {
