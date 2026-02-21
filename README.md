@@ -23,12 +23,16 @@
         Docs
     </a>
     | <strong>Backend</strong> |
+    <a href="https://github.com/nullforu/container-provisioner-k8s">
+        Container Provisioner
+    </a>
+    |
     <a href="https://github.com/nullforu/smctfe">
         Frontend
     </a>
     |
     <a href="https://github.com/nullforu/container-provisioner-k8s">
-        Container Provisioner
+        Infrastructure
     </a>
 </div>
 
@@ -56,8 +60,8 @@ See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README 
 - Flag submission with rate limiting and HMAC verification
 - Scoreboard and Timeline (Redis caching support)
 - User profile with statistics (Some implementations are still WIP)
-- Logging middleware with file logging support
-    - Ref Issue: [#9](https://github.com/nullforu/smctf/issues/9), PR: [#10](https://github.com/nullforu/smctf/pull/10)
+- Logging middleware with file logging, structured JSON logging and OpenMetrics endpoint support
+    - Ref Issue: [#9](https://github.com/nullforu/smctf/issues/9), PR: [#10](https://github.com/nullforu/smctf/pull/10), PR: [#39](https://github.com/nullforu/smctf/pull/39)
 - User and Team management (WIP)
     - Ref Issue: [#11](https://github.com/nullforu/smctf/issues/11), [#22](https://github.com/nullforu/smctf/issues/22), PR: [#12](https://github.com/nullforu/smctf/pull/12), [#15](https://github.com/nullforu/smctf/pull/15), [#23](https://github.com/nullforu/smctf/pull/23)
 - Dynamic scoring (ref: [CTFd - Dynamic Value](https://docs.ctfd.io/docs/custom-challenges/dynamic-value/))
@@ -69,6 +73,7 @@ See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README 
     - Ref Issue: [#20](https://github.com/nullforu/smctf/issues/20), PR: [#21](https://github.com/nullforu/smctf/pull/21)
 - Per challenge individual Stack(instance/VM) provisioning support via Kubernetes
     - Ref PR: [#25](https://github.com/nullforu/smctf/pull/25), See [container-provisioner-k8s](https://github.com/nullforu/container-provisioner-k8s) and [docs](https://ctf.null4u.cloud/container-provisioner/) for more details.
+- ... and more! (See [docs](https://github.com/nullforu/smctf-docs) for more details)
 
 ### Planned/Upcoming features:
 
@@ -81,10 +86,10 @@ Also, the following features are planned to be implemented. see [issues](https:/
 
 - Backend: [Go](https://go.dev/), [Gin](https://github.com/gin-gonic/gin), [Bun ORM](https://bun.uptrace.dev/)
 - Container Provisioner: [Go (nullforu/container-provisioner-k8s)](https://github.com/nullforu/container-provisioner-k8s)
-- Frontend: [React (nullforu/smctfe)](https://github.com/nullforu/smctfe)
+- Frontend: React [(nullforu/smctfe)](https://github.com/nullforu/smctfe)
 - Database, Cache: [PostgreSQL](https://www.postgresql.org/)(instead of MySQL/MariaDB), [Redis](https://redis.io/)
 - Testing: [Testcontainers for Go](https://github.com/testcontainers/testcontainers-go)
-- Infra, CI/CD (TBD): AWS, EKS, Terraform, Cloudflare, GitHub Actions, etc.
+- Infra: AWS, EKS, Helm, Terraform, Cloudflare, etc. (See [nullforu/smctf-infra](https://github.com/nullforu/smctf-infra) for more details)
 
 ## Installation and Usage
 
