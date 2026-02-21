@@ -1,4 +1,4 @@
-package main
+package bootstrap
 
 import (
 	"context"
@@ -21,7 +21,7 @@ const (
 	bootstrapAdminTeamName = "Admin"
 )
 
-func bootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, userRepo *repo.UserRepo, teamRepo *repo.TeamRepo, logger *logging.Logger) {
+func BootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, userRepo *repo.UserRepo, teamRepo *repo.TeamRepo, logger *logging.Logger) {
 	if !cfg.Bootstrap.AdminTeamEnabled && !cfg.Bootstrap.AdminUserEnabled {
 		return
 	}
@@ -38,10 +38,9 @@ func bootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, us
 	}
 
 	var team *models.Team
-	var err error
 
 	if cfg.Bootstrap.AdminTeamEnabled {
-		team, err = ensureAdminTeam(ctx, cfg, database, teamRepo)
+		team, err = ensureAdminTeam(ctx, teamRepo)
 		if err != nil {
 			logger.Error("bootstrap admin team error", slog.Any("error", err))
 			return
@@ -65,7 +64,7 @@ func bootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, us
 	}
 }
 
-func ensureAdminTeam(ctx context.Context, cfg config.Config, database *bun.DB, teamRepo *repo.TeamRepo) (*models.Team, error) {
+func ensureAdminTeam(ctx context.Context, teamRepo *repo.TeamRepo) (*models.Team, error) {
 	team := &models.Team{
 		Name:      bootstrapAdminTeamName,
 		CreatedAt: time.Now().UTC(),
@@ -73,7 +72,7 @@ func ensureAdminTeam(ctx context.Context, cfg config.Config, database *bun.DB, t
 
 	if err := teamRepo.Create(ctx, team); err != nil {
 		if db.IsUniqueViolation(err) {
-			return ensureAdminTeam(ctx, cfg, database, teamRepo)
+			return nil, nil
 		}
 
 		return nil, fmt.Errorf("create team: %w", err)

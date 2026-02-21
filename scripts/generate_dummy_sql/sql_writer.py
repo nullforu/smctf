@@ -50,20 +50,13 @@ def write_sql_file(
         f.write("INSERT INTO app_config (key, value, updated_at) VALUES ('title', 'Welcome to My CTF!', NOW()), ('description', 'this is a sample CTF description.', NOW());\n\n")
 
         f.write("-- Clear existing data\n")
+        f.write("TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n")
         if meta.get("bootstrap_mode", False):
             f.write(
-                "TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n"
-            )
-            f.write(
-                "-- TRUNCATE TABLE users, teams, submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n\n"
+                "-- TRUNCATE TABLE users, teams RESTART IDENTITY CASCADE;\n\n"
             )
         else:
-            f.write(
-                "-- TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n"
-            )
-            f.write(
-                "TRUNCATE TABLE users, teams, submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n\n"
-            )
+            f.write("TRUNCATE TABLE users, teams RESTART IDENTITY CASCADE;\n\n")
 
         f.write("-- Insert teams\n")
         for idx, (name, created_at) in enumerate(teams, start=1):

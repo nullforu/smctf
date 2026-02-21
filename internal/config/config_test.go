@@ -719,9 +719,14 @@ func TestRedact(t *testing.T) {
 		Stack: StackConfig{
 			ProvisionerAPIKey: "stack-key",
 		},
+		Bootstrap: BootstrapConfig{
+			AdminEmail:    "admin@example.com",
+			AdminPassword: "adminpass",
+		},
 	}
 
 	redacted := Redact(cfg)
+
 	if redacted.DB.Password == cfg.DB.Password {
 		t.Fatalf("expected db password redacted")
 	}
@@ -748,6 +753,10 @@ func TestRedact(t *testing.T) {
 
 	if redacted.Stack.ProvisionerAPIKey == cfg.Stack.ProvisionerAPIKey {
 		t.Fatalf("expected stack api key redacted")
+	}
+
+	if redacted.Bootstrap.AdminEmail == cfg.Bootstrap.AdminEmail {
+		t.Fatalf("expected bootstrap admin email redacted")
 	}
 
 	if redacted.Bootstrap.AdminPassword == cfg.Bootstrap.AdminPassword {

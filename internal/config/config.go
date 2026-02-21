@@ -522,7 +522,9 @@ func Redact(cfg Config) Config {
 	cfg.S3.AccessKeyID = redact(cfg.S3.AccessKeyID)
 	cfg.S3.SecretAccessKey = redact(cfg.S3.SecretAccessKey)
 	cfg.Stack.ProvisionerAPIKey = redact(cfg.Stack.ProvisionerAPIKey)
+	cfg.Bootstrap.AdminEmail = redact(cfg.Bootstrap.AdminEmail)
 	cfg.Bootstrap.AdminPassword = redact(cfg.Bootstrap.AdminPassword)
+
 	return cfg
 }
 
@@ -629,6 +631,7 @@ func FormatForLog(cfg Config) map[string]any {
 		"bootstrap": map[string]any{
 			"admin_team_enabled": cfg.Bootstrap.AdminTeamEnabled,
 			"admin_user_enabled": cfg.Bootstrap.AdminUserEnabled,
+			"admin_username":     cfg.Bootstrap.AdminUsername,
 			"admin_email":        cfg.Bootstrap.AdminEmail,
 			"admin_password":     cfg.Bootstrap.AdminPassword,
 		},
