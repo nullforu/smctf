@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	bootstrapAdminTeamName   = "Admin"
-	bootstrapAdminKeyMaxUses = 1
+	bootstrapAdminTeamName = "Admin"
 )
 
 func bootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, userRepo *repo.UserRepo, teamRepo *repo.TeamRepo, logger *logging.Logger) {
