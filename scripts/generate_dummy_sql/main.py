@@ -244,8 +244,9 @@ def main(argv: List[str]) -> int:
     print("\nSummary")
     print(f"- Output: {output_file}")
     print(f"- Teams: {len(teams)}")
-    total_users = len(users) + (1 if use_bootstrap_admin else 0)
-    print(f"- Users: {total_users}")
+    print(f"- Users: {len(users)}")
+    if use_bootstrap_admin:
+        print("- Admin user will be bootstrapped separately")
     print(f"- Challenges: {len(challenges)}")
     print(f"- Registration keys: {len(registration_keys)}")
     print(f"- Submissions: {len(submissions)}")
