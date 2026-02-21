@@ -39,34 +39,47 @@ def write_sql_file(
         f.write(f"-- FLAG_HMAC_SECRET: {meta['flag_hmac_secret']}\n")
         f.write(f"-- BCRYPT_COST: {meta['bcrypt_cost']}\n")
         f.write(f"-- Default password for all users: {meta['default_password']}\n")
-        f.write(
-            f"-- Admin credentials: {meta['admin_email']} / {meta['admin_password']}\n\n"
-        )
+        if meta.get("include_admin", True):
+            f.write(
+                f"-- Admin credentials: {meta['admin_email']} / {meta['admin_password']}\n\n"
+            )
+        else:
+            f.write("-- Admin credentials: bootstrapped (see server config)\n\n")
 
         f.write("-- App Config\n")
         f.write("INSERT INTO app_config (key, value, updated_at) VALUES ('title', 'Welcome to My CTF!', NOW()), ('description', 'this is a sample CTF description.', NOW());\n\n")
 
         f.write("-- Clear existing data\n")
-        f.write(
-            "TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE;\n\n"
-        )
+        f.write("TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n")
+        if meta.get("bootstrap_mode", False):
+            f.write(
+                "-- TRUNCATE TABLE users, teams RESTART IDENTITY CASCADE;\n\n"
+            )
+        else:
+            f.write("TRUNCATE TABLE users, teams RESTART IDENTITY CASCADE;\n\n")
 
         f.write("-- Insert teams\n")
-        for name, created_at in teams:
+        for idx, (name, created_at) in enumerate(teams, start=1):
             name_esc = escape_sql_string(name)
-            f.write("INSERT INTO teams (name, created_at) VALUES ")
+            prefix = ""
+            if meta.get("bootstrap_mode", False) and idx == 1:
+                prefix = "-- "
+            f.write(f"{prefix}INSERT INTO teams (name, created_at) VALUES ")
             f.write(f"('{name_esc}', '{created_at}');\n")
         f.write("\n")
 
         f.write("-- Insert users\n")
-        for email, username, password_hash, role, created_at, team_id in users:
+        for idx, (email, username, password_hash, role, created_at, team_id) in enumerate(users, start=1):
             email_esc = escape_sql_string(email)
             username_esc = escape_sql_string(username)
             password_hash_esc = escape_sql_string(password_hash)
             role_esc = escape_sql_string(role)
 
+            prefix = ""
+            if meta.get("bootstrap_mode", False) and idx == 1:
+                prefix = "-- "
             f.write(
-                "INSERT INTO users (email, username, password_hash, role, team_id, created_at, updated_at) VALUES "
+                f"{prefix}INSERT INTO users (email, username, password_hash, role, team_id, created_at, updated_at) VALUES "
             )
             f.write(
                 f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', {team_id}, '{created_at}', '{created_at}');\n"

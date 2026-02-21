@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"smctf/internal/bootstrap"
 	"smctf/internal/cache"
 	"smctf/internal/config"
 	"smctf/internal/db"
@@ -101,6 +102,8 @@ func main() {
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
 	stackClient := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
+
+	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, logger)
 
 	if cfg, _, _, err := appConfigSvc.Get(ctx); err != nil {
 		logger.Warn("app config load warning", slog.Any("error", err))

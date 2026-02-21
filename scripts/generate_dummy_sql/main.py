@@ -128,10 +128,14 @@ def main(argv: List[str]) -> int:
 
     counts = settings["counts"]
     constraints = settings["constraints"]
-    validate_data(data, counts["users"], constraints["min_user_names"])
+    bootstrap = settings.get("bootstrap", {})
+    use_bootstrap_admin = bool(bootstrap.get("use_bootstrap_admin", True))
+    non_admin_count = max(0, counts["users"] - 1)
+    validate_data(data, non_admin_count, constraints["min_user_names"])
 
     security = settings["security"]
     auth = settings["auth"]
+    admin_team_name = "Admin"
     stack_config = settings.get("stack", {})
     files_config = settings.get("files", {})
     stack_pod_spec = ""
@@ -154,10 +158,20 @@ def main(argv: List[str]) -> int:
     if args.output:
         output_file = args.output
 
+    team_names = list(data["teams"])
+    if admin_team_name in team_names:
+        team_names = [name for name in team_names if name != admin_team_name]
+    team_names = [admin_team_name] + team_names
+
     print("About to generate dummy SQL data.")
     print(f"Output file: {output_file}")
-    print(f"Users: {counts['users']} (including admin)")
-    print(f"Teams: {len(data['teams'])}")
+    admin_note = (
+        "1 bootstrapped admin + "
+        if use_bootstrap_admin
+        else "including generated admin, "
+    )
+    print(f"Users: {counts['users']} ({admin_note}{non_admin_count} generated)")
+    print(f"Teams: {len(team_names)}")
     print(f"Challenges: {len(data['challenges'])}")
     print(f"Registration keys: {counts['registration_keys']}")
     proceed = input("Type 'Y' to continue: ").strip()
@@ -165,17 +179,22 @@ def main(argv: List[str]) -> int:
         print("Aborted.")
         return 0
 
-    teams = generate_teams(data["teams"], settings["timing"])
+    teams = generate_teams(team_names, settings["timing"])
     team_ids = list(range(1, len(teams) + 1))
+    admin_team_id = team_ids[0]
+    non_admin_team_ids = team_ids[1:]
     users = generate_users(
         data["users"],
         counts["users"],
-        team_ids,
+        admin_team_id,
+        non_admin_team_ids,
         settings["timing"],
         settings["probabilities"],
         auth,
         bcrypt_cost,
+        include_admin=True,
     )
+    user_ids = list(range(1, len(users) + 1))
     challenges = generate_challenges(
         data["challenges"],
         settings["timing"],
@@ -186,11 +205,12 @@ def main(argv: List[str]) -> int:
         files_config,
     )
     registration_keys, registration_key_uses = generate_registration_keys(
-        len(users),
-        team_ids,
+        user_ids,
+        non_admin_team_ids,
         settings["timing"],
         settings["probabilities"],
         counts["registration_keys"],
+        created_by=1,
     )
     submissions = generate_submissions(
         users,
@@ -198,6 +218,8 @@ def main(argv: List[str]) -> int:
         settings["timing"],
         settings["probabilities"],
         flag_secret,
+        start_user_id=1,
+        skip_first_user=True,
     )
 
     write_sql_file(
@@ -214,6 +236,8 @@ def main(argv: List[str]) -> int:
             "default_password": auth["default_password"],
             "admin_email": auth["admin"]["email"],
             "admin_password": auth["admin"]["password"],
+            "include_admin": not use_bootstrap_admin,
+            "bootstrap_mode": use_bootstrap_admin,
         },
     )
 
@@ -221,6 +245,8 @@ def main(argv: List[str]) -> int:
     print(f"- Output: {output_file}")
     print(f"- Teams: {len(teams)}")
     print(f"- Users: {len(users)}")
+    if use_bootstrap_admin:
+        print("- Admin user will be bootstrapped separately")
     print(f"- Challenges: {len(challenges)}")
     print(f"- Registration keys: {len(registration_keys)}")
     print(f"- Submissions: {len(submissions)}")
