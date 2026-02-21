@@ -749,6 +749,10 @@ func TestRedact(t *testing.T) {
 	if redacted.Stack.ProvisionerAPIKey == cfg.Stack.ProvisionerAPIKey {
 		t.Fatalf("expected stack api key redacted")
 	}
+
+	if redacted.Bootstrap.AdminPassword == cfg.Bootstrap.AdminPassword {
+		t.Fatalf("expected bootstrap admin password redacted")
+	}
 }
 
 func TestRedactValueEdgeCases(t *testing.T) {
@@ -831,6 +835,12 @@ func TestFormatForLog(t *testing.T) {
 			ProvisionerAPIKey:  "stack-key",
 			ProvisionerTimeout: 5 * time.Second,
 		},
+		Bootstrap: BootstrapConfig{
+			AdminTeamEnabled: true,
+			AdminUserEnabled: true,
+			AdminEmail:       "admin@example.com",
+			AdminPassword:    "adminpass",
+		},
 	}
 
 	out := FormatForLog(cfg)
@@ -846,6 +856,11 @@ func TestFormatForLog(t *testing.T) {
 
 	if db["password"].(string) == "dbpass" || redis["password"].(string) == "redispass" || jwt["secret"].(string) == "jwtsecret" || security["flag_hmac_secret"].(string) == "flagsecret" || stack["provisioner_api_key"].(string) == "stack-key" {
 		t.Fatalf("expected secrets redacted")
+	}
+
+	bootstrap := out["bootstrap"].(map[string]any)
+	if bootstrap["admin_password"].(string) == "adminpass" {
+		t.Fatalf("expected bootstrap admin password redacted")
 	}
 
 	if out["app_env"] != "local" || out["http_addr"] != ":8080" {

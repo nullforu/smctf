@@ -39,7 +39,7 @@ def validate_data(data: Dict[str, Any], user_count: int, min_user_names: int) ->
         ):
             raise SystemExit(f"Error: challenge entry {idx} is missing required fields")
 
-    if user_count - 1 > len(users):
+    if user_count > len(users):
         raise SystemExit(
             f"Error: requested {user_count} users but only {len(users)} user names available"
         )

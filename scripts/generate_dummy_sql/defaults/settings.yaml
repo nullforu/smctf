@@ -10,6 +10,8 @@ auth:
     username: "admin"
     password: "admin123!"
     role: "admin"
+bootstrap:
+  use_bootstrap_admin: true
 counts:
   users: 30
   registration_keys: 30

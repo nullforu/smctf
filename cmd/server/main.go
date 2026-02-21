@@ -102,6 +102,8 @@ func main() {
 	stackClient := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
 
+	bootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, logger)
+
 	if cfg, _, _, err := appConfigSvc.Get(ctx); err != nil {
 		logger.Warn("app config load warning", slog.Any("error", err))
 	} else if cfg.CTFStartAt == "" && cfg.CTFEndAt == "" {

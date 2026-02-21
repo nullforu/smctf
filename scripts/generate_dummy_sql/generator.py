@@ -64,33 +64,41 @@ def generate_teams(
 def generate_users(
     user_names: List[Dict[str, str]],
     count: int,
-    team_ids: List[int],
+    admin_team_id: int,
+    non_admin_team_ids: List[int],
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
     auth: Dict[str, Any],
     bcrypt_cost: int,
+    include_admin: bool = True,
 ) -> List[Tuple[str, str, str, str, str, int]]:
-    if not team_ids:
-        raise ValueError("team_ids must not be empty")
+    if include_admin and admin_team_id <= 0:
+        raise ValueError("admin_team_id must be positive")
+    if not non_admin_team_ids:
+        raise ValueError("non_admin_team_ids must not be empty")
 
     users = []
-    selected_names = random.sample(user_names, count - 1)
-
     base_time = datetime.now(UTC) - timedelta(hours=timing["users_base_hours_ago"])
 
-    admin = auth["admin"]
-    admin_password_hash = hash_password(admin["password"], bcrypt_cost)
-    admin_time = base_time.strftime("%Y-%m-%d %H:%M:%S")
-    users.append(
-        (
-            admin["email"],
-            admin["username"],
-            admin_password_hash,
-            admin["role"],
-            admin_time,
-            team_ids[0],
+    if include_admin:
+        admin = auth["admin"]
+        admin_password_hash = hash_password(admin["password"], bcrypt_cost)
+        admin_time = base_time.strftime("%Y-%m-%d %H:%M:%S")
+        users.append(
+            (
+                admin["email"],
+                admin["username"],
+                admin_password_hash,
+                admin["role"],
+                admin_time,
+                admin_team_id,
+            )
         )
-    )
+
+    remaining = count - (1 if include_admin else 0)
+    if remaining < 0:
+        remaining = 0
+    selected_names = random.sample(user_names, remaining)
 
     spread_hours = timing["user_created_hours_spread"]
 
@@ -100,7 +108,7 @@ def generate_users(
         password_hash = hash_password(auth["default_password"], bcrypt_cost)
         created_at = base_time + timedelta(hours=random.random() * spread_hours)
         created_at_str = created_at.strftime("%Y-%m-%d %H:%M:%S")
-        team_id = random.choice(team_ids)
+        team_id = random.choice(non_admin_team_ids)
 
         users.append((email, username, password_hash, "user", created_at_str, team_id))
 
@@ -208,11 +216,12 @@ def generate_challenges(
 
 
 def generate_registration_keys(
-    user_count: int,
+    user_ids: List[int],
     team_ids: List[int],
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
     count: int,
+    created_by: int,
 ) -> Tuple[
     List[Tuple[int, str, int, int, int, int, str]],
     List[Tuple[int, int, str, str]],
@@ -229,6 +238,7 @@ def generate_registration_keys(
     used_limit = max(
         1, int(count * probabilities["registration_keys"]["used_fraction"])
     )
+    candidate_users = [uid for uid in user_ids if uid != created_by]
     seen_codes = set()
 
     for i in range(count):
@@ -250,17 +260,17 @@ def generate_registration_keys(
         max_uses = random.randint(1, REGISTRATION_CODE_MAX_USES)
         used_count = 0
 
-        if i < used_limit and user_count > 1:
+        if i < used_limit and candidate_users:
             used_count = random.randint(1, max_uses)
             for _ in range(used_count):
-                used_by = random.randint(2, user_count)
+                used_by = random.choice(candidate_users)
                 used_by_ip = f"203.0.113.{random.randint(1, 254)}"
                 used_at = created_at + timedelta(minutes=random.randint(5, 180))
                 used_at_str = used_at.strftime("%Y-%m-%d %H:%M:%S")
                 uses.append((key_id, used_by, used_by_ip, used_at_str))
 
         keys.append(
-            (key_id, code, 1, team_id, max_uses, used_count, created_at_str)
+            (key_id, code, created_by, team_id, max_uses, used_count, created_at_str)
         )
 
     return keys, uses
@@ -272,13 +282,15 @@ def generate_submissions(
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
     secret: str,
+    start_user_id: int = 1,
+    skip_first_user: bool = False,
 ) -> List[Tuple[int, int, str, bool, str, bool]]:
     submissions = []
     base_time = datetime.now(UTC) - timedelta(
         hours=timing["submissions_base_hours_ago"]
     )
 
-    user_team_map = {idx + 1: user[5] for idx, user in enumerate(users)}
+    user_team_map = {start_user_id + idx: user[5] for idx, user in enumerate(users)}
     team_solved = {team_id: set() for team_id in set(user_team_map.values())}
 
     prob = probabilities["submissions"]
@@ -302,7 +314,11 @@ def generate_submissions(
 
     challenge_count = len(challenges)
 
-    for user_id in range(2, len(users) + 1):
+    user_ids = list(user_team_map.keys())
+    if skip_first_user and user_ids:
+        user_ids = [uid for uid in user_ids if uid != start_user_id]
+
+    for user_id in user_ids:
         skill_level = random.betavariate(beta_alpha, beta_beta)
         attempt_count = random.randint(attempts_min, attempts_max)
         attempted_challenges = set()
