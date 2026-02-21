@@ -55,7 +55,7 @@ func bootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, us
 		}
 
 		if user != nil {
-			logger.Info("admin user created", slog.Any("user_id", user.ID), slog.Any("email", user.Email))
+			logger.Info("admin user created", slog.Any("user_id", user.ID))
 		}
 	}
 }
