@@ -512,6 +512,48 @@ func TestChallengeFileDownloadLocked(t *testing.T) {
 	}
 }
 
+func TestCTFServiceTeamSolvedChallengeIDs(t *testing.T) {
+	env := setupServiceTest(t)
+	team := createTeam(t, env, "Alpha")
+	user1 := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, team.ID)
+	user2 := createUserWithTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole, team.ID)
+	challenge := createChallenge(t, env, "Team", 120, "FLAG{TEAM}", true)
+
+	_ = createSubmission(t, env, user1.ID, challenge.ID, true, time.Now().UTC())
+
+	ids, err := env.ctfSvc.TeamSolvedChallengeIDs(context.Background(), user2.ID)
+	if err != nil {
+		t.Fatalf("TeamSolvedChallengeIDs: %v", err)
+	}
+
+	if len(ids) != 1 {
+		t.Fatalf("expected 1 solved challenge, got %d", len(ids))
+	}
+
+	if _, ok := ids[challenge.ID]; !ok {
+		t.Fatalf("expected challenge to be solved for team")
+	}
+
+	ids, err = env.ctfSvc.TeamSolvedChallengeIDs(context.Background(), 0)
+	if err != nil {
+		t.Fatalf("expected empty ids for user 0: %v", err)
+	}
+
+	if len(ids) != 0 {
+		t.Fatalf("expected empty ids for user 0, got %d", len(ids))
+	}
+
+	ctfSvc := NewCTFService(env.cfg, env.challengeRepo, nil, env.redis, nil)
+	ids, err = ctfSvc.TeamSolvedChallengeIDs(context.Background(), user1.ID)
+	if err != nil {
+		t.Fatalf("expected empty ids when repo nil: %v", err)
+	}
+
+	if len(ids) != 0 {
+		t.Fatalf("expected empty ids when repo nil, got %d", len(ids))
+	}
+}
+
 func TestChallengeFileUploadPresignError(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge := createChallenge(t, env, "ZipTest", 100, "flag{zip}", true)

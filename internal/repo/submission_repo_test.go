@@ -123,6 +123,38 @@ func TestSubmissionRepoSolvedChallengesEmpty(t *testing.T) {
 	}
 }
 
+func TestSubmissionRepoTeamSolvedChallengeIDs(t *testing.T) {
+	env := setupRepoTest(t)
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	userA1 := createUserWithTeam(t, env, "a1@example.com", "a1", "pass", models.UserRole, teamA.ID)
+	userA2 := createUserWithTeam(t, env, "a2@example.com", "a2", "pass", models.UserRole, teamA.ID)
+	userB := createUserWithTeam(t, env, "b1@example.com", "b1", "pass", models.UserRole, teamB.ID)
+	ch1 := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+	ch2 := createChallenge(t, env, "ch2", 50, "FLAG{2}", true)
+
+	createSubmission(t, env, userA1.ID, ch1.ID, true, time.Now().UTC())
+	createSubmission(t, env, userA1.ID, ch2.ID, false, time.Now().UTC())
+	createSubmission(t, env, userB.ID, ch2.ID, true, time.Now().UTC())
+
+	ids, err := env.submissionRepo.TeamSolvedChallengeIDs(context.Background(), userA2.ID)
+	if err != nil {
+		t.Fatalf("TeamSolvedChallengeIDs: %v", err)
+	}
+
+	if len(ids) != 1 {
+		t.Fatalf("expected 1 solved challenge, got %d", len(ids))
+	}
+
+	if _, ok := ids[ch1.ID]; !ok {
+		t.Fatalf("expected ch1 to be solved for team")
+	}
+
+	if _, ok := ids[ch2.ID]; ok {
+		t.Fatalf("expected ch2 to be unsolved for team")
+	}
+}
+
 func TestSubmissionRepoSolvedChallengesBlockedUser(t *testing.T) {
 	env := setupRepoTest(t)
 	user := createUserWithNewTeam(t, env, "blocked@example.com", models.BlockedRole, "pass", models.UserRole)
