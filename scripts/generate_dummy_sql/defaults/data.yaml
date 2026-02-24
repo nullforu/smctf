@@ -115,6 +115,21 @@ challenges:
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Strong Bcrypt - Revenge"
+    description: |
+      이전 버전에서 바이패스되는 취약점을 분명히 패치하였지만 유사한 문제가 다시 발생하였습니다. 
+
+      해당 취약점을 찾아내어 플래그를 획득하세요. 플래그 형식은 `SCA{...}` 입니다.
+    points: 150
+    flag: "flag{8b1a9a93-2b11-4a3c-9f8a-6f3f1a1f2b9d}"
+    category: "Web"
+    previous_challenge_id: 4
+    stack_enabled: true
+    stack_target_port: 80
+    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
   - title: "Broken CSS"
     description: |
       한 회사에서 기르던 고양이가 실수로 CSS 파일을 망가뜨리고 커밋까지 해버렸습니다.
@@ -348,6 +363,27 @@ challenges:
     points: 400
     flag: "flag{s1gn4lm4n_c0mmun1cat10ns_br34k3d}"
     category: "Crypto"
+    file_name: "challenge.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "CloseClaw"
+    description: |
+      모 인공지능 B2B 기업에서 자체적으로 개인 맞춤형 비서 AI 애플리케이션을 개발하고 박람회에서 시연하였습니다.
+      
+      이 애플리케이션은 Agent를 뛰어넘어 "개인 맞춤형 비서"라는 새로운 카테고리를 개척하였고, 뛰어난 성능으로 많은 관심과 찬사를 받았습니다.
+
+      서비스를 정식으로 출시하기 전에 박람회에서 수집된 로그를 통해 보안 점검을 진행하던 중, 알 수 없는 페이로드를 통해 애플리케이션이 아래와 같이 예상치 못한 행동을 하는 것을 발견하였습니다.
+
+      - 루트 권한 획득
+      - LFI(Local File Inclusion) 취약점
+      - 코드 내 주석으로 인해 무시되는 사용자 및 시스템 프롬포트
+
+      이대로 출시한다면 큰 보안 문제가 발생할 수 있음을 깨달은 당신은 이에 대한 PoC(개념 증명)를 작성하고 상부에 보고해야 합니다.
+      
+      취약점을 찾고 플래그를 획득하세요. 플래그는 `/flag` 파일에 존재하며 루트 권한이 필요합니다. 플래그 형식은 `closeai{...}` 입니다.
+    points: 300
+    flag: "flag{cl0s3cl4w_3xpl01t3d}"
+    category: "AI"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
