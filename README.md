@@ -31,7 +31,7 @@
         Frontend
     </a>
     |
-    <a href="https://github.com/nullforu/container-provisioner-k8s">
+    <a href="https://github.com/nullforu/smctf-infra">
         Infrastructure
     </a>
 </div>
