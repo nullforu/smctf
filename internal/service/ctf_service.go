@@ -87,7 +87,7 @@ func (s *CTFService) GetChallengeByID(ctx context.Context, id int64) (*models.Ch
 	return challenge, nil
 }
 
-func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool, stackEnabled bool, stackTargetPort int, stackPodSpec *string) (*models.Challenge, error) {
+func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool, stackEnabled bool, stackTargetPort int, stackPodSpec *string, previousChallengeID *int64) (*models.Challenge, error) {
 	title = normalizeTrim(title)
 	description = normalizeTrim(description)
 	category = normalizeTrim(category)
@@ -99,6 +99,9 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	validator.Required("flag", flag)
 	validator.NonNegative("points", points)
 	validator.NonNegative("minimum_points", minimumPoints)
+	if previousChallengeID != nil {
+		validator.PositiveID("previous_challenge_id", *previousChallengeID)
+	}
 
 	if minimumPoints > points {
 		validator.fields = append(validator.fields, FieldError{Field: "minimum_points", Reason: "must be <= points"})
@@ -122,6 +125,16 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		return nil, err
 	}
 
+	if previousChallengeID != nil {
+		if _, err := s.challengeRepo.GetByID(ctx, *previousChallengeID); err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				return nil, NewValidationError(FieldError{Field: "previous_challenge_id", Reason: "invalid"})
+			}
+
+			return nil, fmt.Errorf("ctf.CreateChallenge previous challenge: %w", err)
+		}
+	}
+
 	podSpec := (*string)(nil)
 	if stackEnabled && stackPodSpec != nil {
 		trimmed := normalizeTrim(*stackPodSpec)
@@ -131,17 +144,18 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	}
 
 	challenge := &models.Challenge{
-		Title:           title,
-		Description:     description,
-		Category:        category,
-		Points:          points,
-		MinimumPoints:   minimumPoints,
-		FlagHash:        utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
-		StackEnabled:    stackEnabled,
-		StackTargetPort: stackTargetPort,
-		StackPodSpec:    podSpec,
-		IsActive:        active,
-		CreatedAt:       time.Now().UTC(),
+		Title:               title,
+		Description:         description,
+		Category:            category,
+		Points:              points,
+		MinimumPoints:       minimumPoints,
+		FlagHash:            utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
+		PreviousChallengeID: previousChallengeID,
+		StackEnabled:        stackEnabled,
+		StackTargetPort:     stackTargetPort,
+		StackPodSpec:        podSpec,
+		IsActive:            active,
+		CreatedAt:           time.Now().UTC(),
 	}
 
 	if err := s.challengeRepo.Create(ctx, challenge); err != nil {
@@ -155,7 +169,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	return challenge, nil
 }
 
-func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPort *int, stackPodSpec *string) (*models.Challenge, error) {
+func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPort *int, stackPodSpec *string, previousChallengeID *int64, previousChallengeSet bool) (*models.Challenge, error) {
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
 
@@ -205,6 +219,9 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	if minimumPoints != nil {
 		validator.NonNegative("minimum_points", *minimumPoints)
 	}
+	if previousChallengeSet && previousChallengeID != nil {
+		validator.PositiveID("previous_challenge_id", *previousChallengeID)
+	}
 
 	if err := validator.Error(); err != nil {
 		return nil, err
@@ -216,6 +233,20 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 			return nil, ErrChallengeNotFound
 		}
 		return nil, fmt.Errorf("ctf.UpdateChallenge lookup: %w", err)
+	}
+
+	if previousChallengeSet && previousChallengeID != nil {
+		if *previousChallengeID == challenge.ID {
+			return nil, NewValidationError(FieldError{Field: "previous_challenge_id", Reason: "invalid"})
+		}
+
+		if _, err := s.challengeRepo.GetByID(ctx, *previousChallengeID); err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				return nil, NewValidationError(FieldError{Field: "previous_challenge_id", Reason: "invalid"})
+			}
+
+			return nil, fmt.Errorf("ctf.UpdateChallenge previous challenge: %w", err)
+		}
 	}
 
 	if normalizedTitle != nil {
@@ -235,6 +266,10 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	}
 	if minimumPoints != nil {
 		challenge.MinimumPoints = *minimumPoints
+	}
+
+	if previousChallengeSet {
+		challenge.PreviousChallengeID = previousChallengeID
 	}
 
 	if active != nil {
@@ -328,10 +363,6 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		return false, err
 	}
 
-	if err := s.rateLimit(ctx, userID); err != nil {
-		return false, err
-	}
-
 	challenge, err := s.challengeRepo.GetByID(ctx, challengeID)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
@@ -342,6 +373,14 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 
 	if !challenge.IsActive {
 		return false, ErrChallengeNotFound
+	}
+
+	if err := s.ensureUnlocked(ctx, userID, challenge); err != nil {
+		return false, err
+	}
+
+	if err := s.rateLimit(ctx, userID); err != nil {
+		return false, err
 	}
 
 	already, err := s.submissionRepo.HasCorrect(ctx, userID, challengeID)
@@ -430,7 +469,7 @@ func (s *CTFService) RequestChallengeFileUpload(ctx context.Context, id int64, f
 	return challenge, upload, nil
 }
 
-func (s *CTFService) RequestChallengeFileDownload(ctx context.Context, id int64) (storage.PresignedURL, error) {
+func (s *CTFService) RequestChallengeFileDownload(ctx context.Context, userID, id int64) (storage.PresignedURL, error) {
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
 	if err := validator.Error(); err != nil {
@@ -449,6 +488,10 @@ func (s *CTFService) RequestChallengeFileDownload(ctx context.Context, id int64)
 		return storage.PresignedURL{}, fmt.Errorf("ctf.RequestChallengeFileDownload lookup: %w", err)
 	}
 
+	if err := s.ensureUnlocked(ctx, userID, challenge); err != nil {
+		return storage.PresignedURL{}, err
+	}
+
 	if challenge.FileKey == nil || *challenge.FileKey == "" {
 		return storage.PresignedURL{}, ErrChallengeFileNotFound
 	}
@@ -463,6 +506,40 @@ func (s *CTFService) RequestChallengeFileDownload(ctx context.Context, id int64)
 	}
 
 	return download, nil
+}
+
+func (s *CTFService) TeamSolvedChallengeIDs(ctx context.Context, userID int64) (map[int64]struct{}, error) {
+	if userID <= 0 || s.submissionRepo == nil {
+		return map[int64]struct{}{}, nil
+	}
+
+	ids, err := s.submissionRepo.TeamSolvedChallengeIDs(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("ctf.TeamSolvedChallengeIDs: %w", err)
+	}
+
+	return ids, nil
+}
+
+func (s *CTFService) ensureUnlocked(ctx context.Context, userID int64, challenge *models.Challenge) error {
+	if challenge.PreviousChallengeID == nil || *challenge.PreviousChallengeID <= 0 {
+		return nil
+	}
+
+	if userID <= 0 || s.submissionRepo == nil {
+		return ErrChallengeLocked
+	}
+
+	solved, err := s.submissionRepo.HasCorrect(ctx, userID, *challenge.PreviousChallengeID)
+	if err != nil {
+		return fmt.Errorf("ctf.ensureUnlocked: %w", err)
+	}
+
+	if !solved {
+		return ErrChallengeLocked
+	}
+
+	return nil
 }
 
 func (s *CTFService) DeleteChallengeFile(ctx context.Context, id int64) (*models.Challenge, error) {

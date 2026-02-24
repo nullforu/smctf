@@ -170,6 +170,39 @@ func TestStackCreateRateLimit(t *testing.T) {
 	}
 }
 
+func TestStackCreateLocked(t *testing.T) {
+	cfg := testCfg
+	cfg.Stack = config.StackConfig{
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
+	}
+
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
+
+	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
+	access, _, userID := registerAndLogin(t, env, "userlocked@example.com", "userlocked", "strong-pass")
+	prev := createChallenge(t, env, "Prev", 50, "flag{prev}", true)
+	challenge := createStackChallenge(t, env, "LockedStack")
+	challenge.PreviousChallengeID = &prev.ID
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(access))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("create locked stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	createSubmission(t, env, userID, prev.ID, true, time.Now().UTC())
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(access))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create unlocked stack status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestStacksBlockedBeforeStart(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{

@@ -37,6 +37,27 @@ func (o *optionalString) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type optionalInt64 struct {
+	Set   bool
+	Value *int64
+}
+
+func (o *optionalInt64) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if string(data) == "null" {
+		o.Value = nil
+		return nil
+	}
+
+	var value int64
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+
+	o.Value = &value
+	return nil
+}
+
 type adminConfigUpdateRequest struct {
 	Title             optionalString `json:"title"`
 	Description       optionalString `json:"description"`
@@ -67,29 +88,31 @@ type refreshRequest struct {
 }
 
 type createChallengeRequest struct {
-	Title           string  `json:"title" binding:"required"`
-	Description     string  `json:"description" binding:"required"`
-	Category        string  `json:"category" binding:"required"`
-	Points          int     `json:"points" binding:"required"`
-	MinimumPoints   *int    `json:"minimum_points"`
-	Flag            string  `json:"flag" binding:"required"`
-	IsActive        *bool   `json:"is_active"`
-	StackEnabled    *bool   `json:"stack_enabled"`
-	StackTargetPort *int    `json:"stack_target_port"`
-	StackPodSpec    *string `json:"stack_pod_spec"`
+	Title               string  `json:"title" binding:"required"`
+	Description         string  `json:"description" binding:"required"`
+	Category            string  `json:"category" binding:"required"`
+	Points              int     `json:"points" binding:"required"`
+	MinimumPoints       *int    `json:"minimum_points"`
+	Flag                string  `json:"flag" binding:"required"`
+	PreviousChallengeID *int64  `json:"previous_challenge_id"`
+	IsActive            *bool   `json:"is_active"`
+	StackEnabled        *bool   `json:"stack_enabled"`
+	StackTargetPort     *int    `json:"stack_target_port"`
+	StackPodSpec        *string `json:"stack_pod_spec"`
 }
 
 type updateChallengeRequest struct {
-	Title           optionalString `json:"title"`
-	Description     optionalString `json:"description"`
-	Category        optionalString `json:"category"`
-	Points          *int           `json:"points"`
-	MinimumPoints   *int           `json:"minimum_points"`
-	Flag            optionalString `json:"flag"`
-	IsActive        *bool          `json:"is_active"`
-	StackEnabled    *bool          `json:"stack_enabled"`
-	StackTargetPort *int           `json:"stack_target_port"`
-	StackPodSpec    optionalString `json:"stack_pod_spec"`
+	Title               optionalString `json:"title"`
+	Description         optionalString `json:"description"`
+	Category            optionalString `json:"category"`
+	Points              *int           `json:"points"`
+	MinimumPoints       *int           `json:"minimum_points"`
+	Flag                optionalString `json:"flag"`
+	PreviousChallengeID optionalInt64  `json:"previous_challenge_id"`
+	IsActive            *bool          `json:"is_active"`
+	StackEnabled        *bool          `json:"stack_enabled"`
+	StackTargetPort     *int           `json:"stack_target_port"`
+	StackPodSpec        optionalString `json:"stack_pod_spec"`
 }
 
 type challengeFileUploadRequest struct {
@@ -178,19 +201,36 @@ type adminUserResponse struct {
 }
 
 type challengeResponse struct {
-	ID              int64   `json:"id"`
-	Title           string  `json:"title"`
-	Description     string  `json:"description"`
-	Category        string  `json:"category"`
-	Points          int     `json:"points"`
-	InitialPoints   int     `json:"initial_points"`
-	MinimumPoints   int     `json:"minimum_points"`
-	SolveCount      int     `json:"solve_count"`
-	IsActive        bool    `json:"is_active"`
-	HasFile         bool    `json:"has_file"`
-	FileName        *string `json:"file_name,omitempty"`
-	StackEnabled    bool    `json:"stack_enabled"`
-	StackTargetPort int     `json:"stack_target_port"`
+	ID                  int64   `json:"id"`
+	Title               string  `json:"title"`
+	Description         string  `json:"description"`
+	Category            string  `json:"category"`
+	Points              int     `json:"points"`
+	InitialPoints       int     `json:"initial_points"`
+	MinimumPoints       int     `json:"minimum_points"`
+	SolveCount          int     `json:"solve_count"`
+	PreviousChallengeID *int64  `json:"previous_challenge_id,omitempty"`
+	IsActive            bool    `json:"is_active"`
+	IsLocked            bool    `json:"is_locked"`
+	HasFile             bool    `json:"has_file"`
+	FileName            *string `json:"file_name,omitempty"`
+	StackEnabled        bool    `json:"stack_enabled"`
+	StackTargetPort     int     `json:"stack_target_port"`
+}
+
+type lockedChallengeResponse struct {
+	ID                        int64   `json:"id"`
+	Title                     string  `json:"title"`
+	Category                  string  `json:"category"`
+	Points                    int     `json:"points"`
+	InitialPoints             int     `json:"initial_points"`
+	MinimumPoints             int     `json:"minimum_points"`
+	SolveCount                int     `json:"solve_count"`
+	PreviousChallengeID       *int64  `json:"previous_challenge_id,omitempty"`
+	PreviousChallengeTitle    *string `json:"previous_challenge_title,omitempty"`
+	PreviousChallengeCategory *string `json:"previous_challenge_category,omitempty"`
+	IsActive                  bool    `json:"is_active"`
+	IsLocked                  bool    `json:"is_locked"`
 }
 
 type ctfStateResponse struct {
@@ -198,8 +238,8 @@ type ctfStateResponse struct {
 }
 
 type challengesListResponse struct {
-	CTFState   string              `json:"ctf_state"`
-	Challenges []challengeResponse `json:"challenges,omitempty"`
+	CTFState   string `json:"ctf_state"`
+	Challenges []any  `json:"challenges,omitempty"`
 }
 
 type adminChallengeResponse struct {
@@ -239,22 +279,23 @@ type teamTimelineResponse struct {
 }
 
 type adminReportChallenge struct {
-	ID              int64      `json:"id"`
-	Title           string     `json:"title"`
-	Description     string     `json:"description"`
-	Category        string     `json:"category"`
-	Points          int        `json:"points"`
-	InitialPoints   int        `json:"initial_points"`
-	MinimumPoints   int        `json:"minimum_points"`
-	SolveCount      int        `json:"solve_count"`
-	IsActive        bool       `json:"is_active"`
-	FileKey         *string    `json:"file_key,omitempty"`
-	FileName        *string    `json:"file_name,omitempty"`
-	FileUploadedAt  *time.Time `json:"file_uploaded_at,omitempty"`
-	StackEnabled    bool       `json:"stack_enabled"`
-	StackTargetPort int        `json:"stack_target_port"`
-	StackPodSpec    *string    `json:"stack_pod_spec,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
+	ID                  int64      `json:"id"`
+	Title               string     `json:"title"`
+	Description         string     `json:"description"`
+	Category            string     `json:"category"`
+	Points              int        `json:"points"`
+	InitialPoints       int        `json:"initial_points"`
+	MinimumPoints       int        `json:"minimum_points"`
+	SolveCount          int        `json:"solve_count"`
+	PreviousChallengeID *int64     `json:"previous_challenge_id,omitempty"`
+	IsActive            bool       `json:"is_active"`
+	FileKey             *string    `json:"file_key,omitempty"`
+	FileName            *string    `json:"file_name,omitempty"`
+	FileUploadedAt      *time.Time `json:"file_uploaded_at,omitempty"`
+	StackEnabled        bool       `json:"stack_enabled"`
+	StackTargetPort     int        `json:"stack_target_port"`
+	StackPodSpec        *string    `json:"stack_pod_spec,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
 }
 
 type adminReportUser struct {
@@ -364,22 +405,23 @@ func newAdminStackResponse(stack models.AdminStackSummary) adminStackResponse {
 
 func newAdminReportChallenge(challenge models.Challenge) adminReportChallenge {
 	return adminReportChallenge{
-		ID:              challenge.ID,
-		Title:           challenge.Title,
-		Description:     challenge.Description,
-		Category:        challenge.Category,
-		Points:          challenge.Points,
-		InitialPoints:   challenge.InitialPoints,
-		MinimumPoints:   challenge.MinimumPoints,
-		SolveCount:      challenge.SolveCount,
-		IsActive:        challenge.IsActive,
-		FileKey:         challenge.FileKey,
-		FileName:        challenge.FileName,
-		FileUploadedAt:  challenge.FileUploadedAt,
-		StackEnabled:    challenge.StackEnabled,
-		StackTargetPort: challenge.StackTargetPort,
-		StackPodSpec:    challenge.StackPodSpec,
-		CreatedAt:       challenge.CreatedAt.UTC(),
+		ID:                  challenge.ID,
+		Title:               challenge.Title,
+		Description:         challenge.Description,
+		Category:            challenge.Category,
+		Points:              challenge.Points,
+		InitialPoints:       challenge.InitialPoints,
+		MinimumPoints:       challenge.MinimumPoints,
+		SolveCount:          challenge.SolveCount,
+		PreviousChallengeID: challenge.PreviousChallengeID,
+		IsActive:            challenge.IsActive,
+		FileKey:             challenge.FileKey,
+		FileName:            challenge.FileName,
+		FileUploadedAt:      challenge.FileUploadedAt,
+		StackEnabled:        challenge.StackEnabled,
+		StackTargetPort:     challenge.StackTargetPort,
+		StackPodSpec:        challenge.StackPodSpec,
+		CreatedAt:           challenge.CreatedAt.UTC(),
 	}
 }
 
@@ -458,19 +500,44 @@ func newAdminUserResponse(user *models.User) adminUserResponse {
 func newChallengeResponse(challenge *models.Challenge) challengeResponse {
 	hasFile := challenge.FileKey != nil && *challenge.FileKey != ""
 	return challengeResponse{
-		ID:              challenge.ID,
-		Title:           challenge.Title,
-		Description:     challenge.Description,
-		Category:        challenge.Category,
-		Points:          challenge.Points,
-		InitialPoints:   challenge.InitialPoints,
-		MinimumPoints:   challenge.MinimumPoints,
-		SolveCount:      challenge.SolveCount,
-		IsActive:        challenge.IsActive,
-		HasFile:         hasFile,
-		FileName:        challenge.FileName,
-		StackEnabled:    challenge.StackEnabled,
-		StackTargetPort: challenge.StackTargetPort,
+		ID:                  challenge.ID,
+		Title:               challenge.Title,
+		Description:         challenge.Description,
+		Category:            challenge.Category,
+		Points:              challenge.Points,
+		InitialPoints:       challenge.InitialPoints,
+		MinimumPoints:       challenge.MinimumPoints,
+		SolveCount:          challenge.SolveCount,
+		PreviousChallengeID: challenge.PreviousChallengeID,
+		IsActive:            challenge.IsActive,
+		IsLocked:            false,
+		HasFile:             hasFile,
+		FileName:            challenge.FileName,
+		StackEnabled:        challenge.StackEnabled,
+		StackTargetPort:     challenge.StackTargetPort,
+	}
+}
+
+func newLockedChallengeResponse(challenge *models.Challenge, previous *models.Challenge) lockedChallengeResponse {
+	var prevTitle *string
+	var prevCategory *string
+	if previous != nil {
+		prevTitle = &previous.Title
+		prevCategory = &previous.Category
+	}
+	return lockedChallengeResponse{
+		ID:                        challenge.ID,
+		Title:                     challenge.Title,
+		Category:                  challenge.Category,
+		Points:                    challenge.Points,
+		InitialPoints:             challenge.InitialPoints,
+		MinimumPoints:             challenge.MinimumPoints,
+		SolveCount:                challenge.SolveCount,
+		PreviousChallengeID:       challenge.PreviousChallengeID,
+		PreviousChallengeTitle:    prevTitle,
+		PreviousChallengeCategory: prevCategory,
+		IsActive:                  challenge.IsActive,
+		IsLocked:                  true,
 	}
 }
 

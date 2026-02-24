@@ -75,6 +75,35 @@ func TestStackServiceGetOrCreateStack(t *testing.T) {
 	}
 }
 
+func TestStackServiceLockedChallenge(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "locked-stack@example.com", "locked-stack", "pass", models.UserRole)
+	prev := createChallenge(t, env, "Prev", 50, "flag{prev}", true)
+	challenge := createStackChallenge(t, env, "stack-locked")
+	challenge.PreviousChallengeID = &prev.ID
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge: %v", err)
+	}
+
+	mock := stack.NewProvisionerMock()
+	cfg := config.StackConfig{
+		Enabled:      true,
+		MaxPerUser:   2,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	}
+	stackSvc, _ := newStackService(env, mock.Client(), cfg)
+
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrChallengeLocked) {
+		t.Fatalf("expected locked error, got %v", err)
+	}
+
+	createSubmission(t, env, user.ID, prev.ID, true, time.Now().UTC())
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), user.ID, challenge.ID); err != nil {
+		t.Fatalf("expected stack after unlock, got %v", err)
+	}
+}
+
 func TestStackServiceRateLimit(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge1 := createStackChallenge(t, env, "stack-1")

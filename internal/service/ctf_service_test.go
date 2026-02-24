@@ -57,7 +57,7 @@ func newClosedServiceDB(t *testing.T) *bun.DB {
 func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 	env := setupServiceTest(t)
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 80, "FLAG{1}", true, false, 0, nil)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 80, "FLAG{1}", true, false, 0, nil, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -86,22 +86,28 @@ func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 
 func TestCTFServiceCreateChallengeValidation(t *testing.T) {
 	env := setupServiceTest(t)
-	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, 0, "", true, false, 0, nil)
+	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, 0, "", true, false, 0, nil, nil)
 
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
 
-	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 200, "FLAG{X}", true, false, 0, nil)
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 200, "FLAG{X}", true, false, 0, nil, nil)
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error for minimum_points, got %v", err)
 	}
 
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
-	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{S}", true, true, 0, &podSpec)
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{S}", true, true, 0, &podSpec, nil)
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error for stack_target_port, got %v", err)
+	}
+
+	missingPrev := int64(9999)
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Locked", "Desc", "Misc", 100, 80, "FLAG{P}", true, false, 0, nil, &missingPrev)
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error for previous_challenge_id, got %v", err)
 	}
 }
 
@@ -111,7 +117,7 @@ func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
 	soloUser := createUserWithNewTeam(t, env, "s1@example.com", "s1", "pass", models.UserRole)
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true, false, 0, nil)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true, false, 0, nil, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -175,7 +181,7 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	newActive := false
 
 	newMin := 40
-	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &newTitle, &newDesc, &newCat, &newPoints, &newMin, nil, &newActive, nil, nil, nil)
+	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &newTitle, &newDesc, &newCat, &newPoints, &newMin, nil, &newActive, nil, nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("update challenge: %v", err)
 	}
@@ -185,12 +191,12 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	}
 
 	emptyFlag := "   "
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &emptyFlag, nil, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &emptyFlag, nil, nil, nil, nil, nil, false); err == nil {
 		t.Fatalf("expected empty flag to be rejected")
 	}
 
 	newFlag := "FLAG{UPDATED}"
-	updatedFlag, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &newFlag, nil, nil, nil, nil)
+	updatedFlag, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &newFlag, nil, nil, nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("expected flag update, got %v", err)
 	}
@@ -200,41 +206,55 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	}
 
 	badCat := "Bad"
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &badCat, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &badCat, nil, nil, nil, nil, nil, nil, nil, nil, false); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
 	whitespaceTitle := "   "
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &whitespaceTitle, nil, nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, &whitespaceTitle, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false); err != nil {
 		t.Fatalf("expected whitespace title to be allowed, got %v", err)
 	}
 
 	whitespaceDesc := "   "
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, &whitespaceDesc, nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, &whitespaceDesc, nil, nil, nil, nil, nil, nil, nil, nil, nil, false); err != nil {
 		t.Fatalf("expected whitespace description to be allowed, got %v", err)
 	}
 
 	whitespaceCat := "   "
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &whitespaceCat, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, &whitespaceCat, nil, nil, nil, nil, nil, nil, nil, nil, false); err == nil {
 		t.Fatalf("expected whitespace category to be rejected")
 	}
 
 	negPoints := -1
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, &negPoints, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, &negPoints, nil, nil, nil, nil, nil, nil, nil, false); err == nil {
 		t.Fatalf("expected negative points to be rejected")
 	}
 
 	negMin := -1
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, &negMin, nil, nil, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, &negMin, nil, nil, nil, nil, nil, nil, false); err == nil {
 		t.Fatalf("expected negative minimum_points to be rejected")
 	}
 
 	badMin := 200
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, &newPoints, &badMin, nil, nil, nil, nil, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, &newPoints, &badMin, nil, nil, nil, nil, nil, nil, false); err == nil {
 		t.Fatalf("expected minimum_points > points to be rejected")
 	}
 
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), 9999, &newTitle, nil, nil, nil, nil, nil, nil, nil, nil, nil); !errors.Is(err, ErrChallengeNotFound) {
+	prev := createChallenge(t, env, "Prev", 40, "FLAG{PREV}", true)
+	prevID := prev.ID
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &prevID, true); err != nil {
+		t.Fatalf("expected previous_challenge_id update, got %v", err)
+	}
+
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &challenge.ID, true); err == nil {
+		t.Fatalf("expected self previous_challenge_id to be rejected")
+	}
+
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, true); err != nil {
+		t.Fatalf("expected previous_challenge_id clear, got %v", err)
+	}
+
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), 9999, &newTitle, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false); !errors.Is(err, ErrChallengeNotFound) {
 		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
 	}
 }
@@ -300,6 +320,23 @@ func TestCTFServiceSubmitFlag(t *testing.T) {
 	correct, err = env.ctfSvc.SubmitFlag(context.Background(), user2.ID, teamChallenge.ID, "FLAG{TEAM}")
 	if !errors.Is(err, ErrAlreadySolved) || !correct {
 		t.Fatalf("expected teammate already solved, got %v correct %v", err, correct)
+	}
+
+	prev := createChallenge(t, env, "Prev", 30, "FLAG{PREV}", true)
+	locked := createChallenge(t, env, "Locked", 60, "FLAG{LOCK}", true)
+	locked.PreviousChallengeID = &prev.ID
+	if err := env.challengeRepo.Update(context.Background(), locked); err != nil {
+		t.Fatalf("update locked challenge: %v", err)
+	}
+
+	if _, err := env.ctfSvc.SubmitFlag(context.Background(), user.ID, locked.ID, "FLAG{LOCK}"); !errors.Is(err, ErrChallengeLocked) {
+		t.Fatalf("expected ErrChallengeLocked, got %v", err)
+	}
+
+	_ = createSubmission(t, env, user.ID, prev.ID, true, time.Now().UTC())
+	correct, err = env.ctfSvc.SubmitFlag(context.Background(), user.ID, locked.ID, "FLAG{LOCK}")
+	if err != nil || !correct {
+		t.Fatalf("expected unlocked solve, got %v correct %v", err, correct)
 	}
 
 	inactive := createChallenge(t, env, "Inactive", 50, "FLAG{5}", false)
@@ -443,13 +480,35 @@ func TestChallengeFileUploadAndDownload(t *testing.T) {
 		t.Fatalf("expected file name set")
 	}
 
-	download, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), challenge.ID)
+	download, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), 0, challenge.ID)
 	if err != nil {
 		t.Fatalf("download request: %v", err)
 	}
 
 	if download.URL == "" {
 		t.Fatalf("expected download url")
+	}
+}
+
+func TestChallengeFileDownloadLocked(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "locked@example.com", "locked", "pass", models.UserRole)
+	prev := createChallenge(t, env, "Prev", 50, "flag{prev}", true)
+	locked := createChallenge(t, env, "Locked", 100, "flag{locked}", true)
+	locked.PreviousChallengeID = &prev.ID
+	locked.FileKey = ptrString("bundle.zip")
+	locked.FileName = ptrString("bundle.zip")
+	if err := env.challengeRepo.Update(context.Background(), locked); err != nil {
+		t.Fatalf("update locked challenge: %v", err)
+	}
+
+	if _, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), user.ID, locked.ID); !errors.Is(err, ErrChallengeLocked) {
+		t.Fatalf("expected ErrChallengeLocked, got %v", err)
+	}
+
+	_ = createSubmission(t, env, user.ID, prev.ID, true, time.Now().UTC())
+	if _, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), user.ID, locked.ID); err != nil {
+		t.Fatalf("expected download after unlock, got %v", err)
 	}
 }
 
@@ -500,7 +559,7 @@ func TestChallengeFileUploadStorageUnavailable(t *testing.T) {
 func TestChallengeFileDownloadChallengeNotFound(t *testing.T) {
 	env := setupServiceTest(t)
 
-	_, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), 9999)
+	_, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), 0, 9999)
 	if !errors.Is(err, ErrChallengeNotFound) {
 		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
 	}
@@ -516,7 +575,7 @@ func TestChallengeFileDownloadPresignError(t *testing.T) {
 
 	ctfSvc := NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, errorFileStore{downloadErr: errors.New("download fail")})
 
-	_, err = ctfSvc.RequestChallengeFileDownload(context.Background(), challenge.ID)
+	_, err = ctfSvc.RequestChallengeFileDownload(context.Background(), 0, challenge.ID)
 	if err == nil || !strings.Contains(err.Error(), "presign") {
 		t.Fatalf("expected presign error, got %v", err)
 	}
@@ -532,7 +591,7 @@ func TestChallengeFileDownloadStorageUnavailable(t *testing.T) {
 
 	ctfSvc := NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
 
-	_, err = ctfSvc.RequestChallengeFileDownload(context.Background(), challenge.ID)
+	_, err = ctfSvc.RequestChallengeFileDownload(context.Background(), 0, challenge.ID)
 	if !errors.Is(err, ErrStorageUnavailable) {
 		t.Fatalf("expected ErrStorageUnavailable, got %v", err)
 	}
@@ -602,7 +661,7 @@ func TestChallengeFileDownloadMissing(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge := createChallenge(t, env, "NoFile", 100, "flag{zip}", true)
 
-	_, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), challenge.ID)
+	_, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), 0, challenge.ID)
 	if !errors.Is(err, ErrChallengeFileNotFound) {
 		t.Fatalf("expected ErrChallengeFileNotFound, got %v", err)
 	}
@@ -622,7 +681,7 @@ func TestCTFServiceStackFields(t *testing.T) {
 	env := setupServiceTest(t)
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{STACK}", true, true, 80, &podSpec)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{STACK}", true, true, 80, &podSpec, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -632,7 +691,7 @@ func TestCTFServiceStackFields(t *testing.T) {
 	}
 
 	disable := false
-	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &disable, nil, nil)
+	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &disable, nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("disable stack: %v", err)
 	}
@@ -642,13 +701,13 @@ func TestCTFServiceStackFields(t *testing.T) {
 	}
 
 	newPort := 80
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, &newPort, nil); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, &newPort, nil, nil, false); err == nil {
 		t.Fatalf("expected validation error when stack disabled")
 	}
 
 	enable := true
 	empty := ""
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &newPort, &empty); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &newPort, &empty, nil, false); err == nil {
 		t.Fatalf("expected validation error for empty pod spec")
 	} else {
 		var ve *ValidationError
@@ -657,17 +716,17 @@ func TestCTFServiceStackFields(t *testing.T) {
 		}
 	}
 
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, nil, &podSpec); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, nil, &podSpec, nil, false); err == nil {
 		t.Fatalf("expected validation error for missing stack_target_port when stack enabled")
 	}
 
 	outOfRangePort := 70000
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &outOfRangePort, &podSpec); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &outOfRangePort, &podSpec, nil, false); err == nil {
 		t.Fatalf("expected validation error for out-of-range port")
 	}
 
 	zeroPort := 0
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &zeroPort, &podSpec); err == nil {
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &zeroPort, &podSpec, nil, false); err == nil {
 		t.Fatalf("expected validation error for zero port")
 	}
 }

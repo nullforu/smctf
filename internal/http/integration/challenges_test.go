@@ -54,6 +54,107 @@ func TestListChallenges(t *testing.T) {
 	}
 }
 
+func TestChallengesLockedFlow(t *testing.T) {
+	env := setupTest(t, testCfg)
+	access, _, userID := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
+	prev := createChallenge(t, env, "Prev", 50, "flag{prev}", true)
+	locked := createChallenge(t, env, "Locked", 100, "flag{lock}", true)
+	locked.PreviousChallengeID = &prev.ID
+	if err := env.challengeRepo.Update(context.Background(), locked); err != nil {
+		t.Fatalf("update locked challenge: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var listResp struct {
+		Challenges []map[string]any `json:"challenges"`
+	}
+	decodeJSON(t, rec, &listResp)
+
+	var lockedRow map[string]any
+	for _, row := range listResp.Challenges {
+		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			lockedRow = row
+		}
+	}
+
+	if lockedRow == nil {
+		t.Fatalf("expected locked challenge in list")
+	}
+
+	if lockedRow["is_locked"] != true {
+		t.Fatalf("expected is_locked true, got %v", lockedRow["is_locked"])
+	}
+
+	if lockedRow["category"] != locked.Category {
+		t.Fatalf("expected locked category %q, got %v", locked.Category, lockedRow["category"])
+	}
+
+	if lockedRow["initial_points"] == nil || lockedRow["minimum_points"] == nil || lockedRow["solve_count"] == nil {
+		t.Fatalf("expected locked response to include points metadata")
+	}
+
+	if lockedRow["is_active"] != locked.IsActive {
+		t.Fatalf("expected is_active %v, got %v", locked.IsActive, lockedRow["is_active"])
+	}
+
+	if prevID, ok := lockedRow["previous_challenge_id"].(float64); !ok || int64(prevID) != prev.ID {
+		t.Fatalf("expected previous_challenge_id %d, got %v", prev.ID, lockedRow["previous_challenge_id"])
+	}
+
+	if lockedRow["previous_challenge_title"] != prev.Title {
+		t.Fatalf("expected previous_challenge_title %q, got %v", prev.Title, lockedRow["previous_challenge_title"])
+	}
+
+	if lockedRow["previous_challenge_category"] != prev.Category {
+		t.Fatalf(
+			"expected previous_challenge_category %q, got %v",
+			prev.Category,
+			lockedRow["previous_challenge_category"],
+		)
+	}
+
+	if _, ok := lockedRow["description"]; ok {
+		t.Fatalf("expected description to be omitted for locked challenge")
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list auth status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	listResp = struct {
+		Challenges []map[string]any `json:"challenges"`
+	}{}
+	decodeJSON(t, rec, &listResp)
+
+	lockedRow = nil
+	for _, row := range listResp.Challenges {
+		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			lockedRow = row
+		}
+	}
+
+	if lockedRow == nil || lockedRow["is_locked"] != true {
+		t.Fatalf("expected locked challenge for unsolved user")
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(locked.ID)+"/submit", map[string]string{"flag": "flag{lock}"}, authHeader(access))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("submit locked status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	createSubmission(t, env, userID, prev.ID, true, time.Now().UTC())
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(locked.ID)+"/submit", map[string]string{"flag": "flag{lock}"}, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit unlocked status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestSubmitFlag(t *testing.T) {
 	t.Run("missing auth", func(t *testing.T) {
 		env := setupTest(t, testCfg)
