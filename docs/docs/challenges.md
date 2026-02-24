@@ -23,6 +23,7 @@ Response 200
             "minimum_points": 50,
             "solve_count": 12,
             "is_active": true,
+            "is_locked": false,
             "has_file": true,
             "file_name": "challenge.zip",
             "stack_enabled": false,
@@ -37,6 +38,7 @@ Notes:
 - `points` is dynamically calculated based on solves.
 - `has_file` indicates whether a challenge file is available.
 - `stack_enabled` indicates if a per-user stack instance is supported for this challenge.
+- If a challenge is locked, the response includes only `id`, `title`, `category`, `points`, `initial_points`, `minimum_points`, `solve_count`, `previous_challenge_id`, `previous_challenge_title`, `previous_challenge_category`, `is_active`, and `is_locked`.
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
 
 ---
@@ -77,6 +79,7 @@ Errors:
 
 - 400 `invalid input`
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `challenge locked`
 - 404 `challenge not found`
 - 409 `challenge already solved`
 - 429 `too many submissions`
@@ -106,5 +109,6 @@ Response 200
 Errors:
 
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `challenge locked`
 - 404 `challenge not found` or `challenge file not found`
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
