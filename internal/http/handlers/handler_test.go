@@ -761,6 +761,54 @@ func TestHandlerListChallengesNotStarted(t *testing.T) {
 	}
 }
 
+func TestHandlerListChallengesNoPrereqWithAuth(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "nopreq@example.com", "nopreq", "pass", models.UserRole)
+	access, err := auth.GenerateAccessToken(env.cfg.JWT, user.ID, user.Role)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+
+	challenge := createHandlerChallenge(t, env, "NoPrereq", 100, "FLAG{N}", true)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer "+access)
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	challenges, ok := resp["challenges"].([]any)
+	if !ok || len(challenges) == 0 {
+		t.Fatalf("expected challenges in response")
+	}
+
+	found := false
+	for _, item := range challenges {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		if id, ok := row["id"].(float64); ok && int64(id) == challenge.ID {
+			found = true
+			if row["is_locked"] != false {
+				t.Fatalf("expected is_locked false for no prereq")
+			}
+
+			if _, ok := row["description"]; !ok {
+				t.Fatalf("expected description for unlocked challenge")
+			}
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected challenge in list")
+	}
+}
+
 func TestHandlerListChallengesLocked(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "locked@example.com", "locked", "pass", models.UserRole)

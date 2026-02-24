@@ -375,7 +375,16 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 
 	userID := h.optionalUserID(ctx)
 	solved := map[int64]struct{}{}
-	if userID > 0 {
+
+	hasPrereq := false
+	for i := range challenges {
+		if challenges[i].PreviousChallengeID != nil && *challenges[i].PreviousChallengeID > 0 {
+			hasPrereq = true
+			break
+		}
+	}
+
+	if userID > 0 && hasPrereq {
 		solved, err = h.ctf.TeamSolvedChallengeIDs(ctx.Request.Context(), userID)
 		if err != nil {
 			writeError(ctx, err)
