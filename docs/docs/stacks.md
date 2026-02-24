@@ -77,6 +77,7 @@ Errors:
 
 - 400 `invalid input` or `stack not enabled for challenge`
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `challenge locked`
 - 404 `challenge not found`
 - 409 `stack limit reached` or `challenge already solved`
 - 429 `too many submissions` (rate limited)

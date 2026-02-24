@@ -201,3 +201,25 @@ func (r *SubmissionRepo) SolvedChallenges(ctx context.Context, userID int64) ([]
 
 	return rows, nil
 }
+
+func (r *SubmissionRepo) TeamSolvedChallengeIDs(ctx context.Context, userID int64) (map[int64]struct{}, error) {
+	rows := make([]int64, 0)
+
+	if err := r.db.NewSelect().
+		TableExpr("submissions AS s").
+		ColumnExpr("DISTINCT s.challenge_id").
+		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN users AS me ON me.id = ?", userID).
+		Where("s.correct = true").
+		Where("u.team_id = me.team_id").
+		Scan(ctx, &rows); err != nil {
+		return nil, wrapError("submissionRepo.TeamSolvedChallengeIDs", err)
+	}
+
+	ids := make(map[int64]struct{}, len(rows))
+	for _, id := range rows {
+		ids[id] = struct{}{}
+	}
+
+	return ids, nil
+}

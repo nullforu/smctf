@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"smctf/internal/auth"
 	"smctf/internal/config"
 	"smctf/internal/db"
 	"smctf/internal/models"
@@ -757,6 +758,193 @@ func TestHandlerListChallengesNotStarted(t *testing.T) {
 
 	if _, ok := resp["challenges"]; ok {
 		t.Fatalf("expected challenges to be omitted before start")
+	}
+}
+
+func TestHandlerListChallengesNoPrereqWithAuth(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "nopreq@example.com", "nopreq", "pass", models.UserRole)
+	access, err := auth.GenerateAccessToken(env.cfg.JWT, user.ID, user.Role)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+
+	challenge := createHandlerChallenge(t, env, "NoPrereq", 100, "FLAG{N}", true)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer "+access)
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	challenges, ok := resp["challenges"].([]any)
+	if !ok || len(challenges) == 0 {
+		t.Fatalf("expected challenges in response")
+	}
+
+	found := false
+	for _, item := range challenges {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		if id, ok := row["id"].(float64); ok && int64(id) == challenge.ID {
+			found = true
+			if row["is_locked"] != false {
+				t.Fatalf("expected is_locked false for no prereq")
+			}
+
+			if _, ok := row["description"]; !ok {
+				t.Fatalf("expected description for unlocked challenge")
+			}
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected challenge in list")
+	}
+}
+
+func TestHandlerListChallengesLocked(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "locked@example.com", "locked", "pass", models.UserRole)
+	access, err := auth.GenerateAccessToken(env.cfg.JWT, user.ID, user.Role)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+
+	prev := createHandlerChallenge(t, env, "Prev", 50, "FLAG{P}", true)
+	locked := createHandlerChallenge(t, env, "Locked", 100, "FLAG{L}", true)
+	locked.PreviousChallengeID = &prev.ID
+	if err := env.challengeRepo.Update(context.Background(), locked); err != nil {
+		t.Fatalf("update locked challenge: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	challenges, ok := resp["challenges"].([]any)
+	if !ok || len(challenges) == 0 {
+		t.Fatalf("expected challenges in response")
+	}
+
+	foundLocked := false
+	for _, item := range challenges {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			foundLocked = true
+			if row["is_locked"] != true {
+				t.Fatalf("expected locked challenge to be marked is_locked")
+			}
+
+			if row["category"] != locked.Category {
+				t.Fatalf("expected locked category %q, got %v", locked.Category, row["category"])
+			}
+
+			if row["initial_points"] == nil || row["minimum_points"] == nil || row["solve_count"] == nil {
+				t.Fatalf("expected locked response to include points metadata")
+			}
+
+			if row["is_active"] != locked.IsActive {
+				t.Fatalf("expected is_active %v, got %v", locked.IsActive, row["is_active"])
+			}
+
+			if prevID, ok := row["previous_challenge_id"].(float64); !ok || int64(prevID) != prev.ID {
+				t.Fatalf("expected previous_challenge_id %d, got %v", prev.ID, row["previous_challenge_id"])
+			}
+
+			if row["previous_challenge_title"] != prev.Title {
+				t.Fatalf("expected previous_challenge_title %q, got %v", prev.Title, row["previous_challenge_title"])
+			}
+
+			if row["previous_challenge_category"] != prev.Category {
+				t.Fatalf(
+					"expected previous_challenge_category %q, got %v",
+					prev.Category,
+					row["previous_challenge_category"],
+				)
+			}
+
+			if _, ok := row["description"]; ok {
+				t.Fatalf("expected description omitted for locked challenge")
+			}
+		}
+	}
+
+	if !foundLocked {
+		t.Fatalf("expected locked challenge in list")
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer "+access)
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list auth status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	challenges, ok = resp["challenges"].([]any)
+	if !ok || len(challenges) == 0 {
+		t.Fatalf("expected challenges in response")
+	}
+
+	for _, item := range challenges {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			if row["is_locked"] != true {
+				t.Fatalf("expected locked challenge for unsolved user")
+			}
+		}
+	}
+
+	createHandlerSubmission(t, env, user.ID, prev.ID, true, time.Now().UTC())
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer "+access)
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list unlocked status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	challenges, ok = resp["challenges"].([]any)
+	if !ok || len(challenges) == 0 {
+		t.Fatalf("expected challenges in response")
+	}
+
+	for _, item := range challenges {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			if row["is_locked"] != false {
+				t.Fatalf("expected locked challenge to be unlocked after solve")
+			}
+
+			if _, ok := row["description"]; !ok {
+				t.Fatalf("expected description for unlocked challenge")
+			}
+		}
 	}
 }
 

@@ -104,6 +104,9 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	case errors.Is(err, service.ErrChallengeFileNotFound):
 		status = http.StatusNotFound
 		resp.Error = service.ErrChallengeFileNotFound.Error()
+	case errors.Is(err, service.ErrChallengeLocked):
+		status = http.StatusForbidden
+		resp.Error = service.ErrChallengeLocked.Error()
 	case errors.Is(err, service.ErrStorageUnavailable):
 		status = http.StatusServiceUnavailable
 		resp.Error = service.ErrStorageUnavailable.Error()

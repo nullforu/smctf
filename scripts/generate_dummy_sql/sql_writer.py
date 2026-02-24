@@ -18,6 +18,7 @@ def write_sql_file(
             int,
             int,
             str,
+            Optional[int],
             bool,
             str,
             bool,
@@ -127,6 +128,7 @@ def write_sql_file(
             points,
             minimum_points,
             flag_hash,
+            previous_challenge_id,
             is_active,
             created_at,
             stack_enabled,
@@ -152,11 +154,15 @@ def write_sql_file(
             if file_uploaded_at:
                 file_uploaded_at_value = f"'{escape_sql_string(str(file_uploaded_at))}'"
 
+            previous_value = "NULL"
+            if previous_challenge_id:
+                previous_value = str(int(previous_challenge_id))
+
             f.write(
-                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, is_active, created_at, stack_enabled, stack_target_port, stack_pod_spec, file_key, file_name, file_uploaded_at) VALUES "
+                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, previous_challenge_id, is_active, created_at, stack_enabled, stack_target_port, stack_pod_spec, file_key, file_name, file_uploaded_at) VALUES "
             )
             f.write(
-                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {is_active}, '{created_at}', {stack_enabled}, {stack_target_port}, {stack_pod_spec_value}, {file_key_value}, {file_name_value}, {file_uploaded_at_value});\n"
+                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {previous_value}, {is_active}, '{created_at}', {stack_enabled}, {stack_target_port}, {stack_pod_spec_value}, {file_key_value}, {file_name_value}, {file_uploaded_at_value});\n"
             )
 
         f.write("\n")

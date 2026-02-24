@@ -32,6 +32,9 @@
                     "solve_count": {
                         "type": "number"
                     },
+                    "previous_challenge_id": {
+                        "type": "number"
+                    },
                     "is_active": {
                         "type": "boolean"
                     },

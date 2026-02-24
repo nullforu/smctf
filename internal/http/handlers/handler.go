@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"smctf/internal/auth"
 	"smctf/internal/config"
 	"smctf/internal/http/middleware"
 	"smctf/internal/models"
@@ -91,6 +92,38 @@ func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
 	}
 
 	return id, true
+}
+
+func (h *Handler) optionalUserID(ctx *gin.Context) int64 {
+	authHeader := ctx.GetHeader("Authorization")
+	if authHeader == "" {
+		return 0
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return 0
+	}
+
+	claims, err := auth.ParseToken(h.cfg.JWT, parts[1])
+	if err != nil || claims.Type != auth.TokenTypeAccess {
+		return 0
+	}
+
+	return claims.UserID
+}
+
+func isChallengeLocked(challenge models.Challenge, solved map[int64]struct{}, userID int64) bool {
+	if challenge.PreviousChallengeID == nil || *challenge.PreviousChallengeID <= 0 {
+		return false
+	}
+
+	if userID <= 0 {
+		return true
+	}
+
+	_, ok := solved[*challenge.PreviousChallengeID]
+	return !ok
 }
 
 func (h *Handler) ctfState(ctx *gin.Context) (service.CTFState, bool) {
@@ -340,9 +373,43 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 		return
 	}
 
-	resp := make([]challengeResponse, 0, len(challenges))
+	userID := h.optionalUserID(ctx)
+	solved := map[int64]struct{}{}
+
+	hasPrereq := false
+	for i := range challenges {
+		if challenges[i].PreviousChallengeID != nil && *challenges[i].PreviousChallengeID > 0 {
+			hasPrereq = true
+			break
+		}
+	}
+
+	if userID > 0 && hasPrereq {
+		solved, err = h.ctf.TeamSolvedChallengeIDs(ctx.Request.Context(), userID)
+		if err != nil {
+			writeError(ctx, err)
+			return
+		}
+	}
+
+	resp := make([]any, 0, len(challenges))
+	byID := make(map[int64]*models.Challenge, len(challenges))
+	for i := range challenges {
+		byID[challenges[i].ID] = &challenges[i]
+	}
+
 	for _, challenge := range challenges {
 		ch := challenge
+		if isChallengeLocked(ch, solved, userID) {
+			var previous *models.Challenge
+			if ch.PreviousChallengeID != nil {
+				previous = byID[*ch.PreviousChallengeID]
+			}
+
+			resp = append(resp, newLockedChallengeResponse(&ch, previous))
+			continue
+		}
+
 		resp = append(resp, newChallengeResponse(&ch))
 	}
 
@@ -704,7 +771,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		stackTargetPort = *req.StackTargetPort
 	}
 
-	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active, stackEnabled, stackTargetPort, req.StackPodSpec)
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active, stackEnabled, stackTargetPort, req.StackPodSpec, req.PreviousChallengeID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -752,7 +819,14 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 	}
 
 	stackPodSpec := optionalStringToPointer(req.StackPodSpec)
-	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, title, description, category, req.Points, req.MinimumPoints, flag, req.IsActive, req.StackEnabled, req.StackTargetPort, stackPodSpec)
+
+	previousChallengeID := (*int64)(nil)
+	previousChallengeSet := req.PreviousChallengeID.Set
+	if previousChallengeSet {
+		previousChallengeID = req.PreviousChallengeID.Value
+	}
+
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, title, description, category, req.Points, req.MinimumPoints, flag, req.IsActive, req.StackEnabled, req.StackTargetPort, stackPodSpec, previousChallengeID, previousChallengeSet)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -868,7 +942,7 @@ func (h *Handler) RequestChallengeFileDownload(ctx *gin.Context) {
 		return
 	}
 
-	download, err := h.ctf.RequestChallengeFileDownload(ctx.Request.Context(), challengeID)
+	download, err := h.ctf.RequestChallengeFileDownload(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
 	if err != nil {
 		writeError(ctx, err)
 		return

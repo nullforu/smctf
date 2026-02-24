@@ -426,6 +426,7 @@ Request
     "points": 200,
     "minimum_points": 50,
     "flag": "flag{...}",
+    "previous_challenge_id": 1,
     "is_active": true,
     "stack_enabled": false,
     "stack_target_port": 80,
@@ -455,6 +456,7 @@ Response 201
     "initial_points": 200,
     "minimum_points": 50,
     "solve_count": 0,
+    "previous_challenge_id": 1,
     "is_active": true,
     "has_file": false
 }
@@ -489,18 +491,19 @@ To keep existing values, omit the field entirely.
 
 Field behavior:
 
-| Field               | Type   | Omit          | null  | Empty/Whitespace String | Other                                                     |
-| ------------------- | ------ | ------------- | ----- | ----------------------- | --------------------------------------------------------- |
-| `title`             | string | Keep existing | Error | Allowed                 | Allowed                                                   |
-| `description`       | string | Keep existing | Error | Allowed                 | Allowed                                                   |
-| `category`          | string | Keep existing | Error | Error                   | Must be a valid category                                  |
-| `points`            | int    | Keep existing | Error | Error                   | Must be >= 0                                              |
-| `minimum_points`    | int    | Keep existing | Error | Error                   | Must be >= 0 and <= `points`                              |
-| `flag`              | string | Keep existing | Error | Error                   | Updates flag                                              |
-| `is_active`         | bool   | Keep existing | Error | Error                   | Sets value                                                |
-| `stack_enabled`     | bool   | Keep existing | Error | Error                   | If `false`, clears `stack_target_port` + `stack_pod_spec` |
-| `stack_target_port` | int    | Keep existing | Error | Error                   | Requires `stack_enabled` true; 1-65535                    |
-| `stack_pod_spec`    | string | Keep existing | Error | Error                   | Requires `stack_enabled` true and non-empty value         |
+| Field                   | Type   | Omit          | null         | Empty/Whitespace String | Other                                                     |
+| ----------------------- | ------ | ------------- | ------------ | ----------------------- | --------------------------------------------------------- |
+| `title`                 | string | Keep existing | Error        | Allowed                 | Allowed                                                   |
+| `description`           | string | Keep existing | Error        | Allowed                 | Allowed                                                   |
+| `category`              | string | Keep existing | Error        | Error                   | Must be a valid category                                  |
+| `points`                | int    | Keep existing | Error        | Error                   | Must be >= 0                                              |
+| `minimum_points`        | int    | Keep existing | Error        | Error                   | Must be >= 0 and <= `points`                              |
+| `flag`                  | string | Keep existing | Error        | Error                   | Updates flag                                              |
+| `previous_challenge_id` | int    | Keep existing | Clears value | Error                   | Must be a valid challenge id (not self)                   |
+| `is_active`             | bool   | Keep existing | Error        | Error                   | Sets value                                                |
+| `stack_enabled`         | bool   | Keep existing | Error        | Error                   | If `false`, clears `stack_target_port` + `stack_pod_spec` |
+| `stack_target_port`     | int    | Keep existing | Error        | Error                   | Requires `stack_enabled` true; 1-65535                    |
+| `stack_pod_spec`        | string | Keep existing | Error        | Error                   | Requires `stack_enabled` true and non-empty value         |
 
 If `stack_enabled` is true after updates, `stack_target_port` and `stack_pod_spec` are required (non-empty).
 To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_port` / `stack_pod_spec`).
@@ -511,6 +514,7 @@ To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_po
     "points": 250,
     "minimum_points": 100,
     "flag": "flag{rotated}",
+    "previous_challenge_id": 1,
     "is_active": false,
     "stack_enabled": true,
     "stack_target_port": 80,
@@ -530,6 +534,7 @@ Response 200
     "initial_points": 250,
     "minimum_points": 100,
     "solve_count": 12,
+    "previous_challenge_id": 1,
     "is_active": false,
     "has_file": true,
     "file_name": "challenge.zip",
@@ -573,6 +578,7 @@ Response 200
     "initial_points": 250,
     "minimum_points": 100,
     "solve_count": 12,
+    "previous_challenge_id": 1,
     "is_active": false,
     "has_file": true,
     "file_name": "challenge.zip",

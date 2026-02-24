@@ -9,6 +9,7 @@ var (
 	ErrUserBlocked           = errors.New("user blocked")
 	ErrChallengeNotFound     = errors.New("challenge not found")
 	ErrChallengeFileNotFound = errors.New("challenge file not found")
+	ErrChallengeLocked       = errors.New("challenge locked")
 	ErrStorageUnavailable    = errors.New("storage unavailable")
 	ErrAlreadySolved         = errors.New("challenge already solved")
 	ErrRateLimited           = errors.New("too many submissions")

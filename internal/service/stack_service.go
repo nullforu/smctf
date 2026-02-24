@@ -128,6 +128,10 @@ func (s *StackService) GetOrCreateStack(ctx context.Context, userID, challengeID
 		return nil, err
 	}
 
+	if err := s.ensureUnlocked(ctx, userID, challenge); err != nil {
+		return nil, err
+	}
+
 	if err := s.ensureNotSolved(ctx, userID, challengeID); err != nil {
 		return nil, err
 	}
@@ -278,6 +282,27 @@ func (s *StackService) ensureNotSolved(ctx context.Context, userID, challengeID 
 	}
 
 	return ErrAlreadySolved
+}
+
+func (s *StackService) ensureUnlocked(ctx context.Context, userID int64, challenge *models.Challenge) error {
+	if challenge.PreviousChallengeID == nil || *challenge.PreviousChallengeID <= 0 {
+		return nil
+	}
+
+	if userID <= 0 || s.submissionRepo == nil {
+		return ErrChallengeLocked
+	}
+
+	solved, err := s.submissionRepo.HasCorrect(ctx, userID, *challenge.PreviousChallengeID)
+	if err != nil {
+		return fmt.Errorf("stack.ensureUnlocked: %w", err)
+	}
+
+	if !solved {
+		return ErrChallengeLocked
+	}
+
+	return nil
 }
 
 func (s *StackService) findExistingStack(ctx context.Context, userID, challengeID int64) (*models.Stack, error) {
