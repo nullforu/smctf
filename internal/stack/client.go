@@ -32,35 +32,48 @@ type API interface {
 }
 
 type CreateRequest struct {
-	TargetPort int    `json:"target_port"`
-	PodSpec    string `json:"pod_spec"`
+	TargetPort []TargetPortSpec `json:"target_port"`
+	PodSpec    string           `json:"pod_spec"`
+}
+
+type TargetPortSpec struct {
+	ContainerPort int    `json:"container_port"`
+	Protocol      string `json:"protocol"`
+}
+
+type PortMapping struct {
+	ContainerPort int    `json:"container_port"`
+	Protocol      string `json:"protocol"`
+	NodePort      int    `json:"node_port"`
 }
 
 type StackInfo struct {
-	StackID              string    `json:"stack_id"`
-	PodID                string    `json:"pod_id"`
-	Namespace            string    `json:"namespace"`
-	NodeID               string    `json:"node_id"`
-	NodePublicIP         string    `json:"node_public_ip"`
-	PodSpec              string    `json:"pod_spec"`
-	TargetPort           int       `json:"target_port"`
-	NodePort             int       `json:"node_port"`
-	ServiceName          string    `json:"service_name"`
-	Status               string    `json:"status"`
-	TTLExpiresAt         time.Time `json:"ttl_expires_at"`
-	CreatedAt            time.Time `json:"created_at"`
-	UpdatedAt            time.Time `json:"updated_at"`
-	RequestedCPUMilli    int       `json:"requested_cpu_milli"`
-	RequestedMemoryBytes int       `json:"requested_memory_bytes"`
+	StackID              string        `json:"stack_id"`
+	PodID                string        `json:"pod_id"`
+	Namespace            string        `json:"namespace"`
+	NodeID               string        `json:"node_id"`
+	NodePublicIP         string        `json:"node_public_ip"`
+	PodSpec              string        `json:"pod_spec"`
+	TargetPort           int           `json:"target_port"`
+	NodePort             int           `json:"node_port"`
+	Ports                []PortMapping `json:"ports"`
+	ServiceName          string        `json:"service_name"`
+	Status               string        `json:"status"`
+	TTLExpiresAt         time.Time     `json:"ttl_expires_at"`
+	CreatedAt            time.Time     `json:"created_at"`
+	UpdatedAt            time.Time     `json:"updated_at"`
+	RequestedCPUMilli    int           `json:"requested_cpu_milli"`
+	RequestedMemoryBytes int           `json:"requested_memory_bytes"`
 }
 
 type StackStatus struct {
-	StackID      string    `json:"stack_id"`
-	Status       string    `json:"status"`
-	TTL          time.Time `json:"ttl"`
-	NodePort     int       `json:"node_port"`
-	TargetPort   int       `json:"target_port"`
-	NodePublicIP string    `json:"node_public_ip"`
+	StackID      string        `json:"stack_id"`
+	Status       string        `json:"status"`
+	TTL          time.Time     `json:"ttl"`
+	NodePort     int           `json:"node_port"`
+	TargetPort   int           `json:"target_port"`
+	Ports        []PortMapping `json:"ports"`
+	NodePublicIP string        `json:"node_public_ip"`
 }
 
 func NewClient(baseURL, apiKey string, timeout time.Duration) *Client {
@@ -76,12 +89,17 @@ func NewClient(baseURL, apiKey string, timeout time.Duration) *Client {
 }
 
 func (c *Client) CreateStack(ctx context.Context, targetPort int, podSpec string) (*StackInfo, error) {
-	reqBody := CreateRequest{TargetPort: targetPort, PodSpec: podSpec}
+	// for Container Provisioner v1.3.0. SMCTF will also be updated in the future to support multiple ports.
+	reqBody := CreateRequest{
+		TargetPort: []TargetPortSpec{{ContainerPort: targetPort, Protocol: "TCP"}},
+		PodSpec:    podSpec,
+	}
 	var resp StackInfo
 	if err := c.doJSON(ctx, http.MethodPost, "/stacks", reqBody, &resp); err != nil {
 		return nil, err
 	}
 
+	resp = applyPorts(resp)
 	return &resp, nil
 }
 
@@ -91,6 +109,7 @@ func (c *Client) GetStack(ctx context.Context, stackID string) (*StackInfo, erro
 		return nil, err
 	}
 
+	resp = applyPorts(resp)
 	return &resp, nil
 }
 
@@ -100,6 +119,7 @@ func (c *Client) GetStackStatus(ctx context.Context, stackID string) (*StackStat
 		return nil, err
 	}
 
+	resp = applyStatusPorts(resp)
 	return &resp, nil
 }
 
@@ -188,4 +208,22 @@ func stackPath(stackID string) string {
 
 func stackStatusPath(stackID string) string {
 	return fmt.Sprintf("/stacks/%s/status", stackID)
+}
+
+func applyPorts(info StackInfo) StackInfo {
+	if len(info.Ports) > 0 {
+		info.NodePort = info.Ports[0].NodePort
+		info.TargetPort = info.Ports[0].ContainerPort
+	}
+
+	return info
+}
+
+func applyStatusPorts(status StackStatus) StackStatus {
+	if len(status.Ports) > 0 {
+		status.NodePort = status.Ports[0].NodePort
+		status.TargetPort = status.Ports[0].ContainerPort
+	}
+
+	return status
 }
