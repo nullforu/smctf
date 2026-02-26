@@ -70,7 +70,7 @@ func createStackChallenge(t *testing.T, env testEnv, title string) *models.Chall
 		MinimumPoints: 100,
 		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag{stack}"),
 		StackEnabled:  true,
-		StackTargetPorts: models.StackPortSpecs{
+		StackTargetPorts: stack.TargetPortSpecs{
 			{ContainerPort: 80, Protocol: "TCP"},
 		},
 		StackPodSpec: &podSpec,

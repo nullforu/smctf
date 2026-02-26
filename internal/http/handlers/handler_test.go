@@ -1115,7 +1115,7 @@ func createHandlerStackChallenge(t *testing.T, env handlerEnv, title string) *mo
 		MinimumPoints: 100,
 		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag"),
 		StackEnabled:  true,
-		StackTargetPorts: models.StackPortSpecs{
+		StackTargetPorts: stack.TargetPortSpecs{
 			{ContainerPort: 80, Protocol: "TCP"},
 		},
 		StackPodSpec: &podSpec,
@@ -1223,8 +1223,8 @@ func TestStackHandlersList(t *testing.T) {
 	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
 	env.handler.stacks = stackSvc
 
-	stack1 := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "stack-1", Status: "running", Ports: models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
-	stack2 := &models.Stack{UserID: user.ID, ChallengeID: challenge2.ID, StackID: "stack-2", Status: "running", Ports: models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31002}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	stack1 := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "stack-1", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	stack2 := &models.Stack{UserID: user.ID, ChallengeID: challenge2.ID, StackID: "stack-2", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31002}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
 	if err := stackRepo.Create(context.Background(), stack1); err != nil {
 		t.Fatalf("create stack1: %v", err)
 	}
@@ -1274,7 +1274,7 @@ func TestAdminStackHandlersList(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-admin-1",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -1335,7 +1335,7 @@ func TestAdminStackHandlersDelete(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-admin-del",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -1397,7 +1397,7 @@ func TestAdminStackHandlersGet(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-admin-get",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -1464,7 +1464,7 @@ func TestAdminReport(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-report",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -1656,7 +1656,7 @@ func TestSubmitFlagDeletesStack(t *testing.T) {
 	challenge := createHandlerStackChallenge(t, env, "stack")
 
 	stackRepo := repo.NewStackRepo(env.db)
-	stackModel := &models.Stack{UserID: user.ID, ChallengeID: challenge.ID, StackID: "stack-sub", Status: "running", Ports: models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	stackModel := &models.Stack{UserID: user.ID, ChallengeID: challenge.ID, StackID: "stack-sub", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
 	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
 		t.Fatalf("create stack: %v", err)
 	}

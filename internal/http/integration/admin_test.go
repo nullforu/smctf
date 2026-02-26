@@ -229,7 +229,7 @@ func TestAdminGetChallengeDetail(t *testing.T) {
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 	challenge := createChallenge(t, env, "Stacked", 100, "flag{stack}", true)
 	challenge.StackEnabled = true
-	challenge.StackTargetPorts = models.StackPortSpecs{{ContainerPort: 80, Protocol: "TCP"}}
+	challenge.StackTargetPorts = stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "TCP"}}
 	challenge.StackPodSpec = &podSpec
 	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
 		t.Fatalf("update challenge: %v", err)

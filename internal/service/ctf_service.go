@@ -10,6 +10,7 @@ import (
 	"smctf/internal/config"
 	"smctf/internal/models"
 	"smctf/internal/repo"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
 
@@ -39,13 +40,13 @@ var challengeCategories = map[string]struct{}{
 	"Blockchain":  {},
 }
 
-func normalizeStackTargetPorts(ports models.StackPortSpecs, validator *fieldValidator) models.StackPortSpecs {
+func normalizeStackTargetPorts(ports stack.TargetPortSpecs, validator *fieldValidator) stack.TargetPortSpecs {
 	if len(ports) == 0 {
 		validator.fields = append(validator.fields, FieldError{Field: "stack_target_ports", Reason: "required"})
 		return nil
 	}
 
-	normalized := make(models.StackPortSpecs, 0, len(ports))
+	normalized := make(stack.TargetPortSpecs, 0, len(ports))
 	seen := make(map[string]struct{})
 	for _, port := range ports {
 		if port.ContainerPort <= 0 || port.ContainerPort > 65535 {
@@ -66,7 +67,7 @@ func normalizeStackTargetPorts(ports models.StackPortSpecs, validator *fieldVali
 		}
 		seen[key] = struct{}{}
 
-		normalized = append(normalized, models.StackPortSpec{
+		normalized = append(normalized, stack.TargetPortSpec{
 			ContainerPort: port.ContainerPort,
 			Protocol:      protocol,
 		})
@@ -123,7 +124,7 @@ func (s *CTFService) GetChallengeByID(ctx context.Context, id int64) (*models.Ch
 	return challenge, nil
 }
 
-func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool, stackEnabled bool, stackTargetPorts models.StackPortSpecs, stackPodSpec *string, previousChallengeID *int64) (*models.Challenge, error) {
+func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool, stackEnabled bool, stackTargetPorts stack.TargetPortSpecs, stackPodSpec *string, previousChallengeID *int64) (*models.Challenge, error) {
 	title = normalizeTrim(title)
 	description = normalizeTrim(description)
 	category = normalizeTrim(category)
@@ -202,7 +203,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	return challenge, nil
 }
 
-func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPorts *[]models.StackPortSpec, stackPodSpec *string, previousChallengeID *int64, previousChallengeSet bool) (*models.Challenge, error) {
+func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPorts *[]stack.TargetPortSpec, stackPodSpec *string, previousChallengeID *int64, previousChallengeSet bool) (*models.Challenge, error) {
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
 
@@ -323,7 +324,7 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 		}
 
 		validator := newFieldValidator()
-		normalized := normalizeStackTargetPorts(models.StackPortSpecs(*stackTargetPorts), validator)
+		normalized := normalizeStackTargetPorts(stack.TargetPortSpecs(*stackTargetPorts), validator)
 		if err := validator.Error(); err != nil {
 			return nil, err
 		}

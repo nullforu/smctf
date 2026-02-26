@@ -10,6 +10,7 @@ import (
 	"smctf/internal/db"
 	"smctf/internal/models"
 	"smctf/internal/repo"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
 
@@ -115,14 +116,14 @@ func TestCTFServiceStackTargetPortsValidation(t *testing.T) {
 	env := setupServiceTest(t)
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 
-	invalidProtocol := models.StackPortSpecs{{ContainerPort: 80, Protocol: "ICMP"}}
+	invalidProtocol := stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "ICMP"}}
 	_, err := env.ctfSvc.CreateChallenge(context.Background(), "StackBadProto", "Desc", "Web", 100, 80, "FLAG{P1}", true, true, invalidProtocol, &podSpec, nil)
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error for stack_target_ports protocol, got %v", err)
 	}
 
-	duplicatePorts := models.StackPortSpecs{
+	duplicatePorts := stack.TargetPortSpecs{
 		{ContainerPort: 80, Protocol: "tcp"},
 		{ContainerPort: 80, Protocol: "TCP"},
 	}
@@ -131,7 +132,7 @@ func TestCTFServiceStackTargetPortsValidation(t *testing.T) {
 		t.Fatalf("expected validation error for duplicate stack_target_ports, got %v", err)
 	}
 
-	mixedProtocols := models.StackPortSpecs{
+	mixedProtocols := stack.TargetPortSpecs{
 		{ContainerPort: 80, Protocol: "tcp"},
 		{ContainerPort: 80, Protocol: "udp"},
 	}
@@ -757,7 +758,7 @@ func TestCTFServiceStackFields(t *testing.T) {
 	env := setupServiceTest(t)
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{STACK}", true, true, models.StackPortSpecs{{ContainerPort: 80, Protocol: "TCP"}}, &podSpec, nil)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{STACK}", true, true, stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "TCP"}}, &podSpec, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -776,7 +777,7 @@ func TestCTFServiceStackFields(t *testing.T) {
 		t.Fatalf("expected stack cleared, got %+v", updated)
 	}
 
-	newPorts := []models.StackPortSpec{{ContainerPort: 80, Protocol: "TCP"}}
+	newPorts := []stack.TargetPortSpec{{ContainerPort: 80, Protocol: "TCP"}}
 	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, &newPorts, nil, nil, false); err == nil {
 		t.Fatalf("expected validation error when stack disabled")
 	}
@@ -796,12 +797,12 @@ func TestCTFServiceStackFields(t *testing.T) {
 		t.Fatalf("expected validation error for missing stack_target_ports when stack enabled")
 	}
 
-	outOfRangePorts := []models.StackPortSpec{{ContainerPort: 70000, Protocol: "TCP"}}
+	outOfRangePorts := []stack.TargetPortSpec{{ContainerPort: 70000, Protocol: "TCP"}}
 	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &outOfRangePorts, &podSpec, nil, false); err == nil {
 		t.Fatalf("expected validation error for out-of-range port")
 	}
 
-	zeroPorts := []models.StackPortSpec{{ContainerPort: 0, Protocol: "TCP"}}
+	zeroPorts := []stack.TargetPortSpec{{ContainerPort: 0, Protocol: "TCP"}}
 	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &zeroPorts, &podSpec, nil, false); err == nil {
 		t.Fatalf("expected validation error for zero port")
 	}

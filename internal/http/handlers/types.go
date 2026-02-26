@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"smctf/internal/models"
+	stackpkg "smctf/internal/stack"
 )
 
 type appConfigResponse struct {
@@ -88,31 +89,31 @@ type refreshRequest struct {
 }
 
 type createChallengeRequest struct {
-	Title               string                 `json:"title" binding:"required"`
-	Description         string                 `json:"description" binding:"required"`
-	Category            string                 `json:"category" binding:"required"`
-	Points              int                    `json:"points" binding:"required"`
-	MinimumPoints       *int                   `json:"minimum_points"`
-	Flag                string                 `json:"flag" binding:"required"`
-	PreviousChallengeID *int64                 `json:"previous_challenge_id"`
-	IsActive            *bool                  `json:"is_active"`
-	StackEnabled        *bool                  `json:"stack_enabled"`
-	StackTargetPorts    []models.StackPortSpec `json:"stack_target_ports"`
-	StackPodSpec        *string                `json:"stack_pod_spec"`
+	Title               string                    `json:"title" binding:"required"`
+	Description         string                    `json:"description" binding:"required"`
+	Category            string                    `json:"category" binding:"required"`
+	Points              int                       `json:"points" binding:"required"`
+	MinimumPoints       *int                      `json:"minimum_points"`
+	Flag                string                    `json:"flag" binding:"required"`
+	PreviousChallengeID *int64                    `json:"previous_challenge_id"`
+	IsActive            *bool                     `json:"is_active"`
+	StackEnabled        *bool                     `json:"stack_enabled"`
+	StackTargetPorts    []stackpkg.TargetPortSpec `json:"stack_target_ports"`
+	StackPodSpec        *string                   `json:"stack_pod_spec"`
 }
 
 type updateChallengeRequest struct {
-	Title               optionalString          `json:"title"`
-	Description         optionalString          `json:"description"`
-	Category            optionalString          `json:"category"`
-	Points              *int                    `json:"points"`
-	MinimumPoints       *int                    `json:"minimum_points"`
-	Flag                optionalString          `json:"flag"`
-	PreviousChallengeID optionalInt64           `json:"previous_challenge_id"`
-	IsActive            *bool                   `json:"is_active"`
-	StackEnabled        *bool                   `json:"stack_enabled"`
-	StackTargetPorts    *[]models.StackPortSpec `json:"stack_target_ports"`
-	StackPodSpec        optionalString          `json:"stack_pod_spec"`
+	Title               optionalString             `json:"title"`
+	Description         optionalString             `json:"description"`
+	Category            optionalString             `json:"category"`
+	Points              *int                       `json:"points"`
+	MinimumPoints       *int                       `json:"minimum_points"`
+	Flag                optionalString             `json:"flag"`
+	PreviousChallengeID optionalInt64              `json:"previous_challenge_id"`
+	IsActive            *bool                      `json:"is_active"`
+	StackEnabled        *bool                      `json:"stack_enabled"`
+	StackTargetPorts    *[]stackpkg.TargetPortSpec `json:"stack_target_ports"`
+	StackPodSpec        optionalString             `json:"stack_pod_spec"`
 }
 
 type challengeFileUploadRequest struct {
@@ -201,21 +202,21 @@ type adminUserResponse struct {
 }
 
 type challengeResponse struct {
-	ID                  int64                  `json:"id"`
-	Title               string                 `json:"title"`
-	Description         string                 `json:"description"`
-	Category            string                 `json:"category"`
-	Points              int                    `json:"points"`
-	InitialPoints       int                    `json:"initial_points"`
-	MinimumPoints       int                    `json:"minimum_points"`
-	SolveCount          int                    `json:"solve_count"`
-	PreviousChallengeID *int64                 `json:"previous_challenge_id,omitempty"`
-	IsActive            bool                   `json:"is_active"`
-	IsLocked            bool                   `json:"is_locked"`
-	HasFile             bool                   `json:"has_file"`
-	FileName            *string                `json:"file_name,omitempty"`
-	StackEnabled        bool                   `json:"stack_enabled"`
-	StackTargetPorts    []models.StackPortSpec `json:"stack_target_ports"`
+	ID                  int64                     `json:"id"`
+	Title               string                    `json:"title"`
+	Description         string                    `json:"description"`
+	Category            string                    `json:"category"`
+	Points              int                       `json:"points"`
+	InitialPoints       int                       `json:"initial_points"`
+	MinimumPoints       int                       `json:"minimum_points"`
+	SolveCount          int                       `json:"solve_count"`
+	PreviousChallengeID *int64                    `json:"previous_challenge_id,omitempty"`
+	IsActive            bool                      `json:"is_active"`
+	IsLocked            bool                      `json:"is_locked"`
+	HasFile             bool                      `json:"has_file"`
+	FileName            *string                   `json:"file_name,omitempty"`
+	StackEnabled        bool                      `json:"stack_enabled"`
+	StackTargetPorts    []stackpkg.TargetPortSpec `json:"stack_target_ports"`
 }
 
 type lockedChallengeResponse struct {
@@ -279,23 +280,23 @@ type teamTimelineResponse struct {
 }
 
 type adminReportChallenge struct {
-	ID                  int64                  `json:"id"`
-	Title               string                 `json:"title"`
-	Description         string                 `json:"description"`
-	Category            string                 `json:"category"`
-	Points              int                    `json:"points"`
-	InitialPoints       int                    `json:"initial_points"`
-	MinimumPoints       int                    `json:"minimum_points"`
-	SolveCount          int                    `json:"solve_count"`
-	PreviousChallengeID *int64                 `json:"previous_challenge_id,omitempty"`
-	IsActive            bool                   `json:"is_active"`
-	FileKey             *string                `json:"file_key,omitempty"`
-	FileName            *string                `json:"file_name,omitempty"`
-	FileUploadedAt      *time.Time             `json:"file_uploaded_at,omitempty"`
-	StackEnabled        bool                   `json:"stack_enabled"`
-	StackTargetPorts    []models.StackPortSpec `json:"stack_target_ports"`
-	StackPodSpec        *string                `json:"stack_pod_spec,omitempty"`
-	CreatedAt           time.Time              `json:"created_at"`
+	ID                  int64                     `json:"id"`
+	Title               string                    `json:"title"`
+	Description         string                    `json:"description"`
+	Category            string                    `json:"category"`
+	Points              int                       `json:"points"`
+	InitialPoints       int                       `json:"initial_points"`
+	MinimumPoints       int                       `json:"minimum_points"`
+	SolveCount          int                       `json:"solve_count"`
+	PreviousChallengeID *int64                    `json:"previous_challenge_id,omitempty"`
+	IsActive            bool                      `json:"is_active"`
+	FileKey             *string                   `json:"file_key,omitempty"`
+	FileName            *string                   `json:"file_name,omitempty"`
+	FileUploadedAt      *time.Time                `json:"file_uploaded_at,omitempty"`
+	StackEnabled        bool                      `json:"stack_enabled"`
+	StackTargetPorts    []stackpkg.TargetPortSpec `json:"stack_target_ports"`
+	StackPodSpec        *string                   `json:"stack_pod_spec,omitempty"`
+	CreatedAt           time.Time                 `json:"created_at"`
 }
 
 type adminReportUser struct {
@@ -335,15 +336,15 @@ type adminReportResponse struct {
 }
 
 type stackResponse struct {
-	StackID      string                    `json:"stack_id"`
-	ChallengeID  int64                     `json:"challenge_id"`
-	Status       string                    `json:"status"`
-	NodePublicIP *string                   `json:"node_public_ip,omitempty"`
-	Ports        []models.StackPortMapping `json:"ports,omitempty"`
-	TTLExpiresAt *time.Time                `json:"ttl_expires_at,omitempty"`
-	CreatedAt    time.Time                 `json:"created_at"`
-	UpdatedAt    time.Time                 `json:"updated_at"`
-	CTFState     string                    `json:"-"`
+	StackID      string                 `json:"stack_id"`
+	ChallengeID  int64                  `json:"challenge_id"`
+	Status       string                 `json:"status"`
+	NodePublicIP *string                `json:"node_public_ip,omitempty"`
+	Ports        []stackpkg.PortMapping `json:"ports,omitempty"`
+	TTLExpiresAt *time.Time             `json:"ttl_expires_at,omitempty"`
+	CreatedAt    time.Time              `json:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at"`
+	CTFState     string                 `json:"-"`
 }
 
 type stacksListResponse struct {
@@ -376,7 +377,7 @@ func newStackResponse(stack *models.Stack, ctfState string) stackResponse {
 		ChallengeID:  stack.ChallengeID,
 		Status:       stack.Status,
 		NodePublicIP: stack.NodePublicIP,
-		Ports:        []models.StackPortMapping(stack.Ports),
+		Ports:        []stackpkg.PortMapping(stack.Ports),
 		TTLExpiresAt: stack.TTLExpiresAt,
 		CreatedAt:    stack.CreatedAt.UTC(),
 		UpdatedAt:    stack.UpdatedAt.UTC(),
@@ -417,7 +418,7 @@ func newAdminReportChallenge(challenge models.Challenge) adminReportChallenge {
 		FileName:            challenge.FileName,
 		FileUploadedAt:      challenge.FileUploadedAt,
 		StackEnabled:        challenge.StackEnabled,
-		StackTargetPorts:    []models.StackPortSpec(challenge.StackTargetPorts),
+		StackTargetPorts:    []stackpkg.TargetPortSpec(challenge.StackTargetPorts),
 		StackPodSpec:        challenge.StackPodSpec,
 		CreatedAt:           challenge.CreatedAt.UTC(),
 	}
@@ -512,7 +513,7 @@ func newChallengeResponse(challenge *models.Challenge) challengeResponse {
 		HasFile:             hasFile,
 		FileName:            challenge.FileName,
 		StackEnabled:        challenge.StackEnabled,
-		StackTargetPorts:    []models.StackPortSpec(challenge.StackTargetPorts),
+		StackTargetPorts:    []stackpkg.TargetPortSpec(challenge.StackTargetPorts),
 	}
 }
 

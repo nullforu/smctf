@@ -349,7 +349,7 @@ func (s *StackService) ensureUserLimit(ctx context.Context, userID int64) error 
 	return nil
 }
 
-func (s *StackService) createStack(ctx context.Context, userID, challengeID int64, targetPorts models.StackPortSpecs, podSpec string) (*models.Stack, error) {
+func (s *StackService) createStack(ctx context.Context, userID, challengeID int64, targetPorts stack.TargetPortSpecs, podSpec string) (*models.Stack, error) {
 	ports, err := toTargetPortSpecs(targetPorts)
 	if err != nil {
 		return nil, ErrStackInvalidSpec
@@ -440,7 +440,7 @@ func nullIfEmpty(value string) *string {
 	return &value
 }
 
-func toTargetPortSpecs(ports models.StackPortSpecs) ([]stack.TargetPortSpec, error) {
+func toTargetPortSpecs(ports stack.TargetPortSpecs) ([]stack.TargetPortSpec, error) {
 	if len(ports) == 0 {
 		return nil, ErrStackInvalidSpec
 	}
@@ -465,14 +465,14 @@ func toTargetPortSpecs(ports models.StackPortSpecs) ([]stack.TargetPortSpec, err
 	return normalized, nil
 }
 
-func toModelPortMappings(ports []stack.PortMapping) models.StackPortMappings {
+func toModelPortMappings(ports []stack.PortMapping) stack.PortMappings {
 	if len(ports) == 0 {
 		return nil
 	}
 
-	out := make(models.StackPortMappings, 0, len(ports))
+	out := make(stack.PortMappings, 0, len(ports))
 	for _, port := range ports {
-		out = append(out, models.StackPortMapping{
+		out = append(out, stack.PortMapping{
 			ContainerPort: port.ContainerPort,
 			Protocol:      port.Protocol,
 			NodePort:      port.NodePort,

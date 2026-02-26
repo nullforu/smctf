@@ -13,6 +13,7 @@ import (
 	"smctf/internal/http/middleware"
 	"smctf/internal/models"
 	"smctf/internal/service"
+	"smctf/internal/stack"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -766,7 +767,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		stackEnabled = *req.StackEnabled
 	}
 
-	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active, stackEnabled, models.StackPortSpecs(req.StackTargetPorts), req.StackPodSpec, req.PreviousChallengeID)
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active, stackEnabled, stack.TargetPortSpecs(req.StackTargetPorts), req.StackPodSpec, req.PreviousChallengeID)
 	if err != nil {
 		writeError(ctx, err)
 		return

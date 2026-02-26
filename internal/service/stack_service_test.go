@@ -24,7 +24,7 @@ func createStackChallenge(t *testing.T, env serviceEnv, title string) *models.Ch
 		MinimumPoints: 100,
 		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag"),
 		StackEnabled:  true,
-		StackTargetPorts: models.StackPortSpecs{
+		StackTargetPorts: stack.TargetPortSpecs{
 			{ContainerPort: 80, Protocol: "TCP"},
 		},
 		StackPodSpec: &podSpec,
@@ -80,7 +80,7 @@ func TestStackServiceGetOrCreateStack(t *testing.T) {
 func TestStackServiceCreateStackInvalidPorts(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge := createStackChallenge(t, env, "stack-invalid")
-	challenge.StackTargetPorts = models.StackPortSpecs{{ContainerPort: 0, Protocol: "TCP"}}
+	challenge.StackTargetPorts = stack.TargetPortSpecs{{ContainerPort: 0, Protocol: "TCP"}}
 	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
 		t.Fatalf("update challenge: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestStackServiceAlreadySolvedDeletesExisting(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-solved",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -272,7 +272,7 @@ func TestStackServiceDeleteStackByStackID(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-del",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -314,7 +314,7 @@ func TestStackServiceGetStackByStackID(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-get",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -351,7 +351,7 @@ func TestStackServiceListAdminStacks(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-admin",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -407,7 +407,7 @@ func TestStackServiceDeleteStackByStackIDProvisionerDown(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-down",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -455,7 +455,7 @@ func TestStackServiceListAllStacks(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-all",
 		Status:      "running",
-		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -477,15 +477,15 @@ func TestToTargetPortSpecsValidation(t *testing.T) {
 		t.Fatalf("expected ErrStackInvalidSpec for empty ports, got %v", err)
 	}
 
-	if _, err := toTargetPortSpecs(models.StackPortSpecs{{ContainerPort: 70000, Protocol: "TCP"}}); !errors.Is(err, ErrStackInvalidSpec) {
+	if _, err := toTargetPortSpecs(stack.TargetPortSpecs{{ContainerPort: 70000, Protocol: "TCP"}}); !errors.Is(err, ErrStackInvalidSpec) {
 		t.Fatalf("expected ErrStackInvalidSpec for invalid port, got %v", err)
 	}
 
-	if _, err := toTargetPortSpecs(models.StackPortSpecs{{ContainerPort: 80, Protocol: "icmp"}}); !errors.Is(err, ErrStackInvalidSpec) {
+	if _, err := toTargetPortSpecs(stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "icmp"}}); !errors.Is(err, ErrStackInvalidSpec) {
 		t.Fatalf("expected ErrStackInvalidSpec for invalid protocol, got %v", err)
 	}
 
-	ports, err := toTargetPortSpecs(models.StackPortSpecs{{ContainerPort: 80, Protocol: "tcp"}})
+	ports, err := toTargetPortSpecs(stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "tcp"}})
 	if err != nil {
 		t.Fatalf("expected normalized ports, got %v", err)
 	}
