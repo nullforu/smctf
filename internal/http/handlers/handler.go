@@ -766,12 +766,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		stackEnabled = *req.StackEnabled
 	}
 
-	stackTargetPort := 0
-	if req.StackTargetPort != nil {
-		stackTargetPort = *req.StackTargetPort
-	}
-
-	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active, stackEnabled, stackTargetPort, req.StackPodSpec, req.PreviousChallengeID)
+	challenge, err := h.ctf.CreateChallenge(ctx.Request.Context(), req.Title, req.Description, req.Category, req.Points, minimumPoints, req.Flag, active, stackEnabled, models.StackPortSpecs(req.StackTargetPorts), req.StackPodSpec, req.PreviousChallengeID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -826,7 +821,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		previousChallengeID = req.PreviousChallengeID.Value
 	}
 
-	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, title, description, category, req.Points, req.MinimumPoints, flag, req.IsActive, req.StackEnabled, req.StackTargetPort, stackPodSpec, previousChallengeID, previousChallengeSet)
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, title, description, category, req.Points, req.MinimumPoints, flag, req.IsActive, req.StackEnabled, req.StackTargetPorts, stackPodSpec, previousChallengeID, previousChallengeSet)
 	if err != nil {
 		writeError(ctx, err)
 		return

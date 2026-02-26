@@ -17,17 +17,19 @@ func createStackChallenge(t *testing.T, env serviceEnv, title string) *models.Ch
 	t.Helper()
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 	challenge := &models.Challenge{
-		Title:           title,
-		Description:     "desc",
-		Category:        "Web",
-		Points:          100,
-		MinimumPoints:   100,
-		FlagHash:        utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag"),
-		StackEnabled:    true,
-		StackTargetPort: 80,
-		StackPodSpec:    &podSpec,
-		IsActive:        true,
-		CreatedAt:       time.Now().UTC(),
+		Title:         title,
+		Description:   "desc",
+		Category:      "Web",
+		Points:        100,
+		MinimumPoints: 100,
+		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag"),
+		StackEnabled:  true,
+		StackTargetPorts: models.StackPortSpecs{
+			{ContainerPort: 80, Protocol: "TCP"},
+		},
+		StackPodSpec: &podSpec,
+		IsActive:     true,
+		CreatedAt:    time.Now().UTC(),
 	}
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
@@ -61,7 +63,7 @@ func TestStackServiceGetOrCreateStack(t *testing.T) {
 		t.Fatalf("GetOrCreateStack: %v", err)
 	}
 
-	if stackModel.StackID == "" || stackModel.TargetPort != 80 {
+	if stackModel.StackID == "" || len(stackModel.Ports) != 1 || stackModel.Ports[0].ContainerPort != 80 {
 		t.Fatalf("unexpected stack model: %+v", stackModel)
 	}
 
@@ -193,7 +195,7 @@ func TestStackServiceAlreadySolvedDeletesExisting(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-solved",
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -236,7 +238,7 @@ func TestStackServiceDeleteStackByStackID(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-del",
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -244,7 +246,11 @@ func TestStackServiceDeleteStackByStackID(t *testing.T) {
 		t.Fatalf("create stack: %v", err)
 	}
 
-	mock.AddStack(stack.StackInfo{StackID: "stack-del", Status: "running", TargetPort: 80})
+	mock.AddStack(stack.StackInfo{
+		StackID: "stack-del",
+		Status:  "running",
+		Ports:   []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+	})
 
 	if err := stackSvc.DeleteStackByStackID(context.Background(), "stack-del"); err != nil {
 		t.Fatalf("DeleteStackByStackID: %v", err)
@@ -274,7 +280,7 @@ func TestStackServiceGetStackByStackID(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-get",
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -282,7 +288,11 @@ func TestStackServiceGetStackByStackID(t *testing.T) {
 		t.Fatalf("create stack: %v", err)
 	}
 
-	mock.AddStack(stack.StackInfo{StackID: "stack-get", Status: "running", TargetPort: 80})
+	mock.AddStack(stack.StackInfo{
+		StackID: "stack-get",
+		Status:  "running",
+		Ports:   []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+	})
 
 	got, err := stackSvc.GetStackByStackID(context.Background(), "stack-get")
 	if err != nil {
@@ -307,7 +317,7 @@ func TestStackServiceListAdminStacks(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-admin",
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -363,7 +373,7 @@ func TestStackServiceDeleteStackByStackIDProvisionerDown(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-down",
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -411,7 +421,7 @@ func TestStackServiceListAllStacks(t *testing.T) {
 		ChallengeID: challenge.ID,
 		StackID:     "stack-all",
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}

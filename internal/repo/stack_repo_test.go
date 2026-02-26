@@ -16,7 +16,7 @@ func createStack(t *testing.T, env repoEnv, userID, challengeID int64, stackID s
 		ChallengeID: challengeID,
 		StackID:     stackID,
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       models.StackPortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   createdAt,
 		UpdatedAt:   createdAt,
 	}

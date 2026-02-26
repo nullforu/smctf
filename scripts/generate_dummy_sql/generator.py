@@ -135,7 +135,7 @@ def generate_challenges(
         bool,
         str,
         bool,
-        int,
+        List[Dict[str, Any]],
         str,
         Optional[str],
         Optional[str],
@@ -151,7 +151,11 @@ def generate_challenges(
     file_config = file_config or {}
     stack_enabled_default = bool(stack_config.get("enabled", False))
     stack_random_count = int(stack_config.get("random_challenge_count", 0))
-    stack_target_port_default = int(stack_config.get("target_port", 80))
+    stack_target_ports_default = stack_config.get("target_ports")
+    if not stack_target_ports_default and "target_port" in stack_config:
+        stack_target_ports_default = [{"container_port": int(stack_config["target_port"]), "protocol": "TCP"}]
+    if not stack_target_ports_default:
+        stack_target_ports_default = [{"container_port": 80, "protocol": "TCP"}]
     file_enabled_default = bool(file_config.get("enabled", False))
     file_random_count = int(file_config.get("random_challenge_count", 0))
     file_default_name = str(file_config.get("file_name", "challenge.zip"))
@@ -172,9 +176,9 @@ def generate_challenges(
         stack_enabled = bool(chal.get("stack_enabled", False))
         if not stack_enabled and i in stack_indices:
             stack_enabled = True
-        stack_target_port = int(chal.get("stack_target_port", 0)) if stack_enabled else 0
-        if stack_enabled and stack_target_port == 0:
-            stack_target_port = stack_target_port_default
+        stack_target_ports = list(chal.get("stack_target_ports", [])) if stack_enabled else []
+        if stack_enabled and not stack_target_ports:
+            stack_target_ports = list(stack_target_ports_default)
         stack_pod_spec = str(chal.get("stack_pod_spec", "")) if stack_enabled else ""
         if stack_enabled and not stack_pod_spec:
             stack_pod_spec = stack_pod_spec_content
@@ -206,7 +210,7 @@ def generate_challenges(
                 True,
                 created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 stack_enabled,
-                stack_target_port,
+                stack_target_ports,
                 stack_pod_spec,
                 file_key,
                 file_name,

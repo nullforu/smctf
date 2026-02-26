@@ -8,17 +8,17 @@ import (
 )
 
 type MockClient struct {
-	CreateStackFn    func(ctx context.Context, targetPort int, podSpec string) (*StackInfo, error)
+	CreateStackFn    func(ctx context.Context, targetPorts []TargetPortSpec, podSpec string) (*StackInfo, error)
 	GetStackStatusFn func(ctx context.Context, stackID string) (*StackStatus, error)
 	DeleteStackFn    func(ctx context.Context, stackID string) error
 }
 
-func (m *MockClient) CreateStack(ctx context.Context, targetPort int, podSpec string) (*StackInfo, error) {
+func (m *MockClient) CreateStack(ctx context.Context, targetPorts []TargetPortSpec, podSpec string) (*StackInfo, error) {
 	if m.CreateStackFn == nil {
 		return nil, ErrUnexpected
 	}
 
-	return m.CreateStackFn(ctx, targetPort, podSpec)
+	return m.CreateStackFn(ctx, targetPorts, podSpec)
 }
 
 func (m *MockClient) GetStackStatus(ctx context.Context, stackID string) (*StackStatus, error) {
@@ -63,7 +63,7 @@ func NewProvisionerMock() *ProvisionerMock {
 
 func (p *ProvisionerMock) Client() *MockClient {
 	return &MockClient{
-		CreateStackFn: func(ctx context.Context, targetPort int, podSpec string) (*StackInfo, error) {
+		CreateStackFn: func(ctx context.Context, targetPorts []TargetPortSpec, podSpec string) (*StackInfo, error) {
 			p.mu.Lock()
 			if p.createErr != nil {
 				err := p.createErr
@@ -75,6 +75,14 @@ func (p *ProvisionerMock) Client() *MockClient {
 			p.createCalls++
 			stackID := fmt.Sprintf("stack-test-%d", id)
 			now := time.Now().UTC()
+			portMappings := make([]PortMapping, 0, len(targetPorts))
+			for idx, port := range targetPorts {
+				portMappings = append(portMappings, PortMapping{
+					ContainerPort: port.ContainerPort,
+					Protocol:      port.Protocol,
+					NodePort:      31001 + id + idx,
+				})
+			}
 			info := StackInfo{
 				StackID:      stackID,
 				PodID:        stackID,
@@ -82,8 +90,7 @@ func (p *ProvisionerMock) Client() *MockClient {
 				NodeID:       "dev-worker",
 				NodePublicIP: "127.0.0.1",
 				PodSpec:      podSpec,
-				TargetPort:   targetPort,
-				NodePort:     31001 + id,
+				Ports:        portMappings,
 				ServiceName:  "svc-" + stackID,
 				Status:       "running",
 				TTLExpiresAt: now.Add(2 * time.Hour),
@@ -116,8 +123,7 @@ func (p *ProvisionerMock) Client() *MockClient {
 				StackID:      info.StackID,
 				Status:       status,
 				TTL:          info.TTLExpiresAt,
-				NodePort:     info.NodePort,
-				TargetPort:   info.TargetPort,
+				Ports:        info.Ports,
 				NodePublicIP: info.NodePublicIP,
 			}, nil
 		},
