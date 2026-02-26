@@ -10,7 +10,7 @@ import (
 func TestMockClientDefaults(t *testing.T) {
 	m := &MockClient{}
 
-	if _, err := m.CreateStack(context.Background(), 80, "spec"); !errors.Is(err, ErrUnexpected) {
+	if _, err := m.CreateStack(context.Background(), []TargetPortSpec{{ContainerPort: 80, Protocol: "TCP"}}, "spec"); !errors.Is(err, ErrUnexpected) {
 		t.Fatalf("expected ErrUnexpected, got %v", err)
 	}
 
@@ -26,9 +26,9 @@ func TestMockClientDefaults(t *testing.T) {
 func TestMockClientFunctions(t *testing.T) {
 	m := &MockClient{}
 
-	m.CreateStackFn = func(ctx context.Context, targetPort int, podSpec string) (*StackInfo, error) {
-		if targetPort != 8080 || podSpec != "spec" {
-			t.Fatalf("unexpected args: %d %s", targetPort, podSpec)
+	m.CreateStackFn = func(ctx context.Context, targetPorts []TargetPortSpec, podSpec string) (*StackInfo, error) {
+		if len(targetPorts) != 1 || targetPorts[0].ContainerPort != 8080 || targetPorts[0].Protocol != "TCP" || podSpec != "spec" {
+			t.Fatalf("unexpected args: %+v %s", targetPorts, podSpec)
 		}
 
 		return &StackInfo{StackID: "stack-1"}, nil
@@ -50,7 +50,7 @@ func TestMockClientFunctions(t *testing.T) {
 		return nil
 	}
 
-	info, err := m.CreateStack(context.Background(), 8080, "spec")
+	info, err := m.CreateStack(context.Background(), []TargetPortSpec{{ContainerPort: 8080, Protocol: "TCP"}}, "spec")
 	if err != nil {
 		t.Fatalf("CreateStack: %v", err)
 	}
@@ -77,12 +77,12 @@ func TestProvisionerMockLifecycle(t *testing.T) {
 	p := NewProvisionerMock()
 	client := p.Client()
 
-	info, err := client.CreateStack(context.Background(), 80, "spec")
+	info, err := client.CreateStack(context.Background(), []TargetPortSpec{{ContainerPort: 80, Protocol: "TCP"}}, "spec")
 	if err != nil {
 		t.Fatalf("CreateStack: %v", err)
 	}
 
-	if info.StackID == "" || info.TargetPort != 80 {
+	if info.StackID == "" || len(info.Ports) != 1 || info.Ports[0].ContainerPort != 80 {
 		t.Fatalf("unexpected info: %+v", info)
 	}
 
@@ -91,7 +91,7 @@ func TestProvisionerMockLifecycle(t *testing.T) {
 		t.Fatalf("GetStackStatus: %v", err)
 	}
 
-	if status.Status != "running" || status.TargetPort != 80 {
+	if status.Status != "running" || len(status.Ports) != 1 || status.Ports[0].ContainerPort != 80 {
 		t.Fatalf("unexpected status: %+v", status)
 	}
 
@@ -109,12 +109,12 @@ func TestProvisionerMockOverrides(t *testing.T) {
 	client := p.Client()
 
 	p.SetCreateError(ErrUnavailable)
-	if _, err := client.CreateStack(context.Background(), 80, "spec"); !errors.Is(err, ErrUnavailable) {
+	if _, err := client.CreateStack(context.Background(), []TargetPortSpec{{ContainerPort: 80, Protocol: "TCP"}}, "spec"); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("expected create ErrUnavailable, got %v", err)
 	}
 
 	p.SetCreateError(nil)
-	info, err := client.CreateStack(context.Background(), 80, "spec")
+	info, err := client.CreateStack(context.Background(), []TargetPortSpec{{ContainerPort: 80, Protocol: "TCP"}}, "spec")
 	if err != nil {
 		t.Fatalf("CreateStack: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestProvisionerMockOverrides(t *testing.T) {
 	p.AddStack(StackInfo{
 		StackID:      "stack-extra",
 		Status:       "running",
-		TargetPort:   80,
+		Ports:        []PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		TTLExpiresAt: time.Now().UTC().Add(time.Hour),
 	})
 

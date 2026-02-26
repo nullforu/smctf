@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"smctf/internal/models"
+	"smctf/internal/stack"
 )
 
 func createStack(t *testing.T, env repoEnv, userID, challengeID int64, stackID string, createdAt time.Time) *models.Stack {
@@ -16,7 +17,7 @@ func createStack(t *testing.T, env repoEnv, userID, challengeID int64, stackID s
 		ChallengeID: challengeID,
 		StackID:     stackID,
 		Status:      "running",
-		TargetPort:  80,
+		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   createdAt,
 		UpdatedAt:   createdAt,
 	}

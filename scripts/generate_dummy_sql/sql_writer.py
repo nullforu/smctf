@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -22,7 +23,7 @@ def write_sql_file(
             bool,
             str,
             bool,
-            int,
+            List[Dict[str, Any]],
             str,
             Optional[str],
             Optional[str],
@@ -132,7 +133,7 @@ def write_sql_file(
             is_active,
             created_at,
             stack_enabled,
-            stack_target_port,
+            stack_target_ports,
             stack_pod_spec,
             file_key,
             file_name,
@@ -158,11 +159,16 @@ def write_sql_file(
             if previous_challenge_id:
                 previous_value = str(int(previous_challenge_id))
 
+            stack_target_ports_value = "NULL"
+            if stack_target_ports:
+                ports_json = json.dumps(stack_target_ports, ensure_ascii=False)
+                stack_target_ports_value = f"'{escape_sql_string(ports_json)}'"
+
             f.write(
-                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, previous_challenge_id, is_active, created_at, stack_enabled, stack_target_port, stack_pod_spec, file_key, file_name, file_uploaded_at) VALUES "
+                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, previous_challenge_id, is_active, created_at, stack_enabled, stack_target_ports, stack_pod_spec, file_key, file_name, file_uploaded_at) VALUES "
             )
             f.write(
-                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {previous_value}, {is_active}, '{created_at}', {stack_enabled}, {stack_target_port}, {stack_pod_spec_value}, {file_key_value}, {file_name_value}, {file_uploaded_at_value});\n"
+                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {previous_value}, {is_active}, '{created_at}', {stack_enabled}, {stack_target_ports_value}, {stack_pod_spec_value}, {file_key_value}, {file_name_value}, {file_uploaded_at_value});\n"
             )
 
         f.write("\n")

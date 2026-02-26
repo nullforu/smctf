@@ -10,6 +10,7 @@ import (
 	"smctf/internal/config"
 	"smctf/internal/models"
 	"smctf/internal/repo"
+	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
 
@@ -37,6 +38,42 @@ var challengeCategories = map[string]struct{}{
 	"Math":        {},
 	"AI":          {},
 	"Blockchain":  {},
+}
+
+func normalizeStackTargetPorts(ports stack.TargetPortSpecs, validator *fieldValidator) stack.TargetPortSpecs {
+	if len(ports) == 0 {
+		validator.fields = append(validator.fields, FieldError{Field: "stack_target_ports", Reason: "required"})
+		return nil
+	}
+
+	normalized := make(stack.TargetPortSpecs, 0, len(ports))
+	seen := make(map[string]struct{})
+	for _, port := range ports {
+		if port.ContainerPort <= 0 || port.ContainerPort > 65535 {
+			validator.fields = append(validator.fields, FieldError{Field: "stack_target_ports", Reason: "invalid"})
+			continue
+		}
+
+		protocol := strings.ToUpper(strings.TrimSpace(port.Protocol))
+		if protocol != "TCP" && protocol != "UDP" {
+			validator.fields = append(validator.fields, FieldError{Field: "stack_target_ports", Reason: "invalid"})
+			continue
+		}
+
+		key := fmt.Sprintf("%d/%s", port.ContainerPort, protocol)
+		if _, exists := seen[key]; exists {
+			validator.fields = append(validator.fields, FieldError{Field: "stack_target_ports", Reason: "invalid"})
+			continue
+		}
+		seen[key] = struct{}{}
+
+		normalized = append(normalized, stack.TargetPortSpec{
+			ContainerPort: port.ContainerPort,
+			Protocol:      protocol,
+		})
+	}
+
+	return normalized
 }
 
 type CTFService struct {
@@ -87,7 +124,7 @@ func (s *CTFService) GetChallengeByID(ctx context.Context, id int64) (*models.Ch
 	return challenge, nil
 }
 
-func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool, stackEnabled bool, stackTargetPort int, stackPodSpec *string, previousChallengeID *int64) (*models.Challenge, error) {
+func (s *CTFService) CreateChallenge(ctx context.Context, title, description, category string, points int, minimumPoints int, flag string, active bool, stackEnabled bool, stackTargetPorts stack.TargetPortSpecs, stackPodSpec *string, previousChallengeID *int64) (*models.Challenge, error) {
 	title = normalizeTrim(title)
 	description = normalizeTrim(description)
 	category = normalizeTrim(category)
@@ -112,10 +149,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	}
 
 	if stackEnabled {
-		if stackTargetPort <= 0 || stackTargetPort > 65535 {
-			validator.fields = append(validator.fields, FieldError{Field: "stack_target_port", Reason: "invalid"})
-		}
-
+		stackTargetPorts = normalizeStackTargetPorts(stackTargetPorts, validator)
 		if stackPodSpec == nil || normalizeTrim(*stackPodSpec) == "" {
 			validator.fields = append(validator.fields, FieldError{Field: "stack_pod_spec", Reason: "required"})
 		}
@@ -140,7 +174,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		trimmed := normalizeTrim(*stackPodSpec)
 		podSpec = &trimmed
 	} else if !stackEnabled {
-		stackTargetPort = 0
+		stackTargetPorts = nil
 	}
 
 	challenge := &models.Challenge{
@@ -152,7 +186,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		FlagHash:            utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
 		PreviousChallengeID: previousChallengeID,
 		StackEnabled:        stackEnabled,
-		StackTargetPort:     stackTargetPort,
+		StackTargetPorts:    stackTargetPorts,
 		StackPodSpec:        podSpec,
 		IsActive:            active,
 		CreatedAt:           time.Now().UTC(),
@@ -169,7 +203,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	return challenge, nil
 }
 
-func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPort *int, stackPodSpec *string, previousChallengeID *int64, previousChallengeSet bool) (*models.Challenge, error) {
+func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, stackEnabled *bool, stackTargetPorts *[]stack.TargetPortSpec, stackPodSpec *string, previousChallengeID *int64, previousChallengeSet bool) (*models.Challenge, error) {
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
 
@@ -279,21 +313,23 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	if stackEnabled != nil {
 		challenge.StackEnabled = *stackEnabled
 		if !*stackEnabled {
-			challenge.StackTargetPort = 0
+			challenge.StackTargetPorts = nil
 			challenge.StackPodSpec = nil
 		}
 	}
 
-	if stackTargetPort != nil {
+	if stackTargetPorts != nil {
 		if !challenge.StackEnabled {
-			return nil, NewValidationError(FieldError{Field: "stack_target_port", Reason: "stack disabled"})
+			return nil, NewValidationError(FieldError{Field: "stack_target_ports", Reason: "stack disabled"})
 		}
 
-		if *stackTargetPort <= 0 || *stackTargetPort > 65535 {
-			return nil, NewValidationError(FieldError{Field: "stack_target_port", Reason: "invalid"})
+		validator := newFieldValidator()
+		normalized := normalizeStackTargetPorts(stack.TargetPortSpecs(*stackTargetPorts), validator)
+		if err := validator.Error(); err != nil {
+			return nil, err
 		}
 
-		challenge.StackTargetPort = *stackTargetPort
+		challenge.StackTargetPorts = normalized
 	}
 
 	if normalizedPodSpec != nil {
@@ -313,8 +349,8 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	}
 
 	if challenge.StackEnabled {
-		if challenge.StackTargetPort <= 0 {
-			return nil, NewValidationError(FieldError{Field: "stack_target_port", Reason: "required"})
+		if len(challenge.StackTargetPorts) == 0 {
+			return nil, NewValidationError(FieldError{Field: "stack_target_ports", Reason: "required"})
 		}
 
 		if challenge.StackPodSpec == nil || normalizeTrim(*challenge.StackPodSpec) == "" {

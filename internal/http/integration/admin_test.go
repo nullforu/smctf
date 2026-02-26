@@ -187,9 +187,9 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	}
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
-		"stack_enabled":     true,
-		"stack_target_port": 80,
-		"stack_pod_spec":    nil,
+		"stack_enabled":      true,
+		"stack_target_ports": []map[string]any{{"container_port": 80, "protocol": "TCP"}},
+		"stack_pod_spec":     nil,
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
@@ -204,9 +204,9 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	}
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
-		"stack_enabled":     true,
-		"stack_target_port": 70000,
-		"stack_pod_spec":    "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n",
+		"stack_enabled":      true,
+		"stack_target_ports": []map[string]any{{"container_port": 70000, "protocol": "TCP"}},
+		"stack_pod_spec":     "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n",
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
@@ -229,7 +229,7 @@ func TestAdminGetChallengeDetail(t *testing.T) {
 	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 	challenge := createChallenge(t, env, "Stacked", 100, "flag{stack}", true)
 	challenge.StackEnabled = true
-	challenge.StackTargetPort = 80
+	challenge.StackTargetPorts = stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "TCP"}}
 	challenge.StackPodSpec = &podSpec
 	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
 		t.Fatalf("update challenge: %v", err)

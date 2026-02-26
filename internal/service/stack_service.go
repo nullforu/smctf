@@ -152,7 +152,7 @@ func (s *StackService) GetOrCreateStack(ctx context.Context, userID, challengeID
 		return nil, err
 	}
 
-	stackModel, err := s.createStack(ctx, userID, challengeID, challenge.StackTargetPort, podSpec)
+	stackModel, err := s.createStack(ctx, userID, challengeID, challenge.StackTargetPorts, podSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (s *StackService) loadChallengeSpec(ctx context.Context, challengeID int64)
 		podSpec = *challenge.StackPodSpec
 	}
 
-	if strings.TrimSpace(podSpec) == "" || challenge.StackTargetPort <= 0 {
+	if strings.TrimSpace(podSpec) == "" || len(challenge.StackTargetPorts) == 0 {
 		return nil, "", ErrStackInvalidSpec
 	}
 
@@ -349,8 +349,13 @@ func (s *StackService) ensureUserLimit(ctx context.Context, userID int64) error 
 	return nil
 }
 
-func (s *StackService) createStack(ctx context.Context, userID, challengeID int64, targetPort int, podSpec string) (*models.Stack, error) {
-	info, err := s.client.CreateStack(ctx, targetPort, podSpec)
+func (s *StackService) createStack(ctx context.Context, userID, challengeID int64, targetPorts stack.TargetPortSpecs, podSpec string) (*models.Stack, error) {
+	ports, err := toTargetPortSpecs(targetPorts)
+	if err != nil {
+		return nil, ErrStackInvalidSpec
+	}
+
+	info, err := s.client.CreateStack(ctx, ports, podSpec)
 	if err != nil {
 		return nil, mapProvisionerError(err)
 	}
@@ -362,8 +367,7 @@ func (s *StackService) createStack(ctx context.Context, userID, challengeID int6
 		StackID:      info.StackID,
 		Status:       info.Status,
 		NodePublicIP: nullIfEmpty(info.NodePublicIP),
-		NodePort:     intPtrOrNil(info.NodePort),
-		TargetPort:   info.TargetPort,
+		Ports:        toModelPortMappings(info.Ports),
 		TTLExpiresAt: timePtr(info.TTLExpiresAt),
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -395,8 +399,7 @@ func (s *StackService) refreshStack(ctx context.Context, existing *models.Stack)
 
 	existing.Status = status.Status
 	existing.NodePublicIP = nullIfEmpty(status.NodePublicIP)
-	existing.NodePort = intPtrOrNil(status.NodePort)
-	existing.TargetPort = status.TargetPort
+	existing.Ports = toModelPortMappings(status.Ports)
 	existing.TTLExpiresAt = timePtr(status.TTL)
 	existing.UpdatedAt = time.Now().UTC()
 
@@ -437,12 +440,46 @@ func nullIfEmpty(value string) *string {
 	return &value
 }
 
-func intPtrOrNil(value int) *int {
-	if value == 0 {
+func toTargetPortSpecs(ports stack.TargetPortSpecs) ([]stack.TargetPortSpec, error) {
+	if len(ports) == 0 {
+		return nil, ErrStackInvalidSpec
+	}
+
+	normalized := make([]stack.TargetPortSpec, 0, len(ports))
+	for _, port := range ports {
+		protocol := strings.ToUpper(strings.TrimSpace(port.Protocol))
+		if port.ContainerPort <= 0 || port.ContainerPort > 65535 {
+			return nil, ErrStackInvalidSpec
+		}
+
+		if protocol != "TCP" && protocol != "UDP" {
+			return nil, ErrStackInvalidSpec
+		}
+
+		normalized = append(normalized, stack.TargetPortSpec{
+			ContainerPort: port.ContainerPort,
+			Protocol:      protocol,
+		})
+	}
+
+	return normalized, nil
+}
+
+func toModelPortMappings(ports []stack.PortMapping) stack.PortMappings {
+	if len(ports) == 0 {
 		return nil
 	}
 
-	return &value
+	out := make(stack.PortMappings, 0, len(ports))
+	for _, port := range ports {
+		out = append(out, stack.PortMapping{
+			ContainerPort: port.ContainerPort,
+			Protocol:      port.Protocol,
+			NodePort:      port.NodePort,
+		})
+	}
+
+	return out
 }
 
 func timePtr(value time.Time) *time.Time {

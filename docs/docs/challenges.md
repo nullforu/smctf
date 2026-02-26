@@ -27,7 +27,7 @@ Response 200
             "has_file": true,
             "file_name": "challenge.zip",
             "stack_enabled": false,
-            "stack_target_port": 0
+            "stack_target_ports": []
         }
     ]
 }
