@@ -95,7 +95,7 @@ Response 200
             "file_name": null,
             "file_uploaded_at": null,
             "stack_enabled": false,
-            "stack_target_port": 0,
+            "stack_target_ports": [],
             "stack_pod_spec": null,
             "created_at": "2026-02-17T12:00:00Z"
         }
@@ -429,13 +429,18 @@ Request
     "previous_challenge_id": 1,
     "is_active": true,
     "stack_enabled": false,
-    "stack_target_port": 80,
+    "stack_target_ports": [
+        {
+            "container_port": 80,
+            "protocol": "TCP"
+        }
+    ],
     "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
 
 If `minimum_points` is omitted, it defaults to the same value as `points`.
-If `stack_enabled` is true, both `stack_target_port` and `stack_pod_spec` are required.
+If `stack_enabled` is true, both `stack_target_ports` and `stack_pod_spec` are required.
 
 Categories
 
@@ -501,12 +506,12 @@ Field behavior:
 | `flag`                  | string | Keep existing | Error        | Error                   | Updates flag                                              |
 | `previous_challenge_id` | int    | Keep existing | Clears value | Error                   | Must be a valid challenge id (not self)                   |
 | `is_active`             | bool   | Keep existing | Error        | Error                   | Sets value                                                |
-| `stack_enabled`         | bool   | Keep existing | Error        | Error                   | If `false`, clears `stack_target_port` + `stack_pod_spec` |
-| `stack_target_port`     | int    | Keep existing | Error        | Error                   | Requires `stack_enabled` true; 1-65535                    |
+| `stack_enabled`         | bool   | Keep existing | Error        | Error                   | If `false`, clears `stack_target_ports` + `stack_pod_spec` |
+| `stack_target_ports`    | array  | Keep existing | Error        | Error                   | Requires `stack_enabled` true; container port 1-65535 and protocol TCP/UDP |
 | `stack_pod_spec`        | string | Keep existing | Error        | Error                   | Requires `stack_enabled` true and non-empty value         |
 
-If `stack_enabled` is true after updates, `stack_target_port` and `stack_pod_spec` are required (non-empty).
-To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_port` / `stack_pod_spec`).
+If `stack_enabled` is true after updates, `stack_target_ports` and `stack_pod_spec` are required (non-empty).
+To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_ports` / `stack_pod_spec`).
 
 ```json
 {
@@ -517,7 +522,12 @@ To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_po
     "previous_challenge_id": 1,
     "is_active": false,
     "stack_enabled": true,
-    "stack_target_port": 80,
+    "stack_target_ports": [
+        {
+            "container_port": 80,
+            "protocol": "TCP"
+        }
+    ],
     "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
@@ -539,7 +549,12 @@ Response 200
     "has_file": true,
     "file_name": "challenge.zip",
     "stack_enabled": true,
-    "stack_target_port": 80
+    "stack_target_ports": [
+        {
+            "container_port": 80,
+            "protocol": "TCP"
+        }
+    ]
 }
 ```
 
@@ -583,7 +598,12 @@ Response 200
     "has_file": true,
     "file_name": "challenge.zip",
     "stack_enabled": true,
-    "stack_target_port": 80,
+    "stack_target_ports": [
+        {
+            "container_port": 80,
+            "protocol": "TCP"
+        }
+    ],
     "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
@@ -679,8 +699,13 @@ Response 200
     "challenge_id": 5,
     "status": "running",
     "node_public_ip": "12.34.56.78",
-    "node_port": 31538,
-    "target_port": 80,
+    "ports": [
+        {
+            "container_port": 80,
+            "protocol": "TCP",
+            "node_port": 31538
+        }
+    ],
     "ttl_expires_at": "2026-02-10T04:02:26.535664Z",
     "created_at": "2026-02-10T02:02:26.535664Z",
     "updated_at": "2026-02-10T02:06:33.16031Z"

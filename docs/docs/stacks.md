@@ -24,8 +24,13 @@ Response 200
             "challenge_id": 12,
             "status": "running",
             "node_public_ip": "12.34.56.78",
-            "node_port": 31538,
-            "target_port": 80,
+            "ports": [
+                {
+                    "container_port": 80,
+                    "protocol": "TCP",
+                    "node_port": 31538
+                }
+            ],
             "ttl_expires_at": "2026-02-10T04:02:26Z",
             "created_at": "2026-02-10T02:02:26Z",
             "updated_at": "2026-02-10T02:07:29Z",
@@ -64,8 +69,13 @@ Response 201
     "challenge_id": 12,
     "status": "creating",
     "node_public_ip": "12.34.56.78",
-    "node_port": 31538,
-    "target_port": 80,
+    "ports": [
+        {
+            "container_port": 80,
+            "protocol": "TCP",
+            "node_port": 31538
+        }
+    ],
     "ttl_expires_at": "2026-02-10T04:02:26Z",
     "created_at": "2026-02-10T02:02:26Z",
     "updated_at": "2026-02-10T02:02:26Z",
@@ -108,8 +118,13 @@ Response 200
     "challenge_id": 12,
     "status": "running",
     "node_public_ip": "12.34.56.78",
-    "node_port": 31538,
-    "target_port": 80,
+    "ports": [
+        {
+            "container_port": 80,
+            "protocol": "TCP",
+            "node_port": 31538
+        }
+    ],
     "ttl_expires_at": "2026-02-10T04:02:26Z",
     "created_at": "2026-02-10T02:02:26Z",
     "updated_at": "2026-02-10T02:07:29Z",

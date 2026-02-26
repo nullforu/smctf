@@ -41,8 +41,20 @@
                     "stack_enabled": {
                         "type": "boolean"
                     },
-                    "stack_target_port": {
-                        "type": "number"
+                    "stack_target_ports": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "container_port": {
+                                    "type": "number"
+                                },
+                                "protocol": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["container_port", "protocol"]
+                        }
                     },
                     "created_at": {
                         "type": "string"
@@ -71,7 +83,7 @@
                     "solve_count",
                     "is_active",
                     "stack_enabled",
-                    "stack_target_port",
+                    "stack_target_ports",
                     "created_at"
                 ]
             }
