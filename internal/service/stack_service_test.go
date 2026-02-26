@@ -77,6 +77,40 @@ func TestStackServiceGetOrCreateStack(t *testing.T) {
 	}
 }
 
+func TestStackServiceCreateStackInvalidPorts(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createStackChallenge(t, env, "stack-invalid")
+	challenge.StackTargetPorts = models.StackPortSpecs{{ContainerPort: 0, Protocol: "TCP"}}
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge: %v", err)
+	}
+
+	mock := stack.NewProvisionerMock()
+	cfg := config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5}
+	stackSvc, _ := newStackService(env, mock.Client(), cfg)
+
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), 1, challenge.ID); !errors.Is(err, ErrStackInvalidSpec) {
+		t.Fatalf("expected ErrStackInvalidSpec, got %v", err)
+	}
+}
+
+func TestStackServiceCreateStackProvisionerUnavailable(t *testing.T) {
+	env := setupServiceTest(t)
+	challenge := createStackChallenge(t, env, "stack-provisioner-down")
+
+	client := &stack.MockClient{
+		CreateStackFn: func(ctx context.Context, targetPorts []stack.TargetPortSpec, podSpec string) (*stack.StackInfo, error) {
+			return nil, stack.ErrUnavailable
+		},
+	}
+	cfg := config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5}
+	stackSvc, _ := newStackService(env, client, cfg)
+
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), 1, challenge.ID); !errors.Is(err, ErrStackProvisionerDown) {
+		t.Fatalf("expected ErrStackProvisionerDown, got %v", err)
+	}
+}
+
 func TestStackServiceLockedChallenge(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "locked-stack@example.com", "locked-stack", "pass", models.UserRole)
@@ -435,5 +469,28 @@ func TestStackServiceListAllStacks(t *testing.T) {
 	}
 	if len(stacks) != 1 || stacks[0].StackID != "stack-all" {
 		t.Fatalf("unexpected stacks: %+v", stacks)
+	}
+}
+
+func TestToTargetPortSpecsValidation(t *testing.T) {
+	if _, err := toTargetPortSpecs(nil); !errors.Is(err, ErrStackInvalidSpec) {
+		t.Fatalf("expected ErrStackInvalidSpec for empty ports, got %v", err)
+	}
+
+	if _, err := toTargetPortSpecs(models.StackPortSpecs{{ContainerPort: 70000, Protocol: "TCP"}}); !errors.Is(err, ErrStackInvalidSpec) {
+		t.Fatalf("expected ErrStackInvalidSpec for invalid port, got %v", err)
+	}
+
+	if _, err := toTargetPortSpecs(models.StackPortSpecs{{ContainerPort: 80, Protocol: "icmp"}}); !errors.Is(err, ErrStackInvalidSpec) {
+		t.Fatalf("expected ErrStackInvalidSpec for invalid protocol, got %v", err)
+	}
+
+	ports, err := toTargetPortSpecs(models.StackPortSpecs{{ContainerPort: 80, Protocol: "tcp"}})
+	if err != nil {
+		t.Fatalf("expected normalized ports, got %v", err)
+	}
+
+	if len(ports) != 1 || ports[0].Protocol != "TCP" {
+		t.Fatalf("expected TCP normalized, got %+v", ports)
 	}
 }

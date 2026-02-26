@@ -111,6 +111,40 @@ func TestCTFServiceCreateChallengeValidation(t *testing.T) {
 	}
 }
 
+func TestCTFServiceStackTargetPortsValidation(t *testing.T) {
+	env := setupServiceTest(t)
+	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+
+	invalidProtocol := models.StackPortSpecs{{ContainerPort: 80, Protocol: "ICMP"}}
+	_, err := env.ctfSvc.CreateChallenge(context.Background(), "StackBadProto", "Desc", "Web", 100, 80, "FLAG{P1}", true, true, invalidProtocol, &podSpec, nil)
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error for stack_target_ports protocol, got %v", err)
+	}
+
+	duplicatePorts := models.StackPortSpecs{
+		{ContainerPort: 80, Protocol: "tcp"},
+		{ContainerPort: 80, Protocol: "TCP"},
+	}
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "StackDup", "Desc", "Web", 100, 80, "FLAG{P2}", true, true, duplicatePorts, &podSpec, nil)
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error for duplicate stack_target_ports, got %v", err)
+	}
+
+	mixedProtocols := models.StackPortSpecs{
+		{ContainerPort: 80, Protocol: "tcp"},
+		{ContainerPort: 80, Protocol: "udp"},
+	}
+	created, err := env.ctfSvc.CreateChallenge(context.Background(), "StackOK", "Desc", "Web", 100, 80, "FLAG{P3}", true, true, mixedProtocols, &podSpec, nil)
+	if err != nil {
+		t.Fatalf("expected mixed protocols to be allowed, got %v", err)
+	}
+
+	if len(created.StackTargetPorts) != 2 {
+		t.Fatalf("expected 2 stack_target_ports, got %d", len(created.StackTargetPorts))
+	}
+}
+
 func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	env := setupServiceTest(t)
 	team := createTeam(t, env, "Alpha")
