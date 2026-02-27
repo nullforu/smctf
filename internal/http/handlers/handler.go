@@ -12,6 +12,7 @@ import (
 	"smctf/internal/config"
 	"smctf/internal/http/middleware"
 	"smctf/internal/models"
+	"smctf/internal/realtime"
 	"smctf/internal/service"
 	"smctf/internal/stack"
 
@@ -66,6 +67,27 @@ func (h *Handler) invalidateLeaderboardCache() {
 		bgCtx := context.Background()
 		_ = h.redis.Del(bgCtx, "leaderboard:users", "leaderboard:teams").Err()
 	}()
+}
+
+func (h *Handler) publishScoreboardEvent(ctx context.Context, reason string) {
+	event := realtime.ScoreboardEvent{
+		Scope:  "all",
+		Reason: reason,
+		TS:     time.Now().UTC(),
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
+
+	_ = h.redis.Publish(ctx, "scoreboard.events", payload).Err()
+}
+
+func (h *Handler) notifyScoreboardChanged(ctx context.Context, reason string) {
+	h.invalidateLeaderboardCache()
+	h.invalidateTimelineCache()
+	h.publishScoreboardEvent(ctx, reason)
 }
 
 func parseIDParam(ctx *gin.Context, name string) (int64, bool) {
@@ -258,6 +280,8 @@ func (h *Handler) Register(ctx *gin.Context) {
 		return
 	}
 
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_registered")
+
 	ctx.JSON(http.StatusCreated, registerResponse{
 		ID:       user.ID,
 		Email:    user.Email,
@@ -349,8 +373,7 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 		return
 	}
 
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_profile_update")
 
 	ctx.JSON(http.StatusOK, newUserMeResponse(user))
 }
@@ -446,8 +469,7 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 	}
 
 	if correct {
-		h.invalidateTimelineCache()
-		h.invalidateLeaderboardCache()
+		h.notifyScoreboardChanged(ctx.Request.Context(), "submission_correct")
 		if h.stacks != nil {
 			_ = h.stacks.DeleteStackByUserAndChallenge(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
 		}
@@ -773,8 +795,7 @@ func (h *Handler) CreateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.notifyScoreboardChanged(ctx.Request.Context(), "challenge_created")
 	ctx.JSON(http.StatusCreated, newChallengeResponse(challenge))
 }
 
@@ -828,8 +849,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		return
 	}
 
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.notifyScoreboardChanged(ctx.Request.Context(), "challenge_updated")
 	ctx.JSON(http.StatusOK, newChallengeResponse(challenge))
 }
 
@@ -889,8 +909,7 @@ func (h *Handler) DeleteChallenge(ctx *gin.Context) {
 		return
 	}
 
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.notifyScoreboardChanged(ctx.Request.Context(), "challenge_deleted")
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -1056,8 +1075,7 @@ func (h *Handler) AdminMoveUserTeam(ctx *gin.Context) {
 		return
 	}
 
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_team_moved")
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1080,8 +1098,7 @@ func (h *Handler) AdminBlockUser(ctx *gin.Context) {
 		return
 	}
 
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_blocked")
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1098,8 +1115,7 @@ func (h *Handler) AdminUnblockUser(ctx *gin.Context) {
 		return
 	}
 
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_unblocked")
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1189,6 +1205,8 @@ func (h *Handler) CreateTeam(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+
+	h.notifyScoreboardChanged(ctx.Request.Context(), "team_created")
 
 	ctx.JSON(http.StatusCreated, newTeamResponse(team))
 }

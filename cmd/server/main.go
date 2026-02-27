@@ -15,6 +15,7 @@ import (
 	"smctf/internal/db"
 	httpserver "smctf/internal/http"
 	"smctf/internal/logging"
+	"smctf/internal/realtime"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 	"smctf/internal/stack"
@@ -111,13 +112,19 @@ func main() {
 		logger.Warn("ctf window not configured; competition always active")
 	}
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger)
+	sseHub := realtime.NewSSEHub()
+	leaderboardBus := realtime.NewLeaderboardBus(redisClient, cfg, scoreSvc, logger, sseHub)
+	busCtx, busCancel := context.WithCancel(context.Background())
+	defer busCancel()
+	leaderboardBus.Start(busCtx)
+
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger, sseHub)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      0,
 		IdleTimeout:       60 * time.Second,
 	}
 

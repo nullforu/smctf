@@ -8,6 +8,7 @@ import (
 	"smctf/internal/http/middleware"
 	"smctf/internal/logging"
 	"smctf/internal/models"
+	"smctf/internal/realtime"
 	"smctf/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userSvc *service.UserService, scoreSvc *service.ScoreboardService, teamSvc *service.TeamService, stackSvc *service.StackService, redis *redis.Client, logger *logging.Logger) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userSvc *service.UserService, scoreSvc *service.ScoreboardService, teamSvc *service.TeamService, stackSvc *service.StackService, redis *redis.Client, logger *logging.Logger, sse *realtime.SSEHub) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -26,6 +27,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(middleware.CORS(cfg.AppEnv != "production", cfg.CORS.AllowedOrigins))
 
 	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redis)
+	sseHandler := handlers.NewSSEHandler(sse)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(nethttp.StatusOK, gin.H{"status": "ok"})
@@ -42,6 +44,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		api.POST("/auth/logout", h.Logout)
 
 		api.GET("/challenges", h.ListChallenges)
+		api.GET("/scoreboard/stream", sseHandler.ScoreboardStream)
 		api.GET("/leaderboard", h.Leaderboard)
 		api.GET("/leaderboard/teams", h.TeamLeaderboard)
 		api.GET("/timeline", h.Timeline)
