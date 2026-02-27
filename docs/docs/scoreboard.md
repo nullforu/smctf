@@ -158,3 +158,38 @@ data: {}
 event: scoreboard
 data: {"scope":"all","reason":"submission_correct","ts":"2026-02-27T18:00:00Z"}
 ```
+
+### Client Reconnect
+
+SSE connections can be closed by server or proxy timeouts. Clients should be
+prepared to reconnect and re-subscribe to `/api/scoreboard/stream`.
+
+Example (browser EventSource):
+
+```js
+let es
+
+const connect = () => {
+    es = new EventSource('/api/scoreboard/stream')
+
+    es.addEventListener('scoreboard', () => {
+        fetch('/api/leaderboard')
+        fetch('/api/leaderboard/teams')
+        fetch('/api/timeline')
+        fetch('/api/timeline/teams')
+    })
+
+    es.onerror = () => {
+        es.close()
+        setTimeout(connect, 1000)
+    }
+}
+
+connect()
+```
+
+### Proxy/Server Timeouts
+
+If a reverse proxy is in front of the API, configure longer timeouts for the
+SSE endpoint (`/api/scoreboard/stream`) while keeping normal API timeouts for
+other routes.

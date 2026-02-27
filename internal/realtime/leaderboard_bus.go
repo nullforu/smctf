@@ -169,19 +169,18 @@ func (b *LeaderboardBus) handleEvent(ctx context.Context, payload string) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	if err := b.rebuildCaches(ctx); err != nil {
 		b.logger.Warn("leaderboard rebuild failed", slog.Any("error", err))
-		cancel()
-
-		b.releaseLock(context.Background(), token)
+		b.releaseLock(ctx, token)
 		return
 	}
 
-	cancel()
-	b.releaseLock(context.Background(), token)
+	b.releaseLock(ctx, token)
 
-	_ = b.redis.Publish(context.Background(), leaderboardRebuiltChannel, payload).Err()
+	_ = b.redis.Publish(ctx, leaderboardRebuiltChannel, payload).Err()
 }
 
 func (b *LeaderboardBus) acquireLock(ctx context.Context) (bool, string) {

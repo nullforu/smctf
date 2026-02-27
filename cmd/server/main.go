@@ -112,11 +112,12 @@ func main() {
 		logger.Warn("ctf window not configured; competition always active")
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	sseHub := realtime.NewSSEHub()
 	leaderboardBus := realtime.NewLeaderboardBus(redisClient, cfg, scoreSvc, logger, sseHub)
-	busCtx, busCancel := context.WithCancel(context.Background())
-	defer busCancel()
-	leaderboardBus.Start(busCtx)
+	leaderboardBus.Start(ctx)
 
 	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger, sseHub)
 	srv := &nethttp.Server{
@@ -124,12 +125,9 @@ func main() {
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      0,
+		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		logger.Info("server listening", slog.String("addr", cfg.HTTPAddr))

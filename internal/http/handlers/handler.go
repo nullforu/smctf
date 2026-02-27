@@ -55,18 +55,12 @@ func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response any, tt
 	_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, ttl).Err()
 }
 
-func (h *Handler) invalidateTimelineCache() {
-	go func() {
-		bgCtx := context.Background()
-		_ = h.redis.Del(bgCtx, "timeline:users", "timeline:teams").Err()
-	}()
+func (h *Handler) invalidateTimelineCache(ctx context.Context) {
+	_ = h.redis.Del(ctx, "timeline:users", "timeline:teams").Err()
 }
 
-func (h *Handler) invalidateLeaderboardCache() {
-	go func() {
-		bgCtx := context.Background()
-		_ = h.redis.Del(bgCtx, "leaderboard:users", "leaderboard:teams").Err()
-	}()
+func (h *Handler) invalidateLeaderboardCache(ctx context.Context) {
+	_ = h.redis.Del(ctx, "leaderboard:users", "leaderboard:teams").Err()
 }
 
 func (h *Handler) publishScoreboardEvent(ctx context.Context, reason string) {
@@ -85,8 +79,8 @@ func (h *Handler) publishScoreboardEvent(ctx context.Context, reason string) {
 }
 
 func (h *Handler) notifyScoreboardChanged(ctx context.Context, reason string) {
-	h.invalidateLeaderboardCache()
-	h.invalidateTimelineCache()
+	h.invalidateLeaderboardCache(ctx)
+	h.invalidateTimelineCache(ctx)
 	h.publishScoreboardEvent(ctx, reason)
 }
 
