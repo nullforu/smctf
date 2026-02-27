@@ -132,3 +132,29 @@ Returns all submissions teamed by team and 10 minute intervals.
 
 `points` is dynamically calculated based on solves.
 Blocked users are excluded.
+
+---
+
+## Scoreboard Stream (SSE)
+
+`GET /api/scoreboard/stream`
+
+Opens a Server-Sent Events (SSE) stream that notifies clients when the scoreboard
+data has been rebuilt and cached. This endpoint is public (no auth).
+
+### Events
+
+- `ready`: sent immediately after connection is established.
+- `scoreboard`: emitted after caches are refreshed. Clients should re-fetch
+  `/api/leaderboard`, `/api/leaderboard/teams`, `/api/timeline`, and
+  `/api/timeline/teams`.
+
+Example stream:
+
+```
+event: ready
+data: {}
+
+event: scoreboard
+data: {"scope":"all","reason":"submission_correct","ts":"2026-02-27T18:00:00Z"}
+```
