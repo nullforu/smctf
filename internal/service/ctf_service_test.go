@@ -71,7 +71,8 @@ func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 		t.Fatalf("unexpected points metadata: %+v", challenge)
 	}
 
-	if !utils.CheckFlag(challenge.FlagHash, "FLAG{1}") {
+	ok, err := utils.CheckFlag(challenge.FlagHash, "FLAG{1}")
+	if err != nil || !ok {
 		t.Fatalf("unexpected flag hash")
 	}
 
@@ -235,7 +236,8 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected flag update, got %v", err)
 	}
-	if !utils.CheckFlag(updatedFlag.FlagHash, newFlag) {
+	ok, err := utils.CheckFlag(updatedFlag.FlagHash, newFlag)
+	if err != nil || !ok {
 		t.Fatalf("expected updated flag hash")
 	}
 

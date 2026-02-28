@@ -439,7 +439,10 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		return true, ErrAlreadySolved
 	}
 
-	correct := utils.CheckFlag(challenge.FlagHash, flag)
+	correct, err := utils.CheckFlag(challenge.FlagHash, flag)
+	if err != nil {
+		return false, fmt.Errorf("ctf.SubmitFlag check flag: %w", err)
+	}
 
 	sub := &models.Submission{
 		UserID:      userID,

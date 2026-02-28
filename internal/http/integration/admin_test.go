@@ -158,7 +158,8 @@ func TestAdminUpdateChallenge(t *testing.T) {
 		t.Fatalf("GetByID: %v", err)
 	}
 
-	if !utils.CheckFlag(updatedModel.FlagHash, "flag{rotated}") {
+	ok, err := utils.CheckFlag(updatedModel.FlagHash, "flag{rotated}")
+	if err != nil || !ok {
 		t.Fatalf("expected flag hash to be updated")
 	}
 

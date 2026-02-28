@@ -22,15 +22,18 @@ func TestHashFlagAndCheck(t *testing.T) {
 		t.Fatalf("expected different hashes for same flag")
 	}
 
-	if !CheckFlag(hash1, flag) {
-		t.Fatalf("expected CheckFlag to match")
+	ok, err := CheckFlag(hash1, flag)
+	if err != nil || !ok {
+		t.Fatalf("expected CheckFlag to match, err=%v", err)
 	}
 
-	if CheckFlag(hash1, "different") {
+	ok, err = CheckFlag(hash1, "different")
+	if err != nil || ok {
 		t.Fatalf("expected CheckFlag to fail")
 	}
 
-	if CheckFlag("invalid-hash", flag) {
-		t.Fatalf("expected CheckFlag to fail for invalid hash")
+	ok, err = CheckFlag("invalid-hash", flag)
+	if err == nil || ok {
+		t.Fatalf("expected CheckFlag to error for invalid hash")
 	}
 }

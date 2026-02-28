@@ -11,6 +11,14 @@ func HashFlag(flag string, cost int) (string, error) {
 	return string(hash), nil
 }
 
-func CheckFlag(hash, flag string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(flag)) == nil
+func CheckFlag(hash, flag string) (bool, error) {
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(flag)); err != nil {
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
 }

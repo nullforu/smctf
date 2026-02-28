@@ -555,7 +555,7 @@ func FormatForLog(cfg Config) map[string]any {
 		"http_addr":            cfg.HTTPAddr,
 		"shutdown_timeout":     seconds(cfg.ShutdownTimeout),
 		"auto_migrate":         cfg.AutoMigrate,
-		"password_bcrypt_cost": cfg.BcryptCost,
+		"bcrypt_cost":          cfg.BcryptCost,
 		"db": map[string]any{
 			"host":              cfg.DB.Host,
 			"port":              cfg.DB.Port,
