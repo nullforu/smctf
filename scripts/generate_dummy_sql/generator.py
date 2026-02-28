@@ -1,37 +1,14 @@
-import hashlib
-import hmac
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-try:
-    import bcrypt
-except ImportError:
-    bcrypt = None
+from sql_common.crypto_utils import hmac_flag, hash_password
 
 UTC = timezone.utc
 REGISTRATION_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 REGISTRATION_CODE_LENGTH = 16
 REGISTRATION_CODE_MAX_USES = 3
-
-
-def _ensure_bcrypt() -> None:
-    if bcrypt is None:
-        raise SystemExit(
-            "Error: bcrypt is required. Install it with: pip install bcrypt"
-        )
-
-
-def hmac_flag(secret: str, flag: str) -> str:
-    h = hmac.new(secret.encode(), flag.encode(), hashlib.sha256)
-    return h.hexdigest()
-
-
-def hash_password(password: str, cost: int) -> str:
-    _ensure_bcrypt()
-    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=cost))
-    return hashed.decode()
 
 
 def _pick_random_indices(

@@ -1,0 +1,31 @@
+teams:
+  - name: "GALF"
+    users:
+      enabled: true
+      count: 4
+      name_pattern: "{team_name}_{number}"
+      emails:
+        - "alpha1@example.com"
+        - "alpha2@example.com"
+        - "alpha3@example.com"
+        - "alpha4@example.com"
+  - name: "BETA"
+    users:
+      enabled: false
+
+challenges:
+  - title: "Reverse It"
+    description: "3gn3ll4hc_s1ht_3sr3v3r (flag{...})"
+    points: 50
+    flag: "flag{r3v3rs3_th1s_ch4ll3ng3}"
+    category: "Misc"
+  - title: "Simple NextJS"
+    description: "25년도에 큰 취약점이 터졌다던데.. 뭐였지?"
+    points: 50
+    flag: "flag{n3xtjs_cve_2O2S_2gg27_m1dd13w4r3}"
+    category: "Web"
+    stack_enabled: true
+    stack_target_ports:
+      - container_port: 80
+        protocol: TCP
+    stack_pod_spec_path: "./stack_pod_spec.yaml"

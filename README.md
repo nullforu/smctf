@@ -341,6 +341,33 @@ It provides sample challenges, 30 users (including admin), and random submission
 >
 > **This will TRUNCATE all tables in the database! Use only in development/test environments.**
 
+## YAML-to-SQL (Teams/Challenges)
+
+If you want to generate SQL from a YAML file that explicitly defines teams and challenges (and optional per-team users), use the YAML generator:
+
+```shell
+# python3 -m pip install -r ./scripts/generate_yaml_sql/requirements.txt
+python3 ./scripts/generate_yaml_sql/main.py --data ./scripts/generate_yaml_sql/defaults/data.yaml
+```
+
+You can also use the wrapper script:
+
+```shell
+./scripts/generate_yaml_sql.sh --data ./scripts/generate_yaml_sql/defaults/data.yaml
+```
+
+CLI options:
+
+- `--data`: path to data YAML (teams/challenges). Required.
+- `--settings`: path to settings YAML (security/constraints). Merged over defaults.
+- `--output`: override output SQL file path. Defaults to `output.sql`.
+
+Defaults live in `./scripts/generate_yaml_sql/defaults/`.
+
+> [!WARNING]
+>
+> **This script refuses to run if `teams`, `challenges`, or `users` tables are not empty.**
+
 ## FAQ, Troubleshooting
 
 (Not yet)

@@ -6,6 +6,11 @@ import random
 import sys
 from typing import List
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS_DIR = os.path.dirname(BASE_DIR)
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+
 from config_loader import load_settings, resolve_path
 from data_loader import load_data, validate_data
 from generator import (
@@ -17,7 +22,6 @@ from generator import (
 )
 from sql_writer import write_sql_file
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DATA_PATH = os.path.join(BASE_DIR, "defaults", "data.yaml")
 DEFAULT_SETTINGS_PATH = os.path.join(BASE_DIR, "defaults", "settings.yaml")
 DEFAULT_TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")

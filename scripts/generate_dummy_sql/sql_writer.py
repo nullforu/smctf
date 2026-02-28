@@ -2,9 +2,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-
-def escape_sql_string(s: str) -> str:
-    return s.replace("'", "''")
+from sql_common.sql_utils import escape_sql_string
 
 
 def write_sql_file(
