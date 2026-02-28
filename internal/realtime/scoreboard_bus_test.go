@@ -15,7 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func newTestBus(t *testing.T, score ScoreboardReader) (*LeaderboardBus, *redis.Client, func()) {
+func newTestBus(t *testing.T, score ScoreboardReader) (*ScoreboardBus, *redis.Client, func()) {
 	t.Helper()
 
 	redisServer, err := miniredis.Run()
@@ -33,7 +33,7 @@ func newTestBus(t *testing.T, score ScoreboardReader) (*LeaderboardBus, *redis.C
 	cfg := config.Config{Cache: config.CacheConfig{LeaderboardTTL: time.Minute, TimelineTTL: time.Minute}}
 
 	hub := NewSSEHub()
-	bus := NewLeaderboardBus(client, cfg, score, logger, hub)
+	bus := NewScoreboardBus(client, cfg, score, logger, hub)
 
 	cleanup := func() {
 		_ = client.Close()
@@ -44,12 +44,12 @@ func newTestBus(t *testing.T, score ScoreboardReader) (*LeaderboardBus, *redis.C
 	return bus, client, cleanup
 }
 
-func TestLeaderboardBusPublish(t *testing.T) {
+func TestScoreboardBusPublish(t *testing.T) {
 	bus, client, cleanup := newTestBus(t, nil)
 	defer cleanup()
 
 	ctx := context.Background()
-	sub := client.Subscribe(ctx, leaderboardEventsChannel)
+	sub := client.Subscribe(ctx, scoreboardEventsChannel)
 	defer sub.Close()
 
 	event := ScoreboardEvent{Scope: "all", Reason: "test", TS: time.Now().UTC()}
@@ -70,7 +70,7 @@ func TestLeaderboardBusPublish(t *testing.T) {
 	}
 }
 
-func TestLeaderboardBusAcquireReleaseLock(t *testing.T) {
+func TestScoreboardBusAcquireReleaseLock(t *testing.T) {
 	bus, client, cleanup := newTestBus(t, nil)
 	defer cleanup()
 
@@ -85,29 +85,28 @@ func TestLeaderboardBusAcquireReleaseLock(t *testing.T) {
 	}
 
 	bus.releaseLock(ctx, "wrong-token")
-	if got, err := client.Get(ctx, leaderboardLockKey).Result(); err != nil || got != token {
+	if got, err := client.Get(ctx, scoreboardLockKey).Result(); err != nil || got != token {
 		t.Fatalf("expected lock to remain, got %q err %v", got, err)
 	}
 
 	bus.releaseLock(ctx, token)
-	if exists, _ := client.Exists(ctx, leaderboardLockKey).Result(); exists != 0 {
+	if exists, _ := client.Exists(ctx, scoreboardLockKey).Result(); exists != 0 {
 		t.Fatalf("expected lock to be released")
 	}
 }
 
-func TestLeaderboardBusRebuiltBroadcast(t *testing.T) {
+func TestScoreboardBusRebuiltBroadcast(t *testing.T) {
 	bus, client, cleanup := newTestBus(t, nil)
 	defer cleanup()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	bus.Start(ctx)
 
 	ch, unsubscribe := bus.hub.Subscribe(1)
 	defer unsubscribe()
 
 	payload := "{\"scope\":\"all\",\"reason\":\"rebuilt\"}"
-	if err := client.Publish(ctx, leaderboardRebuiltChannel, payload).Err(); err != nil {
+	if err := client.Publish(ctx, scoreboardRebuiltChannel, payload).Err(); err != nil {
 		t.Fatalf("publish rebuilt: %v", err)
 	}
 
@@ -121,16 +120,16 @@ func TestLeaderboardBusRebuiltBroadcast(t *testing.T) {
 	}
 }
 
-func TestLeaderboardBusHandleEventSkipsWhenLocked(t *testing.T) {
+func TestScoreboardBusHandleEventSkipsWhenLocked(t *testing.T) {
 	bus, client, cleanup := newTestBus(t, nil)
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := client.Set(ctx, leaderboardLockKey, "held", time.Minute).Err(); err != nil {
+	if err := client.Set(ctx, scoreboardLockKey, "held", time.Minute).Err(); err != nil {
 		t.Fatalf("seed lock: %v", err)
 	}
 
-	sub := client.Subscribe(ctx, leaderboardRebuiltChannel)
+	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
 	defer sub.Close()
 
 	bus.handleEvent(ctx, "{\"scope\":\"all\"}")
@@ -169,7 +168,7 @@ func (f *fakeScoreboard) TeamTimeline(ctx context.Context, since *time.Time) ([]
 	return f.teamTimeline, f.teamTimelineErr
 }
 
-func TestLeaderboardBusHandleEventRebuildsAndPublishes(t *testing.T) {
+func TestScoreboardBusHandleEventRebuildsAndPublishes(t *testing.T) {
 	score := &fakeScoreboard{
 		leaderboard:     models.LeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.LeaderboardEntry{}},
 		teamLeaderboard: models.TeamLeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.TeamLeaderboardEntry{}},
@@ -181,7 +180,7 @@ func TestLeaderboardBusHandleEventRebuildsAndPublishes(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	sub := client.Subscribe(ctx, leaderboardRebuiltChannel)
+	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
 	defer sub.Close()
 
 	bus.handleEvent(ctx, `{"scope":"all","reason":"test"}`)
@@ -212,7 +211,7 @@ func TestLeaderboardBusHandleEventRebuildsAndPublishes(t *testing.T) {
 	}
 }
 
-func TestLeaderboardBusHandleEventRebuildFails(t *testing.T) {
+func TestScoreboardBusHandleEventRebuildFails(t *testing.T) {
 	score := &fakeScoreboard{
 		leaderboardErr: errors.New("boom"),
 	}
@@ -221,7 +220,7 @@ func TestLeaderboardBusHandleEventRebuildFails(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	sub := client.Subscribe(ctx, leaderboardRebuiltChannel)
+	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
 	defer sub.Close()
 
 	bus.handleEvent(ctx, `{"scope":"all","reason":"test"}`)
@@ -233,7 +232,7 @@ func TestLeaderboardBusHandleEventRebuildFails(t *testing.T) {
 	}
 }
 
-func TestLeaderboardBusStoreJSONError(t *testing.T) {
+func TestScoreboardBusStoreJSONError(t *testing.T) {
 	bus, _, cleanup := newTestBus(t, nil)
 	defer cleanup()
 
@@ -244,7 +243,7 @@ func TestLeaderboardBusStoreJSONError(t *testing.T) {
 	}
 }
 
-func TestLeaderboardBusRebuildCachesError(t *testing.T) {
+func TestScoreboardBusRebuildCachesError(t *testing.T) {
 	score := &fakeScoreboard{
 		leaderboardErr: errors.New("boom"),
 	}
@@ -257,7 +256,7 @@ func TestLeaderboardBusRebuildCachesError(t *testing.T) {
 	}
 }
 
-func TestLeaderboardBusRunDebounce(t *testing.T) {
+func TestScoreboardBusRunDebounce(t *testing.T) {
 	score := &fakeScoreboard{
 		leaderboard:     models.LeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.LeaderboardEntry{}},
 		teamLeaderboard: models.TeamLeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.TeamLeaderboardEntry{}},
@@ -268,18 +267,17 @@ func TestLeaderboardBusRunDebounce(t *testing.T) {
 	bus, client, cleanup := newTestBus(t, score)
 	defer cleanup()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	bus.Start(ctx)
 
-	sub := client.Subscribe(ctx, leaderboardRebuiltChannel)
+	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
 	defer sub.Close()
 
-	if err := client.Publish(ctx, leaderboardEventsChannel, `{"scope":"all","reason":"a"}`).Err(); err != nil {
+	if err := client.Publish(ctx, scoreboardEventsChannel, `{"scope":"all","reason":"a"}`).Err(); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 
-	if err := client.Publish(ctx, leaderboardEventsChannel, `{"scope":"all","reason":"b"}`).Err(); err != nil {
+	if err := client.Publish(ctx, scoreboardEventsChannel, `{"scope":"all","reason":"b"}`).Err(); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 

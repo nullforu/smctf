@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	leaderboardEventsChannel  = "scoreboard.events"
-	leaderboardRebuiltChannel = "scoreboard.rebuilt"
-	leaderboardLockKey        = "leaderboard:rebuild:lock"
+	scoreboardEventsChannel  = "scoreboard.events"
+	scoreboardRebuiltChannel = "scoreboard.rebuilt"
+	scoreboardLockKey        = "scoreboard:rebuild:lock"
 )
 
 type ScoreboardEvent struct {
@@ -27,7 +27,7 @@ type ScoreboardEvent struct {
 	TS     time.Time `json:"ts"`
 }
 
-type LeaderboardBus struct {
+type ScoreboardBus struct {
 	redis    *redis.Client
 	cfg      config.Config
 	score    ScoreboardReader
@@ -45,8 +45,8 @@ type ScoreboardReader interface {
 	TeamTimeline(ctx context.Context, since *time.Time) ([]models.TeamTimelineSubmission, error)
 }
 
-func NewLeaderboardBus(redisClient *redis.Client, cfg config.Config, scoreSvc ScoreboardReader, logger *logging.Logger, hub *SSEHub) *LeaderboardBus {
-	return &LeaderboardBus{
+func NewScoreboardBus(redisClient *redis.Client, cfg config.Config, scoreSvc ScoreboardReader, logger *logging.Logger, hub *SSEHub) *ScoreboardBus {
+	return &ScoreboardBus{
 		redis:    redisClient,
 		cfg:      cfg,
 		score:    scoreSvc,
@@ -58,23 +58,23 @@ func NewLeaderboardBus(redisClient *redis.Client, cfg config.Config, scoreSvc Sc
 	}
 }
 
-func (b *LeaderboardBus) Publish(ctx context.Context, event ScoreboardEvent) {
+func (b *ScoreboardBus) Publish(ctx context.Context, event ScoreboardEvent) {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return
 	}
 
-	_ = b.redis.Publish(ctx, leaderboardEventsChannel, payload).Err()
+	_ = b.redis.Publish(ctx, scoreboardEventsChannel, payload).Err()
 }
 
-func (b *LeaderboardBus) Start(ctx context.Context) {
-	pubsub := b.redis.Subscribe(ctx, leaderboardEventsChannel)
-	rebuilt := b.redis.Subscribe(ctx, leaderboardRebuiltChannel)
+func (b *ScoreboardBus) Start(ctx context.Context) {
+	pubsub := b.redis.Subscribe(ctx, scoreboardEventsChannel)
+	rebuilt := b.redis.Subscribe(ctx, scoreboardRebuiltChannel)
 
 	go b.run(ctx, pubsub, rebuilt)
 }
 
-func (b *LeaderboardBus) run(ctx context.Context, pubsub *redis.PubSub, rebuilt *redis.PubSub) {
+func (b *ScoreboardBus) run(ctx context.Context, pubsub *redis.PubSub, rebuilt *redis.PubSub) {
 	defer func() {
 		if err := pubsub.Close(); err != nil {
 			b.logger.Warn("leaderboard pubsub close", slog.Any("error", err))
@@ -163,7 +163,7 @@ func (b *LeaderboardBus) run(ctx context.Context, pubsub *redis.PubSub, rebuilt 
 	}
 }
 
-func (b *LeaderboardBus) handleEvent(ctx context.Context, payload string) {
+func (b *ScoreboardBus) handleEvent(ctx context.Context, payload string) {
 	locked, token := b.acquireLock(ctx)
 	if !locked {
 		return
@@ -180,12 +180,12 @@ func (b *LeaderboardBus) handleEvent(ctx context.Context, payload string) {
 
 	b.releaseLock(ctx, token)
 
-	_ = b.redis.Publish(ctx, leaderboardRebuiltChannel, payload).Err()
+	_ = b.redis.Publish(ctx, scoreboardRebuiltChannel, payload).Err()
 }
 
-func (b *LeaderboardBus) acquireLock(ctx context.Context) (bool, string) {
+func (b *ScoreboardBus) acquireLock(ctx context.Context) (bool, string) {
 	token := randomToken()
-	ok, err := b.redis.SetNX(ctx, leaderboardLockKey, token, b.lockTTL).Result()
+	ok, err := b.redis.SetNX(ctx, scoreboardLockKey, token, b.lockTTL).Result()
 	if err != nil {
 		b.logger.Warn("leaderboard lock error", slog.Any("error", err))
 		return false, ""
@@ -194,13 +194,13 @@ func (b *LeaderboardBus) acquireLock(ctx context.Context) (bool, string) {
 	return ok, token
 }
 
-func (b *LeaderboardBus) releaseLock(ctx context.Context, token string) {
+func (b *ScoreboardBus) releaseLock(ctx context.Context, token string) {
 	if token == "" {
 		return
 	}
 
 	const script = `if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end`
-	_, _ = b.redis.Eval(ctx, script, []string{leaderboardLockKey}, token).Result()
+	_, _ = b.redis.Eval(ctx, script, []string{scoreboardLockKey}, token).Result()
 }
 
 func randomToken() string {
@@ -212,7 +212,7 @@ func randomToken() string {
 	return hex.EncodeToString(buf)
 }
 
-func (b *LeaderboardBus) rebuildCaches(ctx context.Context) error {
+func (b *ScoreboardBus) rebuildCaches(ctx context.Context) error {
 	leaderboard, err := b.score.Leaderboard(ctx)
 	if err != nil {
 		return err
@@ -258,7 +258,7 @@ func (b *LeaderboardBus) rebuildCaches(ctx context.Context) error {
 	return nil
 }
 
-func (b *LeaderboardBus) storeJSON(ctx context.Context, key string, value any, ttl time.Duration) error {
+func (b *ScoreboardBus) storeJSON(ctx context.Context, key string, value any, ttl time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err

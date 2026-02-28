@@ -116,7 +116,7 @@ func main() {
 	defer stop()
 
 	sseHub := realtime.NewSSEHub()
-	leaderboardBus := realtime.NewLeaderboardBus(redisClient, cfg, scoreSvc, logger, sseHub)
+	leaderboardBus := realtime.NewScoreboardBus(redisClient, cfg, scoreSvc, logger, sseHub)
 	leaderboardBus.Start(ctx)
 
 	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger, sseHub)
