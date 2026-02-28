@@ -132,3 +132,64 @@ Returns all submissions teamed by team and 10 minute intervals.
 
 `points` is dynamically calculated based on solves.
 Blocked users are excluded.
+
+---
+
+## Scoreboard Stream (SSE)
+
+`GET /api/scoreboard/stream`
+
+Opens a Server-Sent Events (SSE) stream that notifies clients when the scoreboard
+data has been rebuilt and cached. This endpoint is public (no auth).
+
+### Events
+
+- `ready`: sent immediately after connection is established.
+- `scoreboard`: emitted after caches are refreshed. Clients should re-fetch
+  `/api/leaderboard`, `/api/leaderboard/teams`, `/api/timeline`, and
+  `/api/timeline/teams`.
+
+Example stream:
+
+```
+event: ready
+data: {}
+
+event: scoreboard
+data: {"scope":"all","reason":"submission_correct","ts":"2026-02-27T18:00:00Z"}
+```
+
+### Client Reconnect
+
+SSE connections can be closed by server or proxy timeouts. Clients should be
+prepared to reconnect and re-subscribe to `/api/scoreboard/stream`.
+
+Example (browser EventSource):
+
+```js
+let es
+
+const connect = () => {
+    es = new EventSource('/api/scoreboard/stream')
+
+    es.addEventListener('scoreboard', () => {
+        fetch('/api/leaderboard')
+        fetch('/api/leaderboard/teams')
+        fetch('/api/timeline')
+        fetch('/api/timeline/teams')
+    })
+
+    es.onerror = () => {
+        es.close()
+        setTimeout(connect, 1000)
+    }
+}
+
+connect()
+```
+
+### Proxy/Server Timeouts
+
+If a reverse proxy is in front of the API, configure longer timeouts for the
+SSE endpoint (`/api/scoreboard/stream`) while keeping normal API timeouts for
+other routes.

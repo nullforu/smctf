@@ -18,6 +18,7 @@ import (
 	"smctf/internal/config"
 	"smctf/internal/db"
 	"smctf/internal/models"
+	"smctf/internal/realtime"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 	"smctf/internal/stack"
@@ -2196,5 +2197,124 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 	env.handler.GetUser(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get user status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandlerNotifyScoreboardChangedPublishesEvent(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	setCachePayload(t, env, "leaderboard:users", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "leaderboard:teams", []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, "timeline:users", []byte(`{"submissions":[]}`))
+	setCachePayload(t, env, "timeline:teams", []byte(`{"submissions":[]}`))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	sub := env.redis.Subscribe(ctx, "scoreboard.events")
+	defer sub.Close()
+
+	env.handler.notifyScoreboardChanged(ctx, "test_reason")
+
+	waitForCacheClear(t, env, "leaderboard:users", "leaderboard:teams", "timeline:users", "timeline:teams")
+
+	msg, err := sub.ReceiveMessage(ctx)
+	if err != nil {
+		t.Fatalf("receive event: %v", err)
+	}
+
+	var got realtime.ScoreboardEvent
+	if err := json.Unmarshal([]byte(msg.Payload), &got); err != nil {
+		t.Fatalf("decode event: %v", err)
+	}
+	if got.Reason != "test_reason" || got.Scope != "all" {
+		t.Fatalf("unexpected event: %+v", got)
+	}
+}
+
+func TestParseIDParamOrError(t *testing.T) {
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/users/bad", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: "bad"}}
+
+	if _, ok := parseIDParamOrError(ctx, "id"); ok {
+		t.Fatalf("expected invalid id to fail")
+	}
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestOptionalUserID(t *testing.T) {
+	cfg := config.Config{
+		JWT: config.JWTConfig{
+			Secret:     "test-secret",
+			Issuer:     "smctf-test",
+			AccessTTL:  time.Minute,
+			RefreshTTL: time.Hour,
+		},
+	}
+	handler := New(cfg, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	token, err := auth.GenerateAccessToken(cfg.JWT, 99, models.UserRole)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	ctx, _ := newJSONContext(t, http.MethodGet, "/api/me", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer "+token)
+
+	userID := handler.optionalUserID(ctx)
+	if userID != 99 {
+		t.Fatalf("expected userID 99, got %d", userID)
+	}
+}
+
+func TestOptionalStringUnmarshalJSON(t *testing.T) {
+	var opt optionalString
+	if err := opt.UnmarshalJSON([]byte(`"value"`)); err != nil {
+		t.Fatalf("unmarshal string: %v", err)
+	}
+	if !opt.Set || opt.Value == nil || *opt.Value != "value" {
+		t.Fatalf("unexpected optionalString: %+v", opt)
+	}
+
+	var nullOpt optionalString
+	if err := nullOpt.UnmarshalJSON([]byte(`null`)); err != nil {
+		t.Fatalf("unmarshal null: %v", err)
+	}
+	if !nullOpt.Set || nullOpt.Value != nil {
+		t.Fatalf("expected nil value, got %+v", nullOpt)
+	}
+}
+
+func TestOptionalInt64UnmarshalJSON(t *testing.T) {
+	var opt optionalInt64
+	if err := opt.UnmarshalJSON([]byte(`123`)); err != nil {
+		t.Fatalf("unmarshal int64: %v", err)
+	}
+	if !opt.Set || opt.Value == nil || *opt.Value != 123 {
+		t.Fatalf("unexpected optionalInt64: %+v", opt)
+	}
+
+	var nullOpt optionalInt64
+	if err := nullOpt.UnmarshalJSON([]byte(`null`)); err != nil {
+		t.Fatalf("unmarshal null: %v", err)
+	}
+	if !nullOpt.Set || nullOpt.Value != nil {
+		t.Fatalf("expected nil value, got %+v", nullOpt)
+	}
+}
+
+func TestTimePtrUTC(t *testing.T) {
+	if timePtrUTC(nil) != nil {
+		t.Fatalf("expected nil time")
+	}
+
+	loc := time.FixedZone("TEST", 3*60*60)
+	value := time.Date(2025, 1, 1, 12, 0, 0, 0, loc)
+	utc := timePtrUTC(&value)
+	if utc == nil || utc.Location() != time.UTC {
+		t.Fatalf("expected UTC time, got %v", utc)
 	}
 }

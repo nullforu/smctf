@@ -15,6 +15,7 @@ import (
 	"smctf/internal/db"
 	httpserver "smctf/internal/http"
 	"smctf/internal/logging"
+	"smctf/internal/realtime"
 	"smctf/internal/repo"
 	"smctf/internal/service"
 	"smctf/internal/stack"
@@ -111,18 +112,22 @@ func main() {
 		logger.Warn("ctf window not configured; competition always active")
 	}
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	sseHub := realtime.NewSSEHub()
+	leaderboardBus := realtime.NewScoreboardBus(redisClient, cfg, scoreSvc, logger, sseHub)
+	leaderboardBus.Start(ctx)
+
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger, sseHub)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		logger.Info("server listening", slog.String("addr", cfg.HTTPAddr))
