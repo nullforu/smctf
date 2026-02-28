@@ -84,7 +84,6 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	os.Setenv("JWT_ISSUER", "custom-issuer")
 	os.Setenv("JWT_ACCESS_TTL", "2h")
 	os.Setenv("JWT_REFRESH_TTL", "48h")
-	os.Setenv("FLAG_HMAC_SECRET", "custom-flag-secret")
 	os.Setenv("SUBMIT_WINDOW", "30s")
 	os.Setenv("SUBMIT_MAX", "5")
 	os.Setenv("LOG_DIR", "logs-test")
@@ -301,7 +300,6 @@ func TestValidateConfigInvalidS3(t *testing.T) {
 			RefreshTTL: 24 * time.Hour,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   "flag-secret",
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
 		},
@@ -337,7 +335,6 @@ func TestLoadConfigProductionValidation(t *testing.T) {
 	}
 
 	os.Setenv("JWT_SECRET", "production-secret-123")
-	os.Setenv("FLAG_HMAC_SECRET", "production-flag-secret-456")
 	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
 
 	cfg, err := Load()
@@ -374,7 +371,6 @@ func TestValidateConfigInvalidLogging(t *testing.T) {
 			RefreshTTL: 24 * time.Hour,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   "flag-secret",
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
 		},
@@ -528,7 +524,6 @@ func TestValidateConfigEmptyValues(t *testing.T) {
 			RefreshTTL: 24 * time.Hour,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   "flag-secret",
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
 		},
@@ -569,7 +564,6 @@ func TestValidateConfigInvalidDBConfig(t *testing.T) {
 			RefreshTTL: 24 * time.Hour,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   "flag-secret",
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
 		},
@@ -611,7 +605,6 @@ func TestValidateConfigInvalidStackConfig(t *testing.T) {
 			RefreshTTL: 24 * time.Hour,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   "flag-secret",
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
 		},
@@ -674,7 +667,6 @@ func TestValidateConfigAdditionalValidation(t *testing.T) {
 			RefreshTTL: 0,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   "",
 			SubmissionWindow: 0,
 			SubmissionMax:    0,
 		},
@@ -703,9 +695,6 @@ func TestRedact(t *testing.T) {
 		},
 		JWT: JWTConfig{
 			Secret: "jwtsecret",
-		},
-		Security: SecurityConfig{
-			FlagHMACSecret: "flagsecret",
 		},
 		Logging: LoggingConfig{
 			Dir:          "logs",
@@ -739,9 +728,6 @@ func TestRedact(t *testing.T) {
 		t.Fatalf("expected jwt secret redacted")
 	}
 
-	if redacted.Security.FlagHMACSecret == cfg.Security.FlagHMACSecret {
-		t.Fatalf("expected flag secret redacted")
-	}
 
 	if redacted.S3.AccessKeyID == cfg.S3.AccessKeyID {
 		t.Fatalf("expected s3 access key redacted")
@@ -813,7 +799,6 @@ func TestFormatForLog(t *testing.T) {
 			RefreshTTL: 2 * time.Hour,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   "flagsecret",
 			SubmissionWindow: time.Minute,
 			SubmissionMax:    10,
 		},
@@ -860,10 +845,9 @@ func TestFormatForLog(t *testing.T) {
 	db := out["db"].(map[string]any)
 	redis := out["redis"].(map[string]any)
 	jwt := out["jwt"].(map[string]any)
-	security := out["security"].(map[string]any)
 	stack := out["stack"].(map[string]any)
 
-	if db["password"].(string) == "dbpass" || redis["password"].(string) == "redispass" || jwt["secret"].(string) == "jwtsecret" || security["flag_hmac_secret"].(string) == "flagsecret" || stack["provisioner_api_key"].(string) == "stack-key" {
+	if db["password"].(string) == "dbpass" || redis["password"].(string) == "redispass" || jwt["secret"].(string) == "jwtsecret" || stack["provisioner_api_key"].(string) == "stack-key" {
 		t.Fatalf("expected secrets redacted")
 	}
 

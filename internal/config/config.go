@@ -58,7 +58,6 @@ type JWTConfig struct {
 }
 
 type SecurityConfig struct {
-	FlagHMACSecret   string
 	SubmissionWindow time.Duration
 	SubmissionMax    int
 }
@@ -108,10 +107,7 @@ type BootstrapConfig struct {
 	AdminUsername    string
 }
 
-const (
-	defaultJWTSecret  = "change-me"
-	defaultFlagSecret = "change-me-too"
-)
+const defaultJWTSecret = "change-me"
 
 func Load() (Config, error) {
 	var errs []error
@@ -291,7 +287,6 @@ func Load() (Config, error) {
 			RefreshTTL: jwtRefreshTTL,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   getEnv("FLAG_HMAC_SECRET", defaultFlagSecret),
 			SubmissionWindow: submitWindow,
 			SubmissionMax:    submitMax,
 		},
@@ -442,9 +437,6 @@ func validateConfig(cfg Config) error {
 	}
 
 	// Security validation
-	if cfg.Security.FlagHMACSecret == "" {
-		errs = append(errs, errors.New("FLAG_HMAC_SECRET must not be empty"))
-	}
 	if cfg.Security.SubmissionWindow <= 0 || cfg.Security.SubmissionMax <= 0 {
 		errs = append(errs, errors.New("SUBMIT_WINDOW and SUBMIT_MAX must be positive"))
 	}
@@ -453,9 +445,6 @@ func validateConfig(cfg Config) error {
 	if cfg.AppEnv == "production" {
 		if cfg.JWT.Secret == defaultJWTSecret {
 			errs = append(errs, errors.New("JWT_SECRET must be set in production"))
-		}
-		if cfg.Security.FlagHMACSecret == defaultFlagSecret {
-			errs = append(errs, errors.New("FLAG_HMAC_SECRET must be set in production"))
 		}
 	}
 
@@ -518,7 +507,6 @@ func Redact(cfg Config) Config {
 	cfg.DB.Password = redact(cfg.DB.Password)
 	cfg.Redis.Password = redact(cfg.Redis.Password)
 	cfg.JWT.Secret = redact(cfg.JWT.Secret)
-	cfg.Security.FlagHMACSecret = redact(cfg.Security.FlagHMACSecret)
 	cfg.S3.AccessKeyID = redact(cfg.S3.AccessKeyID)
 	cfg.S3.SecretAccessKey = redact(cfg.S3.SecretAccessKey)
 	cfg.Stack.ProvisionerAPIKey = redact(cfg.Stack.ProvisionerAPIKey)
@@ -592,7 +580,6 @@ func FormatForLog(cfg Config) map[string]any {
 			"refresh_ttl": seconds(cfg.JWT.RefreshTTL),
 		},
 		"security": map[string]any{
-			"flag_hmac_secret":  cfg.Security.FlagHMACSecret,
 			"submission_window": seconds(cfg.Security.SubmissionWindow),
 			"submission_max":    cfg.Security.SubmissionMax,
 		},

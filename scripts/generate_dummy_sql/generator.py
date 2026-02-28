@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from sql_common.crypto_utils import hmac_flag, hash_password
+from sql_common.crypto_utils import hash_flag, hash_password
 
 UTC = timezone.utc
 REGISTRATION_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -96,7 +96,7 @@ def generate_challenges(
     challenges: List[Dict[str, Any]],
     timing: Dict[str, Any],
     constraints: Dict[str, Any],
-    secret: str,
+    bcrypt_cost: int,
     stack_config: Optional[Dict[str, Any]] = None,
     stack_pod_spec_content: str = "",
     file_config: Optional[Dict[str, Any]] = None,
@@ -147,7 +147,7 @@ def generate_challenges(
     )
 
     for i, chal in enumerate(challenges):
-        flag_hash = hmac_flag(secret, chal["flag"])
+        flag_hash = hash_flag(chal["flag"], bcrypt_cost)
         minimum_points = max(floor, int(chal["points"] * ratio))
         created_at = base_time + timedelta(minutes=i * step_minutes)
         stack_enabled = bool(chal.get("stack_enabled", False))
@@ -264,7 +264,6 @@ def generate_submissions(
     challenges: List[Dict[str, Any]],
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
-    secret: str,
     start_user_id: int = 1,
     skip_first_user: bool = False,
 ) -> List[Tuple[int, int, str, bool, str, bool]]:
@@ -336,24 +335,22 @@ def generate_submissions(
                         minutes=random.randint(wrong_before_min, wrong_before_max)
                     )
                     wrong_flag = f"flag{{wrong_attempt_{random.randint(1000, 9999)}}}"
-                    wrong_hash = hmac_flag(secret, wrong_flag)
                     submissions.append(
                         (
                             user_id,
                             chal_id,
-                            wrong_hash,
+                            wrong_flag,
                             False,
                             wrong_time.strftime("%Y-%m-%d %H:%M:%S"),
                         )
                     )
 
                 correct_flag = challenges[chal_id - 1]["flag"]
-                correct_hash = hmac_flag(secret, correct_flag)
                 submissions.append(
                     (
                         user_id,
                         chal_id,
-                        correct_hash,
+                        correct_flag,
                         True,
                         submission_time.strftime("%Y-%m-%d %H:%M:%S"),
                     )
@@ -365,12 +362,11 @@ def generate_submissions(
                     minutes=random.randint(fail_delay_min, fail_delay_max)
                 )
                 wrong_flag = f"flag{{incorrect_{random.randint(1000, 9999)}}}"
-                wrong_hash = hmac_flag(secret, wrong_flag)
                 submissions.append(
                     (
                         user_id,
                         chal_id,
-                        wrong_hash,
+                        wrong_flag,
                         False,
                         attempt_time.strftime("%Y-%m-%d %H:%M:%S"),
                     )

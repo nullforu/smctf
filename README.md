@@ -57,7 +57,7 @@ See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README 
 
 - AuthN/AuthZ (JWT), including registration keys management
 - Challenge management (Jeopardy CTF style, See [`ctf_service.go`](./internal/service/ctf_service.go) for a list of categories.)
-- Flag submission with rate limiting and HMAC verification
+- Flag submission with rate limiting
 - Scoreboard and Timeline (Redis caching support)
 - User profile with statistics (Some implementations are still WIP)
 - Logging middleware with file logging, structured JSON logging and OpenMetrics endpoint support
@@ -161,7 +161,6 @@ JWT_ACCESS_TTL=24h
 JWT_REFRESH_TTL=168h
 
 # Security
-FLAG_HMAC_SECRET=change-me-too
 SUBMIT_WINDOW=1m
 SUBMIT_MAX=10
 
@@ -205,7 +204,7 @@ S3_PRESIGN_TTL=15m
 
 > [!IMPORTANT]
 >
-> Make sure to change `JWT_SECRET` and `FLAG_HMAC_SECRET` to secure random strings in production!
+> Make sure to change `JWT_SECRET` to a secure random string in production!
 
 After setting up the environment variables, build and run the server:
 

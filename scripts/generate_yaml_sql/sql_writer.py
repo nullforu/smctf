@@ -25,7 +25,6 @@ def write_sql_file(
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("-- smctf YAML SQL\n")
         f.write(f"-- Generated at: {datetime.now().isoformat()}\n")
-        f.write(f"-- FLAG_HMAC_SECRET: {meta['flag_hmac_secret']}\n")
         f.write(f"-- BCRYPT_COST: {meta['bcrypt_cost']}\n\n")
 
         f.write("-- Guard: refuse to run if tables are not empty\n")

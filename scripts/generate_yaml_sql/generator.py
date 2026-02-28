@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from sql_common.crypto_utils import hmac_flag, hash_password
+from sql_common.crypto_utils import hash_flag, hash_password
 
 UTC = timezone.utc
 DEFAULT_STACK_TARGET_PORTS = [{"container_port": 80, "protocol": "TCP"}]
@@ -81,7 +81,7 @@ def generate_users(
 def generate_challenges(
     challenges: List[Dict[str, Any]],
     constraints: Dict[str, Any],
-    flag_secret: str,
+    bcrypt_cost: int,
 ) -> List[Dict[str, Any]]:
     generated: List[Dict[str, Any]] = []
     base_time = datetime.now(UTC)
@@ -93,7 +93,7 @@ def generate_challenges(
         created_at_str = created_at.strftime("%Y-%m-%d %H:%M:%S")
         points = int(chal["points"])
         minimum_points = max(floor, int(points * ratio))
-        flag_hash = hmac_flag(flag_secret, chal["flag"])
+        flag_hash = hash_flag(chal["flag"], bcrypt_cost)
 
         stack_enabled = bool(chal.get("stack_enabled", False))
         stack_target_ports = []

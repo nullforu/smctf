@@ -158,8 +158,7 @@ func TestAdminUpdateChallenge(t *testing.T) {
 		t.Fatalf("GetByID: %v", err)
 	}
 
-	expectedHash := utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag{rotated}")
-	if updatedModel.FlagHash != expectedHash {
+	if !utils.CheckFlag(updatedModel.FlagHash, "flag{rotated}") {
 		t.Fatalf("expected flag hash to be updated")
 	}
 

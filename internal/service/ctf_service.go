@@ -183,7 +183,6 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		Category:            category,
 		Points:              points,
 		MinimumPoints:       minimumPoints,
-		FlagHash:            utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag),
 		PreviousChallengeID: previousChallengeID,
 		StackEnabled:        stackEnabled,
 		StackTargetPorts:    stackTargetPorts,
@@ -191,6 +190,13 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		IsActive:            active,
 		CreatedAt:           time.Now().UTC(),
 	}
+
+	flagHash, err := utils.HashFlag(flag, s.cfg.PasswordBcryptCost)
+	if err != nil {
+		return nil, fmt.Errorf("ctf.CreateChallenge hash flag: %w", err)
+	}
+
+	challenge.FlagHash = flagHash
 
 	if err := s.challengeRepo.Create(ctx, challenge); err != nil {
 		return nil, fmt.Errorf("ctf.CreateChallenge: %w", err)
@@ -345,7 +351,12 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	}
 
 	if normalizedFlag != nil {
-		challenge.FlagHash = utils.HMACFlag(s.cfg.Security.FlagHMACSecret, *normalizedFlag)
+		flagHash, err := utils.HashFlag(*normalizedFlag, s.cfg.PasswordBcryptCost)
+		if err != nil {
+			return nil, fmt.Errorf("ctf.UpdateChallenge hash flag: %w", err)
+		}
+
+		challenge.FlagHash = flagHash
 	}
 
 	if challenge.StackEnabled {
@@ -428,8 +439,7 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		return true, ErrAlreadySolved
 	}
 
-	flagHash := utils.HMACFlag(s.cfg.Security.FlagHMACSecret, flag)
-	correct := utils.SecureCompare(flagHash, challenge.FlagHash)
+	correct := utils.CheckFlag(challenge.FlagHash, flag)
 
 	sub := &models.Submission{
 		UserID:      userID,
