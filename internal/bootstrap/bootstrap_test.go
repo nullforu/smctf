@@ -40,7 +40,7 @@ func newTestLogger(t *testing.T) *logging.Logger {
 func baseBootstrapConfig() config.Config {
 	return config.Config{
 		AppEnv:             "test",
-		PasswordBcryptCost: bcrypt.MinCost,
+		BcryptCost: bcrypt.MinCost,
 		Bootstrap: config.BootstrapConfig{
 			AdminTeamEnabled: true,
 			AdminUserEnabled: true,

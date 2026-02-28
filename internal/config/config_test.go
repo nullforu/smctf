@@ -31,8 +31,8 @@ func TestLoadConfigDefaults(t *testing.T) {
 		t.Error("expected AutoMigrate true")
 	}
 
-	if cfg.PasswordBcryptCost != 12 {
-		t.Errorf("expected PasswordBcryptCost 12, got %d", cfg.PasswordBcryptCost)
+	if cfg.BcryptCost != 12 {
+		t.Errorf("expected BcryptCost 12, got %d", cfg.BcryptCost)
 	}
 
 	if cfg.DB.Host != "localhost" {
@@ -124,8 +124,8 @@ func TestLoadConfigCustomValues(t *testing.T) {
 		t.Error("expected AutoMigrate false")
 	}
 
-	if cfg.PasswordBcryptCost != 10 {
-		t.Errorf("expected PasswordBcryptCost 10, got %d", cfg.PasswordBcryptCost)
+	if cfg.BcryptCost != 10 {
+		t.Errorf("expected BcryptCost 10, got %d", cfg.BcryptCost)
 	}
 
 	if cfg.DB.Host != "db.example.com" {
@@ -279,7 +279,7 @@ func TestLoadConfigS3ValidationErrors(t *testing.T) {
 func TestValidateConfigInvalidS3(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           ":8080",
-		PasswordBcryptCost: bcrypt.DefaultCost,
+		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
 			Port:            5432,
@@ -350,7 +350,7 @@ func TestLoadConfigProductionValidation(t *testing.T) {
 func TestValidateConfigInvalidLogging(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           ":8080",
-		PasswordBcryptCost: bcrypt.DefaultCost,
+		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
 			Port:            5432,
@@ -503,7 +503,7 @@ func TestGetDuration(t *testing.T) {
 func TestValidateConfigEmptyValues(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           "",
-		PasswordBcryptCost: bcrypt.DefaultCost,
+		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
 			Port:            5432,
@@ -543,7 +543,7 @@ func TestValidateConfigEmptyValues(t *testing.T) {
 func TestValidateConfigInvalidDBConfig(t *testing.T) {
 	cfg := Config{
 		HTTPAddr:           ":8080",
-		PasswordBcryptCost: bcrypt.DefaultCost,
+		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "",
 			Port:            0,
@@ -584,7 +584,7 @@ func TestValidateConfigInvalidStackConfig(t *testing.T) {
 	cfg := Config{
 		AppEnv:             "local",
 		HTTPAddr:           ":8080",
-		PasswordBcryptCost: bcrypt.DefaultCost,
+		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
 			Port:            5432,
@@ -646,7 +646,7 @@ func TestValidateConfigAdditionalValidation(t *testing.T) {
 	cfg := Config{
 		AppEnv:             "local",
 		HTTPAddr:           ":8080",
-		PasswordBcryptCost: bcrypt.DefaultCost,
+		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
 			Port:            5432,
@@ -774,7 +774,7 @@ func TestFormatForLog(t *testing.T) {
 		HTTPAddr:           ":8080",
 		ShutdownTimeout:    5 * time.Second,
 		AutoMigrate:        true,
-		PasswordBcryptCost: 10,
+		BcryptCost: 10,
 		DB: DBConfig{
 			Host:            "localhost",
 			Port:            5432,

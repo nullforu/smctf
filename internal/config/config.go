@@ -17,7 +17,7 @@ type Config struct {
 	HTTPAddr           string
 	ShutdownTimeout    time.Duration
 	AutoMigrate        bool
-	PasswordBcryptCost int
+	BcryptCost int
 
 	DB        DBConfig
 	Redis     RedisConfig
@@ -262,7 +262,7 @@ func Load() (Config, error) {
 		HTTPAddr:           httpAddr,
 		ShutdownTimeout:    shutdownTimeout,
 		AutoMigrate:        autoMigrate,
-		PasswordBcryptCost: bcryptCost,
+		BcryptCost: bcryptCost,
 		DB: DBConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            dbPort,
@@ -400,7 +400,7 @@ func validateConfig(cfg Config) error {
 		errs = append(errs, errors.New("HTTP_ADDR must not be empty"))
 	}
 
-	if cfg.PasswordBcryptCost < bcrypt.MinCost || cfg.PasswordBcryptCost > bcrypt.MaxCost {
+	if cfg.BcryptCost < bcrypt.MinCost || cfg.BcryptCost > bcrypt.MaxCost {
 		errs = append(errs, fmt.Errorf("BCRYPT_COST must be between %d and %d", bcrypt.MinCost, bcrypt.MaxCost))
 	}
 
@@ -555,7 +555,7 @@ func FormatForLog(cfg Config) map[string]any {
 		"http_addr":            cfg.HTTPAddr,
 		"shutdown_timeout":     seconds(cfg.ShutdownTimeout),
 		"auto_migrate":         cfg.AutoMigrate,
-		"password_bcrypt_cost": cfg.PasswordBcryptCost,
+		"password_bcrypt_cost": cfg.BcryptCost,
 		"db": map[string]any{
 			"host":              cfg.DB.Host,
 			"port":              cfg.DB.Port,

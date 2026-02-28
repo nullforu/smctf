@@ -64,7 +64,7 @@ func TestMain(m *testing.M) {
 		HTTPAddr:           ":0",
 		ShutdownTimeout:    5 * time.Second,
 		AutoMigrate:        false,
-		PasswordBcryptCost: bcrypt.MinCost,
+		BcryptCost: bcrypt.MinCost,
 		DB:                 dbCfg,
 		Security: config.SecurityConfig{
 			SubmissionWindow: 2 * time.Minute,
@@ -161,7 +161,7 @@ func resetRepoState(t *testing.T) {
 
 func createUserWithTeam(t *testing.T, env repoEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
-	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
+	hash, err := auth.HashPassword(password, env.cfg.BcryptCost)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}

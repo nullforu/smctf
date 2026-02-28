@@ -93,7 +93,7 @@ func ensureAdminUser(ctx context.Context, cfg config.Config, team *models.Team, 
 		username = "admin"
 	}
 
-	hash, err := auth.HashPassword(password, cfg.PasswordBcryptCost)
+	hash, err := auth.HashPassword(password, cfg.BcryptCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash admin password: %w", err)
 	}

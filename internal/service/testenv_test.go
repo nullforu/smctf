@@ -88,7 +88,7 @@ func TestMain(m *testing.M) {
 		HTTPAddr:           ":0",
 		ShutdownTimeout:    5 * time.Second,
 		AutoMigrate:        false,
-		PasswordBcryptCost: bcrypt.MinCost,
+		BcryptCost: bcrypt.MinCost,
 		DB:                 dbCfg,
 		Redis: config.RedisConfig{
 			Addr:     serviceRedisServer.Addr(),
@@ -246,7 +246,7 @@ func skipIfServiceDisabled(t *testing.T) {
 func createUserWithTeam(t *testing.T, env serviceEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 
-	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
+	hash, err := auth.HashPassword(password, env.cfg.BcryptCost)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}

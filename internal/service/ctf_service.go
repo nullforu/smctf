@@ -191,7 +191,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		CreatedAt:           time.Now().UTC(),
 	}
 
-	flagHash, err := utils.HashFlag(flag, s.cfg.PasswordBcryptCost)
+	flagHash, err := utils.HashFlag(flag, s.cfg.BcryptCost)
 	if err != nil {
 		return nil, fmt.Errorf("ctf.CreateChallenge hash flag: %w", err)
 	}
@@ -351,7 +351,7 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	}
 
 	if normalizedFlag != nil {
-		flagHash, err := utils.HashFlag(*normalizedFlag, s.cfg.PasswordBcryptCost)
+		flagHash, err := utils.HashFlag(*normalizedFlag, s.cfg.BcryptCost)
 		if err != nil {
 			return nil, fmt.Errorf("ctf.UpdateChallenge hash flag: %w", err)
 		}
