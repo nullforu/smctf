@@ -64,7 +64,7 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 		return nil, fmt.Errorf("auth.Register lookup: %w", err)
 	}
 
-	hash, err := auth.HashPassword(password, s.cfg.PasswordBcryptCost)
+	hash, err := auth.HashPassword(password, s.cfg.BcryptCost)
 	if err != nil {
 		return nil, fmt.Errorf("auth.Register hash: %w", err)
 	}

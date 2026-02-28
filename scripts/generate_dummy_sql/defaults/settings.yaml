@@ -1,7 +1,6 @@
 output:
   file: "dummy.sql"
 security:
-  flag_hmac_secret_default: "change-me-too"
   bcrypt_cost: 12
 auth:
   default_password: "password123"

@@ -1,6 +1,3 @@
-import hashlib
-import hmac
-
 try:
     import bcrypt
 except ImportError:  # pragma: no cover - runtime dependency
@@ -14,12 +11,11 @@ def _ensure_bcrypt() -> None:
         )
 
 
-def hmac_flag(secret: str, flag: str) -> str:
-    h = hmac.new(secret.encode(), flag.encode(), hashlib.sha256)
-    return h.hexdigest()
-
-
 def hash_password(password: str, cost: int) -> str:
     _ensure_bcrypt()
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=cost))
     return hashed.decode()
+
+
+def hash_flag(flag: str, cost: int) -> str:
+    return hash_password(flag, cost)

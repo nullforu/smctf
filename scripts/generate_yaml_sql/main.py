@@ -23,7 +23,6 @@ from sql_common.yaml_utils import deep_merge, resolve_path
 DEFAULT_OUTPUT_FILE = "output.sql"
 DEFAULT_SETTINGS = {
     "security": {
-        "flag_hmac_secret_default": "change-me-too",
         "bcrypt_cost": 12,
     },
     "constraints": {
@@ -79,13 +78,12 @@ def main(argv: List[str]) -> int:
     security = settings["security"]
     constraints = settings["constraints"]
 
-    flag_secret = os.getenv("FLAG_HMAC_SECRET", security["flag_hmac_secret_default"])
     bcrypt_cost = int(os.getenv("BCRYPT_COST", str(security["bcrypt_cost"])))
     output_file = args.output or DEFAULT_OUTPUT_FILE
 
     teams = generate_teams(data["teams"])
     users = generate_users(data["teams"], bcrypt_cost)
-    challenges = generate_challenges(data["challenges"], constraints, flag_secret)
+    challenges = generate_challenges(data["challenges"], constraints, bcrypt_cost)
 
     write_sql_file(
         output_file,
@@ -93,7 +91,6 @@ def main(argv: List[str]) -> int:
         users,
         challenges,
         {
-            "flag_hmac_secret": flag_secret,
             "bcrypt_cost": bcrypt_cost,
         },
     )

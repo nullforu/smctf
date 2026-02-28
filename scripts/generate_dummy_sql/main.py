@@ -156,7 +156,6 @@ def main(argv: List[str]) -> int:
             raise SystemExit(f"Error: pod spec file not found: {pod_spec_path}")
         stack_pod_spec = load_text_file(resolved_pod_spec_path)
 
-    flag_secret = os.getenv("FLAG_HMAC_SECRET", security["flag_hmac_secret_default"])
     bcrypt_cost = int(os.getenv("BCRYPT_COST", str(security["bcrypt_cost"])))
     output_file = os.getenv("OUTPUT_SQL_FILE", settings["output"]["file"])
     if args.output:
@@ -203,7 +202,7 @@ def main(argv: List[str]) -> int:
         data["challenges"],
         settings["timing"],
         constraints,
-        flag_secret,
+        bcrypt_cost,
         stack_config,
         stack_pod_spec,
         files_config,
@@ -221,7 +220,6 @@ def main(argv: List[str]) -> int:
         data["challenges"],
         settings["timing"],
         settings["probabilities"],
-        flag_secret,
         start_user_id=1,
         skip_first_user=True,
     )
@@ -235,7 +233,6 @@ def main(argv: List[str]) -> int:
         registration_key_uses,
         submissions,
         {
-            "flag_hmac_secret": flag_secret,
             "bcrypt_cost": bcrypt_cost,
             "default_password": auth["default_password"],
             "admin_email": auth["admin"]["email"],

@@ -17,7 +17,7 @@ type Config struct {
 	HTTPAddr           string
 	ShutdownTimeout    time.Duration
 	AutoMigrate        bool
-	PasswordBcryptCost int
+	BcryptCost int
 
 	DB        DBConfig
 	Redis     RedisConfig
@@ -58,7 +58,6 @@ type JWTConfig struct {
 }
 
 type SecurityConfig struct {
-	FlagHMACSecret   string
 	SubmissionWindow time.Duration
 	SubmissionMax    int
 }
@@ -108,10 +107,7 @@ type BootstrapConfig struct {
 	AdminUsername    string
 }
 
-const (
-	defaultJWTSecret  = "change-me"
-	defaultFlagSecret = "change-me-too"
-)
+const defaultJWTSecret = "change-me"
 
 func Load() (Config, error) {
 	var errs []error
@@ -266,7 +262,7 @@ func Load() (Config, error) {
 		HTTPAddr:           httpAddr,
 		ShutdownTimeout:    shutdownTimeout,
 		AutoMigrate:        autoMigrate,
-		PasswordBcryptCost: bcryptCost,
+		BcryptCost: bcryptCost,
 		DB: DBConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            dbPort,
@@ -291,7 +287,6 @@ func Load() (Config, error) {
 			RefreshTTL: jwtRefreshTTL,
 		},
 		Security: SecurityConfig{
-			FlagHMACSecret:   getEnv("FLAG_HMAC_SECRET", defaultFlagSecret),
 			SubmissionWindow: submitWindow,
 			SubmissionMax:    submitMax,
 		},
@@ -405,7 +400,7 @@ func validateConfig(cfg Config) error {
 		errs = append(errs, errors.New("HTTP_ADDR must not be empty"))
 	}
 
-	if cfg.PasswordBcryptCost < bcrypt.MinCost || cfg.PasswordBcryptCost > bcrypt.MaxCost {
+	if cfg.BcryptCost < bcrypt.MinCost || cfg.BcryptCost > bcrypt.MaxCost {
 		errs = append(errs, fmt.Errorf("BCRYPT_COST must be between %d and %d", bcrypt.MinCost, bcrypt.MaxCost))
 	}
 
@@ -442,9 +437,6 @@ func validateConfig(cfg Config) error {
 	}
 
 	// Security validation
-	if cfg.Security.FlagHMACSecret == "" {
-		errs = append(errs, errors.New("FLAG_HMAC_SECRET must not be empty"))
-	}
 	if cfg.Security.SubmissionWindow <= 0 || cfg.Security.SubmissionMax <= 0 {
 		errs = append(errs, errors.New("SUBMIT_WINDOW and SUBMIT_MAX must be positive"))
 	}
@@ -453,9 +445,6 @@ func validateConfig(cfg Config) error {
 	if cfg.AppEnv == "production" {
 		if cfg.JWT.Secret == defaultJWTSecret {
 			errs = append(errs, errors.New("JWT_SECRET must be set in production"))
-		}
-		if cfg.Security.FlagHMACSecret == defaultFlagSecret {
-			errs = append(errs, errors.New("FLAG_HMAC_SECRET must be set in production"))
 		}
 	}
 
@@ -518,7 +507,6 @@ func Redact(cfg Config) Config {
 	cfg.DB.Password = redact(cfg.DB.Password)
 	cfg.Redis.Password = redact(cfg.Redis.Password)
 	cfg.JWT.Secret = redact(cfg.JWT.Secret)
-	cfg.Security.FlagHMACSecret = redact(cfg.Security.FlagHMACSecret)
 	cfg.S3.AccessKeyID = redact(cfg.S3.AccessKeyID)
 	cfg.S3.SecretAccessKey = redact(cfg.S3.SecretAccessKey)
 	cfg.Stack.ProvisionerAPIKey = redact(cfg.Stack.ProvisionerAPIKey)
@@ -567,7 +555,7 @@ func FormatForLog(cfg Config) map[string]any {
 		"http_addr":            cfg.HTTPAddr,
 		"shutdown_timeout":     seconds(cfg.ShutdownTimeout),
 		"auto_migrate":         cfg.AutoMigrate,
-		"password_bcrypt_cost": cfg.PasswordBcryptCost,
+		"bcrypt_cost":          cfg.BcryptCost,
 		"db": map[string]any{
 			"host":              cfg.DB.Host,
 			"port":              cfg.DB.Port,
@@ -592,7 +580,6 @@ func FormatForLog(cfg Config) map[string]any {
 			"refresh_ttl": seconds(cfg.JWT.RefreshTTL),
 		},
 		"security": map[string]any{
-			"flag_hmac_secret":  cfg.Security.FlagHMACSecret,
 			"submission_window": seconds(cfg.Security.SubmissionWindow),
 			"submission_max":    cfg.Security.SubmissionMax,
 		},

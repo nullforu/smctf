@@ -91,7 +91,7 @@ func TestMain(m *testing.M) {
 		HTTPAddr:           ":0",
 		ShutdownTimeout:    5 * time.Second,
 		AutoMigrate:        false,
-		PasswordBcryptCost: bcrypt.MinCost,
+		BcryptCost: bcrypt.MinCost,
 		DB:                 dbCfg,
 		Redis: config.RedisConfig{
 			Addr:     handlerRedisServer.Addr(),
@@ -106,7 +106,6 @@ func TestMain(m *testing.M) {
 			RefreshTTL: 24 * time.Hour,
 		},
 		Security: config.SecurityConfig{
-			FlagHMACSecret:   "test-flag-secret",
 			SubmissionWindow: 2 * time.Minute,
 			SubmissionMax:    5,
 		},
@@ -290,7 +289,7 @@ func createHandlerUser(t *testing.T, env handlerEnv, email, username, password, 
 func createHandlerUserWithTeam(t *testing.T, env handlerEnv, email, username, password, role string, teamID int64) *models.User {
 	t.Helper()
 
-	hash, err := auth.HashPassword(password, env.cfg.PasswordBcryptCost)
+	hash, err := auth.HashPassword(password, env.cfg.BcryptCost)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -374,10 +373,16 @@ func createHandlerChallenge(t *testing.T, env handlerEnv, title string, points i
 		Category:      "Misc",
 		Points:        points,
 		MinimumPoints: points,
-		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, flag),
 		IsActive:      active,
 		CreatedAt:     time.Now().UTC(),
 	}
+
+	hash, err := utils.HashFlag(flag, bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash flag: %v", err)
+	}
+
+	challenge.FlagHash = hash
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
 		t.Fatalf("create challenge: %v", err)

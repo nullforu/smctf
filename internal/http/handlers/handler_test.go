@@ -27,6 +27,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func newJSONContext(t *testing.T, method, path string, body any) (*gin.Context, *httptest.ResponseRecorder) {
@@ -1114,7 +1115,6 @@ func createHandlerStackChallenge(t *testing.T, env handlerEnv, title string) *mo
 		Category:      "Web",
 		Points:        100,
 		MinimumPoints: 100,
-		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag"),
 		StackEnabled:  true,
 		StackTargetPorts: stack.TargetPortSpecs{
 			{ContainerPort: 80, Protocol: "TCP"},
@@ -1123,6 +1123,11 @@ func createHandlerStackChallenge(t *testing.T, env handlerEnv, title string) *mo
 		IsActive:     true,
 		CreatedAt:    time.Now().UTC(),
 	}
+	hash, err := utils.HashFlag("flag", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash flag: %v", err)
+	}
+	challenge.FlagHash = hash
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
 		t.Fatalf("create challenge: %v", err)

@@ -36,7 +36,6 @@ def write_sql_file(
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("-- smctf Dummy Data\n")
         f.write(f"-- Generated at: {datetime.now().isoformat()}\n")
-        f.write(f"-- FLAG_HMAC_SECRET: {meta['flag_hmac_secret']}\n")
         f.write(f"-- BCRYPT_COST: {meta['bcrypt_cost']}\n")
         f.write(f"-- Default password for all users: {meta['default_password']}\n")
         if meta.get("include_admin", True):

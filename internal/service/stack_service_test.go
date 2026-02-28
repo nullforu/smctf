@@ -11,6 +11,8 @@ import (
 	"smctf/internal/repo"
 	"smctf/internal/stack"
 	"smctf/internal/utils"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func createStackChallenge(t *testing.T, env serviceEnv, title string) *models.Challenge {
@@ -22,7 +24,6 @@ func createStackChallenge(t *testing.T, env serviceEnv, title string) *models.Ch
 		Category:      "Web",
 		Points:        100,
 		MinimumPoints: 100,
-		FlagHash:      utils.HMACFlag(env.cfg.Security.FlagHMACSecret, "flag"),
 		StackEnabled:  true,
 		StackTargetPorts: stack.TargetPortSpecs{
 			{ContainerPort: 80, Protocol: "TCP"},
@@ -31,6 +32,11 @@ func createStackChallenge(t *testing.T, env serviceEnv, title string) *models.Ch
 		IsActive:     true,
 		CreatedAt:    time.Now().UTC(),
 	}
+	hash, err := utils.HashFlag("flag", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash flag: %v", err)
+	}
+	challenge.FlagHash = hash
 
 	if err := env.challengeRepo.Create(context.Background(), challenge); err != nil {
 		t.Fatalf("create challenge: %v", err)
