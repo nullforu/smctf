@@ -294,7 +294,8 @@ func TestScoreboardBusRunDebounce(t *testing.T) {
 		teamTimeline:    []models.TeamTimelineSubmission{},
 	}
 
-	bus, client, cleanup := newTestBus(t, score, nil)
+	divReader := fakeDivisionReader{divisions: []models.Division{{ID: 1, Name: "A"}}}
+	bus, client, cleanup := newTestBus(t, score, divReader)
 	defer cleanup()
 
 	ctx := t.Context()

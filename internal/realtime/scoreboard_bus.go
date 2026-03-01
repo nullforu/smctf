@@ -231,12 +231,12 @@ func randomToken() string {
 }
 
 func (b *ScoreboardBus) rebuildCaches(ctx context.Context, divisionIDs []int64) error {
-	if b.divisions == nil {
-		return nil
-	}
-
 	uniqueIDs := uniqueSortedDivisionIDs(divisionIDs)
 	if len(uniqueIDs) == 0 {
+		if b.divisions == nil {
+			return fmt.Errorf("scoreboard rebuild requires division reader")
+		}
+
 		divisions, err := b.divisions.ListDivisions(ctx)
 		if err != nil {
 			return err
