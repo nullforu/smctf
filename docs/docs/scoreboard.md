@@ -167,6 +167,44 @@ data has been rebuilt and cached. This endpoint is public (no auth).
   `/api/leaderboard`, `/api/leaderboard/teams`, `/api/timeline`, and
   `/api/timeline/teams` with the same `division_id`.
 
+Payload notes:
+
+- `division_ids` is included when the rebuild targets specific divisions.
+- If `division_ids` is omitted, the rebuild applies to all divisions.
+- `division_ids` may contain multiple IDs when the server debounces events and merges
+  updates for more than one division.
+- `scope` is `"division"` when `division_ids` is present, otherwise `"all"`.
+- `reason` may be `"batch"` when multiple event reasons were merged during debounce.
+
+Payload schema:
+
+```json
+{
+    "scope": "division",
+    "reason": "submission_correct",
+    "division_ids": [1, 2],
+    "ts": "2026-02-27T18:00:00Z"
+}
+```
+
+## Scoreboard-Affecting APIs
+
+The following API actions trigger a scoreboard SSE event. Each event includes a
+`reason` and either `division_ids` (division-scoped) or `scope: "all"`.
+
+| Action              | API                                  | Reason                | Scope    | Notes                                          |
+| ------------------- | ------------------------------------ | --------------------- | -------- | ---------------------------------------------- |
+| User registration   | `POST /api/register`                 | `user_registered`     | division | Uses the new user's division.                  |
+| User profile update | `PUT /api/me`                        | `user_profile_update` | division | Uses the current user's division.              |
+| Correct submission  | `POST /api/challenges/{id}/submit`   | `submission_correct`  | division | Uses the submitting user's division.           |
+| Challenge created   | `POST /api/admin/challenges`         | `challenge_created`   | all      | Challenges are shared across divisions.        |
+| Challenge updated   | `PUT /api/admin/challenges/{id}`     | `challenge_updated`   | all      | Challenges are shared across divisions.        |
+| Challenge deleted   | `DELETE /api/admin/challenges/{id}`  | `challenge_deleted`   | all      | Challenges are shared across divisions.        |
+| Move user team      | `PUT /api/admin/users/{id}/team`     | `user_team_moved`     | division | Includes both old and new division if changed. |
+| Block user          | `POST /api/admin/users/{id}/block`   | `user_blocked`        | division | Uses the affected user's division.             |
+| Unblock user        | `POST /api/admin/users/{id}/unblock` | `user_unblocked`      | division | Uses the affected user's division.             |
+| Create team         | `POST /api/admin/teams`              | `team_created`        | division | Uses the new team's division.                  |
+
 Example stream:
 
 ```
@@ -174,7 +212,10 @@ event: ready
 data: {}
 
 event: scoreboard
-data: {"scope":"all","reason":"submission_correct","ts":"2026-02-27T18:00:00Z"}
+data: {"scope":"division","reason":"submission_correct","division_ids":[1],"ts":"2026-02-27T18:00:00Z"}
+
+event: scoreboard
+data: {"scope":"division","reason":"batch","division_ids":[1,2],"ts":"2026-02-27T18:00:01Z"}
 ```
 
 ### Client Reconnect
@@ -190,11 +231,27 @@ let es
 const connect = () => {
     es = new EventSource('/api/scoreboard/stream')
 
-    es.addEventListener('scoreboard', () => {
-        fetch('/api/leaderboard?division_id=1')
-        fetch('/api/leaderboard/teams?division_id=1')
-        fetch('/api/timeline?division_id=1')
-        fetch('/api/timeline/teams?division_id=1')
+    es.addEventListener('scoreboard', (event) => {
+        const payload = JSON.parse(event.data || '{}')
+
+        if (payload.scope === 'all' || !payload.division_ids || payload.division_ids.length === 0) {
+            const divisions = [1, 2] // for example, fetch division list from /api/divisions
+
+            divisions.forEach((divisionId) => {
+                fetch(`/api/leaderboard?division_id=${divisionId}`)
+                fetch(`/api/leaderboard/teams?division_id=${divisionId}`)
+                fetch(`/api/timeline?division_id=${divisionId}`)
+                fetch(`/api/timeline/teams?division_id=${divisionId}`)
+            })
+            return
+        }
+
+        payload.division_ids.forEach((divisionId) => {
+            fetch(`/api/leaderboard?division_id=${divisionId}`)
+            fetch(`/api/leaderboard/teams?division_id=${divisionId}`)
+            fetch(`/api/timeline?division_id=${divisionId}`)
+            fetch(`/api/timeline/teams?division_id=${divisionId}`)
+        })
     })
 
     es.onerror = () => {

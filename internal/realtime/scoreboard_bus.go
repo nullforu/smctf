@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"smctf/internal/config"
@@ -23,9 +24,10 @@ const (
 )
 
 type ScoreboardEvent struct {
-	Scope  string    `json:"scope"`
-	Reason string    `json:"reason"`
-	TS     time.Time `json:"ts"`
+	Scope       string    `json:"scope"`
+	Reason      string    `json:"reason"`
+	TS          time.Time `json:"ts"`
+	DivisionIDs []int64   `json:"division_ids,omitempty"`
 }
 
 type ScoreboardBus struct {
@@ -128,8 +130,8 @@ func (b *ScoreboardBus) run(ctx context.Context, pubsub *redis.PubSub, rebuilt *
 	}()
 
 	var (
-		timer       *time.Timer
-		lastPayload string
+		timer   *time.Timer
+		pending pendingScoreboardUpdate
 	)
 
 	for {
@@ -140,7 +142,9 @@ func (b *ScoreboardBus) run(ctx context.Context, pubsub *redis.PubSub, rebuilt *
 			}
 			return
 		case payload := <-b.trigger:
-			lastPayload = payload
+			event, ok := parseScoreboardEvent(payload)
+			pending.merge(event, ok)
+
 			if timer == nil {
 				timer = time.NewTimer(b.debounce)
 				continue
@@ -165,12 +169,14 @@ func (b *ScoreboardBus) run(ctx context.Context, pubsub *redis.PubSub, rebuilt *
 				timer = nil
 			}
 
-			b.handleEvent(ctx, lastPayload)
+			event := pending.build()
+			pending.reset()
+			b.handleEvent(ctx, event)
 		}
 	}
 }
 
-func (b *ScoreboardBus) handleEvent(ctx context.Context, payload string) {
+func (b *ScoreboardBus) handleEvent(ctx context.Context, event ScoreboardEvent) {
 	locked, token := b.acquireLock(ctx)
 	if !locked {
 		return
@@ -179,13 +185,18 @@ func (b *ScoreboardBus) handleEvent(ctx context.Context, payload string) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	if err := b.rebuildCaches(ctx); err != nil {
+	if err := b.rebuildCaches(ctx, event.DivisionIDs); err != nil {
 		b.logger.Warn("leaderboard rebuild failed", slog.Any("error", err))
 		b.releaseLock(ctx, token)
 		return
 	}
 
 	b.releaseLock(ctx, token)
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
 
 	_ = b.redis.Publish(ctx, scoreboardRebuiltChannel, payload).Err()
 }
@@ -219,22 +230,29 @@ func randomToken() string {
 	return hex.EncodeToString(buf)
 }
 
-func (b *ScoreboardBus) rebuildCaches(ctx context.Context) error {
-	if err := b.rebuildDivisionCaches(ctx, nil); err != nil {
-		return err
-	}
-
+func (b *ScoreboardBus) rebuildCaches(ctx context.Context, divisionIDs []int64) error {
 	if b.divisions == nil {
 		return nil
 	}
 
-	divisions, err := b.divisions.ListDivisions(ctx)
-	if err != nil {
-		return err
+	uniqueIDs := uniqueSortedDivisionIDs(divisionIDs)
+	if len(uniqueIDs) == 0 {
+		divisions, err := b.divisions.ListDivisions(ctx)
+		if err != nil {
+			return err
+		}
+
+		for i := range divisions {
+			id := divisions[i].ID
+			if err := b.rebuildDivisionCaches(ctx, &id); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	for i := range divisions {
-		id := divisions[i].ID
+	for _, id := range uniqueIDs {
 		if err := b.rebuildDivisionCaches(ctx, &id); err != nil {
 			return err
 		}
@@ -308,4 +326,128 @@ func (b *ScoreboardBus) storeJSON(ctx context.Context, key string, value any, tt
 	}
 
 	return nil
+}
+
+type pendingScoreboardUpdate struct {
+	all        bool
+	reasons    map[string]struct{}
+	lastReason string
+	divisions  map[int64]struct{}
+}
+
+func parseScoreboardEvent(payload string) (ScoreboardEvent, bool) {
+	var event ScoreboardEvent
+	if err := json.Unmarshal([]byte(payload), &event); err != nil {
+		return ScoreboardEvent{Scope: "all"}, false
+	}
+
+	if event.Scope == "" && len(event.DivisionIDs) == 0 {
+		event.Scope = "all"
+	}
+
+	return event, true
+}
+
+func (p *pendingScoreboardUpdate) merge(event ScoreboardEvent, ok bool) {
+	if !ok {
+		p.all = true
+		return
+	}
+
+	if event.Scope == "all" || len(event.DivisionIDs) == 0 {
+		p.all = true
+	} else {
+		if p.divisions == nil {
+			p.divisions = make(map[int64]struct{})
+		}
+
+		for _, id := range event.DivisionIDs {
+			if id > 0 {
+				p.divisions[id] = struct{}{}
+			}
+		}
+	}
+
+	if event.Reason != "" {
+		p.lastReason = event.Reason
+		if p.reasons == nil {
+			p.reasons = make(map[string]struct{})
+		}
+
+		p.reasons[event.Reason] = struct{}{}
+	}
+}
+
+func (p *pendingScoreboardUpdate) build() ScoreboardEvent {
+	reason := p.lastReason
+	if len(p.reasons) > 1 {
+		reason = "batch"
+	}
+
+	if reason == "" {
+		reason = "scoreboard_updated"
+	}
+
+	if p.all {
+		return ScoreboardEvent{
+			Scope:  "all",
+			Reason: reason,
+			TS:     time.Now().UTC(),
+		}
+	}
+
+	divisionIDs := make([]int64, 0, len(p.divisions))
+	for id := range p.divisions {
+		divisionIDs = append(divisionIDs, id)
+	}
+
+	divisionIDs = uniqueSortedDivisionIDs(divisionIDs)
+
+	scope := "division"
+	if len(divisionIDs) > 1 {
+		scope = "division"
+	}
+
+	return ScoreboardEvent{
+		Scope:       scope,
+		Reason:      reason,
+		TS:          time.Now().UTC(),
+		DivisionIDs: divisionIDs,
+	}
+}
+
+func (p *pendingScoreboardUpdate) reset() {
+	p.all = false
+	p.reasons = nil
+	p.lastReason = ""
+	p.divisions = nil
+}
+
+func uniqueSortedDivisionIDs(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+
+		if _, exists := seen[id]; exists {
+			continue
+		}
+
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+
+	if len(out) <= 1 {
+		return out
+	}
+
+	slices.Sort(out)
+	return out
 }

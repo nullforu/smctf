@@ -2288,7 +2288,7 @@ func TestHandlerNotifyScoreboardChangedPublishesEvent(t *testing.T) {
 	sub := env.redis.Subscribe(ctx, "scoreboard.events")
 	defer sub.Close()
 
-	env.handler.notifyScoreboardChanged(ctx, "test_reason")
+	env.handler.notifyScoreboardChanged(ctx, "test_reason", env.defaultDivisionID)
 
 	waitForCacheClear(t, env,
 		cacheKeyForDivision(env, "leaderboard:users"),
@@ -2306,8 +2306,63 @@ func TestHandlerNotifyScoreboardChangedPublishesEvent(t *testing.T) {
 	if err := json.Unmarshal([]byte(msg.Payload), &got); err != nil {
 		t.Fatalf("decode event: %v", err)
 	}
-	if got.Reason != "test_reason" || got.Scope != "all" {
+	if got.Reason != "test_reason" || got.Scope != "division" || len(got.DivisionIDs) != 1 || got.DivisionIDs[0] != env.defaultDivisionID {
 		t.Fatalf("unexpected event: %+v", got)
+	}
+}
+
+func TestHandlerNotifyScoreboardChangedPublishesMultipleDivisions(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	other := models.Division{Name: "Other", CreatedAt: time.Now().UTC()}
+	if err := env.divisionRepo.Create(context.Background(), &other); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	cacheA := cacheKeyWithDivision("leaderboard:users", &env.defaultDivisionID)
+	cacheB := cacheKeyWithDivision("leaderboard:users", &other.ID)
+	setCachePayload(t, env, cacheA, []byte(`{"challenges":[],"entries":[]}`))
+	setCachePayload(t, env, cacheB, []byte(`{"challenges":[],"entries":[]}`))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	sub := env.redis.Subscribe(ctx, "scoreboard.events")
+	defer sub.Close()
+
+	env.handler.notifyScoreboardChanged(ctx, "test_multi", env.defaultDivisionID, other.ID, env.defaultDivisionID)
+
+	waitForCacheClear(t, env, cacheA, cacheB)
+
+	msg, err := sub.ReceiveMessage(ctx)
+	if err != nil {
+		t.Fatalf("receive event: %v", err)
+	}
+
+	var got realtime.ScoreboardEvent
+	if err := json.Unmarshal([]byte(msg.Payload), &got); err != nil {
+		t.Fatalf("decode event: %v", err)
+	}
+
+	if got.Scope != "division" || got.Reason != "test_multi" {
+		t.Fatalf("unexpected event: %+v", got)
+	}
+
+	if len(got.DivisionIDs) != 2 {
+		t.Fatalf("expected 2 divisions, got %v", got.DivisionIDs)
+	}
+
+	seen := map[int64]struct{}{}
+	for _, id := range got.DivisionIDs {
+		seen[id] = struct{}{}
+	}
+
+	if _, ok := seen[env.defaultDivisionID]; !ok {
+		t.Fatalf("missing default division id")
+	}
+
+	if _, ok := seen[other.ID]; !ok {
+		t.Fatalf("missing other division id")
 	}
 }
 
