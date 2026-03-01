@@ -280,6 +280,7 @@ def generate_registration_keys(
 def generate_submissions(
     users: List[Tuple[str, str, str, str, str, Optional[int]]],
     challenges: List[Dict[str, Any]],
+    team_division_map: Optional[Dict[int, str]],
     timing: Dict[str, Any],
     probabilities: Dict[str, Any],
     start_user_id: int = 1,
@@ -291,6 +292,17 @@ def generate_submissions(
     )
 
     user_team_map = {start_user_id + idx: user[5] for idx, user in enumerate(users)}
+    team_division_map = team_division_map or {}
+    user_division_map: Dict[int, str] = {}
+    for user_id, team_id in user_team_map.items():
+        if team_id is None:
+            raise SystemExit(f"Error: user id {user_id} has no team_id")
+        division = team_division_map.get(team_id)
+        if not isinstance(division, str) or not division.strip():
+            raise SystemExit(
+                f"Error: team id {team_id} has no valid division for user id {user_id}"
+            )
+        user_division_map[user_id] = division
     team_solved = {team_id: set() for team_id in set(user_team_map.values())}
 
     prob = probabilities["submissions"]
@@ -410,10 +422,12 @@ def generate_submissions(
     first_blood_seen = set()
     flagged = []
     for user_id, chal_id, provided, correct, submitted_at in submissions:
+        division = user_division_map.get(user_id, "Unknown")
         is_first_blood = False
-        if correct and chal_id not in first_blood_seen:
+        key = (division, chal_id)
+        if correct and key not in first_blood_seen:
             is_first_blood = True
-            first_blood_seen.add(chal_id)
+            first_blood_seen.add(key)
         flagged.append(
             (
                 user_id,

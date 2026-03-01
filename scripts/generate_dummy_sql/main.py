@@ -285,9 +285,18 @@ def main(argv: List[str]) -> int:
         counts["registration_keys"],
         created_by=1,
     )
+    team_division_map = {
+        team_id: team[1] for team_id, team in zip(team_ids, teams, strict=True)
+    }
+    for team_id, division in team_division_map.items():
+        if not isinstance(division, str) or not division.strip():
+            raise SystemExit(
+                f"Error: team id {team_id} is missing a valid division assignment"
+            )
     submissions = generate_submissions(
         users,
         data["challenges"],
+        team_division_map,
         settings["timing"],
         settings["probabilities"],
         start_user_id=1,

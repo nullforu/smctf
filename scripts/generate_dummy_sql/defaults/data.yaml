@@ -61,7 +61,6 @@ users:
     username: "jinho.kang"
 
 divisions:
-  - "Admin"
   - "고등부"
   - "대학부"
 
