@@ -160,6 +160,7 @@ Notes:
 - Password hashes are excluded from user records.
 - Challenge flag data is excluded from the report.
 - Submission provided flag data are excluded from the report.
+- Challenge `points` in the report reflect global dynamic scoring (all divisions combined), not per-division scoring.
 - See [report.schema.json](./report.schema.json) for the full schema. (there may be slight differences from the actual response)
 
 Errors:
