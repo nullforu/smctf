@@ -101,19 +101,24 @@ func (r *TeamRepo) ListWithStats(ctx context.Context, divisionID *int64) ([]mode
 
 		pointsByDivision[*divisionID] = points
 	} else {
+		divisionIDs := make([]int64, 0)
+		seen := make(map[int64]struct{})
+
 		for _, row := range rows {
-			if _, exists := pointsByDivision[row.DivisionID]; exists {
+			if _, exists := seen[row.DivisionID]; exists {
 				continue
 			}
 
-			id := row.DivisionID
-			points, err := dynamicPointsMap(ctx, r.db, &id)
-			if err != nil {
-				return nil, wrapError("teamRepo.ListWithStats points", err)
-			}
-
-			pointsByDivision[id] = points
+			seen[row.DivisionID] = struct{}{}
+			divisionIDs = append(divisionIDs, row.DivisionID)
 		}
+
+		points, err := dynamicPointsMapForDivisions(ctx, r.db, divisionIDs)
+		if err != nil {
+			return nil, wrapError("teamRepo.ListWithStats points", err)
+		}
+
+		pointsByDivision = points
 	}
 
 	scores := make(map[int64]int, len(rows))
