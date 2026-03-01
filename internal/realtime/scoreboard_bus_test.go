@@ -15,7 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func newTestBus(t *testing.T, score ScoreboardReader) (*ScoreboardBus, *redis.Client, func()) {
+func newTestBus(t *testing.T, score ScoreboardReader, divisions DivisionReader) (*ScoreboardBus, *redis.Client, func()) {
 	t.Helper()
 
 	redisServer, err := miniredis.Run()
@@ -33,7 +33,7 @@ func newTestBus(t *testing.T, score ScoreboardReader) (*ScoreboardBus, *redis.Cl
 	cfg := config.Config{Cache: config.CacheConfig{LeaderboardTTL: time.Minute, TimelineTTL: time.Minute}}
 
 	hub := NewSSEHub()
-	bus := NewScoreboardBus(client, cfg, score, logger, hub)
+	bus := NewScoreboardBus(client, cfg, score, divisions, logger, hub)
 
 	cleanup := func() {
 		_ = client.Close()
@@ -45,7 +45,7 @@ func newTestBus(t *testing.T, score ScoreboardReader) (*ScoreboardBus, *redis.Cl
 }
 
 func TestScoreboardBusPublish(t *testing.T) {
-	bus, client, cleanup := newTestBus(t, nil)
+	bus, client, cleanup := newTestBus(t, nil, nil)
 	defer cleanup()
 
 	ctx := context.Background()
@@ -71,7 +71,7 @@ func TestScoreboardBusPublish(t *testing.T) {
 }
 
 func TestScoreboardBusAcquireReleaseLock(t *testing.T) {
-	bus, client, cleanup := newTestBus(t, nil)
+	bus, client, cleanup := newTestBus(t, nil, nil)
 	defer cleanup()
 
 	ctx := context.Background()
@@ -96,7 +96,7 @@ func TestScoreboardBusAcquireReleaseLock(t *testing.T) {
 }
 
 func TestScoreboardBusRebuiltBroadcast(t *testing.T) {
-	bus, client, cleanup := newTestBus(t, nil)
+	bus, client, cleanup := newTestBus(t, nil, nil)
 	defer cleanup()
 
 	ctx := t.Context()
@@ -121,7 +121,7 @@ func TestScoreboardBusRebuiltBroadcast(t *testing.T) {
 }
 
 func TestScoreboardBusHandleEventSkipsWhenLocked(t *testing.T) {
-	bus, client, cleanup := newTestBus(t, nil)
+	bus, client, cleanup := newTestBus(t, nil, nil)
 	defer cleanup()
 
 	ctx := context.Background()
@@ -132,7 +132,7 @@ func TestScoreboardBusHandleEventSkipsWhenLocked(t *testing.T) {
 	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
 	defer sub.Close()
 
-	bus.handleEvent(ctx, "{\"scope\":\"all\"}")
+	bus.handleEvent(ctx, ScoreboardEvent{Scope: "all"})
 
 	select {
 	case <-sub.Channel():
@@ -150,22 +150,49 @@ type fakeScoreboard struct {
 	teamLeaderboardErr error
 	userTimelineErr    error
 	teamTimelineErr    error
+	leaderboardCalls   []int64
+	teamCalls          []int64
+	userTimelineCalls  []int64
+	teamTimelineCalls  []int64
 }
 
-func (f *fakeScoreboard) Leaderboard(ctx context.Context) (models.LeaderboardResponse, error) {
+type fakeDivisionReader struct {
+	divisions []models.Division
+	err       error
+}
+
+func (f fakeDivisionReader) ListDivisions(ctx context.Context) ([]models.Division, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.divisions, nil
+}
+
+func (f *fakeScoreboard) Leaderboard(ctx context.Context, divisionID *int64) (models.LeaderboardResponse, error) {
+	f.leaderboardCalls = append(f.leaderboardCalls, divisionIDValue(divisionID))
 	return f.leaderboard, f.leaderboardErr
 }
 
-func (f *fakeScoreboard) TeamLeaderboard(ctx context.Context) (models.TeamLeaderboardResponse, error) {
+func (f *fakeScoreboard) TeamLeaderboard(ctx context.Context, divisionID *int64) (models.TeamLeaderboardResponse, error) {
+	f.teamCalls = append(f.teamCalls, divisionIDValue(divisionID))
 	return f.teamLeaderboard, f.teamLeaderboardErr
 }
 
-func (f *fakeScoreboard) UserTimeline(ctx context.Context, since *time.Time) ([]models.TimelineSubmission, error) {
+func (f *fakeScoreboard) UserTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TimelineSubmission, error) {
+	f.userTimelineCalls = append(f.userTimelineCalls, divisionIDValue(divisionID))
 	return f.userTimeline, f.userTimelineErr
 }
 
-func (f *fakeScoreboard) TeamTimeline(ctx context.Context, since *time.Time) ([]models.TeamTimelineSubmission, error) {
+func (f *fakeScoreboard) TeamTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TeamTimelineSubmission, error) {
+	f.teamTimelineCalls = append(f.teamTimelineCalls, divisionIDValue(divisionID))
 	return f.teamTimeline, f.teamTimelineErr
+}
+
+func divisionIDValue(id *int64) int64 {
+	if id == nil {
+		return 0
+	}
+	return *id
 }
 
 func TestScoreboardBusHandleEventRebuildsAndPublishes(t *testing.T) {
@@ -176,14 +203,15 @@ func TestScoreboardBusHandleEventRebuildsAndPublishes(t *testing.T) {
 		teamTimeline:    []models.TeamTimelineSubmission{},
 	}
 
-	bus, client, cleanup := newTestBus(t, score)
+	divReader := fakeDivisionReader{divisions: []models.Division{{ID: 1, Name: "A"}}}
+	bus, client, cleanup := newTestBus(t, score, divReader)
 	defer cleanup()
 
 	ctx := context.Background()
 	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
 	defer sub.Close()
 
-	bus.handleEvent(ctx, `{"scope":"all","reason":"test"}`)
+	bus.handleEvent(ctx, ScoreboardEvent{Scope: "division", Reason: "test", DivisionIDs: []int64{1}})
 
 	msg, err := sub.ReceiveMessage(ctx)
 	if err != nil {
@@ -194,19 +222,19 @@ func TestScoreboardBusHandleEventRebuildsAndPublishes(t *testing.T) {
 		t.Fatalf("expected rebuilt payload")
 	}
 
-	if _, err := client.Get(ctx, "leaderboard:users").Result(); err != nil {
+	if _, err := client.Get(ctx, "leaderboard:users:div:1").Result(); err != nil {
 		t.Fatalf("expected leaderboard cache, got %v", err)
 	}
 
-	if _, err := client.Get(ctx, "leaderboard:teams").Result(); err != nil {
+	if _, err := client.Get(ctx, "leaderboard:teams:div:1").Result(); err != nil {
 		t.Fatalf("expected team leaderboard cache, got %v", err)
 	}
 
-	if _, err := client.Get(ctx, "timeline:users").Result(); err != nil {
+	if _, err := client.Get(ctx, "timeline:users:div:1").Result(); err != nil {
 		t.Fatalf("expected timeline cache, got %v", err)
 	}
 
-	if _, err := client.Get(ctx, "timeline:teams").Result(); err != nil {
+	if _, err := client.Get(ctx, "timeline:teams:div:1").Result(); err != nil {
 		t.Fatalf("expected team timeline cache, got %v", err)
 	}
 }
@@ -216,14 +244,15 @@ func TestScoreboardBusHandleEventRebuildFails(t *testing.T) {
 		leaderboardErr: errors.New("boom"),
 	}
 
-	bus, client, cleanup := newTestBus(t, score)
+	divReader := fakeDivisionReader{divisions: []models.Division{{ID: 1, Name: "A"}}}
+	bus, client, cleanup := newTestBus(t, score, divReader)
 	defer cleanup()
 
 	ctx := context.Background()
 	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
 	defer sub.Close()
 
-	bus.handleEvent(ctx, `{"scope":"all","reason":"test"}`)
+	bus.handleEvent(ctx, ScoreboardEvent{Scope: "all", Reason: "test"})
 
 	select {
 	case <-sub.Channel():
@@ -233,7 +262,7 @@ func TestScoreboardBusHandleEventRebuildFails(t *testing.T) {
 }
 
 func TestScoreboardBusStoreJSONError(t *testing.T) {
-	bus, _, cleanup := newTestBus(t, nil)
+	bus, _, cleanup := newTestBus(t, nil, nil)
 	defer cleanup()
 
 	ctx := context.Background()
@@ -248,10 +277,11 @@ func TestScoreboardBusRebuildCachesError(t *testing.T) {
 		leaderboardErr: errors.New("boom"),
 	}
 
-	bus, _, cleanup := newTestBus(t, score)
+	divReader := fakeDivisionReader{divisions: []models.Division{{ID: 1, Name: "A"}}}
+	bus, _, cleanup := newTestBus(t, score, divReader)
 	defer cleanup()
 
-	if err := bus.rebuildCaches(context.Background()); err == nil {
+	if err := bus.rebuildCaches(context.Background(), []int64{1}); err == nil {
 		t.Fatalf("expected rebuild error")
 	}
 }
@@ -264,7 +294,8 @@ func TestScoreboardBusRunDebounce(t *testing.T) {
 		teamTimeline:    []models.TeamTimelineSubmission{},
 	}
 
-	bus, client, cleanup := newTestBus(t, score)
+	divReader := fakeDivisionReader{divisions: []models.Division{{ID: 1, Name: "A"}}}
+	bus, client, cleanup := newTestBus(t, score, divReader)
 	defer cleanup()
 
 	ctx := t.Context()
@@ -288,5 +319,114 @@ func TestScoreboardBusRunDebounce(t *testing.T) {
 
 	if msg.Payload == "" {
 		t.Fatalf("expected rebuilt payload")
+	}
+}
+
+func TestScoreboardBusRunDebounceMergesDivisions(t *testing.T) {
+	score := &fakeScoreboard{
+		leaderboard:     models.LeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.LeaderboardEntry{}},
+		teamLeaderboard: models.TeamLeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.TeamLeaderboardEntry{}},
+		userTimeline:    []models.TimelineSubmission{},
+		teamTimeline:    []models.TeamTimelineSubmission{},
+	}
+
+	divReader := fakeDivisionReader{divisions: []models.Division{{ID: 1, Name: "A"}, {ID: 2, Name: "B"}}}
+	bus, client, cleanup := newTestBus(t, score, divReader)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	bus.Start(ctx)
+
+	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
+	defer sub.Close()
+
+	payloadA, _ := json.Marshal(ScoreboardEvent{Scope: "division", Reason: "a", DivisionIDs: []int64{1}})
+	payloadB, _ := json.Marshal(ScoreboardEvent{Scope: "division", Reason: "b", DivisionIDs: []int64{2}})
+
+	if err := client.Publish(ctx, scoreboardEventsChannel, string(payloadA)).Err(); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if err := client.Publish(ctx, scoreboardEventsChannel, string(payloadB)).Err(); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	msg, err := sub.ReceiveMessage(ctx)
+	if err != nil {
+		t.Fatalf("receive rebuilt: %v", err)
+	}
+
+	var got ScoreboardEvent
+	if err := json.Unmarshal([]byte(msg.Payload), &got); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if got.Scope != "division" {
+		t.Fatalf("expected division scope, got %q", got.Scope)
+	}
+	if got.Reason != "batch" {
+		t.Fatalf("expected batch reason, got %q", got.Reason)
+	}
+	if len(got.DivisionIDs) != 2 {
+		t.Fatalf("expected 2 divisions, got %v", got.DivisionIDs)
+	}
+
+	if _, err := client.Get(ctx, "leaderboard:users:div:1").Result(); err != nil {
+		t.Fatalf("expected leaderboard cache for div 1, got %v", err)
+	}
+	if _, err := client.Get(ctx, "leaderboard:users:div:2").Result(); err != nil {
+		t.Fatalf("expected leaderboard cache for div 2, got %v", err)
+	}
+}
+
+func TestScoreboardBusRunDebounceAllOverridesDivision(t *testing.T) {
+	score := &fakeScoreboard{
+		leaderboard:     models.LeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.LeaderboardEntry{}},
+		teamLeaderboard: models.TeamLeaderboardResponse{Challenges: []models.LeaderboardChallenge{}, Entries: []models.TeamLeaderboardEntry{}},
+		userTimeline:    []models.TimelineSubmission{},
+		teamTimeline:    []models.TeamTimelineSubmission{},
+	}
+
+	divReader := fakeDivisionReader{divisions: []models.Division{{ID: 1, Name: "A"}, {ID: 2, Name: "B"}}}
+	bus, client, cleanup := newTestBus(t, score, divReader)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	bus.Start(ctx)
+
+	sub := client.Subscribe(ctx, scoreboardRebuiltChannel)
+	defer sub.Close()
+
+	payloadDivision, _ := json.Marshal(ScoreboardEvent{Scope: "division", Reason: "a", DivisionIDs: []int64{1}})
+	payloadAll, _ := json.Marshal(ScoreboardEvent{Scope: "all", Reason: "b"})
+
+	if err := client.Publish(ctx, scoreboardEventsChannel, string(payloadDivision)).Err(); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if err := client.Publish(ctx, scoreboardEventsChannel, string(payloadAll)).Err(); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	msg, err := sub.ReceiveMessage(ctx)
+	if err != nil {
+		t.Fatalf("receive rebuilt: %v", err)
+	}
+
+	var got ScoreboardEvent
+	if err := json.Unmarshal([]byte(msg.Payload), &got); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if got.Scope != "all" {
+		t.Fatalf("expected all scope, got %q", got.Scope)
+	}
+	if len(got.DivisionIDs) != 0 {
+		t.Fatalf("expected no division_ids, got %v", got.DivisionIDs)
+	}
+
+	if _, err := client.Get(ctx, "leaderboard:users:div:1").Result(); err != nil {
+		t.Fatalf("expected leaderboard cache for div 1, got %v", err)
+	}
+	if _, err := client.Get(ctx, "leaderboard:users:div:2").Result(); err != nil {
+		t.Fatalf("expected leaderboard cache for div 2, got %v", err)
 	}
 }

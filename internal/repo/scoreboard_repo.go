@@ -27,7 +27,7 @@ type leaderboardChallengeRow struct {
 	MinimumPoints int    `bun:"minimum_points"`
 }
 
-func (r *ScoreboardRepo) leaderboardChallenges(ctx context.Context) ([]models.LeaderboardChallenge, map[int64]int, error) {
+func (r *ScoreboardRepo) leaderboardChallenges(ctx context.Context, divisionID *int64) ([]models.LeaderboardChallenge, map[int64]int, error) {
 	rows := make([]leaderboardChallengeRow, 0)
 	if err := r.db.NewSelect().
 		TableExpr("challenges AS c").
@@ -41,12 +41,12 @@ func (r *ScoreboardRepo) leaderboardChallenges(ctx context.Context) ([]models.Le
 		return nil, nil, wrapError("scoreboardRepo.leaderboardChallenges", err)
 	}
 
-	solveCounts, err := solveCountsByChallenge(ctx, r.db)
+	solveCounts, err := solveCountsByChallenge(ctx, r.db, divisionID)
 	if err != nil {
 		return nil, nil, wrapError("scoreboardRepo.leaderboardChallenges solve counts", err)
 	}
 
-	decay, err := decayFactor(ctx, r.db)
+	decay, err := decayFactor(ctx, r.db, divisionID)
 	if err != nil {
 		return nil, nil, wrapError("scoreboardRepo.leaderboardChallenges decay", err)
 	}
@@ -68,20 +68,24 @@ func (r *ScoreboardRepo) leaderboardChallenges(ctx context.Context) ([]models.Le
 	return challenges, pointsMap, nil
 }
 
-func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardResponse, error) {
-	challenges, pointsMap, err := r.leaderboardChallenges(ctx)
+func (r *ScoreboardRepo) Leaderboard(ctx context.Context, divisionID *int64) (models.LeaderboardResponse, error) {
+	challenges, pointsMap, err := r.leaderboardChallenges(ctx, divisionID)
 	if err != nil {
 		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard", err)
 	}
 
 	rows := make([]models.LeaderboardEntry, 0)
-	if err := r.db.NewSelect().
+	query := r.db.NewSelect().
 		TableExpr("users AS u").
 		ColumnExpr("u.id AS user_id").
 		ColumnExpr("u.username AS username").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
-		OrderExpr("u.id ASC").
-		Scan(ctx, &rows); err != nil {
+		OrderExpr("u.id ASC")
+	if divisionID != nil {
+		query = query.Where("t.division_id = ?", *divisionID)
+	}
+	if err := query.Scan(ctx, &rows); err != nil {
 		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard", err)
 	}
 
@@ -93,14 +97,18 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardRes
 	}
 
 	submissions := make([]submissionRow, 0)
-	if err := r.db.NewSelect().
+	subQuery := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("s.user_id AS user_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
-		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
-		Scan(ctx, &submissions); err != nil {
+		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
+	if divisionID != nil {
+		subQuery = subQuery.Where("t.division_id = ?", *divisionID)
+	}
+	if err := subQuery.Scan(ctx, &submissions); err != nil {
 		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard submissions", err)
 	}
 
@@ -127,17 +135,21 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardRes
 	}
 
 	solvedRows := make([]solveRow, 0)
-	if err := r.db.NewSelect().
+	solveQuery := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("s.user_id AS user_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		ColumnExpr("MIN(s.submitted_at) AS solved_at").
 		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
 		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
-		GroupExpr("s.user_id, s.challenge_id").
-		Scan(ctx, &solvedRows); err != nil {
+		GroupExpr("s.user_id, s.challenge_id")
+	if divisionID != nil {
+		solveQuery = solveQuery.Where("t.division_id = ?", *divisionID)
+	}
+	if err := solveQuery.Scan(ctx, &solvedRows); err != nil {
 		return models.LeaderboardResponse{}, wrapError("scoreboardRepo.Leaderboard solves", err)
 	}
 
@@ -167,8 +179,8 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context) (models.LeaderboardRes
 	}, nil
 }
 
-func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeaderboardResponse, error) {
-	challenges, pointsMap, err := r.leaderboardChallenges(ctx)
+func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context, divisionID *int64) (models.TeamLeaderboardResponse, error) {
+	challenges, pointsMap, err := r.leaderboardChallenges(ctx, divisionID)
 	if err != nil {
 		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard", err)
 	}
@@ -178,11 +190,14 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeader
 		Name string `bun:"name"`
 	}
 
-	if err := r.db.NewSelect().
+	teamQuery := r.db.NewSelect().
 		TableExpr("teams AS t").
 		ColumnExpr("t.id AS id").
-		ColumnExpr("t.name AS name").
-		Scan(ctx, &teamRows); err != nil {
+		ColumnExpr("t.name AS name")
+	if divisionID != nil {
+		teamQuery = teamQuery.Where("t.division_id = ?", *divisionID)
+	}
+	if err := teamQuery.Scan(ctx, &teamRows); err != nil {
 		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard teams", err)
 	}
 
@@ -200,14 +215,18 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeader
 	}
 
 	submissions := make([]submissionRow, 0)
-	if err := r.db.NewSelect().
+	subQuery := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("u.team_id AS team_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
-		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
-		Scan(ctx, &submissions); err != nil {
+		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
+	if divisionID != nil {
+		subQuery = subQuery.Where("t.division_id = ?", *divisionID)
+	}
+	if err := subQuery.Scan(ctx, &submissions); err != nil {
 		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard submissions", err)
 	}
 
@@ -241,17 +260,21 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeader
 	}
 
 	solvedRows := make([]solveRow, 0)
-	if err := r.db.NewSelect().
+	solveQuery := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("u.team_id AS team_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		ColumnExpr("MIN(s.submitted_at) AS solved_at").
 		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
 		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
-		GroupExpr("u.team_id, s.challenge_id").
-		Scan(ctx, &solvedRows); err != nil {
+		GroupExpr("u.team_id, s.challenge_id")
+	if divisionID != nil {
+		solveQuery = solveQuery.Where("t.division_id = ?", *divisionID)
+	}
+	if err := solveQuery.Scan(ctx, &solvedRows); err != nil {
 		return models.TeamLeaderboardResponse{}, wrapError("scoreboardRepo.TeamLeaderboard solves", err)
 	}
 
@@ -281,8 +304,8 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context) (models.TeamLeader
 	}, nil
 }
 
-func (r *ScoreboardRepo) TimelineSubmissions(ctx context.Context, since *time.Time) ([]models.UserTimelineRow, error) {
-	pointsMap, err := dynamicPointsMap(ctx, r.db)
+func (r *ScoreboardRepo) TimelineSubmissions(ctx context.Context, since *time.Time, divisionID *int64) ([]models.UserTimelineRow, error) {
+	pointsMap, err := dynamicPointsMap(ctx, r.db, divisionID)
 	if err != nil {
 		return nil, wrapError("scoreboardRepo.TimelineSubmissions", err)
 	}
@@ -295,8 +318,13 @@ func (r *ScoreboardRepo) TimelineSubmissions(ctx context.Context, since *time.Ti
 		ColumnExpr("u.username AS username").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
+
+	if divisionID != nil {
+		query = query.Where("t.division_id = ?", *divisionID)
+	}
 
 	query = applyTimelineWindow(query, since)
 
@@ -311,8 +339,8 @@ func (r *ScoreboardRepo) TimelineSubmissions(ctx context.Context, since *time.Ti
 	return rows, nil
 }
 
-func (r *ScoreboardRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time) ([]models.TeamTimelineRow, error) {
-	pointsMap, err := dynamicPointsMap(ctx, r.db)
+func (r *ScoreboardRepo) TimelineTeamSubmissions(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TeamTimelineRow, error) {
+	pointsMap, err := dynamicPointsMap(ctx, r.db, divisionID)
 	if err != nil {
 		return nil, wrapError("scoreboardRepo.TimelineTeamSubmissions", err)
 	}
@@ -328,6 +356,10 @@ func (r *ScoreboardRepo) TimelineTeamSubmissions(ctx context.Context, since *tim
 		Join("JOIN teams AS g ON g.id = u.team_id").
 		Where("s.correct = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
+
+	if divisionID != nil {
+		query = query.Where("g.division_id = ?", *divisionID)
+	}
 
 	query = applyTimelineWindow(query, since)
 

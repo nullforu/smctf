@@ -355,6 +355,55 @@ func TestSubmissionRepoFirstBloodAcrossTeams(t *testing.T) {
 	}
 }
 
+func TestSubmissionRepoFirstBloodPerDivision(t *testing.T) {
+	env := setupRepoTest(t)
+
+	divA := createDivision(t, env, "A")
+	divB := createDivision(t, env, "B")
+
+	teamA := createTeamInDivision(t, env, "Alpha", divA.ID)
+	teamB := createTeamInDivision(t, env, "Beta", divB.ID)
+
+	userA := createUserWithTeam(t, env, "a@example.com", "a", "pass", models.UserRole, teamA.ID)
+	userB := createUserWithTeam(t, env, "b@example.com", "b", "pass", models.UserRole, teamB.ID)
+
+	ch := createChallenge(t, env, "fb", 100, "FLAG{FB}", true)
+
+	subA := &models.Submission{
+		UserID:      userA.ID,
+		ChallengeID: ch.ID,
+		Provided:    "FLAG{FB}",
+		Correct:     true,
+		SubmittedAt: time.Now().UTC(),
+	}
+
+	ok, err := env.submissionRepo.CreateCorrectIfNotSolvedByTeam(context.Background(), subA)
+	if err != nil || !ok {
+		t.Fatalf("create correct A: %v ok=%v", err, ok)
+	}
+
+	if !subA.IsFirstBlood {
+		t.Fatalf("expected first blood for division A")
+	}
+
+	subB := &models.Submission{
+		UserID:      userB.ID,
+		ChallengeID: ch.ID,
+		Provided:    "FLAG{FB}",
+		Correct:     true,
+		SubmittedAt: time.Now().UTC().Add(time.Second),
+	}
+
+	ok, err = env.submissionRepo.CreateCorrectIfNotSolvedByTeam(context.Background(), subB)
+	if err != nil || !ok {
+		t.Fatalf("create correct B: %v ok=%v", err, ok)
+	}
+
+	if !subB.IsFirstBlood {
+		t.Fatalf("expected first blood for division B")
+	}
+}
+
 func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamSameUser(t *testing.T) {
 	env := setupRepoTest(t)
 	user := createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)

@@ -13,24 +13,34 @@ import (
 )
 
 type TeamService struct {
-	teamRepo *repo.TeamRepo
+	teamRepo     *repo.TeamRepo
+	divisionRepo *repo.DivisionRepo
 }
 
-func NewTeamService(teamRepo *repo.TeamRepo) *TeamService {
-	return &TeamService{teamRepo: teamRepo}
+func NewTeamService(teamRepo *repo.TeamRepo, divisionRepo *repo.DivisionRepo) *TeamService {
+	return &TeamService{teamRepo: teamRepo, divisionRepo: divisionRepo}
 }
 
-func (s *TeamService) CreateTeam(ctx context.Context, name string) (*models.Team, error) {
+func (s *TeamService) CreateTeam(ctx context.Context, name string, divisionID int64) (*models.Team, error) {
 	name = strings.TrimSpace(name)
 	validator := newFieldValidator()
 	validator.Required("name", name)
+	validator.PositiveID("division_id", divisionID)
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
 
 	team := &models.Team{
-		Name:      name,
-		CreatedAt: time.Now().UTC(),
+		Name:       name,
+		DivisionID: divisionID,
+		CreatedAt:  time.Now().UTC(),
+	}
+
+	if _, err := s.divisionRepo.GetByID(ctx, divisionID); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, NewValidationError(FieldError{Field: "division_id", Reason: "not found"})
+		}
+		return nil, fmt.Errorf("team.CreateTeam division: %w", err)
 	}
 
 	if err := s.teamRepo.Create(ctx, team); err != nil {
@@ -44,8 +54,16 @@ func (s *TeamService) CreateTeam(ctx context.Context, name string) (*models.Team
 	return team, nil
 }
 
-func (s *TeamService) ListTeams(ctx context.Context) ([]models.TeamSummary, error) {
-	rows, err := s.teamRepo.ListWithStats(ctx)
+func (s *TeamService) ListTeams(ctx context.Context, divisionID *int64) ([]models.TeamSummary, error) {
+	if divisionID != nil {
+		validator := newFieldValidator()
+		validator.PositiveID("division_id", *divisionID)
+		if err := validator.Error(); err != nil {
+			return nil, err
+		}
+	}
+
+	rows, err := s.teamRepo.ListWithStats(ctx, divisionID)
 	if err != nil {
 		return nil, fmt.Errorf("team.ListTeams: %w", err)
 	}

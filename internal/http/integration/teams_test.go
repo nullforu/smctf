@@ -13,24 +13,24 @@ func TestAdminTeams(t *testing.T) {
 	adminTeam := createTeam(t, env, "Admins")
 	_ = createUserWithTeam(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole, adminTeam.ID)
 
-	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"}, nil)
+	rec := doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]any{"name": "Alpha", "division_id": env.defaultDivisionID}, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	accessUser, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"}, authHeader(accessUser))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]any{"name": "Alpha", "division_id": env.defaultDivisionID}, authHeader(accessUser))
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"}, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]any{"name": "Alpha", "division_id": env.defaultDivisionID}, authHeader(adminAccess))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]string{"name": "Alpha"}, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams", map[string]any{"name": "Alpha", "division_id": env.defaultDivisionID}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

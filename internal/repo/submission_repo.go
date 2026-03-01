@@ -36,7 +36,7 @@ func (r *SubmissionRepo) Create(ctx context.Context, sub *models.Submission) err
 	return nil
 }
 
-func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID int64) (int64, error) {
+func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID int64) (int64, int64, error) {
 	var teamID int64
 	if err := db.NewSelect().
 		TableExpr("users AS u").
@@ -44,19 +44,20 @@ func (r *SubmissionRepo) lockTeamScope(ctx context.Context, db bun.IDB, userID i
 		Where("u.id = ?", userID).
 		For("UPDATE").
 		Scan(ctx, &teamID); err != nil {
-		return teamID, err
+		return teamID, 0, err
 	}
 
-	if _, err := db.NewSelect().
+	var divisionID int64
+	if err := db.NewSelect().
 		TableExpr("teams AS t").
-		ColumnExpr("t.id").
+		ColumnExpr("t.division_id").
 		Where("t.id = ?", teamID).
 		For("UPDATE").
-		Exec(ctx); err != nil {
-		return teamID, err
+		Scan(ctx, &divisionID); err != nil {
+		return teamID, 0, err
 	}
 
-	return teamID, nil
+	return teamID, divisionID, nil
 }
 
 func (r *SubmissionRepo) lockChallengeScope(ctx context.Context, db bun.IDB, challengeID int64) error {
@@ -92,13 +93,16 @@ func (r *SubmissionRepo) correctSubmissionCountForChallenge(
 	ctx context.Context,
 	db bun.IDB,
 	challengeID int64,
+	divisionID int64,
 ) (int, error) {
 	return db.NewSelect().
 		TableExpr("submissions AS s").
 		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		Where("s.challenge_id = ?", challengeID).
+		Where("t.division_id = ?", divisionID).
 		Count(ctx)
 }
 
@@ -127,7 +131,7 @@ func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam begin", err)
 	}
 
-	teamID, err := r.lockTeamScope(ctx, tx, sub.UserID)
+	teamID, divisionID, err := r.lockTeamScope(ctx, tx, sub.UserID)
 	if err != nil {
 		_ = tx.Rollback()
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam lock user", err)
@@ -149,7 +153,7 @@ func (r *SubmissionRepo) CreateCorrectIfNotSolvedByTeam(ctx context.Context, sub
 		return false, nil
 	}
 
-	challengeCount, err := r.correctSubmissionCountForChallenge(ctx, tx, sub.ChallengeID)
+	challengeCount, err := r.correctSubmissionCountForChallenge(ctx, tx, sub.ChallengeID, divisionID)
 	if err != nil {
 		_ = tx.Rollback()
 		return false, wrapError("submissionRepo.CreateCorrectIfNotSolvedByTeam first blood check", err)

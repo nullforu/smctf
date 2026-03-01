@@ -38,6 +38,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 
 	modelsToCreate := []any{
 		(*models.AppConfig)(nil),
+		(*models.Division)(nil),
 		(*models.Team)(nil),
 		(*models.User)(nil),
 		(*models.Challenge)(nil),
@@ -88,6 +89,10 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 		{
 			name:  "idx_users_team_id",
 			query: "CREATE INDEX IF NOT EXISTS idx_users_team_id ON users (team_id)",
+		},
+		{
+			name:  "idx_teams_division_id",
+			query: "CREATE INDEX IF NOT EXISTS idx_teams_division_id ON teams (division_id)",
 		},
 		{
 			name:  "idx_registration_keys_team_id",

@@ -14,6 +14,7 @@ if SCRIPTS_DIR not in sys.path:
 from config_loader import load_settings, resolve_path
 from data_loader import load_data, validate_data
 from generator import (
+    generate_divisions,
     generate_challenges,
     generate_registration_keys,
     generate_submissions,
@@ -108,6 +109,64 @@ def apply_challenge_pod_spec_paths(challenges: List[dict], base_dir: str) -> Non
         chal["stack_pod_spec"] = load_text_file(resolved)
 
 
+def normalize_divisions(raw_divisions: object, team_specs: List[dict]) -> List[str]:
+    divisions: List[str] = []
+
+    def add(name: str) -> None:
+        if name not in divisions:
+            divisions.append(name)
+
+    if isinstance(raw_divisions, list):
+        for entry in raw_divisions:
+            if isinstance(entry, str) and entry.strip():
+                add(entry.strip())
+
+    for team in team_specs:
+        division = team.get("division")
+        if isinstance(division, str) and division.strip():
+            add(division.strip())
+
+    if "Admin" not in divisions:
+        divisions.insert(0, "Admin")
+    else:
+        divisions = ["Admin"] + [name for name in divisions if name != "Admin"]
+
+    return divisions
+
+
+def normalize_teams(raw_teams: List[object], divisions: List[str]) -> List[dict]:
+    teams: List[dict] = []
+    non_admin_divisions = [name for name in divisions if name != "Admin"]
+    fallback_division = non_admin_divisions[0] if non_admin_divisions else "Admin"
+    round_robin_idx = 0
+
+    for entry in raw_teams:
+        if isinstance(entry, str):
+            name = entry.strip()
+            if not name:
+                continue
+            division = None
+        else:
+            name = str(entry.get("name", "")).strip()
+            if not name:
+                continue
+            division = entry.get("division")
+            division = str(division).strip() if isinstance(division, str) else None
+
+        if name == "Admin":
+            continue
+
+        if not division:
+            if non_admin_divisions:
+                division = non_admin_divisions[round_robin_idx % len(non_admin_divisions)]
+                round_robin_idx += 1
+            else:
+                division = fallback_division
+        teams.append({"name": name, "division": division})
+
+    return teams
+
+
 def main(argv: List[str]) -> int:
     args = parse_args(argv)
 
@@ -161,10 +220,19 @@ def main(argv: List[str]) -> int:
     if args.output:
         output_file = args.output
 
-    team_names = list(data["teams"])
-    if admin_team_name in team_names:
-        team_names = [name for name in team_names if name != admin_team_name]
-    team_names = [admin_team_name] + team_names
+    raw_teams = list(data["teams"])
+    team_specs = []
+    for entry in raw_teams:
+        if isinstance(entry, str):
+            team_specs.append({"name": entry})
+        elif isinstance(entry, dict):
+            team_specs.append(entry)
+        else:
+            raise SystemExit("Error: team entries must be strings or mappings")
+
+    divisions = normalize_divisions(data.get("divisions"), team_specs)
+    normalized_teams = normalize_teams(raw_teams, divisions)
+    team_specs = [{"name": admin_team_name, "division": "Admin"}] + normalized_teams
 
     print("About to generate dummy SQL data.")
     print(f"Output file: {output_file}")
@@ -174,7 +242,8 @@ def main(argv: List[str]) -> int:
         else "including generated admin, "
     )
     print(f"Users: {counts['users']} ({admin_note}{non_admin_count} generated)")
-    print(f"Teams: {len(team_names)}")
+    print(f"Divisions: {len(divisions)}")
+    print(f"Teams: {len(team_specs)}")
     print(f"Challenges: {len(data['challenges'])}")
     print(f"Registration keys: {counts['registration_keys']}")
     proceed = input("Type 'Y' to continue: ").strip()
@@ -182,7 +251,8 @@ def main(argv: List[str]) -> int:
         print("Aborted.")
         return 0
 
-    teams = generate_teams(team_names, settings["timing"])
+    division_rows = generate_divisions(divisions, settings["timing"])
+    teams = generate_teams(team_specs, settings["timing"])
     team_ids = list(range(1, len(teams) + 1))
     admin_team_id = team_ids[0]
     non_admin_team_ids = team_ids[1:]
@@ -215,9 +285,18 @@ def main(argv: List[str]) -> int:
         counts["registration_keys"],
         created_by=1,
     )
+    team_division_map = {
+        team_id: team[1] for team_id, team in zip(team_ids, teams, strict=True)
+    }
+    for team_id, division in team_division_map.items():
+        if not isinstance(division, str) or not division.strip():
+            raise SystemExit(
+                f"Error: team id {team_id} is missing a valid division assignment"
+            )
     submissions = generate_submissions(
         users,
         data["challenges"],
+        team_division_map,
         settings["timing"],
         settings["probabilities"],
         start_user_id=1,
@@ -226,6 +305,7 @@ def main(argv: List[str]) -> int:
 
     write_sql_file(
         output_file,
+        division_rows,
         teams,
         users,
         challenges,
@@ -244,6 +324,7 @@ def main(argv: List[str]) -> int:
 
     print("\nSummary")
     print(f"- Output: {output_file}")
+    print(f"- Divisions: {len(division_rows)}")
     print(f"- Teams: {len(teams)}")
     print(f"- Users: {len(users)}")
     if use_bootstrap_admin:

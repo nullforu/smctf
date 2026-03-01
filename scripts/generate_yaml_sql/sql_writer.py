@@ -17,6 +17,7 @@ def _sql_value(value: Any) -> str:
 
 def write_sql_file(
     output_file: str,
+    divisions: List[Dict[str, Any]],
     teams: List[Dict[str, Any]],
     users: List[Dict[str, Any]],
     challenges: List[Dict[str, Any]],
@@ -31,17 +32,25 @@ def write_sql_file(
         f.write("DO $$\n")
         f.write("BEGIN\n")
         f.write(
-            "  IF EXISTS (SELECT 1 FROM teams) OR EXISTS (SELECT 1 FROM challenges) OR EXISTS (SELECT 1 FROM users) THEN\n"
+            "  IF EXISTS (SELECT 1 FROM divisions) OR EXISTS (SELECT 1 FROM teams) OR EXISTS (SELECT 1 FROM challenges) OR EXISTS (SELECT 1 FROM users) THEN\n"
         )
         f.write("    RAISE EXCEPTION 'Refusing to run: tables not empty';\n")
         f.write("  END IF;\n")
         f.write("END $$;\n\n")
 
+        f.write("-- Insert divisions\n")
+        for division in divisions:
+            f.write("INSERT INTO divisions (id, name, created_at) VALUES ")
+            f.write(
+                f"({_sql_value(division['id'])}, {_sql_value(division['name'])}, {_sql_value(division['created_at'])});\n"
+            )
+        f.write("\n")
+
         f.write("-- Insert teams\n")
         for team in teams:
-            f.write("INSERT INTO teams (id, name, created_at) VALUES ")
+            f.write("INSERT INTO teams (id, name, division_id, created_at) VALUES ")
             f.write(
-                f"({_sql_value(team['id'])}, {_sql_value(team['name'])}, {_sql_value(team['created_at'])});\n"
+                f"({_sql_value(team['id'])}, {_sql_value(team['name'])}, {_sql_value(team['division_id'])}, {_sql_value(team['created_at'])});\n"
             )
         f.write("\n")
 
@@ -101,6 +110,7 @@ def write_sql_file(
         f.write("\n")
 
         f.write("-- Update sequences\n")
+        f.write("SELECT setval('divisions_id_seq', (SELECT MAX(id) FROM divisions));\n")
         f.write("SELECT setval('teams_id_seq', (SELECT MAX(id) FROM teams));\n")
         if users:
             f.write("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));\n")

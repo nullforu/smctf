@@ -131,7 +131,8 @@ type createRegistrationKeysRequest struct {
 }
 
 type createTeamRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name       string `json:"name" binding:"required"`
+	DivisionID int64  `json:"division_id" binding:"required"`
 }
 
 type adminMoveUserTeamRequest struct {
@@ -152,10 +153,12 @@ type registerResponse struct {
 }
 
 type loginUserResponse struct {
-	ID       int64  `json:"id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	ID           int64  `json:"id"`
+	Email        string `json:"email"`
+	Username     string `json:"username"`
+	Role         string `json:"role"`
+	DivisionID   int64  `json:"division_id"`
+	DivisionName string `json:"division_name"`
 }
 
 type loginResponse struct {
@@ -176,6 +179,8 @@ type userMeResponse struct {
 	Role          string     `json:"role"`
 	TeamID        int64      `json:"team_id"`
 	TeamName      string     `json:"team_name"`
+	DivisionID    int64      `json:"division_id"`
+	DivisionName  string     `json:"division_name"`
 	BlockedReason *string    `json:"blocked_reason"`
 	BlockedAt     *time.Time `json:"blocked_at"`
 }
@@ -186,6 +191,8 @@ type userDetailResponse struct {
 	Role          string     `json:"role"`
 	TeamID        int64      `json:"team_id"`
 	TeamName      string     `json:"team_name"`
+	DivisionID    int64      `json:"division_id"`
+	DivisionName  string     `json:"division_name"`
 	BlockedReason *string    `json:"blocked_reason"`
 	BlockedAt     *time.Time `json:"blocked_at"`
 }
@@ -197,6 +204,8 @@ type adminUserResponse struct {
 	Role          string     `json:"role"`
 	TeamID        int64      `json:"team_id"`
 	TeamName      string     `json:"team_name"`
+	DivisionID    int64      `json:"division_id"`
+	DivisionName  string     `json:"division_name"`
 	BlockedReason *string    `json:"blocked_reason"`
 	BlockedAt     *time.Time `json:"blocked_at"`
 }
@@ -266,9 +275,14 @@ type challengeFileUploadResponse struct {
 }
 
 type teamResponse struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	DivisionID int64     `json:"division_id"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type createDivisionRequest struct {
+	Name string `json:"name" binding:"required"`
 }
 
 type timelineResponse struct {
@@ -306,6 +320,8 @@ type adminReportUser struct {
 	Role          string     `json:"role"`
 	TeamID        int64      `json:"team_id"`
 	TeamName      string     `json:"team_name"`
+	DivisionID    int64      `json:"division_id"`
+	DivisionName  string     `json:"division_name"`
 	BlockedReason *string    `json:"blocked_reason,omitempty"`
 	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -323,6 +339,7 @@ type adminReportSubmission struct {
 
 type adminReportResponse struct {
 	Challenges       []adminReportChallenge          `json:"challenges"`
+	Divisions        []models.Division               `json:"divisions"`
 	Teams            []models.TeamSummary            `json:"teams"`
 	Users            []adminReportUser               `json:"users"`
 	Stacks           []models.Stack                  `json:"stacks"`
@@ -432,6 +449,8 @@ func newAdminReportUser(user models.User) adminReportUser {
 		Role:          user.Role,
 		TeamID:        user.TeamID,
 		TeamName:      user.TeamName,
+		DivisionID:    user.DivisionID,
+		DivisionName:  user.DivisionName,
 		BlockedReason: user.BlockedReason,
 		BlockedAt:     user.BlockedAt,
 		CreatedAt:     user.CreatedAt.UTC(),
@@ -466,6 +485,8 @@ func newUserMeResponse(user *models.User) userMeResponse {
 		Role:          user.Role,
 		TeamID:        user.TeamID,
 		TeamName:      user.TeamName,
+		DivisionID:    user.DivisionID,
+		DivisionName:  user.DivisionName,
 		BlockedReason: user.BlockedReason,
 		BlockedAt:     user.BlockedAt,
 	}
@@ -478,6 +499,8 @@ func newUserDetailResponse(user *models.User) userDetailResponse {
 		Role:          user.Role,
 		TeamID:        user.TeamID,
 		TeamName:      user.TeamName,
+		DivisionID:    user.DivisionID,
+		DivisionName:  user.DivisionName,
 		BlockedReason: user.BlockedReason,
 		BlockedAt:     user.BlockedAt,
 	}
@@ -491,6 +514,8 @@ func newAdminUserResponse(user *models.User) adminUserResponse {
 		Role:          user.Role,
 		TeamID:        user.TeamID,
 		TeamName:      user.TeamName,
+		DivisionID:    user.DivisionID,
+		DivisionName:  user.DivisionName,
 		BlockedReason: user.BlockedReason,
 		BlockedAt:     user.BlockedAt,
 	}
@@ -542,8 +567,9 @@ func newLockedChallengeResponse(challenge *models.Challenge, previous *models.Ch
 
 func newTeamResponse(team *models.Team) teamResponse {
 	return teamResponse{
-		ID:        team.ID,
-		Name:      team.Name,
-		CreatedAt: team.CreatedAt,
+		ID:         team.ID,
+		Name:       team.Name,
+		DivisionID: team.DivisionID,
+		CreatedAt:  team.CreatedAt,
 	}
 }

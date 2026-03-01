@@ -39,7 +39,7 @@ func newTestLogger(t *testing.T) *logging.Logger {
 
 func baseBootstrapConfig() config.Config {
 	return config.Config{
-		AppEnv:             "test",
+		AppEnv:     "test",
 		BcryptCost: bcrypt.MinCost,
 		Bootstrap: config.BootstrapConfig{
 			AdminTeamEnabled: true,
@@ -87,7 +87,13 @@ func TestEnsureAdminTeam(t *testing.T) {
 	db := setupBootstrapDB(t)
 	teamRepo := repo.NewTeamRepo(db)
 
-	team, err := ensureAdminTeam(context.Background(), teamRepo)
+	divisionRepo := repo.NewDivisionRepo(db)
+	divisionID, err := ensureAdminDivision(context.Background(), divisionRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminDivision: %v", err)
+	}
+
+	team, err := ensureAdminTeam(context.Background(), teamRepo, divisionID)
 	if err != nil {
 		t.Fatalf("ensureAdminTeam: %v", err)
 	}
@@ -96,7 +102,7 @@ func TestEnsureAdminTeam(t *testing.T) {
 		t.Fatalf("expected admin team created")
 	}
 
-	team, err = ensureAdminTeam(context.Background(), teamRepo)
+	team, err = ensureAdminTeam(context.Background(), teamRepo, divisionID)
 	if err != nil {
 		t.Fatalf("ensureAdminTeam second call: %v", err)
 	}
@@ -110,9 +116,15 @@ func TestEnsureAdminUser(t *testing.T) {
 	db := setupBootstrapDB(t)
 	userRepo := repo.NewUserRepo(db)
 	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
 
 	cfg := baseBootstrapConfig()
-	team, err := ensureAdminTeam(context.Background(), teamRepo)
+	divisionID, err := ensureAdminDivision(context.Background(), divisionRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminDivision: %v", err)
+	}
+
+	team, err := ensureAdminTeam(context.Background(), teamRepo, divisionID)
 	if err != nil {
 		t.Fatalf("ensureAdminTeam: %v", err)
 	}
@@ -144,11 +156,12 @@ func TestBootstrapAdminCreatesTeamAndUser(t *testing.T) {
 	db := setupBootstrapDB(t)
 	userRepo := repo.NewUserRepo(db)
 	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
 
 	cfg := baseBootstrapConfig()
 	logger := newTestLogger(t)
 
-	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, logger)
+	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, divisionRepo, logger)
 
 	var teamCount int
 	if err := db.NewSelect().TableExpr("teams").ColumnExpr("COUNT(*)").Scan(context.Background(), &teamCount); err != nil {
@@ -173,6 +186,7 @@ func TestBootstrapAdminSkipsWhenNotEmpty(t *testing.T) {
 	db := setupBootstrapDB(t)
 	userRepo := repo.NewUserRepo(db)
 	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
 
 	cfg := baseBootstrapConfig()
 	logger := newTestLogger(t)
@@ -185,7 +199,7 @@ func TestBootstrapAdminSkipsWhenNotEmpty(t *testing.T) {
 		t.Fatalf("create team: %v", err)
 	}
 
-	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, logger)
+	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, divisionRepo, logger)
 
 	var userCount int
 	if err := db.NewSelect().TableExpr("users").ColumnExpr("COUNT(*)").Scan(context.Background(), &userCount); err != nil {
@@ -201,13 +215,14 @@ func TestBootstrapAdminDisabled(t *testing.T) {
 	db := setupBootstrapDB(t)
 	userRepo := repo.NewUserRepo(db)
 	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
 
 	cfg := baseBootstrapConfig()
 	cfg.Bootstrap.AdminTeamEnabled = false
 	cfg.Bootstrap.AdminUserEnabled = false
 	logger := newTestLogger(t)
 
-	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, logger)
+	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, divisionRepo, logger)
 
 	var teamCount int
 	if err := db.NewSelect().TableExpr("teams").ColumnExpr("COUNT(*)").Scan(context.Background(), &teamCount); err != nil {

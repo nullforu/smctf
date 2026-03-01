@@ -77,6 +77,7 @@ func main() {
 	}
 
 	userRepo := repo.NewUserRepo(database)
+	divisionRepo := repo.NewDivisionRepo(database)
 	teamRepo := repo.NewTeamRepo(database)
 	registrationKeyRepo := repo.NewRegistrationKeyRepo(database)
 	challengeRepo := repo.NewChallengeRepo(database)
@@ -98,13 +99,14 @@ func main() {
 	authSvc := service.NewAuthService(cfg, database, userRepo, registrationKeyRepo, teamRepo, redisClient)
 	userSvc := service.NewUserService(userRepo, teamRepo)
 	scoreSvc := service.NewScoreboardService(scoreRepo)
-	teamSvc := service.NewTeamService(teamRepo)
+	divisionSvc := service.NewDivisionService(divisionRepo)
+	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
 	stackClient := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
 
-	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, logger)
+	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, divisionRepo, logger)
 
 	if cfg, _, _, err := appConfigSvc.Get(ctx); err != nil {
 		logger.Warn("app config load warning", slog.Any("error", err))
@@ -116,10 +118,10 @@ func main() {
 	defer stop()
 
 	sseHub := realtime.NewSSEHub()
-	leaderboardBus := realtime.NewScoreboardBus(redisClient, cfg, scoreSvc, logger, sseHub)
+	leaderboardBus := realtime.NewScoreboardBus(redisClient, cfg, scoreSvc, divisionSvc, logger, sseHub)
 	leaderboardBus.Start(ctx)
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, redisClient, logger, sseHub)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, redisClient, logger, sseHub)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,

@@ -13,11 +13,11 @@ import (
 )
 
 type Config struct {
-	AppEnv             string
-	HTTPAddr           string
-	ShutdownTimeout    time.Duration
-	AutoMigrate        bool
-	BcryptCost int
+	AppEnv          string
+	HTTPAddr        string
+	ShutdownTimeout time.Duration
+	AutoMigrate     bool
+	BcryptCost      int
 
 	DB        DBConfig
 	Redis     RedisConfig
@@ -258,11 +258,11 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		AppEnv:             appEnv,
-		HTTPAddr:           httpAddr,
-		ShutdownTimeout:    shutdownTimeout,
-		AutoMigrate:        autoMigrate,
-		BcryptCost: bcryptCost,
+		AppEnv:          appEnv,
+		HTTPAddr:        httpAddr,
+		ShutdownTimeout: shutdownTimeout,
+		AutoMigrate:     autoMigrate,
+		BcryptCost:      bcryptCost,
 		DB: DBConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            dbPort,
@@ -551,11 +551,11 @@ func parseCSV(value string) []string {
 func FormatForLog(cfg Config) map[string]any {
 	cfg = Redact(cfg)
 	return map[string]any{
-		"app_env":              cfg.AppEnv,
-		"http_addr":            cfg.HTTPAddr,
-		"shutdown_timeout":     seconds(cfg.ShutdownTimeout),
-		"auto_migrate":         cfg.AutoMigrate,
-		"bcrypt_cost":          cfg.BcryptCost,
+		"app_env":          cfg.AppEnv,
+		"http_addr":        cfg.HTTPAddr,
+		"shutdown_timeout": seconds(cfg.ShutdownTimeout),
+		"auto_migrate":     cfg.AutoMigrate,
+		"bcrypt_cost":      cfg.BcryptCost,
 		"db": map[string]any{
 			"host":              cfg.DB.Host,
 			"port":              cfg.DB.Port,

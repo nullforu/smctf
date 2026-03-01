@@ -14,6 +14,7 @@ def validate_data(data: Dict[str, Any], user_count: int, min_user_names: int) ->
     users = data.get("users", [])
     teams = data.get("teams", [])
     challenges = data.get("challenges", [])
+    divisions = data.get("divisions")
 
     if not isinstance(users, list) or not users:
         raise SystemExit("Error: users must be a non-empty list")
@@ -21,6 +22,46 @@ def validate_data(data: Dict[str, Any], user_count: int, min_user_names: int) ->
         raise SystemExit("Error: teams must be a non-empty list")
     if not isinstance(challenges, list) or not challenges:
         raise SystemExit("Error: challenges must be a non-empty list")
+    normalized_divisions = None
+    if divisions is not None:
+        if not isinstance(divisions, list) or not divisions:
+            raise SystemExit("Error: divisions must be a non-empty list when provided")
+        normalized_divisions = []
+        for idx, division in enumerate(divisions, start=1):
+            if not isinstance(division, str) or not division.strip():
+                raise SystemExit(
+                    f"Error: division entry {idx} must be a non-empty string"
+                )
+            normalized_divisions.append(division.strip())
+        if len(normalized_divisions) != len(set(normalized_divisions)):
+            raise SystemExit("Error: divisions must be unique")
+
+    for idx, team in enumerate(teams, start=1):
+        if isinstance(team, str):
+            name = team.strip()
+            if not name:
+                raise SystemExit(f"Error: team entry {idx} must be a non-empty string")
+            continue
+
+        if not isinstance(team, dict):
+            raise SystemExit(
+                f"Error: team entry {idx} must be a string or mapping with name"
+            )
+        name = team.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise SystemExit(f"Error: team entry {idx} must include a non-empty name")
+        division = team.get("division")
+        if division is not None and (
+            not isinstance(division, str) or not division.strip()
+        ):
+            raise SystemExit(
+                f"Error: team entry {idx} division must be a non-empty string when provided"
+            )
+        if normalized_divisions is not None and isinstance(division, str):
+            if division.strip() not in normalized_divisions:
+                raise SystemExit(
+                    f"Error: team entry {idx} division '{division}' not found in divisions"
+                )
 
     if len(users) < min_user_names:
         raise SystemExit(

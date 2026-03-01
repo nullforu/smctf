@@ -23,6 +23,8 @@ Response 200
     "role": "user",
     "team_id": 1,
     "team_name": "서울고등학교",
+    "division_id": 2,
+    "division_name": "고등부",
     "blocked_reason": null,
     "blocked_at": null
 }
@@ -62,6 +64,8 @@ Response 200
     "role": "user",
     "team_id": 1,
     "team_name": "서울고등학교",
+    "division_id": 2,
+    "division_name": "고등부",
     "blocked_reason": null,
     "blocked_at": null
 }
@@ -83,6 +87,12 @@ Use `GET /api/me` to fetch the current user ID, then call `GET /api/users/{id}/s
 
 `GET /api/users`
 
+Optional query:
+
+- `division_id` (number): filter users to a division.
+
+If `division_id` is omitted, returns users from all divisions.
+
 Response 200
 
 ```json
@@ -93,6 +103,8 @@ Response 200
         "role": "user",
         "team_id": 1,
         "team_name": "서울고등학교",
+        "division_id": 2,
+        "division_name": "고등부",
         "blocked_reason": null,
         "blocked_at": null
     },
@@ -102,11 +114,17 @@ Response 200
         "role": "admin",
         "team_id": 2,
         "team_name": "운영팀",
+        "division_id": 2,
+        "division_name": "대학부",
         "blocked_reason": null,
         "blocked_at": null
     }
 ]
 ```
+
+Errors:
+
+- 400 `invalid input` (invalid `division_id`)
 
 ---
 
@@ -123,6 +141,8 @@ Response 200
     "role": "user",
     "team_id": 1,
     "team_name": "서울고등학교",
+    "division_id": 2,
+    "division_name": "고등부",
     "blocked_reason": null,
     "blocked_at": null
 }

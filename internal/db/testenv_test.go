@@ -124,13 +124,13 @@ func TestNewAndAutoMigrate(t *testing.T) {
 	if err := db.NewSelect().Table("information_schema.tables").
 		ColumnExpr("COUNT(*)").
 		Where("table_schema = 'public'").
-		Where("table_name IN ('users','challenges','submissions','registration_keys','teams')").
+		Where("table_name IN ('users','challenges','submissions','registration_keys','teams','divisions')").
 		Scan(context.Background(), &tableCount); err != nil {
 		t.Fatalf("query tables: %v", err)
 	}
 
-	if tableCount != 5 {
-		t.Fatalf("expected 5 tables, got %d", tableCount)
+	if tableCount != 6 {
+		t.Fatalf("expected 6 tables, got %d", tableCount)
 	}
 }
 
@@ -148,6 +148,7 @@ func TestEnsureIndexes(t *testing.T) {
 		"idx_submissions_correct_time",
 		"idx_users_team_id",
 		"idx_registration_keys_team_id",
+		"idx_teams_division_id",
 	}
 
 	for _, name := range expected {

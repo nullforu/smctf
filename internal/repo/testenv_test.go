@@ -19,14 +19,16 @@ import (
 )
 
 type repoEnv struct {
-	cfg            config.Config
-	db             *bun.DB
-	userRepo       *UserRepo
-	regKeyRepo     *RegistrationKeyRepo
-	teamRepo       *TeamRepo
-	challengeRepo  *ChallengeRepo
-	submissionRepo *SubmissionRepo
-	stackRepo      *StackRepo
+	cfg               config.Config
+	db                *bun.DB
+	userRepo          *UserRepo
+	regKeyRepo        *RegistrationKeyRepo
+	divisionRepo      *DivisionRepo
+	teamRepo          *TeamRepo
+	challengeRepo     *ChallengeRepo
+	submissionRepo    *SubmissionRepo
+	stackRepo         *StackRepo
+	defaultDivisionID int64
 }
 
 var (
@@ -60,12 +62,12 @@ func TestMain(m *testing.M) {
 	}
 
 	repoCfg = config.Config{
-		AppEnv:             "test",
-		HTTPAddr:           ":0",
-		ShutdownTimeout:    5 * time.Second,
-		AutoMigrate:        false,
-		BcryptCost: bcrypt.MinCost,
-		DB:                 dbCfg,
+		AppEnv:          "test",
+		HTTPAddr:        ":0",
+		ShutdownTimeout: 5 * time.Second,
+		AutoMigrate:     false,
+		BcryptCost:      bcrypt.MinCost,
+		DB:              dbCfg,
 		Security: config.SecurityConfig{
 			SubmissionWindow: 2 * time.Minute,
 			SubmissionMax:    5,
@@ -140,21 +142,34 @@ func setupRepoTest(t *testing.T) repoEnv {
 
 	resetRepoState(t)
 
-	return repoEnv{
+	env := repoEnv{
 		cfg:            repoCfg,
 		db:             repoDB,
 		userRepo:       NewUserRepo(repoDB),
 		regKeyRepo:     NewRegistrationKeyRepo(repoDB),
+		divisionRepo:   NewDivisionRepo(repoDB),
 		teamRepo:       NewTeamRepo(repoDB),
 		challengeRepo:  NewChallengeRepo(repoDB),
 		submissionRepo: NewSubmissionRepo(repoDB),
 		stackRepo:      NewStackRepo(repoDB),
 	}
+
+	division := &models.Division{
+		Name:      "Default",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := env.divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	env.defaultDivisionID = division.ID
+
+	return env
 }
 
 func resetRepoState(t *testing.T) {
 	t.Helper()
-	if _, err := repoDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := repoDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 }
@@ -191,8 +206,38 @@ func createUserWithNewTeam(t *testing.T, env repoEnv, email, username, password,
 func createTeam(t *testing.T, env repoEnv, name string) *models.Team {
 	t.Helper()
 	team := &models.Team{
+		Name:       name,
+		DivisionID: env.defaultDivisionID,
+		CreatedAt:  time.Now().UTC(),
+	}
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+
+	return team
+}
+
+func createDivision(t *testing.T, env repoEnv, name string) *models.Division {
+	t.Helper()
+
+	division := &models.Division{
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
+	}
+	if err := env.divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	return division
+}
+
+func createTeamInDivision(t *testing.T, env repoEnv, name string, divisionID int64) *models.Team {
+	t.Helper()
+
+	team := &models.Team{
+		Name:       name,
+		DivisionID: divisionID,
+		CreatedAt:  time.Now().UTC(),
 	}
 	if err := env.teamRepo.Create(context.Background(), team); err != nil {
 		t.Fatalf("create team: %v", err)

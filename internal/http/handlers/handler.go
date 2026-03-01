@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,13 +29,14 @@ type Handler struct {
 	app    *service.AppConfigService
 	users  *service.UserService
 	score  *service.ScoreboardService
+	divs   *service.DivisionService
 	teams  *service.TeamService
 	stacks *service.StackService
 	redis  *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *service.UserService, score *service.ScoreboardService, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, teams: teams, stacks: stacks, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *service.UserService, score *service.ScoreboardService, divisions *service.DivisionService, teams *service.TeamService, stacks *service.StackService, redis *redis.Client) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, divs: divisions, teams: teams, stacks: stacks, redis: redis}
 }
 
 func (h *Handler) respondFromCache(ctx *gin.Context, cacheKey string) bool {
@@ -55,19 +58,91 @@ func (h *Handler) storeCache(ctx *gin.Context, cacheKey string, response any, tt
 	_ = h.redis.Set(ctx.Request.Context(), cacheKey, responseJSON, ttl).Err()
 }
 
-func (h *Handler) invalidateTimelineCache(ctx context.Context) {
-	_ = h.redis.Del(ctx, "timeline:users", "timeline:teams").Err()
+func cacheKeyWithDivision(base string, divisionID *int64) string {
+	if divisionID == nil {
+		return base
+	}
+
+	return fmt.Sprintf("%s:div:%d", base, *divisionID)
 }
 
-func (h *Handler) invalidateLeaderboardCache(ctx context.Context) {
-	_ = h.redis.Del(ctx, "leaderboard:users", "leaderboard:teams").Err()
+func (h *Handler) invalidateCacheByPrefix(ctx context.Context, prefix string) {
+	iter := h.redis.Scan(ctx, 0, prefix+"*", 200).Iterator()
+	for iter.Next(ctx) {
+		_ = h.redis.Del(ctx, iter.Val()).Err()
+	}
+	if err := iter.Err(); err != nil {
+		slog.Warn("cache scan failed", slog.String("prefix", prefix), slog.Any("error", err))
+	}
 }
 
-func (h *Handler) publishScoreboardEvent(ctx context.Context, reason string) {
+func (h *Handler) invalidateTimelineCache(ctx context.Context, divisionIDs []int64) {
+	if len(divisionIDs) == 0 {
+		h.invalidateCacheByPrefix(ctx, "timeline:")
+		return
+	}
+
+	for _, divisionID := range divisionIDs {
+		divID := divisionID
+		_ = h.redis.Del(ctx,
+			cacheKeyWithDivision("timeline:users", &divID),
+			cacheKeyWithDivision("timeline:teams", &divID),
+		).Err()
+	}
+}
+
+func (h *Handler) invalidateLeaderboardCache(ctx context.Context, divisionIDs []int64) {
+	if len(divisionIDs) == 0 {
+		h.invalidateCacheByPrefix(ctx, "leaderboard:")
+		return
+	}
+
+	for _, divisionID := range divisionIDs {
+		divID := divisionID
+		_ = h.redis.Del(ctx,
+			cacheKeyWithDivision("leaderboard:users", &divID),
+			cacheKeyWithDivision("leaderboard:teams", &divID),
+		).Err()
+	}
+}
+
+func uniqueDivisionIDs(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+
+		if _, exists := seen[id]; exists {
+			continue
+		}
+
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+
+	return out
+}
+
+func (h *Handler) publishScoreboardEvent(ctx context.Context, reason string, divisionIDs []int64) {
+	divisionIDs = uniqueDivisionIDs(divisionIDs)
+	scope := "all"
+
+	if len(divisionIDs) > 0 {
+		scope = "division"
+	}
+
 	event := realtime.ScoreboardEvent{
-		Scope:  "all",
-		Reason: reason,
-		TS:     time.Now().UTC(),
+		Scope:       scope,
+		Reason:      reason,
+		TS:          time.Now().UTC(),
+		DivisionIDs: divisionIDs,
 	}
 
 	payload, err := json.Marshal(event)
@@ -78,10 +153,11 @@ func (h *Handler) publishScoreboardEvent(ctx context.Context, reason string) {
 	_ = h.redis.Publish(ctx, "scoreboard.events", payload).Err()
 }
 
-func (h *Handler) notifyScoreboardChanged(ctx context.Context, reason string) {
-	h.invalidateLeaderboardCache(ctx)
-	h.invalidateTimelineCache(ctx)
-	h.publishScoreboardEvent(ctx, reason)
+func (h *Handler) notifyScoreboardChanged(ctx context.Context, reason string, divisionIDs ...int64) {
+	divisionIDs = uniqueDivisionIDs(divisionIDs)
+	h.invalidateLeaderboardCache(ctx, divisionIDs)
+	h.invalidateTimelineCache(ctx, divisionIDs)
+	h.publishScoreboardEvent(ctx, reason, divisionIDs)
 }
 
 func parseIDParam(ctx *gin.Context, name string) (int64, bool) {
@@ -109,6 +185,39 @@ func parseIDParamOrError(ctx *gin.Context, name string) (int64, bool) {
 	}
 
 	return id, true
+}
+
+func parseOptionalPositiveIDQuery(ctx *gin.Context, name string) (*int64, error) {
+	raw := strings.TrimSpace(ctx.Query(name))
+	if raw == "" {
+		return nil, nil
+	}
+
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		return nil, service.NewValidationError(service.FieldError{Field: name, Reason: "invalid"})
+	}
+
+	return &id, nil
+}
+
+func (h *Handler) resolveDivisionID(ctx *gin.Context, require bool) (*int64, bool) {
+	divisionID, err := parseOptionalPositiveIDQuery(ctx, "division_id")
+	if err != nil {
+		writeError(ctx, err)
+		return nil, false
+	}
+
+	if divisionID != nil {
+		return divisionID, true
+	}
+
+	if require {
+		writeError(ctx, service.NewValidationError(service.FieldError{Field: "division_id", Reason: "required"}))
+		return nil, false
+	}
+
+	return nil, true
 }
 
 func (h *Handler) optionalUserID(ctx *gin.Context) int64 {
@@ -274,7 +383,7 @@ func (h *Handler) Register(ctx *gin.Context) {
 		return
 	}
 
-	h.notifyScoreboardChanged(ctx.Request.Context(), "user_registered")
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_registered", user.DivisionID)
 
 	ctx.JSON(http.StatusCreated, registerResponse{
 		ID:       user.ID,
@@ -300,10 +409,12 @@ func (h *Handler) Login(ctx *gin.Context) {
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		User: loginUserResponse{
-			ID:       user.ID,
-			Email:    user.Email,
-			Username: user.Username,
-			Role:     user.Role,
+			ID:           user.ID,
+			Email:        user.Email,
+			Username:     user.Username,
+			Role:         user.Role,
+			DivisionID:   user.DivisionID,
+			DivisionName: user.DivisionName,
 		},
 	})
 }
@@ -367,7 +478,7 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 		return
 	}
 
-	h.notifyScoreboardChanged(ctx.Request.Context(), "user_profile_update")
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_profile_update", user.DivisionID)
 
 	ctx.JSON(http.StatusOK, newUserMeResponse(user))
 }
@@ -385,7 +496,12 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 		return
 	}
 
-	challenges, err := h.ctf.ListChallenges(ctx.Request.Context())
+	divisionID, ok := h.resolveDivisionID(ctx, true)
+	if !ok {
+		return
+	}
+
+	challenges, err := h.ctf.ListChallenges(ctx.Request.Context(), divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -463,7 +579,13 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 	}
 
 	if correct {
-		h.notifyScoreboardChanged(ctx.Request.Context(), "submission_correct")
+		divisionID, err := h.users.GetDivisionID(ctx.Request.Context(), middleware.UserID(ctx))
+		if err != nil {
+			h.notifyScoreboardChanged(ctx.Request.Context(), "submission_correct")
+		} else {
+			h.notifyScoreboardChanged(ctx.Request.Context(), "submission_correct", divisionID)
+		}
+
 		if h.stacks != nil {
 			_ = h.stacks.DeleteStackByUserAndChallenge(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
 		}
@@ -662,19 +784,25 @@ func (h *Handler) AdminReport(ctx *gin.Context) {
 		return
 	}
 
-	challenges, err := h.ctf.ListChallenges(ctx.Request.Context())
+	challenges, err := h.ctf.ListChallenges(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	teams, err := h.teams.ListTeams(ctx.Request.Context())
+	divisions, err := h.divs.ListDivisions(ctx.Request.Context())
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	users, err := h.users.List(ctx.Request.Context())
+	teams, err := h.teams.ListTeams(ctx.Request.Context(), nil)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	users, err := h.users.List(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -704,13 +832,13 @@ func (h *Handler) AdminReport(ctx *gin.Context) {
 		return
 	}
 
-	leaderboard, err := h.score.Leaderboard(ctx.Request.Context())
+	leaderboard, err := h.score.Leaderboard(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	teamLeaderboard, err := h.score.TeamLeaderboard(ctx.Request.Context())
+	teamLeaderboard, err := h.score.TeamLeaderboard(ctx.Request.Context(), nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -731,13 +859,13 @@ func (h *Handler) AdminReport(ctx *gin.Context) {
 		reportSubmissions = append(reportSubmissions, newAdminReportSubmission(submissions[i]))
 	}
 
-	userTimeline, err := h.score.UserTimeline(ctx.Request.Context(), nil)
+	userTimeline, err := h.score.UserTimeline(ctx.Request.Context(), nil, nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	teamTimelineRows, err := h.score.TeamTimeline(ctx.Request.Context(), nil)
+	teamTimelineRows, err := h.score.TeamTimeline(ctx.Request.Context(), nil, nil)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -748,6 +876,7 @@ func (h *Handler) AdminReport(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, adminReportResponse{
 		Challenges:       reportChallenges,
+		Divisions:        divisions,
 		Teams:            teams,
 		Users:            reportUsers,
 		Stacks:           stacks,
@@ -1063,13 +1192,23 @@ func (h *Handler) AdminMoveUserTeam(ctx *gin.Context) {
 		return
 	}
 
+	beforeDivisionID, err := h.users.GetDivisionID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
 	updated, err := h.users.MoveUserTeam(ctx.Request.Context(), userID, req.TeamID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	h.notifyScoreboardChanged(ctx.Request.Context(), "user_team_moved")
+	if updated.DivisionID != beforeDivisionID {
+		h.notifyScoreboardChanged(ctx.Request.Context(), "user_team_moved", beforeDivisionID, updated.DivisionID)
+	} else {
+		h.notifyScoreboardChanged(ctx.Request.Context(), "user_team_moved", updated.DivisionID)
+	}
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1092,7 +1231,7 @@ func (h *Handler) AdminBlockUser(ctx *gin.Context) {
 		return
 	}
 
-	h.notifyScoreboardChanged(ctx.Request.Context(), "user_blocked")
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_blocked", updated.DivisionID)
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1109,7 +1248,7 @@ func (h *Handler) AdminUnblockUser(ctx *gin.Context) {
 		return
 	}
 
-	h.notifyScoreboardChanged(ctx.Request.Context(), "user_unblocked")
+	h.notifyScoreboardChanged(ctx.Request.Context(), "user_unblocked", updated.DivisionID)
 
 	ctx.JSON(http.StatusOK, newAdminUserResponse(updated))
 }
@@ -1117,12 +1256,17 @@ func (h *Handler) AdminUnblockUser(ctx *gin.Context) {
 // Scoreboard Handlers
 
 func (h *Handler) Leaderboard(ctx *gin.Context) {
-	cacheKey := "leaderboard:users"
+	divisionID, ok := h.resolveDivisionID(ctx, true)
+	if !ok {
+		return
+	}
+
+	cacheKey := cacheKeyWithDivision("leaderboard:users", divisionID)
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	rows, err := h.score.Leaderboard(ctx.Request.Context())
+	rows, err := h.score.Leaderboard(ctx.Request.Context(), divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1133,12 +1277,17 @@ func (h *Handler) Leaderboard(ctx *gin.Context) {
 }
 
 func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
-	cacheKey := "leaderboard:teams"
+	divisionID, ok := h.resolveDivisionID(ctx, true)
+	if !ok {
+		return
+	}
+
+	cacheKey := cacheKeyWithDivision("leaderboard:teams", divisionID)
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	rows, err := h.score.TeamLeaderboard(ctx.Request.Context())
+	rows, err := h.score.TeamLeaderboard(ctx.Request.Context(), divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1149,12 +1298,17 @@ func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
 }
 
 func (h *Handler) Timeline(ctx *gin.Context) {
-	cacheKey := "timeline:users"
+	divisionID, ok := h.resolveDivisionID(ctx, true)
+	if !ok {
+		return
+	}
+
+	cacheKey := cacheKeyWithDivision("timeline:users", divisionID)
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	submissions, err := h.score.UserTimeline(ctx.Request.Context(), nil)
+	submissions, err := h.score.UserTimeline(ctx.Request.Context(), nil, divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1167,12 +1321,17 @@ func (h *Handler) Timeline(ctx *gin.Context) {
 }
 
 func (h *Handler) TeamTimeline(ctx *gin.Context) {
-	cacheKey := "timeline:teams"
+	divisionID, ok := h.resolveDivisionID(ctx, true)
+	if !ok {
+		return
+	}
+
+	cacheKey := cacheKeyWithDivision("timeline:teams", divisionID)
 	if h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
-	submissions, err := h.score.TeamTimeline(ctx.Request.Context(), nil)
+	submissions, err := h.score.TeamTimeline(ctx.Request.Context(), nil, divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1185,6 +1344,34 @@ func (h *Handler) TeamTimeline(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
+// Division Handlers
+
+func (h *Handler) ListDivisions(ctx *gin.Context) {
+	rows, err := h.divs.ListDivisions(ctx.Request.Context())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rows)
+}
+
+func (h *Handler) CreateDivision(ctx *gin.Context) {
+	var req createDivisionRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	division, err := h.divs.CreateDivision(ctx.Request.Context(), req.Name)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, division)
+}
+
 // Team Handlers
 
 func (h *Handler) CreateTeam(ctx *gin.Context) {
@@ -1194,19 +1381,25 @@ func (h *Handler) CreateTeam(ctx *gin.Context) {
 		return
 	}
 
-	team, err := h.teams.CreateTeam(ctx.Request.Context(), req.Name)
+	team, err := h.teams.CreateTeam(ctx.Request.Context(), req.Name, req.DivisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
-	h.notifyScoreboardChanged(ctx.Request.Context(), "team_created")
+	h.notifyScoreboardChanged(ctx.Request.Context(), "team_created", team.DivisionID)
 
 	ctx.JSON(http.StatusCreated, newTeamResponse(team))
 }
 
 func (h *Handler) ListTeams(ctx *gin.Context) {
-	teams, err := h.teams.ListTeams(ctx.Request.Context())
+	divisionID, err := parseOptionalPositiveIDQuery(ctx, "division_id")
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	teams, err := h.teams.ListTeams(ctx.Request.Context(), divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1263,7 +1456,13 @@ func (h *Handler) ListTeamSolved(ctx *gin.Context) {
 // User Handlers
 
 func (h *Handler) ListUsers(ctx *gin.Context) {
-	users, err := h.users.List(ctx.Request.Context())
+	divisionID, err := parseOptionalPositiveIDQuery(ctx, "division_id")
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	users, err := h.users.List(ctx.Request.Context(), divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1305,7 +1504,13 @@ func (h *Handler) GetUserSolved(ctx *gin.Context) {
 		return
 	}
 
-	rows, err := h.ctf.SolvedChallenges(ctx.Request.Context(), userID)
+	divisionID, err := h.users.GetDivisionID(ctx.Request.Context(), userID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	rows, err := h.ctf.SolvedChallenges(ctx.Request.Context(), userID, &divisionID)
 	if err != nil {
 		writeError(ctx, err)
 		return

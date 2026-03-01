@@ -15,16 +15,50 @@ def _render_username(pattern: str, team_name: str, number: int) -> str:
     return pattern.replace("{team_name}", team_name).replace("{number}", str(number))
 
 
-def generate_teams(team_specs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def generate_divisions(
+    division_names: List[str], id_offset: int = 0
+) -> List[Dict[str, Any]]:
+    base_time = datetime.now(UTC)
+    divisions: List[Dict[str, Any]] = []
+
+    for idx, name in enumerate(division_names, start=1):
+        name = name.strip()
+        division_id = idx + id_offset
+        created_at = base_time + timedelta(minutes=division_id)
+        divisions.append(
+            {
+                "id": division_id,
+                "name": name,
+                "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+
+    return divisions
+
+
+def generate_teams(
+    team_specs: List[Dict[str, Any]],
+    division_map: Dict[str, int],
+    default_division: str,
+    id_offset: int = 0,
+) -> List[Dict[str, Any]]:
     base_time = datetime.now(UTC)
     teams: List[Dict[str, Any]] = []
 
     for idx, team in enumerate(team_specs, start=1):
-        created_at = base_time + timedelta(minutes=idx)
+        team_id = idx + id_offset
+        created_at = base_time + timedelta(minutes=team_id)
+        division_name = team.get("division") or default_division
+        division_name = division_name.strip()
+        division_id = division_map.get(division_name)
+        if division_id is None:
+            raise SystemExit(f"Error: team division '{division_name}' not found")
         teams.append(
             {
-                "id": idx,
+                "id": team_id,
                 "name": team["name"],
+                "division_id": division_id,
+                "division_name": division_name,
                 "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
         )
@@ -36,12 +70,15 @@ def generate_users(
     team_specs: List[Dict[str, Any]],
     bcrypt_cost: int,
     base_time: Optional[datetime] = None,
+    id_offset: int = 0,
+    team_id_offset: int = 0,
 ) -> List[Dict[str, Any]]:
     users: List[Dict[str, Any]] = []
     base_time = base_time or datetime.now(UTC)
-    user_id = 1
+    user_id = 1 + id_offset
 
     for team_idx, team in enumerate(team_specs, start=1):
+        team_id = team_idx + team_id_offset
         users_config = team.get("users") or {}
         if not users_config.get("enabled", False):
             continue
@@ -67,7 +104,7 @@ def generate_users(
                     "username": username,
                     "password_hash": password_hash,
                     "role": "user",
-                    "team_id": team_idx,
+                    "team_id": team_id,
                     "created_at": created_at_str,
                     "updated_at": created_at_str,
                     "plaintext_password": plaintext,

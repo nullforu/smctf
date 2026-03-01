@@ -278,7 +278,7 @@ func TestLoadConfigS3ValidationErrors(t *testing.T) {
 
 func TestValidateConfigInvalidS3(t *testing.T) {
 	cfg := Config{
-		HTTPAddr:           ":8080",
+		HTTPAddr:   ":8080",
 		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
@@ -349,7 +349,7 @@ func TestLoadConfigProductionValidation(t *testing.T) {
 
 func TestValidateConfigInvalidLogging(t *testing.T) {
 	cfg := Config{
-		HTTPAddr:           ":8080",
+		HTTPAddr:   ":8080",
 		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
@@ -502,7 +502,7 @@ func TestGetDuration(t *testing.T) {
 
 func TestValidateConfigEmptyValues(t *testing.T) {
 	cfg := Config{
-		HTTPAddr:           "",
+		HTTPAddr:   "",
 		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
@@ -542,7 +542,7 @@ func TestValidateConfigEmptyValues(t *testing.T) {
 
 func TestValidateConfigInvalidDBConfig(t *testing.T) {
 	cfg := Config{
-		HTTPAddr:           ":8080",
+		HTTPAddr:   ":8080",
 		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "",
@@ -582,8 +582,8 @@ func TestValidateConfigInvalidDBConfig(t *testing.T) {
 
 func TestValidateConfigInvalidStackConfig(t *testing.T) {
 	cfg := Config{
-		AppEnv:             "local",
-		HTTPAddr:           ":8080",
+		AppEnv:     "local",
+		HTTPAddr:   ":8080",
 		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
@@ -644,8 +644,8 @@ func TestValidateConfigInvalidStackConfig(t *testing.T) {
 
 func TestValidateConfigAdditionalValidation(t *testing.T) {
 	cfg := Config{
-		AppEnv:             "local",
-		HTTPAddr:           ":8080",
+		AppEnv:     "local",
+		HTTPAddr:   ":8080",
 		BcryptCost: bcrypt.DefaultCost,
 		DB: DBConfig{
 			Host:            "localhost",
@@ -728,7 +728,6 @@ func TestRedact(t *testing.T) {
 		t.Fatalf("expected jwt secret redacted")
 	}
 
-
 	if redacted.S3.AccessKeyID == cfg.S3.AccessKeyID {
 		t.Fatalf("expected s3 access key redacted")
 	}
@@ -770,11 +769,11 @@ func TestRedactValueEdgeCases(t *testing.T) {
 
 func TestFormatForLog(t *testing.T) {
 	cfg := Config{
-		AppEnv:             "local",
-		HTTPAddr:           ":8080",
-		ShutdownTimeout:    5 * time.Second,
-		AutoMigrate:        true,
-		BcryptCost: 10,
+		AppEnv:          "local",
+		HTTPAddr:        ":8080",
+		ShutdownTimeout: 5 * time.Second,
+		AutoMigrate:     true,
+		BcryptCost:      10,
 		DB: DBConfig{
 			Host:            "localhost",
 			Port:            5432,

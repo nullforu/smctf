@@ -18,8 +18,8 @@ func NewScoreboardService(scoreRepo *repo.ScoreboardRepo) *ScoreboardService {
 	return &ScoreboardService{repo: scoreRepo}
 }
 
-func (s *ScoreboardService) Leaderboard(ctx context.Context) (models.LeaderboardResponse, error) {
-	rows, err := s.repo.Leaderboard(ctx)
+func (s *ScoreboardService) Leaderboard(ctx context.Context, divisionID *int64) (models.LeaderboardResponse, error) {
+	rows, err := s.repo.Leaderboard(ctx, divisionID)
 	if err != nil {
 		return models.LeaderboardResponse{}, fmt.Errorf("scoreboard.Leaderboard: %w", err)
 	}
@@ -27,8 +27,8 @@ func (s *ScoreboardService) Leaderboard(ctx context.Context) (models.Leaderboard
 	return rows, nil
 }
 
-func (s *ScoreboardService) TeamLeaderboard(ctx context.Context) (models.TeamLeaderboardResponse, error) {
-	rows, err := s.repo.TeamLeaderboard(ctx)
+func (s *ScoreboardService) TeamLeaderboard(ctx context.Context, divisionID *int64) (models.TeamLeaderboardResponse, error) {
+	rows, err := s.repo.TeamLeaderboard(ctx, divisionID)
 	if err != nil {
 		return models.TeamLeaderboardResponse{}, fmt.Errorf("scoreboard.TeamLeaderboard: %w", err)
 	}
@@ -36,8 +36,8 @@ func (s *ScoreboardService) TeamLeaderboard(ctx context.Context) (models.TeamLea
 	return rows, nil
 }
 
-func (s *ScoreboardService) UserTimeline(ctx context.Context, since *time.Time) ([]models.TimelineSubmission, error) {
-	raw, err := s.repo.TimelineSubmissions(ctx, since)
+func (s *ScoreboardService) UserTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TimelineSubmission, error) {
+	raw, err := s.repo.TimelineSubmissions(ctx, since, divisionID)
 	if err != nil {
 		return nil, fmt.Errorf("scoreboard.UserTimeline: %w", err)
 	}
@@ -45,8 +45,8 @@ func (s *ScoreboardService) UserTimeline(ctx context.Context, since *time.Time) 
 	return aggregateUserTimeline(raw), nil
 }
 
-func (s *ScoreboardService) TeamTimeline(ctx context.Context, since *time.Time) ([]models.TeamTimelineSubmission, error) {
-	raw, err := s.repo.TimelineTeamSubmissions(ctx, since)
+func (s *ScoreboardService) TeamTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TeamTimelineSubmission, error) {
+	raw, err := s.repo.TimelineTeamSubmissions(ctx, since, divisionID)
 	if err != nil {
 		return nil, fmt.Errorf("scoreboard.TeamTimeline: %w", err)
 	}

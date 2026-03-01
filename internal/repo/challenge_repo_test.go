@@ -85,7 +85,7 @@ func TestChallengeRepoDynamicPointsAndSolveCounts(t *testing.T) {
 	createSubmission(t, env, userTeam.ID, challenge.ID, true, now.Add(-time.Minute))
 	createSubmission(t, env, userSolo.ID, challenge.ID, true, now)
 
-	points, err := env.challengeRepo.DynamicPoints(context.Background())
+	points, err := env.challengeRepo.DynamicPoints(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("DynamicPoints: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestChallengeRepoDynamicPointsAndSolveCounts(t *testing.T) {
 		t.Fatalf("expected static challenge to be %d, got %d", other.Points, points[other.ID])
 	}
 
-	solveCounts, err := env.challengeRepo.SolveCounts(context.Background())
+	solveCounts, err := env.challengeRepo.SolveCounts(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("SolveCounts: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestChallengeRepoDynamicPointsError(t *testing.T) {
 	closedDB := newClosedRepoDB(t)
 	repo := NewChallengeRepo(closedDB)
 
-	if _, err := repo.DynamicPoints(context.Background()); err == nil {
+	if _, err := repo.DynamicPoints(context.Background(), nil); err == nil {
 		t.Fatalf("expected error from DynamicPoints")
 	}
 }

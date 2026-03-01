@@ -63,8 +63,22 @@ def _validate_team_spec(team: Dict[str, Any], idx: int) -> None:
 
 
 def validate_data(data: Dict[str, Any]) -> None:
+    divisions = data.get("divisions", [])
     teams = data.get("teams", [])
     challenges = data.get("challenges", [])
+
+    if not isinstance(divisions, list) or not divisions:
+        raise SystemExit("Error: divisions must be a non-empty list")
+    division_names: List[str] = []
+    for idx, division in enumerate(divisions, start=1):
+        if not isinstance(division, str) or not division.strip():
+            raise SystemExit(f"Error: division entry {idx} must be a non-empty string")
+        normalized = division.strip()
+        if normalized.lower() == "admin":
+            raise SystemExit("Error: division name 'Admin' is reserved for bootstrap")
+        division_names.append(normalized)
+    if len(division_names) != len(set(division_names)):
+        raise SystemExit("Error: divisions must be unique")
 
     if not isinstance(teams, list) or not teams:
         raise SystemExit("Error: teams must be a non-empty list")
@@ -74,6 +88,17 @@ def validate_data(data: Dict[str, Any]) -> None:
     team_names = []
     for idx, team in enumerate(teams, start=1):
         _validate_team_spec(team, idx)
+        division = team.get("division")
+        if division is not None:
+            if not isinstance(division, str) or not division.strip():
+                raise SystemExit(
+                    f"Error: team entry {idx} division must be a non-empty string when provided"
+                )
+            normalized_division = division.strip()
+            if normalized_division not in division_names:
+                raise SystemExit(
+                    f"Error: team entry {idx} division '{division}' not found in divisions"
+                )
         team_names.append(team.get("name"))
 
     if len(team_names) != len(set(team_names)):

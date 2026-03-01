@@ -100,10 +100,19 @@ Response 200
             "created_at": "2026-02-17T12:00:00Z"
         }
     ],
+    "divisions": [
+        {
+            "id": 2,
+            "name": "고등부",
+            "created_at": "2026-02-17T09:00:00Z"
+        }
+    ],
     "teams": [
         {
             "id": 1,
             "name": "Alpha",
+            "division_id": 2,
+            "division_name": "고등부",
             "created_at": "2026-02-17T10:00:00Z",
             "member_count": 2,
             "total_score": 200
@@ -117,6 +126,8 @@ Response 200
             "role": "user",
             "team_id": 1,
             "team_name": "Alpha",
+            "division_id": 2,
+            "division_name": "고등부",
             "blocked_reason": null,
             "blocked_at": null,
             "created_at": "2026-02-17T10:00:00Z",
@@ -149,6 +160,7 @@ Notes:
 - Password hashes are excluded from user records.
 - Challenge flag data is excluded from the report.
 - Submission provided flag data are excluded from the report.
+- Challenge `points` in the report reflect global dynamic scoring (all divisions combined), not per-division scoring.
 - See [report.schema.json](./report.schema.json) for the full schema. (there may be slight differences from the actual response)
 
 Errors:
@@ -266,7 +278,8 @@ Request
 
 ```json
 {
-    "name": "서울고등학교"
+    "name": "서울고등학교",
+    "division_id": 2
 }
 ```
 
@@ -276,6 +289,37 @@ Response 201
 {
     "id": 1,
     "name": "서울고등학교",
+    "division_id": 2,
+    "created_at": "2026-01-26T12:00:00Z"
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 403 `forbidden`
+
+---
+
+## Create Division (Admin)
+
+`POST /api/admin/divisions`
+
+Request
+
+```json
+{
+    "name": "고등부"
+}
+```
+
+Response 201
+
+```json
+{
+    "id": 2,
+    "name": "고등부",
     "created_at": "2026-01-26T12:00:00Z"
 }
 ```

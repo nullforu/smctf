@@ -26,7 +26,7 @@ func TestScoreboard(t *testing.T) {
 	createSubmission(t, env, user2.ID, challenge2.ID, true, time.Now().UTC())
 	createSubmission(t, env, blocked.ID, challenge2.ID, true, time.Now().UTC())
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/leaderboard?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -63,7 +63,7 @@ func TestScoreboardTeams(t *testing.T) {
 	createSubmission(t, env, user3.ID, challenge2.ID, true, time.Now().UTC())
 	createSubmission(t, env, blocked.ID, challenge2.ID, true, time.Now().UTC())
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard/teams", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/leaderboard/teams?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -102,7 +102,7 @@ func TestScoreboardTeamTimeline(t *testing.T) {
 	createSubmission(t, env, user2.ID, challenge2.ID, true, base.Add(7*time.Minute))
 	createSubmission(t, env, blocked.ID, challenge1.ID, true, base.Add(5*time.Minute))
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/timeline/teams", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/timeline/teams?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -145,7 +145,7 @@ func TestScoreboardTimeline(t *testing.T) {
 	createSubmission(t, env, user1.ID, challenge2.ID, true, base.Add(16*time.Minute))
 	createSubmission(t, env, blocked.ID, challenge2.ID, true, base.Add(20*time.Minute))
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/timeline", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/timeline?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -199,7 +199,7 @@ func TestScoreboardDynamicScoring(t *testing.T) {
 	createSubmission(t, env, userSolo.ID, challenge.ID, true, time.Now().UTC())
 	createSubmission(t, env, blocked.ID, challenge.ID, true, time.Now().UTC())
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/leaderboard", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/leaderboard?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

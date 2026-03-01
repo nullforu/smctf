@@ -25,6 +25,7 @@ func setupStackTest(t *testing.T, cfg config.Config, client stack.API) testEnv {
 
 	userRepo := repo.NewUserRepo(testDB)
 	registrationKeyRepo := repo.NewRegistrationKeyRepo(testDB)
+	divisionRepo := repo.NewDivisionRepo(testDB)
 	teamRepo := repo.NewTeamRepo(testDB)
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
@@ -37,27 +38,42 @@ func setupStackTest(t *testing.T, cfg config.Config, client stack.API) testEnv {
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	userSvc := service.NewUserService(userRepo, teamRepo)
 	scoreSvc := service.NewScoreboardService(scoreRepo)
-	teamSvc := service.NewTeamService(teamRepo)
+	divisionSvc := service.NewDivisionService(divisionRepo)
+	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, client, testRedis)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, testRedis, testLogger, nil)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, testRedis, testLogger, nil)
 
-	return testEnv{
+	env := testEnv{
 		cfg:            cfg,
 		router:         router,
 		userRepo:       userRepo,
 		regKeyRepo:     registrationKeyRepo,
+		divisionRepo:   divisionRepo,
 		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		appConfigRepo:  appConfigRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
+		divisionSvc:    divisionSvc,
 		teamSvc:        teamSvc,
 		appConfigSvc:   appConfigSvc,
 	}
+
+	division := &models.Division{
+		Name:      "Default",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	env.defaultDivisionID = division.ID
+
+	return env
 }
 
 func createStackChallenge(t *testing.T, env testEnv, title string) *models.Challenge {
