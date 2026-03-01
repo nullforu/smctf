@@ -113,7 +113,7 @@ func setupBootstrapDB(t *testing.T) *bun.DB {
 		t.Fatalf("auto migrate: %v", err)
 	}
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 

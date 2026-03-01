@@ -63,7 +63,7 @@ func TestUserRepoCRUD(t *testing.T) {
 		t.Fatalf("expected updated username, got %s", updated.Username)
 	}
 
-	users, err := env.userRepo.List(context.Background())
+	users, err := env.userRepo.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestUserRepoListOrdering(t *testing.T) {
 	_ = createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 	_ = createUserWithNewTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole)
 
-	users, err := env.userRepo.List(context.Background())
+	users, err := env.userRepo.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}

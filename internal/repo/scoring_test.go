@@ -2,9 +2,11 @@ package repo
 
 import (
 	"context"
-	"smctf/internal/models"
 	"testing"
 	"time"
+
+	"smctf/internal/models"
+	"smctf/internal/scoring"
 )
 
 func TestDynamicPointsMapUsesTeamDecay(t *testing.T) {
@@ -23,7 +25,7 @@ func TestDynamicPointsMapUsesTeamDecay(t *testing.T) {
 
 	createSubmission(t, env, userTeam.ID, challenge.ID, true, time.Now().UTC())
 
-	points, err := dynamicPointsMap(context.Background(), env.db)
+	points, err := dynamicPointsMap(context.Background(), env.db, nil)
 	if err != nil {
 		t.Fatalf("dynamicPointsMap: %v", err)
 	}
@@ -54,7 +56,7 @@ func TestDynamicPointsMapIgnoresBlockedAndAdmin(t *testing.T) {
 	createSubmission(t, env, admin.ID, challenge.ID, true, time.Now().UTC())
 	createSubmission(t, env, blocked.ID, challenge.ID, true, time.Now().UTC())
 
-	countsByChallenge, err := solveCountsByChallenge(context.Background(), env.db)
+	countsByChallenge, err := solveCountsByChallenge(context.Background(), env.db, nil)
 	if err != nil {
 		t.Fatalf("solveCountsByChallenge: %v", err)
 	}
@@ -64,7 +66,7 @@ func TestDynamicPointsMapIgnoresBlockedAndAdmin(t *testing.T) {
 		t.Fatalf("expected 1 solve count (blocked/admin should be ignored), got %d", got)
 	}
 
-	points, err := dynamicPointsMap(context.Background(), env.db)
+	points, err := dynamicPointsMap(context.Background(), env.db, nil)
 	if err != nil {
 		t.Fatalf("dynamicPointsMap: %v", err)
 	}
@@ -89,7 +91,7 @@ func TestDynamicPointsMapDecayZeroWhenOnlyBlockedOrAdminTeams(t *testing.T) {
 
 	createSubmission(t, env, blocked.ID, challenge.ID, true, time.Now().UTC())
 
-	points, err := dynamicPointsMap(context.Background(), env.db)
+	points, err := dynamicPointsMap(context.Background(), env.db, nil)
 	if err != nil {
 		t.Fatalf("dynamicPointsMap: %v", err)
 	}
@@ -116,7 +118,7 @@ func TestDynamicPointsMapDecayCountsDistinctTeams(t *testing.T) {
 
 	createSubmission(t, env, user1.ID, challenge.ID, true, time.Now().UTC())
 
-	points, err := dynamicPointsMap(context.Background(), env.db)
+	points, err := dynamicPointsMap(context.Background(), env.db, nil)
 	if err != nil {
 		t.Fatalf("dynamicPointsMap: %v", err)
 	}
@@ -124,6 +126,49 @@ func TestDynamicPointsMapDecayCountsDistinctTeams(t *testing.T) {
 	got := points[challenge.ID]
 	if got != 100 {
 		t.Fatalf("expected 100 with decay=1 and solves=1, got %d", got)
+	}
+}
+
+func TestDynamicPointsMapDivisionIsolation(t *testing.T) {
+	env := setupRepoTest(t)
+
+	divA := createDivision(t, env, "A")
+	divB := createDivision(t, env, "B")
+
+	teamA := createTeamInDivision(t, env, "Alpha", divA.ID)
+	userA := createUserWithTeam(t, env, "a@example.com", "a", "pass", models.UserRole, teamA.ID)
+
+	teamB := createTeamInDivision(t, env, "Beta", divB.ID)
+	userB := createUserWithTeam(t, env, "b@example.com", "b", "pass", models.UserRole, teamB.ID)
+
+	challenge := createChallenge(t, env, "Iso", 500, "FLAG{ISO}", true)
+	challenge.MinimumPoints = 100
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge minimum: %v", err)
+	}
+
+	createSubmission(t, env, userA.ID, challenge.ID, true, time.Now().UTC())
+	createSubmission(t, env, userB.ID, challenge.ID, true, time.Now().UTC())
+
+	pointsA, err := dynamicPointsMap(context.Background(), env.db, &divA.ID)
+	if err != nil {
+		t.Fatalf("dynamicPointsMap A: %v", err)
+	}
+
+	pointsB, err := dynamicPointsMap(context.Background(), env.db, &divB.ID)
+	if err != nil {
+		t.Fatalf("dynamicPointsMap B: %v", err)
+	}
+
+	expectedA := scoring.DynamicPoints(challenge.Points, challenge.MinimumPoints, 1, 1)
+	expectedB := scoring.DynamicPoints(challenge.Points, challenge.MinimumPoints, 1, 1)
+
+	if pointsA[challenge.ID] != expectedA {
+		t.Fatalf("expected division A points %d, got %d", expectedA, pointsA[challenge.ID])
+	}
+
+	if pointsB[challenge.ID] != expectedB {
+		t.Fatalf("expected division B points %d, got %d", expectedB, pointsB[challenge.ID])
 	}
 }
 
@@ -138,7 +183,7 @@ func TestDynamicPointsMapZeroSolvesUsesInitialPoints(t *testing.T) {
 		t.Fatalf("update challenge minimum: %v", err)
 	}
 
-	points, err := dynamicPointsMap(context.Background(), env.db)
+	points, err := dynamicPointsMap(context.Background(), env.db, nil)
 	if err != nil {
 		t.Fatalf("dynamicPointsMap: %v", err)
 	}
@@ -162,7 +207,7 @@ func TestDynamicPointsMapMinimumGreaterThanInitial(t *testing.T) {
 
 	createSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC())
 
-	points, err := dynamicPointsMap(context.Background(), env.db)
+	points, err := dynamicPointsMap(context.Background(), env.db, nil)
 	if err != nil {
 		t.Fatalf("dynamicPointsMap: %v", err)
 	}

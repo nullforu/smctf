@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	bootstrapAdminTeamName = "Admin"
+	bootstrapAdminTeamName     = "Admin"
+	bootstrapAdminDivisionName = "Admin"
 )
 
-func BootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, userRepo *repo.UserRepo, teamRepo *repo.TeamRepo, logger *logging.Logger) {
+func BootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, userRepo *repo.UserRepo, teamRepo *repo.TeamRepo, divisionRepo *repo.DivisionRepo, logger *logging.Logger) {
 	if !cfg.Bootstrap.AdminTeamEnabled && !cfg.Bootstrap.AdminUserEnabled {
 		return
 	}
@@ -40,7 +41,13 @@ func BootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, us
 	var team *models.Team
 
 	if cfg.Bootstrap.AdminTeamEnabled {
-		team, err = ensureAdminTeam(ctx, teamRepo)
+		divisionID, err := ensureAdminDivision(ctx, divisionRepo)
+		if err != nil {
+			logger.Error("bootstrap admin division error", slog.Any("error", err))
+			return
+		}
+
+		team, err = ensureAdminTeam(ctx, teamRepo, divisionID)
 		if err != nil {
 			logger.Error("bootstrap admin team error", slog.Any("error", err))
 			return
@@ -64,10 +71,33 @@ func BootstrapAdmin(ctx context.Context, cfg config.Config, database *bun.DB, us
 	}
 }
 
-func ensureAdminTeam(ctx context.Context, teamRepo *repo.TeamRepo) (*models.Team, error) {
-	team := &models.Team{
-		Name:      bootstrapAdminTeamName,
+func ensureAdminDivision(ctx context.Context, divisionRepo *repo.DivisionRepo) (int64, error) {
+	division := &models.Division{
+		Name:      bootstrapAdminDivisionName,
 		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := divisionRepo.Create(ctx, division); err != nil {
+		if db.IsUniqueViolation(err) {
+			existing, err := divisionRepo.GetByName(ctx, bootstrapAdminDivisionName)
+			if err == nil {
+				return existing.ID, nil
+			}
+
+			return 0, fmt.Errorf("lookup division: %w", err)
+		}
+
+		return 0, fmt.Errorf("create division: %w", err)
+	}
+
+	return division.ID, nil
+}
+
+func ensureAdminTeam(ctx context.Context, teamRepo *repo.TeamRepo, divisionID int64) (*models.Team, error) {
+	team := &models.Team{
+		Name:       bootstrapAdminTeamName,
+		DivisionID: divisionID,
+		CreatedAt:  time.Now().UTC(),
 	}
 
 	if err := teamRepo.Create(ctx, team); err != nil {

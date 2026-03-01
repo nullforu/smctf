@@ -47,43 +47,82 @@ func (r *TeamRepo) baseTeamStatsQuery() *bun.SelectQuery {
 		TableExpr("teams AS t").
 		ColumnExpr("t.id AS id").
 		ColumnExpr("t.name AS name").
+		ColumnExpr("t.division_id AS division_id").
+		ColumnExpr("d.name AS division_name").
 		ColumnExpr("t.created_at AS created_at").
 		ColumnExpr("COUNT(DISTINCT u.id) AS member_count").
+		Join("JOIN divisions AS d ON d.id = t.division_id").
 		Join("LEFT JOIN users AS u ON u.team_id = t.id").
-		GroupExpr("t.id, t.name, t.created_at")
+		GroupExpr("t.id, t.name, t.division_id, d.name, t.created_at")
 }
 
-func (r *TeamRepo) ListWithStats(ctx context.Context) ([]models.TeamSummary, error) {
+func (r *TeamRepo) ListWithStats(ctx context.Context, divisionID *int64) ([]models.TeamSummary, error) {
 	rows := make([]models.TeamSummary, 0)
 	query := r.baseTeamStatsQuery().OrderExpr("t.name ASC, t.id ASC")
-	if err := query.Scan(ctx, &rows); err != nil {
-		return nil, wrapError("teamRepo.ListWithStats", err)
+	if divisionID != nil {
+		query = query.Where("t.division_id = ?", *divisionID)
 	}
 
-	pointsMap, err := dynamicPointsMap(ctx, r.db)
-	if err != nil {
+	if err := query.Scan(ctx, &rows); err != nil {
 		return nil, wrapError("teamRepo.ListWithStats", err)
 	}
 
 	type submissionRow struct {
 		TeamID      int64 `bun:"team_id"`
+		DivisionID  int64 `bun:"division_id"`
 		ChallengeID int64 `bun:"challenge_id"`
 	}
 
 	submissions := make([]submissionRow, 0)
-	if err := r.db.NewSelect().
+	subQuery := r.db.NewSelect().
 		TableExpr("submissions AS s").
 		ColumnExpr("u.team_id AS team_id").
+		ColumnExpr("t.division_id AS division_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
+		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
-		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
-		Scan(ctx, &submissions); err != nil {
+		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
+
+	if divisionID != nil {
+		subQuery = subQuery.Where("t.division_id = ?", *divisionID)
+	}
+
+	if err := subQuery.Scan(ctx, &submissions); err != nil {
 		return nil, wrapError("teamRepo.ListWithStats submissions", err)
+	}
+
+	pointsByDivision := make(map[int64]map[int64]int)
+	if divisionID != nil {
+		points, err := dynamicPointsMap(ctx, r.db, divisionID)
+		if err != nil {
+			return nil, wrapError("teamRepo.ListWithStats points", err)
+		}
+
+		pointsByDivision[*divisionID] = points
+	} else {
+		for _, row := range rows {
+			if _, exists := pointsByDivision[row.DivisionID]; exists {
+				continue
+			}
+
+			id := row.DivisionID
+			points, err := dynamicPointsMap(ctx, r.db, &id)
+			if err != nil {
+				return nil, wrapError("teamRepo.ListWithStats points", err)
+			}
+
+			pointsByDivision[id] = points
+		}
 	}
 
 	scores := make(map[int64]int, len(rows))
 	for _, sub := range submissions {
+		pointsMap := pointsByDivision[sub.DivisionID]
+		if pointsMap == nil {
+			continue
+		}
+
 		scores[sub.TeamID] += pointsMap[sub.ChallengeID]
 	}
 
@@ -101,7 +140,12 @@ func (r *TeamRepo) GetStats(ctx context.Context, id int64) (*models.TeamSummary,
 		return nil, wrapNotFound("teamRepo.GetStats", err)
 	}
 
-	pointsMap, err := dynamicPointsMap(ctx, r.db)
+	team, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, wrapError("teamRepo.GetStats team", err)
+	}
+
+	pointsMap, err := dynamicPointsMap(ctx, r.db, &team.DivisionID)
 	if err != nil {
 		return nil, wrapError("teamRepo.GetStats", err)
 	}
@@ -173,7 +217,12 @@ func (r *TeamRepo) ListSolvedChallenges(ctx context.Context, id int64) ([]models
 		return nil, wrapError("teamRepo.ListSolvedChallenges", err)
 	}
 
-	pointsMap, err := dynamicPointsMap(ctx, r.db)
+	team, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, wrapError("teamRepo.ListSolvedChallenges team", err)
+	}
+
+	pointsMap, err := dynamicPointsMap(ctx, r.db, &team.DivisionID)
 	if err != nil {
 		return nil, wrapError("teamRepo.ListSolvedChallenges", err)
 	}

@@ -39,8 +39,35 @@ func (s *UserService) GetByID(ctx context.Context, id int64) (*models.User, erro
 	return user, nil
 }
 
-func (s *UserService) List(ctx context.Context) ([]models.User, error) {
-	users, err := s.userRepo.List(ctx)
+func (s *UserService) GetDivisionID(ctx context.Context, userID int64) (int64, error) {
+	validator := newFieldValidator()
+	validator.PositiveID("user_id", userID)
+	if err := validator.Error(); err != nil {
+		return 0, err
+	}
+
+	divisionID, err := s.userRepo.GetDivisionID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return 0, ErrNotFound
+		}
+
+		return 0, fmt.Errorf("user.GetDivisionID: %w", err)
+	}
+
+	return divisionID, nil
+}
+
+func (s *UserService) List(ctx context.Context, divisionID *int64) ([]models.User, error) {
+	if divisionID != nil {
+		validator := newFieldValidator()
+		validator.PositiveID("division_id", *divisionID)
+		if err := validator.Error(); err != nil {
+			return nil, err
+		}
+	}
+
+	users, err := s.userRepo.List(ctx, divisionID)
 	if err != nil {
 		return nil, fmt.Errorf("user.List: %w", err)
 	}

@@ -275,7 +275,7 @@ func TestAdminDeleteChallenge(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

@@ -76,7 +76,7 @@ func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 		t.Fatalf("unexpected flag hash")
 	}
 
-	list, err := env.ctfSvc.ListChallenges(context.Background())
+	list, err := env.ctfSvc.ListChallenges(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("list challenges: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 
 	createSubmission(t, env, teamUser.ID, challenge.ID, true, time.Now().UTC())
 
-	list, err := env.ctfSvc.ListChallenges(context.Background())
+	list, err := env.ctfSvc.ListChallenges(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("list challenges: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	}
 
 	createSubmission(t, env, soloUser.ID, challenge.ID, true, time.Now().UTC())
-	list, err = env.ctfSvc.ListChallenges(context.Background())
+	list, err = env.ctfSvc.ListChallenges(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("list challenges: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestCTFServiceSolvedChallenges(t *testing.T) {
 	now := time.Now().UTC()
 	_ = createSubmission(t, env, user.ID, challenge.ID, true, now.Add(-time.Minute))
 
-	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), user.ID)
+	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), user.ID, &env.defaultDivisionID)
 	if err != nil {
 		t.Fatalf("solved challenges: %v", err)
 	}
@@ -402,7 +402,7 @@ func TestCTFServiceSolvedChallengesEmpty(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
 
-	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), user.ID)
+	rows, err := env.ctfSvc.SolvedChallenges(context.Background(), user.ID, &env.defaultDivisionID)
 	if err != nil {
 		t.Fatalf("solved challenges: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestCTFServiceListChallengesError(t *testing.T) {
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis, fileStore)
 
-	if _, err := ctfSvc.ListChallenges(context.Background()); err == nil {
+	if _, err := ctfSvc.ListChallenges(context.Background(), nil); err == nil {
 		t.Fatalf("expected error from ListChallenges")
 	}
 }

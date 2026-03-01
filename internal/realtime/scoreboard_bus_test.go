@@ -33,7 +33,7 @@ func newTestBus(t *testing.T, score ScoreboardReader) (*ScoreboardBus, *redis.Cl
 	cfg := config.Config{Cache: config.CacheConfig{LeaderboardTTL: time.Minute, TimelineTTL: time.Minute}}
 
 	hub := NewSSEHub()
-	bus := NewScoreboardBus(client, cfg, score, logger, hub)
+	bus := NewScoreboardBus(client, cfg, score, nil, logger, hub)
 
 	cleanup := func() {
 		_ = client.Close()
@@ -152,19 +152,19 @@ type fakeScoreboard struct {
 	teamTimelineErr    error
 }
 
-func (f *fakeScoreboard) Leaderboard(ctx context.Context) (models.LeaderboardResponse, error) {
+func (f *fakeScoreboard) Leaderboard(ctx context.Context, divisionID *int64) (models.LeaderboardResponse, error) {
 	return f.leaderboard, f.leaderboardErr
 }
 
-func (f *fakeScoreboard) TeamLeaderboard(ctx context.Context) (models.TeamLeaderboardResponse, error) {
+func (f *fakeScoreboard) TeamLeaderboard(ctx context.Context, divisionID *int64) (models.TeamLeaderboardResponse, error) {
 	return f.teamLeaderboard, f.teamLeaderboardErr
 }
 
-func (f *fakeScoreboard) UserTimeline(ctx context.Context, since *time.Time) ([]models.TimelineSubmission, error) {
+func (f *fakeScoreboard) UserTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TimelineSubmission, error) {
 	return f.userTimeline, f.userTimelineErr
 }
 
-func (f *fakeScoreboard) TeamTimeline(ctx context.Context, since *time.Time) ([]models.TeamTimelineSubmission, error) {
+func (f *fakeScoreboard) TeamTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TeamTimelineSubmission, error) {
 	return f.teamTimeline, f.teamTimelineErr
 }
 

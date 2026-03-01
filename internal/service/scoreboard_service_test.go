@@ -109,7 +109,7 @@ func TestScoreboardServiceLeaderboardAndTimeline(t *testing.T) {
 	createSubmission(t, env, user1.ID, ch1.ID, true, base.Add(2*time.Minute))
 	createSubmission(t, env, user2.ID, ch2.ID, true, base.Add(5*time.Minute))
 
-	userBoard, err := env.scoreSvc.Leaderboard(context.Background())
+	userBoard, err := env.scoreSvc.Leaderboard(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Leaderboard: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestScoreboardServiceLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("unexpected user scores: %+v", scores)
 	}
 
-	teamBoard, err := env.scoreSvc.TeamLeaderboard(context.Background())
+	teamBoard, err := env.scoreSvc.TeamLeaderboard(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("TeamLeaderboard: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestScoreboardServiceLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("unexpected team scores: %+v", teamScores)
 	}
 
-	userTimeline, err := env.scoreSvc.UserTimeline(context.Background(), nil)
+	userTimeline, err := env.scoreSvc.UserTimeline(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("UserTimeline: %v", err)
 	}
@@ -150,12 +150,48 @@ func TestScoreboardServiceLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("expected 2 timeline buckets, got %d", len(userTimeline))
 	}
 
-	teamTimeline, err := env.scoreSvc.TeamTimeline(context.Background(), nil)
+	teamTimeline, err := env.scoreSvc.TeamTimeline(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("TeamTimeline: %v", err)
 	}
 
 	if len(teamTimeline) != 2 {
 		t.Fatalf("expected 2 team timeline buckets, got %d", len(teamTimeline))
+	}
+}
+
+func TestScoreboardServiceDivisionIsolation(t *testing.T) {
+	env := setupServiceTest(t)
+
+	divA := createDivision(t, env, "A")
+	divB := createDivision(t, env, "B")
+
+	teamA := createTeamInDivision(t, env, "Alpha", divA.ID)
+	teamB := createTeamInDivision(t, env, "Beta", divB.ID)
+
+	userA := createUserWithTeam(t, env, "a@example.com", "a", "pass", models.UserRole, teamA.ID)
+	userB := createUserWithTeam(t, env, "b@example.com", "b", "pass", models.UserRole, teamB.ID)
+
+	ch := createChallenge(t, env, "Iso", 100, "FLAG{ISO}", true)
+
+	createSubmission(t, env, userA.ID, ch.ID, true, time.Now().UTC())
+	createSubmission(t, env, userB.ID, ch.ID, true, time.Now().UTC().Add(time.Second))
+
+	userBoardA, err := env.scoreSvc.Leaderboard(context.Background(), &divA.ID)
+	if err != nil {
+		t.Fatalf("leaderboard A: %v", err)
+	}
+
+	if len(userBoardA.Entries) != 1 || userBoardA.Entries[0].UserID != userA.ID {
+		t.Fatalf("unexpected leaderboard A: %+v", userBoardA.Entries)
+	}
+
+	teamBoardB, err := env.scoreSvc.TeamLeaderboard(context.Background(), &divB.ID)
+	if err != nil {
+		t.Fatalf("team leaderboard B: %v", err)
+	}
+
+	if len(teamBoardB.Entries) != 1 || teamBoardB.Entries[0].TeamID != teamB.ID {
+		t.Fatalf("unexpected team leaderboard B: %+v", teamBoardB.Entries)
 	}
 }

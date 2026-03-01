@@ -29,7 +29,7 @@ func TestScoreboardRepoLeaderboardAndTimeline(t *testing.T) {
 	createSubmission(t, env, user2.ID, ch2.ID, false, time.Now().Add(-1*time.Minute))
 	createSubmission(t, env, blocked.ID, ch1.ID, true, time.Now().Add(-90*time.Second))
 
-	leaderboard, err := scoreRepo.Leaderboard(context.Background())
+	leaderboard, err := scoreRepo.Leaderboard(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Leaderboard: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestScoreboardRepoLeaderboardAndTimeline(t *testing.T) {
 	}
 
 	since := time.Now().Add(-2*time.Minute - time.Second)
-	rows, err := scoreRepo.TimelineSubmissions(context.Background(), &since)
+	rows, err := scoreRepo.TimelineSubmissions(context.Background(), &since, nil)
 	if err != nil {
 		t.Fatalf("TimelineSubmissions: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestScoreboardRepoTeamLeaderboardAndTimeline(t *testing.T) {
 	createSubmission(t, env, user3.ID, ch2.ID, true, time.Now().Add(-1*time.Minute))
 	createSubmission(t, env, blocked.ID, ch1.ID, true, time.Now().Add(-90*time.Second))
 
-	leaderboard, err := scoreRepo.TeamLeaderboard(context.Background())
+	leaderboard, err := scoreRepo.TeamLeaderboard(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("TeamLeaderboard: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestScoreboardRepoTeamLeaderboardAndTimeline(t *testing.T) {
 		t.Fatalf("unexpected team leaderboard last row: %+v", leaderboard.Entries[2])
 	}
 
-	rows, err := scoreRepo.TimelineTeamSubmissions(context.Background(), nil)
+	rows, err := scoreRepo.TimelineTeamSubmissions(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("TimelineTeamSubmissions: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestScoreboardRepoTimelineNoSince(t *testing.T) {
 	createSubmission(t, env, user.ID, ch.ID, true, time.Now().Add(-time.Minute))
 	createSubmission(t, env, blocked.ID, ch.ID, true, time.Now().Add(-30*time.Second))
 
-	rows, err := scoreRepo.TimelineSubmissions(context.Background(), nil)
+	rows, err := scoreRepo.TimelineSubmissions(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("TimelineSubmissions: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestScoreboardRepoTimelineOrdering(t *testing.T) {
 	createSubmission(t, env, user.ID, ch.ID, true, now.Add(-time.Minute))
 	createSubmission(t, env, blocked.ID, ch.ID, true, now.Add(-30*time.Second))
 
-	rows, err := scoreRepo.TimelineSubmissions(context.Background(), nil)
+	rows, err := scoreRepo.TimelineSubmissions(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("TimelineSubmissions: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestScoreboardRepoLeaderboardTieBreak(t *testing.T) {
 	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().Add(-time.Minute))
 	createSubmission(t, env, user2.ID, ch.ID, true, time.Now().Add(-time.Minute))
 
-	rows, err := scoreRepo.Leaderboard(context.Background())
+	rows, err := scoreRepo.Leaderboard(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Leaderboard: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestScoreboardRepoTimelineIncludesUsername(t *testing.T) {
 
 	createSubmission(t, env, user.ID, ch.ID, true, time.Now().Add(-time.Minute))
 
-	rows, err := scoreRepo.TimelineSubmissions(context.Background(), nil)
+	rows, err := scoreRepo.TimelineSubmissions(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("TimelineSubmissions: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestScoreboardRepoTeamLeaderboardIncludesEmptyTeam(t *testing.T) {
 	createSubmission(t, env, user.ID, ch.ID, true, time.Now().UTC())
 	createSubmission(t, env, blocked.ID, ch.ID, true, time.Now().UTC())
 
-	rows, err := scoreRepo.TeamLeaderboard(context.Background())
+	rows, err := scoreRepo.TeamLeaderboard(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("TeamLeaderboard: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestScoreboardRepoLeaderboardExcludesBlockedAndAdmin(t *testing.T) {
 	createSubmission(t, env, admin.ID, ch.ID, true, time.Now().UTC())
 	createSubmission(t, env, blocked.ID, ch.ID, true, time.Now().UTC())
 
-	rows, err := scoreRepo.Leaderboard(context.Background())
+	rows, err := scoreRepo.Leaderboard(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Leaderboard: %v", err)
 	}
@@ -291,5 +291,98 @@ func TestScoreboardRepoLeaderboardExcludesBlockedAndAdmin(t *testing.T) {
 
 	if rows.Entries[0].UserID != user.ID {
 		t.Fatalf("expected user row only in leaderboard")
+	}
+}
+
+func TestScoreboardRepoDivisionIsolation(t *testing.T) {
+	env := setupRepoTest(t)
+	scoreRepo := NewScoreboardRepo(env.db)
+
+	divA := createDivision(t, env, "A")
+	divB := createDivision(t, env, "B")
+
+	teamA := createTeamInDivision(t, env, "Alpha", divA.ID)
+	teamB := createTeamInDivision(t, env, "Beta", divB.ID)
+
+	userA := createUserWithTeam(t, env, "a@example.com", "a", "pass", models.UserRole, teamA.ID)
+	userB := createUserWithTeam(t, env, "b@example.com", "b", "pass", models.UserRole, teamB.ID)
+
+	ch := createChallenge(t, env, "Iso", 200, "FLAG{ISO}", true)
+
+	createSubmission(t, env, userA.ID, ch.ID, true, time.Now().UTC())
+	createSubmission(t, env, userB.ID, ch.ID, true, time.Now().UTC().Add(time.Second))
+
+	userBoardA, err := scoreRepo.Leaderboard(context.Background(), &divA.ID)
+	if err != nil {
+		t.Fatalf("leaderboard A: %v", err)
+	}
+
+	if len(userBoardA.Entries) != 1 || userBoardA.Entries[0].UserID != userA.ID {
+		t.Fatalf("unexpected division A leaderboard: %+v", userBoardA.Entries)
+	}
+
+	userBoardB, err := scoreRepo.Leaderboard(context.Background(), &divB.ID)
+	if err != nil {
+		t.Fatalf("leaderboard B: %v", err)
+	}
+
+	if len(userBoardB.Entries) != 1 || userBoardB.Entries[0].UserID != userB.ID {
+		t.Fatalf("unexpected division B leaderboard: %+v", userBoardB.Entries)
+	}
+
+	teamBoardA, err := scoreRepo.TeamLeaderboard(context.Background(), &divA.ID)
+	if err != nil {
+		t.Fatalf("team leaderboard A: %v", err)
+	}
+
+	if len(teamBoardA.Entries) != 1 || teamBoardA.Entries[0].TeamID != teamA.ID {
+		t.Fatalf("unexpected division A team leaderboard: %+v", teamBoardA.Entries)
+	}
+
+	teamBoardB, err := scoreRepo.TeamLeaderboard(context.Background(), &divB.ID)
+	if err != nil {
+		t.Fatalf("team leaderboard B: %v", err)
+	}
+
+	if len(teamBoardB.Entries) != 1 || teamBoardB.Entries[0].TeamID != teamB.ID {
+		t.Fatalf("unexpected division B team leaderboard: %+v", teamBoardB.Entries)
+	}
+}
+
+func TestScoreboardRepoTimelineDivisionIsolation(t *testing.T) {
+	env := setupRepoTest(t)
+	scoreRepo := NewScoreboardRepo(env.db)
+
+	divA := createDivision(t, env, "A")
+	divB := createDivision(t, env, "B")
+
+	teamA := createTeamInDivision(t, env, "Alpha", divA.ID)
+	teamB := createTeamInDivision(t, env, "Beta", divB.ID)
+
+	userA := createUserWithTeam(t, env, "a@example.com", "a", "pass", models.UserRole, teamA.ID)
+	userB := createUserWithTeam(t, env, "b@example.com", "b", "pass", models.UserRole, teamB.ID)
+
+	ch := createChallenge(t, env, "Iso", 200, "FLAG{ISO}", true)
+	now := time.Now().UTC()
+
+	createSubmission(t, env, userA.ID, ch.ID, true, now)
+	createSubmission(t, env, userB.ID, ch.ID, true, now.Add(time.Second))
+
+	rowsA, err := scoreRepo.TimelineSubmissions(context.Background(), nil, &divA.ID)
+	if err != nil {
+		t.Fatalf("timeline A: %v", err)
+	}
+
+	if len(rowsA) != 1 || rowsA[0].UserID != userA.ID {
+		t.Fatalf("unexpected timeline A: %+v", rowsA)
+	}
+
+	rowsB, err := scoreRepo.TimelineSubmissions(context.Background(), nil, &divB.ID)
+	if err != nil {
+		t.Fatalf("timeline B: %v", err)
+	}
+
+	if len(rowsB) != 1 || rowsB[0].UserID != userB.ID {
+		t.Fatalf("unexpected timeline B: %+v", rowsB)
 	}
 }

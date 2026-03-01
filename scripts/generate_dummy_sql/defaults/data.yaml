@@ -60,11 +60,20 @@ users:
   - name: "강진호"
     username: "jinho.kang"
 
+divisions:
+  - "Admin"
+  - "고등부"
+  - "대학부"
+
 teams:
-  - "두명컴퓨터고등학교"
-  - "한명컴퓨터고등학교"
-  - "세명컴퓨터고등학교"
-  - "네명컴퓨터고등학교"
+  - name: "두명컴퓨터고등학교"
+    division: "고등부"
+  - name: "한명컴퓨터고등학교"
+    division: "고등부"
+  - name: "세명컴퓨터고등학교"
+    division: "대학부"
+  - name: "네명컴퓨터고등학교"
+    division: "대학부"
 
 challenges:
   - title: "Reverse It"

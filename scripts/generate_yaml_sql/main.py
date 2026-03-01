@@ -14,6 +14,7 @@ from data_loader import load_data, validate_data
 from generator import (
     apply_challenge_pod_spec_paths,
     generate_challenges,
+    generate_divisions,
     generate_teams,
     generate_users,
 )
@@ -69,6 +70,8 @@ def main(argv: List[str]) -> int:
     data_path = resolve_path(args.data, os.getcwd())
     settings = load_settings(args.settings)
     data = load_data(data_path)
+    if "divisions" not in data:
+        raise SystemExit("Error: divisions must be provided in data YAML")
     validate_data(data)
 
     apply_challenge_pod_spec_paths(
@@ -81,12 +84,27 @@ def main(argv: List[str]) -> int:
     bcrypt_cost = int(os.getenv("BCRYPT_COST", str(security["bcrypt_cost"])))
     output_file = args.output or DEFAULT_OUTPUT_FILE
 
-    teams = generate_teams(data["teams"])
-    users = generate_users(data["teams"], bcrypt_cost)
+    id_offset = 1
+    divisions = generate_divisions(data["divisions"], id_offset=id_offset)
+    division_map = {division["name"]: division["id"] for division in divisions}
+    default_division = data["divisions"][0]
+    teams = generate_teams(
+        data["teams"],
+        division_map,
+        default_division,
+        id_offset=id_offset,
+    )
+    users = generate_users(
+        data["teams"],
+        bcrypt_cost,
+        id_offset=id_offset,
+        team_id_offset=id_offset,
+    )
     challenges = generate_challenges(data["challenges"], constraints, bcrypt_cost)
 
     write_sql_file(
         output_file,
+        divisions,
         teams,
         users,
         challenges,
@@ -97,6 +115,7 @@ def main(argv: List[str]) -> int:
 
     print("SQL generated.")
     print(f"- Output: {output_file}")
+    print(f"- Divisions: {len(divisions)}")
     print(f"- Teams: {len(teams)}")
     print(f"- Users: {len(users)}")
     print(f"- Challenges: {len(challenges)}")

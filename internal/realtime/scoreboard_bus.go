@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -28,33 +29,39 @@ type ScoreboardEvent struct {
 }
 
 type ScoreboardBus struct {
-	redis    *redis.Client
-	cfg      config.Config
-	score    ScoreboardReader
-	logger   *logging.Logger
-	hub      *SSEHub
-	debounce time.Duration
-	lockTTL  time.Duration
-	trigger  chan string
+	redis     *redis.Client
+	cfg       config.Config
+	score     ScoreboardReader
+	divisions DivisionReader
+	logger    *logging.Logger
+	hub       *SSEHub
+	debounce  time.Duration
+	lockTTL   time.Duration
+	trigger   chan string
 }
 
 type ScoreboardReader interface {
-	Leaderboard(ctx context.Context) (models.LeaderboardResponse, error)
-	TeamLeaderboard(ctx context.Context) (models.TeamLeaderboardResponse, error)
-	UserTimeline(ctx context.Context, since *time.Time) ([]models.TimelineSubmission, error)
-	TeamTimeline(ctx context.Context, since *time.Time) ([]models.TeamTimelineSubmission, error)
+	Leaderboard(ctx context.Context, divisionID *int64) (models.LeaderboardResponse, error)
+	TeamLeaderboard(ctx context.Context, divisionID *int64) (models.TeamLeaderboardResponse, error)
+	UserTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TimelineSubmission, error)
+	TeamTimeline(ctx context.Context, since *time.Time, divisionID *int64) ([]models.TeamTimelineSubmission, error)
 }
 
-func NewScoreboardBus(redisClient *redis.Client, cfg config.Config, scoreSvc ScoreboardReader, logger *logging.Logger, hub *SSEHub) *ScoreboardBus {
+type DivisionReader interface {
+	ListDivisions(ctx context.Context) ([]models.Division, error)
+}
+
+func NewScoreboardBus(redisClient *redis.Client, cfg config.Config, scoreSvc ScoreboardReader, divisionReader DivisionReader, logger *logging.Logger, hub *SSEHub) *ScoreboardBus {
 	return &ScoreboardBus{
-		redis:    redisClient,
-		cfg:      cfg,
-		score:    scoreSvc,
-		logger:   logger,
-		hub:      hub,
-		debounce: 300 * time.Millisecond,
-		lockTTL:  10 * time.Second,
-		trigger:  make(chan string, 16),
+		redis:     redisClient,
+		cfg:       cfg,
+		score:     scoreSvc,
+		divisions: divisionReader,
+		logger:    logger,
+		hub:       hub,
+		debounce:  300 * time.Millisecond,
+		lockTTL:   10 * time.Second,
+		trigger:   make(chan string, 16),
 	}
 }
 
@@ -213,45 +220,77 @@ func randomToken() string {
 }
 
 func (b *ScoreboardBus) rebuildCaches(ctx context.Context) error {
-	leaderboard, err := b.score.Leaderboard(ctx)
+	if err := b.rebuildDivisionCaches(ctx, nil); err != nil {
+		return err
+	}
+
+	if b.divisions == nil {
+		return nil
+	}
+
+	divisions, err := b.divisions.ListDivisions(ctx)
 	if err != nil {
 		return err
 	}
 
-	teamLeaderboard, err := b.score.TeamLeaderboard(ctx)
+	for i := range divisions {
+		id := divisions[i].ID
+		if err := b.rebuildDivisionCaches(ctx, &id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func cacheKey(base string, divisionID *int64) string {
+	if divisionID == nil {
+		return base
+	}
+
+	return fmt.Sprintf("%s:div:%d", base, *divisionID)
+}
+
+func (b *ScoreboardBus) rebuildDivisionCaches(ctx context.Context, divisionID *int64) error {
+	leaderboard, err := b.score.Leaderboard(ctx, divisionID)
 	if err != nil {
 		return err
 	}
 
-	userTimeline, err := b.score.UserTimeline(ctx, nil)
+	teamLeaderboard, err := b.score.TeamLeaderboard(ctx, divisionID)
 	if err != nil {
 		return err
 	}
 
-	teamTimeline, err := b.score.TeamTimeline(ctx, nil)
+	userTimeline, err := b.score.UserTimeline(ctx, nil, divisionID)
 	if err != nil {
 		return err
 	}
 
-	if err := b.storeJSON(ctx, "leaderboard:users", leaderboard, b.cfg.Cache.LeaderboardTTL); err != nil {
+	teamTimeline, err := b.score.TeamTimeline(ctx, nil, divisionID)
+	if err != nil {
 		return err
 	}
 
-	if err := b.storeJSON(ctx, "leaderboard:teams", teamLeaderboard, b.cfg.Cache.LeaderboardTTL); err != nil {
+	if err := b.storeJSON(ctx, cacheKey("leaderboard:users", divisionID), leaderboard, b.cfg.Cache.LeaderboardTTL); err != nil {
+		return err
+	}
+
+	if err := b.storeJSON(ctx, cacheKey("leaderboard:teams", divisionID), teamLeaderboard, b.cfg.Cache.LeaderboardTTL); err != nil {
 		return err
 	}
 
 	userTimelineResp := struct {
 		Submissions []models.TimelineSubmission `json:"submissions"`
 	}{Submissions: userTimeline}
-	if err := b.storeJSON(ctx, "timeline:users", userTimelineResp, b.cfg.Cache.TimelineTTL); err != nil {
+	if err := b.storeJSON(ctx, cacheKey("timeline:users", divisionID), userTimelineResp, b.cfg.Cache.TimelineTTL); err != nil {
 		return err
 	}
 
 	teamTimelineResp := struct {
 		Submissions []models.TeamTimelineSubmission `json:"submissions"`
 	}{Submissions: teamTimeline}
-	if err := b.storeJSON(ctx, "timeline:teams", teamTimelineResp, b.cfg.Cache.TimelineTTL); err != nil {
+	if err := b.storeJSON(ctx, cacheKey("timeline:teams", divisionID), teamTimelineResp, b.cfg.Cache.TimelineTTL); err != nil {
 		return err
 	}
 

@@ -75,7 +75,7 @@ func TestUserServiceGetByIDListUpdateProfile(t *testing.T) {
 		t.Fatalf("unexpected user: %+v", got)
 	}
 
-	users, err := env.userSvc.List(context.Background())
+	users, err := env.userSvc.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}

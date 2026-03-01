@@ -25,22 +25,25 @@ import (
 )
 
 type serviceEnv struct {
-	cfg            config.Config
-	db             *bun.DB
-	redis          *redis.Client
-	userRepo       *repo.UserRepo
-	regKeyRepo     *repo.RegistrationKeyRepo
-	teamRepo       *repo.TeamRepo
-	challengeRepo  *repo.ChallengeRepo
-	submissionRepo *repo.SubmissionRepo
-	scoreRepo      *repo.ScoreboardRepo
-	stackRepo      *repo.StackRepo
-	authSvc        *AuthService
-	userSvc        *UserService
-	scoreSvc       *ScoreboardService
-	ctfSvc         *CTFService
-	teamSvc        *TeamService
-	stackSvc       *StackService
+	cfg               config.Config
+	db                *bun.DB
+	redis             *redis.Client
+	userRepo          *repo.UserRepo
+	regKeyRepo        *repo.RegistrationKeyRepo
+	divisionRepo      *repo.DivisionRepo
+	teamRepo          *repo.TeamRepo
+	challengeRepo     *repo.ChallengeRepo
+	submissionRepo    *repo.SubmissionRepo
+	scoreRepo         *repo.ScoreboardRepo
+	stackRepo         *repo.StackRepo
+	authSvc           *AuthService
+	userSvc           *UserService
+	scoreSvc          *ScoreboardService
+	ctfSvc            *CTFService
+	divisionSvc       *DivisionService
+	teamSvc           *TeamService
+	stackSvc          *StackService
+	defaultDivisionID int64
 }
 
 var (
@@ -84,12 +87,12 @@ func TestMain(m *testing.M) {
 	serviceRedis = redis.NewClient(&redis.Options{Addr: serviceRedisServer.Addr()})
 
 	serviceCfg = config.Config{
-		AppEnv:             "test",
-		HTTPAddr:           ":0",
-		ShutdownTimeout:    5 * time.Second,
-		AutoMigrate:        false,
-		BcryptCost: bcrypt.MinCost,
-		DB:                 dbCfg,
+		AppEnv:          "test",
+		HTTPAddr:        ":0",
+		ShutdownTimeout: 5 * time.Second,
+		AutoMigrate:     false,
+		BcryptCost:      bcrypt.MinCost,
+		DB:              dbCfg,
 		Redis: config.RedisConfig{
 			Addr:     serviceRedisServer.Addr(),
 			Password: "",
@@ -188,6 +191,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 
 	userRepo := repo.NewUserRepo(serviceDB)
 	regRepo := repo.NewRegistrationKeyRepo(serviceDB)
+	divisionRepo := repo.NewDivisionRepo(serviceDB)
 	teamRepo := repo.NewTeamRepo(serviceDB)
 	challengeRepo := repo.NewChallengeRepo(serviceDB)
 	submissionRepo := repo.NewSubmissionRepo(serviceDB)
@@ -199,16 +203,18 @@ func setupServiceTest(t *testing.T) serviceEnv {
 	authSvc := NewAuthService(serviceCfg, serviceDB, userRepo, regRepo, teamRepo, serviceRedis)
 	userSvc := NewUserService(userRepo, teamRepo)
 	scoreSvc := NewScoreboardService(scoreRepo)
-	teamSvc := NewTeamService(teamRepo)
+	divisionSvc := NewDivisionService(divisionRepo)
+	teamSvc := NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis, fileStore)
 	stackSvc := NewStackService(serviceCfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, serviceRedis)
 
-	return serviceEnv{
+	env := serviceEnv{
 		cfg:            serviceCfg,
 		db:             serviceDB,
 		redis:          serviceRedis,
 		userRepo:       userRepo,
 		regKeyRepo:     regRepo,
+		divisionRepo:   divisionRepo,
 		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
@@ -218,15 +224,28 @@ func setupServiceTest(t *testing.T) serviceEnv {
 		userSvc:        userSvc,
 		scoreSvc:       scoreSvc,
 		ctfSvc:         ctfSvc,
+		divisionSvc:    divisionSvc,
 		teamSvc:        teamSvc,
 		stackSvc:       stackSvc,
 	}
+
+	division := &models.Division{
+		Name:      "Default",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	env.defaultDivisionID = division.ID
+
+	return env
 }
 
 func resetServiceState(t *testing.T) {
 	t.Helper()
 
-	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -279,10 +298,40 @@ func createTeam(t *testing.T, env serviceEnv, name string) *models.Team {
 	t.Helper()
 
 	team := &models.Team{
+		Name:       name,
+		DivisionID: env.defaultDivisionID,
+		CreatedAt:  time.Now().UTC(),
+	}
+
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+
+	return team
+}
+
+func createDivision(t *testing.T, env serviceEnv, name string) *models.Division {
+	t.Helper()
+
+	division := &models.Division{
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
 	}
+	if err := env.divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
 
+	return division
+}
+
+func createTeamInDivision(t *testing.T, env serviceEnv, name string, divisionID int64) *models.Team {
+	t.Helper()
+
+	team := &models.Team{
+		Name:       name,
+		DivisionID: divisionID,
+		CreatedAt:  time.Now().UTC(),
+	}
 	if err := env.teamRepo.Create(context.Background(), team); err != nil {
 		t.Fatalf("create team: %v", err)
 	}

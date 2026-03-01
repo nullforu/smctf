@@ -26,24 +26,27 @@ import (
 )
 
 type handlerEnv struct {
-	cfg            config.Config
-	db             *bun.DB
-	redis          *redis.Client
-	userRepo       *repo.UserRepo
-	regKeyRepo     *repo.RegistrationKeyRepo
-	teamRepo       *repo.TeamRepo
-	challengeRepo  *repo.ChallengeRepo
-	submissionRepo *repo.SubmissionRepo
-	appConfigRepo  *repo.AppConfigRepo
-	stackRepo      *repo.StackRepo
-	authSvc        *service.AuthService
-	userSvc        *service.UserService
-	scoreSvc       *service.ScoreboardService
-	ctfSvc         *service.CTFService
-	teamSvc        *service.TeamService
-	appConfigSvc   *service.AppConfigService
-	stackSvc       *service.StackService
-	handler        *Handler
+	cfg               config.Config
+	db                *bun.DB
+	redis             *redis.Client
+	userRepo          *repo.UserRepo
+	regKeyRepo        *repo.RegistrationKeyRepo
+	divisionRepo      *repo.DivisionRepo
+	teamRepo          *repo.TeamRepo
+	challengeRepo     *repo.ChallengeRepo
+	submissionRepo    *repo.SubmissionRepo
+	appConfigRepo     *repo.AppConfigRepo
+	stackRepo         *repo.StackRepo
+	authSvc           *service.AuthService
+	userSvc           *service.UserService
+	scoreSvc          *service.ScoreboardService
+	ctfSvc            *service.CTFService
+	divisionSvc       *service.DivisionService
+	teamSvc           *service.TeamService
+	appConfigSvc      *service.AppConfigService
+	stackSvc          *service.StackService
+	handler           *Handler
+	defaultDivisionID int64
 }
 
 var (
@@ -87,12 +90,12 @@ func TestMain(m *testing.M) {
 	handlerRedis = redis.NewClient(&redis.Options{Addr: handlerRedisServer.Addr()})
 
 	handlerCfg = config.Config{
-		AppEnv:             "test",
-		HTTPAddr:           ":0",
-		ShutdownTimeout:    5 * time.Second,
-		AutoMigrate:        false,
-		BcryptCost: bcrypt.MinCost,
-		DB:                 dbCfg,
+		AppEnv:          "test",
+		HTTPAddr:        ":0",
+		ShutdownTimeout: 5 * time.Second,
+		AutoMigrate:     false,
+		BcryptCost:      bcrypt.MinCost,
+		DB:              dbCfg,
 		Redis: config.RedisConfig{
 			Addr:     handlerRedisServer.Addr(),
 			Password: "",
@@ -218,6 +221,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 
 	userRepo := repo.NewUserRepo(handlerDB)
 	regRepo := repo.NewRegistrationKeyRepo(handlerDB)
+	divisionRepo := repo.NewDivisionRepo(handlerDB)
 	teamRepo := repo.NewTeamRepo(handlerDB)
 	challengeRepo := repo.NewChallengeRepo(handlerDB)
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
@@ -231,18 +235,20 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	authSvc := service.NewAuthService(handlerCfg, handlerDB, userRepo, regRepo, teamRepo, handlerRedis)
 	userSvc := service.NewUserService(userRepo, teamRepo)
 	scoreSvc := service.NewScoreboardService(scoreRepo)
-	teamSvc := service.NewTeamService(teamRepo)
+	divisionSvc := service.NewDivisionService(divisionRepo)
+	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	stackSvc := service.NewStackService(handlerCfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, handlerRedis)
 
-	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, handlerRedis)
 
-	return handlerEnv{
+	env := handlerEnv{
 		cfg:            handlerCfg,
 		db:             handlerDB,
 		redis:          handlerRedis,
 		userRepo:       userRepo,
 		regKeyRepo:     regRepo,
+		divisionRepo:   divisionRepo,
 		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
@@ -252,17 +258,30 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		userSvc:        userSvc,
 		scoreSvc:       scoreSvc,
 		ctfSvc:         ctfSvc,
+		divisionSvc:    divisionSvc,
 		teamSvc:        teamSvc,
 		appConfigSvc:   appConfigSvc,
 		stackSvc:       stackSvc,
 		handler:        handler,
 	}
+
+	division := &models.Division{
+		Name:      "Default",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	env.defaultDivisionID = division.ID
+
+	return env
 }
 
 func resetHandlerState(t *testing.T) {
 	t.Helper()
 
-	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -354,10 +373,40 @@ func createHandlerTeam(t *testing.T, env handlerEnv, name string) *models.Team {
 	t.Helper()
 
 	team := &models.Team{
+		Name:       name,
+		DivisionID: env.defaultDivisionID,
+		CreatedAt:  time.Now().UTC(),
+	}
+
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+
+	return team
+}
+
+func createHandlerDivision(t *testing.T, env handlerEnv, name string) *models.Division {
+	t.Helper()
+
+	division := &models.Division{
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
 	}
+	if err := env.divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
 
+	return division
+}
+
+func createHandlerTeamInDivision(t *testing.T, env handlerEnv, name string, divisionID int64) *models.Team {
+	t.Helper()
+
+	team := &models.Team{
+		Name:       name,
+		DivisionID: divisionID,
+		CreatedAt:  time.Now().UTC(),
+	}
 	if err := env.teamRepo.Create(context.Background(), team); err != nil {
 		t.Fatalf("create team: %v", err)
 	}

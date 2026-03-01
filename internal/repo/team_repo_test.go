@@ -74,7 +74,7 @@ func TestTeamRepoListWithStats(t *testing.T) {
 	createSubmission(t, env, userA1.ID, chal2.ID, false, now.Add(-30*time.Second))
 	createSubmission(t, env, blockedA.ID, chal1.ID, true, now.Add(-90*time.Second))
 
-	rows, err := env.teamRepo.ListWithStats(context.Background())
+	rows, err := env.teamRepo.ListWithStats(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("ListWithStats: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestTeamRepoListWithStatsError(t *testing.T) {
 	closedDB := newClosedRepoDB(t)
 	repo := NewTeamRepo(closedDB)
 
-	if _, err := repo.ListWithStats(context.Background()); err == nil {
+	if _, err := repo.ListWithStats(context.Background(), nil); err == nil {
 		t.Fatalf("expected error from ListWithStats")
 	}
 }

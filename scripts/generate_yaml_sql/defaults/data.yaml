@@ -1,5 +1,10 @@
+divisions:
+  - "고등부"
+  - "대학부"
+
 teams:
   - name: "GALF"
+    division: "고등부"
     users:
       enabled: true
       count: 4
@@ -10,6 +15,7 @@ teams:
         - "alpha3@example.com"
         - "alpha4@example.com"
   - name: "BETA"
+    division: "대학부"
     users:
       enabled: false
 

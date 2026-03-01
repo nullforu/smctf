@@ -11,11 +11,11 @@ import (
 func TestTeamServiceCreateAndList(t *testing.T) {
 	env := setupServiceTest(t)
 
-	if _, err := env.teamSvc.CreateTeam(context.Background(), ""); err == nil {
+	if _, err := env.teamSvc.CreateTeam(context.Background(), "", env.defaultDivisionID); err == nil {
 		t.Fatalf("expected validation error")
 	}
 
-	team, err := env.teamSvc.CreateTeam(context.Background(), "Alpha")
+	team, err := env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID)
 	if err != nil {
 		t.Fatalf("create team: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestTeamServiceCreateAndList(t *testing.T) {
 		t.Fatalf("unexpected team: %+v", team)
 	}
 
-	rows, err := env.teamSvc.ListTeams(context.Background())
+	rows, err := env.teamSvc.ListTeams(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("list teams: %v", err)
 	}

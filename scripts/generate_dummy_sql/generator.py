@@ -24,16 +24,34 @@ def _pick_random_indices(
     return set(random.sample(candidates, count))
 
 
-def generate_teams(
-    team_names: List[str], timing: Dict[str, Any]
+def generate_divisions(
+    division_names: List[str], timing: Dict[str, Any]
 ) -> List[Tuple[str, str]]:
+    divisions = []
+    base_time = datetime.now(UTC) - timedelta(
+        hours=timing.get("divisions_base_hours_ago", timing["teams_base_hours_ago"])
+    )
+    step_minutes = timing.get("division_created_minutes_step", 5)
+
+    for i, name in enumerate(division_names):
+        created_at = base_time + timedelta(minutes=i * step_minutes)
+        divisions.append((name, created_at.strftime("%Y-%m-%d %H:%M:%S")))
+
+    return divisions
+
+
+def generate_teams(
+    team_specs: List[Dict[str, str]], timing: Dict[str, Any]
+) -> List[Tuple[str, str, str]]:
     teams = []
     base_time = datetime.now(UTC) - timedelta(hours=timing["teams_base_hours_ago"])
     step_minutes = timing["team_created_minutes_step"]
 
-    for i, name in enumerate(team_names):
+    for i, team in enumerate(team_specs):
+        name = team["name"]
+        division = team["division"]
         created_at = base_time + timedelta(minutes=i * step_minutes)
-        teams.append((name, created_at.strftime("%Y-%m-%d %H:%M:%S")))
+        teams.append((name, division, created_at.strftime("%Y-%m-%d %H:%M:%S")))
 
     return teams
 

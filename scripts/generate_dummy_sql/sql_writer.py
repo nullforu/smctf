@@ -7,7 +7,8 @@ from sql_common.sql_utils import escape_sql_string
 
 def write_sql_file(
     output_file: str,
-    teams: List[Tuple[str, str]],
+    divisions: List[Tuple[str, str]],
+    teams: List[Tuple[str, str, str]],
     users: List[Tuple[str, str, str, str, str, int]],
     challenges: List[
         Tuple[
@@ -52,19 +53,34 @@ def write_sql_file(
         f.write("TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n")
         if meta.get("bootstrap_mode", False):
             f.write(
-                "-- TRUNCATE TABLE users, teams RESTART IDENTITY CASCADE;\n\n"
+                "-- TRUNCATE TABLE users, teams, divisions RESTART IDENTITY CASCADE;\n\n"
             )
         else:
-            f.write("TRUNCATE TABLE users, teams RESTART IDENTITY CASCADE;\n\n")
+            f.write("TRUNCATE TABLE users, teams, divisions RESTART IDENTITY CASCADE;\n\n")
+
+        f.write("-- Insert divisions\n")
+        for name, created_at in divisions:
+            name_esc = escape_sql_string(name)
+            prefix = ""
+            if meta.get("bootstrap_mode", False) and name == "Admin":
+                prefix = "-- "
+            f.write(f"{prefix}INSERT INTO divisions (name, created_at) VALUES ")
+            f.write(
+                f"('{name_esc}', '{created_at}') ON CONFLICT (name) DO NOTHING;\n"
+            )
+        f.write("\n")
 
         f.write("-- Insert teams\n")
-        for idx, (name, created_at) in enumerate(teams, start=1):
+        for idx, (name, division, created_at) in enumerate(teams, start=1):
             name_esc = escape_sql_string(name)
+            division_esc = escape_sql_string(division)
             prefix = ""
             if meta.get("bootstrap_mode", False) and idx == 1:
                 prefix = "-- "
-            f.write(f"{prefix}INSERT INTO teams (name, created_at) VALUES ")
-            f.write(f"('{name_esc}', '{created_at}');\n")
+            f.write(f"{prefix}INSERT INTO teams (name, division_id, created_at) VALUES ")
+            f.write(
+                f"('{name_esc}', (SELECT id FROM divisions WHERE name = '{division_esc}'), '{created_at}');\n"
+            )
         f.write("\n")
 
         f.write("-- Insert users\n")
@@ -183,6 +199,7 @@ def write_sql_file(
 
         f.write("\n")
         f.write("-- Update sequences\n")
+        f.write("SELECT setval('divisions_id_seq', (SELECT MAX(id) FROM divisions));\n")
         f.write("SELECT setval('teams_id_seq', (SELECT MAX(id) FROM teams));\n")
         f.write("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));\n")
         f.write(

@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func TestListChallenges(t *testing.T) {
 	_ = createChallenge(t, env, "Inactive", 50, "flag{2}", false)
 	_ = createChallenge(t, env, "Active 2", 200, "flag{3}", true)
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -64,7 +65,7 @@ func TestChallengesLockedFlow(t *testing.T) {
 		t.Fatalf("update locked challenge: %v", err)
 	}
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -121,7 +122,7 @@ func TestChallengesLockedFlow(t *testing.T) {
 		t.Fatalf("expected description to be omitted for locked challenge")
 	}
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, authHeader(access))
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, authHeader(access))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list auth status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -382,7 +383,7 @@ func TestChallengesBeforeStart(t *testing.T) {
 	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 	access, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -426,7 +427,7 @@ func TestChallengesAfterEnd(t *testing.T) {
 	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
 	access, _, _ := registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -497,7 +498,7 @@ func TestChallengesDynamicScoring(t *testing.T) {
 		t.Fatalf("solo submit status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/challenges", nil, nil)
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
 	}

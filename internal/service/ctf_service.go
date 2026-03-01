@@ -88,7 +88,7 @@ func NewCTFService(cfg config.Config, challengeRepo *repo.ChallengeRepo, submiss
 	return &CTFService{cfg: cfg, challengeRepo: challengeRepo, submissionRepo: submissionRepo, redis: redis, fileStore: fileStore}
 }
 
-func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, error) {
+func (s *CTFService) ListChallenges(ctx context.Context, divisionID *int64) ([]models.Challenge, error) {
 	challenges, err := s.challengeRepo.ListActive(ctx)
 
 	if err != nil {
@@ -100,7 +100,7 @@ func (s *CTFService) ListChallenges(ctx context.Context) ([]models.Challenge, er
 		ptrs = append(ptrs, &challenges[i])
 	}
 
-	if err := s.applyDynamicPoints(ctx, ptrs); err != nil {
+	if err := s.applyDynamicPoints(ctx, ptrs, divisionID); err != nil {
 		return nil, fmt.Errorf("ctf.ListChallenges score: %w", err)
 	}
 
@@ -202,7 +202,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 		return nil, fmt.Errorf("ctf.CreateChallenge: %w", err)
 	}
 
-	if err := s.applyDynamicPoints(ctx, []*models.Challenge{challenge}); err != nil {
+	if err := s.applyDynamicPoints(ctx, []*models.Challenge{challenge}, nil); err != nil {
 		return nil, fmt.Errorf("ctf.CreateChallenge score: %w", err)
 	}
 
@@ -377,7 +377,7 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 		return nil, fmt.Errorf("ctf.UpdateChallenge update: %w", err)
 	}
 
-	if err := s.applyDynamicPoints(ctx, []*models.Challenge{challenge}); err != nil {
+	if err := s.applyDynamicPoints(ctx, []*models.Challenge{challenge}, nil); err != nil {
 		return nil, fmt.Errorf("ctf.UpdateChallenge score: %w", err)
 	}
 
@@ -629,14 +629,14 @@ func (s *CTFService) DeleteChallengeFile(ctx context.Context, id int64) (*models
 	return challenge, nil
 }
 
-func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64) ([]models.SolvedChallenge, error) {
+func (s *CTFService) SolvedChallenges(ctx context.Context, userID int64, divisionID *int64) ([]models.SolvedChallenge, error) {
 	rows, err := s.submissionRepo.SolvedChallenges(ctx, userID)
 
 	if err != nil {
 		return nil, fmt.Errorf("ctf.SolvedChallenges: %w", err)
 	}
 
-	pointsMap, err := s.challengeRepo.DynamicPoints(ctx)
+	pointsMap, err := s.challengeRepo.DynamicPoints(ctx, divisionID)
 	if err != nil {
 		return nil, fmt.Errorf("ctf.SolvedChallenges score: %w", err)
 	}
@@ -657,13 +657,13 @@ func (s *CTFService) ListAllSubmissions(ctx context.Context) ([]models.Submissio
 	return rows, nil
 }
 
-func (s *CTFService) applyDynamicPoints(ctx context.Context, challenges []*models.Challenge) error {
-	pointsMap, err := s.challengeRepo.DynamicPoints(ctx)
+func (s *CTFService) applyDynamicPoints(ctx context.Context, challenges []*models.Challenge, divisionID *int64) error {
+	pointsMap, err := s.challengeRepo.DynamicPoints(ctx, divisionID)
 	if err != nil {
 		return err
 	}
 
-	solveCounts, err := s.challengeRepo.SolveCounts(ctx)
+	solveCounts, err := s.challengeRepo.SolveCounts(ctx, divisionID)
 	if err != nil {
 		return err
 	}

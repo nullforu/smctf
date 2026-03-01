@@ -16,6 +16,8 @@ type User struct {
 	Role          string     `bun:"role,notnull"`
 	TeamID        int64      `bun:"team_id,notnull"`
 	TeamName      string     `bun:"team_name,scanonly"`
+	DivisionID    int64      `bun:"division_id,scanonly"`
+	DivisionName  string     `bun:"division_name,scanonly"`
 	BlockedReason *string    `bun:"blocked_reason,nullzero"`
 	BlockedAt     *time.Time `bun:"blocked_at,nullzero"`
 	CreatedAt     time.Time  `bun:"created_at,nullzero,notnull,default:current_timestamp"`

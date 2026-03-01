@@ -36,20 +36,23 @@ import (
 )
 
 type testEnv struct {
-	cfg            config.Config
-	router         *gin.Engine
-	userRepo       *repo.UserRepo
-	regKeyRepo     *repo.RegistrationKeyRepo
-	teamRepo       *repo.TeamRepo
-	challengeRepo  *repo.ChallengeRepo
-	submissionRepo *repo.SubmissionRepo
-	appConfigRepo  *repo.AppConfigRepo
-	stackRepo      *repo.StackRepo
-	authSvc        *service.AuthService
-	ctfSvc         *service.CTFService
-	teamSvc        *service.TeamService
-	appConfigSvc   *service.AppConfigService
-	stackSvc       *service.StackService
+	cfg               config.Config
+	router            *gin.Engine
+	userRepo          *repo.UserRepo
+	regKeyRepo        *repo.RegistrationKeyRepo
+	divisionRepo      *repo.DivisionRepo
+	teamRepo          *repo.TeamRepo
+	challengeRepo     *repo.ChallengeRepo
+	submissionRepo    *repo.SubmissionRepo
+	appConfigRepo     *repo.AppConfigRepo
+	stackRepo         *repo.StackRepo
+	authSvc           *service.AuthService
+	ctfSvc            *service.CTFService
+	divisionSvc       *service.DivisionService
+	teamSvc           *service.TeamService
+	appConfigSvc      *service.AppConfigService
+	stackSvc          *service.StackService
+	defaultDivisionID int64
 }
 
 type errorResp struct {
@@ -129,12 +132,12 @@ func TestMain(m *testing.M) {
 	testRedis = redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
 
 	testCfg = config.Config{
-		AppEnv:             "test",
-		HTTPAddr:           ":0",
-		ShutdownTimeout:    5 * time.Second,
-		AutoMigrate:        false,
-		BcryptCost: bcrypt.MinCost,
-		DB:                 dbCfg,
+		AppEnv:          "test",
+		HTTPAddr:        ":0",
+		ShutdownTimeout: 5 * time.Second,
+		AutoMigrate:     false,
+		BcryptCost:      bcrypt.MinCost,
+		DB:              dbCfg,
 		Redis: config.RedisConfig{
 			Addr:     redisServer.Addr(),
 			Password: "",
@@ -258,6 +261,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 
 	userRepo := repo.NewUserRepo(testDB)
 	registrationKeyRepo := repo.NewRegistrationKeyRepo(testDB)
+	divisionRepo := repo.NewDivisionRepo(testDB)
 	teamRepo := repo.NewTeamRepo(testDB)
 	challengeRepo := repo.NewChallengeRepo(testDB)
 	submissionRepo := repo.NewSubmissionRepo(testDB)
@@ -270,18 +274,20 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
 	userSvc := service.NewUserService(userRepo, teamRepo)
 	scoreSvc := service.NewScoreboardService(scoreRepo)
-	teamSvc := service.NewTeamService(teamRepo)
+	divisionSvc := service.NewDivisionService(divisionRepo)
+	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, testRedis)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, teamSvc, stackSvc, testRedis, testLogger, nil)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, testRedis, testLogger, nil)
 
-	return testEnv{
+	env := testEnv{
 		cfg:            cfg,
 		router:         router,
 		userRepo:       userRepo,
 		regKeyRepo:     registrationKeyRepo,
+		divisionRepo:   divisionRepo,
 		teamRepo:       teamRepo,
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
@@ -289,10 +295,23 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 		stackRepo:      stackRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
+		divisionSvc:    divisionSvc,
 		teamSvc:        teamSvc,
 		appConfigSvc:   appConfigSvc,
 		stackSvc:       stackSvc,
 	}
+
+	division := &models.Division{
+		Name:      "Default",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	env.defaultDivisionID = division.ID
+
+	return env
 }
 
 func setCTFWindow(t *testing.T, env testEnv, startAt, endAt *time.Time) {
@@ -325,7 +344,7 @@ func setCTFWindow(t *testing.T, env testEnv, startAt, endAt *time.Time) {
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -468,8 +487,9 @@ func createTeam(t *testing.T, env testEnv, name string) *models.Team {
 	t.Helper()
 
 	team := &models.Team{
-		Name:      name,
-		CreatedAt: time.Now().UTC(),
+		Name:       name,
+		DivisionID: env.defaultDivisionID,
+		CreatedAt:  time.Now().UTC(),
 	}
 
 	if err := env.teamRepo.Create(context.Background(), team); err != nil {
