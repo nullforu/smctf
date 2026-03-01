@@ -22,6 +22,7 @@ def generate_divisions(
     divisions: List[Dict[str, Any]] = []
 
     for idx, name in enumerate(division_names, start=1):
+        name = name.strip()
         division_id = idx + id_offset
         created_at = base_time + timedelta(minutes=division_id)
         divisions.append(
@@ -48,6 +49,7 @@ def generate_teams(
         team_id = idx + id_offset
         created_at = base_time + timedelta(minutes=team_id)
         division_name = team.get("division") or default_division
+        division_name = division_name.strip()
         division_id = division_map.get(division_name)
         if division_id is None:
             raise SystemExit(f"Error: team division '{division_name}' not found")
