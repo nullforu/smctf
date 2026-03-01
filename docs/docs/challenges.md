@@ -5,7 +5,9 @@ nav_order: 4
 
 ## List Challenges
 
-`GET /api/challenges`
+`GET /api/challenges?division_id={id}`
+
+`division_id` is required.
 
 Response 200
 
@@ -40,6 +42,10 @@ Notes:
 - `stack_enabled` indicates if a per-user stack instance is supported for this challenge.
 - If a challenge is locked, the response includes only `id`, `title`, `category`, `points`, `initial_points`, `minimum_points`, `solve_count`, `previous_challenge_id`, `previous_challenge_title`, `previous_challenge_category`, `is_active`, and `is_locked`.
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
+
+Errors:
+
+- 400 `invalid input` (`division_id` required or invalid)
 
 ---
 

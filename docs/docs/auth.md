@@ -61,7 +61,9 @@ Response 200
         "id": 1,
         "email": "user@example.com",
         "username": "user1",
-        "role": "user"
+        "role": "user",
+        "division_id": 2,
+        "division_name": "고등부"
     }
 }
 ```

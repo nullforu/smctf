@@ -5,7 +5,9 @@ nav_order: 5
 
 ## Get Leaderboard
 
-`GET /api/leaderboard`
+`GET /api/leaderboard?division_id={id}`
+
+`division_id` is required.
 
 Response 200
 
@@ -36,15 +38,19 @@ Response 200
 }
 ```
 
-Returns all users sorted by score (descending).
+Returns all users in the division sorted by score (descending).
 `solves` includes earliest solve timestamp per challenge and `is_first_blood` for the first solver.
 Blocked users are excluded from leaderboard scores and solves.
+
+Errors:
+
+- 400 `invalid input` (`division_id` required or invalid)
 
 ---
 
 ## Get Team Leaderboard
 
-`GET /api/leaderboard/teams`
+`GET /api/leaderboard/teams?division_id={id}`
 
 Response 200
 
@@ -75,15 +81,19 @@ Response 200
 }
 ```
 
-Returns all teams sorted by score (descending).
+Returns all teams in the division sorted by score (descending).
 `solves` includes earliest solve timestamp per challenge and `is_first_blood` for the first solver.
 Blocked users are excluded from team scores and solves.
+
+Errors:
+
+- 400 `invalid input` (`division_id` required or invalid)
 
 ---
 
 ## Get Timeline
 
-`GET /api/timeline`
+`GET /api/timeline?division_id={id}`
 
 Response 200
 
@@ -101,16 +111,20 @@ Response 200
 }
 ```
 
-Returns all submissions teamed by user and 10 minute intervals.
+Returns all submissions in the division teamed by user and 10 minute intervals.
 If multiple challenges are solved by the same user within 10 minutes, they are teamed together with cumulative points and challenge count.
 `points` is dynamically calculated based on solves.
 Blocked users are excluded.
+
+Errors:
+
+- 400 `invalid input` (`division_id` required or invalid)
 
 ---
 
 ## Get Team Timeline
 
-`GET /api/timeline/teams`
+`GET /api/timeline/teams?division_id={id}`
 
 Response 200
 
@@ -128,10 +142,14 @@ Response 200
 }
 ```
 
-Returns all submissions teamed by team and 10 minute intervals.
+Returns all submissions in the division teamed by team and 10 minute intervals.
 
 `points` is dynamically calculated based on solves.
 Blocked users are excluded.
+
+Errors:
+
+- 400 `invalid input` (`division_id` required or invalid)
 
 ---
 
@@ -147,7 +165,7 @@ data has been rebuilt and cached. This endpoint is public (no auth).
 - `ready`: sent immediately after connection is established.
 - `scoreboard`: emitted after caches are refreshed. Clients should re-fetch
   `/api/leaderboard`, `/api/leaderboard/teams`, `/api/timeline`, and
-  `/api/timeline/teams`.
+  `/api/timeline/teams` with the same `division_id`.
 
 Example stream:
 
@@ -173,10 +191,10 @@ const connect = () => {
     es = new EventSource('/api/scoreboard/stream')
 
     es.addEventListener('scoreboard', () => {
-        fetch('/api/leaderboard')
-        fetch('/api/leaderboard/teams')
-        fetch('/api/timeline')
-        fetch('/api/timeline/teams')
+        fetch('/api/leaderboard?division_id=1')
+        fetch('/api/leaderboard/teams?division_id=1')
+        fetch('/api/timeline?division_id=1')
+        fetch('/api/timeline/teams?division_id=1')
     })
 
     es.onerror = () => {
