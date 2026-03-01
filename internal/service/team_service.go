@@ -38,7 +38,7 @@ func (s *TeamService) CreateTeam(ctx context.Context, name string, divisionID in
 
 	if _, err := s.divisionRepo.GetByID(ctx, divisionID); err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			return nil, ErrNotFound
+			return nil, NewValidationError(FieldError{Field: "division_id", Reason: "not found"})
 		}
 		return nil, fmt.Errorf("team.CreateTeam division: %w", err)
 	}

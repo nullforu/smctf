@@ -2091,6 +2091,12 @@ func TestHandlerCreateTeam(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected duplicate 400, got %d", rec.Code)
 	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]any{"name": "Beta", "division_id": env.defaultDivisionID + 999})
+	env.handler.CreateTeam(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid division 400, got %d", rec.Code)
+	}
 }
 
 func TestHandlerTeams(t *testing.T) {

@@ -15,6 +15,15 @@ func TestTeamServiceCreateAndList(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 
+	_, err := env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID+999)
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if len(ve.Fields) != 1 || ve.Fields[0].Field != "division_id" || ve.Fields[0].Reason != "not found" {
+		t.Fatalf("unexpected validation error details: %+v", ve.Fields)
+	}
+
 	team, err := env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID)
 	if err != nil {
 		t.Fatalf("create team: %v", err)

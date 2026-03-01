@@ -73,9 +73,10 @@ def validate_data(data: Dict[str, Any]) -> None:
     for idx, division in enumerate(divisions, start=1):
         if not isinstance(division, str) or not division.strip():
             raise SystemExit(f"Error: division entry {idx} must be a non-empty string")
-        if division.strip().lower() == "admin":
+        normalized = division.strip()
+        if normalized.lower() == "admin":
             raise SystemExit("Error: division name 'Admin' is reserved for bootstrap")
-        division_names.append(division)
+        division_names.append(normalized)
     if len(division_names) != len(set(division_names)):
         raise SystemExit("Error: divisions must be unique")
 
@@ -93,7 +94,8 @@ def validate_data(data: Dict[str, Any]) -> None:
                 raise SystemExit(
                     f"Error: team entry {idx} division must be a non-empty string when provided"
                 )
-            if division not in division_names:
+            normalized_division = division.strip()
+            if normalized_division not in division_names:
                 raise SystemExit(
                     f"Error: team entry {idx} division '{division}' not found in divisions"
                 )

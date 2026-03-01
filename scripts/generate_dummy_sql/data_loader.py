@@ -22,15 +22,18 @@ def validate_data(data: Dict[str, Any], user_count: int, min_user_names: int) ->
         raise SystemExit("Error: teams must be a non-empty list")
     if not isinstance(challenges, list) or not challenges:
         raise SystemExit("Error: challenges must be a non-empty list")
+    normalized_divisions = None
     if divisions is not None:
         if not isinstance(divisions, list) or not divisions:
             raise SystemExit("Error: divisions must be a non-empty list when provided")
+        normalized_divisions = []
         for idx, division in enumerate(divisions, start=1):
             if not isinstance(division, str) or not division.strip():
                 raise SystemExit(
                     f"Error: division entry {idx} must be a non-empty string"
                 )
-        if len(divisions) != len(set(divisions)):
+            normalized_divisions.append(division.strip())
+        if len(normalized_divisions) != len(set(normalized_divisions)):
             raise SystemExit("Error: divisions must be unique")
 
     for idx, team in enumerate(teams, start=1):
@@ -54,8 +57,8 @@ def validate_data(data: Dict[str, Any], user_count: int, min_user_names: int) ->
             raise SystemExit(
                 f"Error: team entry {idx} division must be a non-empty string when provided"
             )
-        if divisions is not None and isinstance(division, str):
-            if division not in divisions:
+        if normalized_divisions is not None and isinstance(division, str):
+            if division.strip() not in normalized_divisions:
                 raise SystemExit(
                     f"Error: team entry {idx} division '{division}' not found in divisions"
                 )

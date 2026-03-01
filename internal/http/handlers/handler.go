@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -69,6 +70,9 @@ func (h *Handler) invalidateCacheByPrefix(ctx context.Context, prefix string) {
 	iter := h.redis.Scan(ctx, 0, prefix+"*", 200).Iterator()
 	for iter.Next(ctx) {
 		_ = h.redis.Del(ctx, iter.Val()).Err()
+	}
+	if err := iter.Err(); err != nil {
+		slog.Warn("cache scan failed", slog.String("prefix", prefix), slog.Any("error", err))
 	}
 }
 
