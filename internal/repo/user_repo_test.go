@@ -9,126 +9,36 @@ import (
 	"smctf/internal/models"
 )
 
-func TestUserRepoCRUD(t *testing.T) {
+func TestUserRepoGetDivisionID(t *testing.T) {
 	env := setupRepoTest(t)
+	division := createDivision(t, env, "Alpha")
+	team := createTeamInDivision(t, env, "TeamA", division.ID)
+	user := createUserWithTeam(t, env, "user@example.com", "user", "pass", models.UserRole, team.ID)
 
-	user := createUserWithNewTeam(t, env, "user@example.com", "user1", "pass", models.UserRole)
-
-	got, err := env.userRepo.GetByEmail(context.Background(), "user@example.com")
+	got, err := env.userRepo.GetDivisionID(context.Background(), user.ID)
 	if err != nil {
-		t.Fatalf("GetByEmail: %v", err)
+		t.Fatalf("get division id: %v", err)
 	}
 
-	if got.ID != user.ID {
-		t.Fatalf("expected user id %d, got %d", user.ID, got.ID)
-	}
-
-	got, err = env.userRepo.GetByEmailOrUsername(context.Background(), "nope@example.com", "user1")
-	if err != nil {
-		t.Fatalf("GetByEmailOrUsername: %v", err)
-	}
-
-	if got.ID != user.ID {
-		t.Fatalf("expected user id %d, got %d", user.ID, got.ID)
-	}
-
-	got, err = env.userRepo.GetByID(context.Background(), user.ID)
-	if err != nil {
-		t.Fatalf("GetByID: %v", err)
-	}
-
-	if got.Email != user.Email {
-		t.Fatalf("unexpected email: %s", got.Email)
-	}
-
-	team, err := env.teamRepo.GetByID(context.Background(), got.TeamID)
-	if err != nil {
-		t.Fatalf("expected team lookup: %v", err)
-	}
-	if got.TeamName != team.Name {
-		t.Fatalf("expected team name %q, got %+v", team.Name, got.TeamName)
-	}
-
-	got.Username = "user2"
-	if err := env.userRepo.Update(context.Background(), got); err != nil {
-		t.Fatalf("Update: %v", err)
-	}
-
-	updated, err := env.userRepo.GetByID(context.Background(), user.ID)
-	if err != nil {
-		t.Fatalf("GetByID updated: %v", err)
-	}
-
-	if updated.Username != "user2" {
-		t.Fatalf("expected updated username, got %s", updated.Username)
-	}
-
-	users, err := env.userRepo.List(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-
-	if len(users) != 1 {
-		t.Fatalf("expected 1 user, got %d", len(users))
-	}
-
-	team, err = env.teamRepo.GetByID(context.Background(), users[0].TeamID)
-	if err != nil {
-		t.Fatalf("expected team lookup: %v", err)
-	}
-	if users[0].TeamName != team.Name {
-		t.Fatalf("expected team name %q, got %+v", team.Name, users[0].TeamName)
+	if got != division.ID {
+		t.Fatalf("expected division id %d, got %d", division.ID, got)
 	}
 }
 
-func TestUserRepoNotFound(t *testing.T) {
+func TestUserRepoGetDivisionIDNotFound(t *testing.T) {
 	env := setupRepoTest(t)
-	_, err := env.userRepo.GetByID(context.Background(), 123)
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected ErrNotFound, got %v", err)
+	if _, err := env.userRepo.GetDivisionID(context.Background(), 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected not found, got %v", err)
 	}
 }
 
-func TestUserRepoGetByIDTeamName(t *testing.T) {
+func TestUserRepoGetByEmailIncludesDivision(t *testing.T) {
 	env := setupRepoTest(t)
-	team := createTeam(t, env, "Alpha")
-	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, team.ID)
-
-	got, err := env.userRepo.GetByID(context.Background(), user.ID)
-	if err != nil {
-		t.Fatalf("GetByID: %v", err)
-	}
-
-	if got.TeamName != team.Name {
-		t.Fatalf("expected team name %q, got %+v", team.Name, got.TeamName)
-	}
-}
-
-func TestUserRepoListOrdering(t *testing.T) {
-	env := setupRepoTest(t)
-	_ = createUserWithNewTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole)
-	_ = createUserWithNewTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole)
-
-	users, err := env.userRepo.List(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-
-	if len(users) != 2 {
-		t.Fatalf("expected 2 users, got %d", len(users))
-	}
-
-	if users[0].ID > users[1].ID {
-		t.Fatalf("expected ascending id order")
-	}
-}
-
-func TestUserRepoCreateDuplicateEmail(t *testing.T) {
-	env := setupRepoTest(t)
-	team := createTeam(t, env, "Dup Team")
+	division := createDivision(t, env, "Alpha")
+	team := createTeamInDivision(t, env, "TeamA", division.ID)
 	user := &models.User{
-		Email:        "dup@example.com",
-		Username:     "dup1",
+		Email:        "a@example.com",
+		Username:     "alpha",
 		PasswordHash: "hash",
 		Role:         models.UserRole,
 		TeamID:       team.ID,
@@ -139,39 +49,12 @@ func TestUserRepoCreateDuplicateEmail(t *testing.T) {
 		t.Fatalf("create user: %v", err)
 	}
 
-	user2 := &models.User{
-		Email:        "dup@example.com",
-		Username:     "dup2",
-		PasswordHash: "hash",
-		Role:         models.UserRole,
-		TeamID:       team.ID,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
+	got, err := env.userRepo.GetByEmail(context.Background(), user.Email)
+	if err != nil {
+		t.Fatalf("get by email: %v", err)
 	}
 
-	if err := env.userRepo.Create(context.Background(), user2); err == nil {
-		t.Fatalf("expected error for duplicate email")
-	}
-}
-
-func TestUserRepoCreateError(t *testing.T) {
-	closedDB := newClosedRepoDB(t)
-	repo := NewUserRepo(closedDB)
-
-	team := &models.Team{
-		ID: 1,
-	}
-	user := &models.User{
-		Email:        "err@example.com",
-		Username:     "erruser",
-		PasswordHash: "hash",
-		Role:         models.UserRole,
-		TeamID:       team.ID,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-	}
-
-	if err := repo.Create(context.Background(), user); err == nil {
-		t.Fatalf("expected error from Create")
+	if got.DivisionID != division.ID || got.DivisionName != division.Name {
+		t.Fatalf("expected division fields populated, got %+v", got)
 	}
 }

@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
-	"smctf/internal/models"
+	"errors"
 	"testing"
+
+	"smctf/internal/models"
 )
 
 func TestUserServiceMoveUserTeam(t *testing.T) {
@@ -96,4 +98,28 @@ func TestUserServiceGetByIDListUpdateProfile(t *testing.T) {
 
 func ptr(value string) *string {
 	return &value
+}
+
+func TestUserServiceGetDivisionID(t *testing.T) {
+	env := setupServiceTest(t)
+	div := env.defaultDivisionID
+	team := createTeam(t, env, "div-team")
+	user := createUserWithTeam(t, env, "div@example.com", "divuser", "pass", models.UserRole, team.ID)
+
+	got, err := env.userSvc.GetDivisionID(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("get division id: %v", err)
+	}
+
+	if got != div {
+		t.Fatalf("expected division id %d, got %d", div, got)
+	}
+
+	if _, err := env.userSvc.GetDivisionID(context.Background(), 0); err == nil {
+		t.Fatalf("expected validation error for invalid id")
+	}
+
+	if _, err := env.userSvc.GetDivisionID(context.Background(), 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected not found, got %v", err)
+	}
 }
