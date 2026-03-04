@@ -380,11 +380,31 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	var loginResp struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
+		User         struct {
+			TeamID       int64  `json:"team_id"`
+			TeamName     string `json:"team_name"`
+			DivisionID   int64  `json:"division_id"`
+			DivisionName string `json:"division_name"`
+			BlockedReason *string    `json:"blocked_reason"`
+			BlockedAt     *time.Time `json:"blocked_at"`
+		} `json:"user"`
 	}
 	decodeJSON(t, rec, &loginResp)
 
 	if loginResp.AccessToken == "" || loginResp.RefreshToken == "" {
 		t.Fatalf("missing tokens")
+	}
+	if loginResp.User.TeamID != key.TeamID {
+		t.Fatalf("expected team_id %d, got %d", key.TeamID, loginResp.User.TeamID)
+	}
+	if loginResp.User.TeamName != "reg-"+key.Code {
+		t.Fatalf("expected team_name %q, got %q", "reg-"+key.Code, loginResp.User.TeamName)
+	}
+	if loginResp.User.DivisionID == 0 || loginResp.User.DivisionName == "" {
+		t.Fatalf("missing division fields in login response")
+	}
+	if loginResp.User.BlockedReason != nil || loginResp.User.BlockedAt != nil {
+		t.Fatalf("expected blocked fields to be null")
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/refresh", map[string]string{"refresh_token": "bad"})

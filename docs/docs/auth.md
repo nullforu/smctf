@@ -62,8 +62,12 @@ Response 200
         "email": "user@example.com",
         "username": "user1",
         "role": "user",
+        "team_id": 3,
+        "team_name": "team-alpha",
         "division_id": 2,
-        "division_name": "고등부"
+        "division_name": "고등부",
+        "blocked_reason": null,
+        "blocked_at": null
     }
 }
 ```

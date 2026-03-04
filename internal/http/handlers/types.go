@@ -152,14 +152,7 @@ type registerResponse struct {
 	Username string `json:"username"`
 }
 
-type loginUserResponse struct {
-	ID           int64  `json:"id"`
-	Email        string `json:"email"`
-	Username     string `json:"username"`
-	Role         string `json:"role"`
-	DivisionID   int64  `json:"division_id"`
-	DivisionName string `json:"division_name"`
-}
+type loginUserResponse = userMeResponse
 
 type loginResponse struct {
 	AccessToken  string            `json:"access_token"`

@@ -408,14 +408,7 @@ func (h *Handler) Login(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, loginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User: loginUserResponse{
-			ID:           user.ID,
-			Email:        user.Email,
-			Username:     user.Username,
-			Role:         user.Role,
-			DivisionID:   user.DivisionID,
-			DivisionName: user.DivisionName,
-		},
+		User: newUserMeResponse(user),
 	})
 }
 
