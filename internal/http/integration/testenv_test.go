@@ -443,11 +443,16 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		User         struct {
-			ID int64 `json:"id"`
+			ID       int64  `json:"id"`
+			TeamID   int64  `json:"team_id"`
+			TeamName string `json:"team_name"`
 		} `json:"user"`
 	}
 
 	decodeJSON(t, rec, &loginResp)
+	if loginResp.User.TeamID == 0 || loginResp.User.TeamName == "" {
+		t.Fatalf("missing team fields in login response")
+	}
 
 	return loginResp.AccessToken, loginResp.RefreshToken, loginResp.User.ID
 }
@@ -512,11 +517,16 @@ func loginUser(t *testing.T, router *gin.Engine, email, password string) (string
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		User         struct {
-			ID int64 `json:"id"`
+			ID       int64  `json:"id"`
+			TeamID   int64  `json:"team_id"`
+			TeamName string `json:"team_name"`
 		} `json:"user"`
 	}
 
 	decodeJSON(t, rec, &resp)
+	if resp.User.TeamID == 0 || resp.User.TeamName == "" {
+		t.Fatalf("missing team fields in login response")
+	}
 
 	return resp.AccessToken, resp.RefreshToken, resp.User.ID
 }
