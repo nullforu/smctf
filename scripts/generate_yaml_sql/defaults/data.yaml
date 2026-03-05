@@ -20,18 +20,79 @@ teams:
       enabled: false
 
 challenges:
-  - title: "Reverse It"
-    description: "3gn3ll4hc_s1ht_3sr3v3r (flag{...})"
-    points: 50
-    flag: "flag{r3v3rs3_th1s_ch4ll3ng3}"
-    category: "Misc"
-  - title: "Simple NextJS"
-    description: "25년도에 큰 취약점이 터졌다던데.. 뭐였지?"
-    points: 50
-    flag: "flag{n3xtjs_cve_2O2S_2gg27_m1dd13w4r3}"
+  - title: "Bookwish"
+    description: |
+      원하는 책을 신청할 수 있는 서비스입니다.
+
+      서비스의 취약점을 찾고 익스플로잇하여 플래그를 획득하세요.
+
+      플래그 형식은 `DH{...}` 입니다.
+
+      > Level 2, 출처: https://dreamhack.io/wargame/challenges/2267
+    points: 100
+    flag: "DH{Bookwish}"
     category: "Web"
     stack_enabled: true
     stack_target_ports:
-      - container_port: 80
+      - container_port: 8000
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    stack_pod_spec_path: "./web-bookwish.yaml"
+    file_name: "bookwish-user.zip"
+    file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
+    file_uploaded_at: "2026-02-13 12:00:00"
+  - title: "Simple Note Manager"
+    description: |
+      노트를 관리하는 간단한 웹 서비스입니다.
+
+      취약점을 찾고 익스플로잇하여 플래그를 획득하세요!
+
+      플래그 형식은 `DH{...}` 입니다.
+
+      > Level 1, 출처: https://dreamhack.io/wargame/challenges/1751
+    points: 100
+    flag: "DH{Simple_Note_Manager}"
+    category: "Web"
+    stack_enabled: true
+    stack_target_ports:
+      - container_port: 5000
+        protocol: TCP
+    stack_pod_spec_path: "./web-simple-note-manager.yaml"
+    file_name: "simple-note-manager.zip"
+    file_key: "7e8c9d1b-3a4f-4e5d-9f6a-1b2c3d4e5f6g.zip"
+    file_uploaded_at: "2026-02-14 15:30:00"
+  - title: "XSS Filtering Bypass"
+    description: |
+      Exercise: XSS Filtering Bypass에서 실습하는 문제입니다.
+
+      플래그 형식은 `DH{...}` 입니다.
+
+      > Level 1, 출처: https://dreamhack.io/wargame/challenges/433
+    points: 100
+    flag: "DH{XSS_Filtering_Bypass}"
+    category: "Web"
+    stack_enabled: true
+    stack_target_ports:
+      - container_port: 8000
+        protocol: TCP
+    stack_pod_spec_path: "./web-xss-filtering-bypass.yaml"
+    file_name: "xss-filtering-bypass.zip"
+    file_key: "0a1b2c3d-4e5f-6g7h-8i9j-0k1l2m3n4o5p.zip"
+    file_uploaded_at: "2026-02-15 09:00:00"
+  - title: "XSS Filtering Bypass Advanced"
+    description: |
+      Exercise: XSS Filtering Bypass의 패치된 문제입니다.
+
+      플래그 형식은 `DH{...}` 입니다.
+
+      > Level 3, 출처: https://dreamhack.io/wargame/challenges/434
+    points: 100
+    flag: "DH{XSS_Filtering_Bypass_Advanced}"
+    category: "Web"
+    stack_enabled: true
+    stack_target_ports:
+      - container_port: 8000
+        protocol: TCP
+    stack_pod_spec_path: "./web-xss-filtering-bypass-advanced.yaml"
+    file_name: "xss-filtering-bypass-advanced.zip"
+    file_key: "1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p.zip"
+    file_uploaded_at: "2026-02-15 10:00:00"
