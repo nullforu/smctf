@@ -1,0 +1,77 @@
+name: Manual Docker Build and Push (Repository ZIP)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecr_repository:
+        description: "ECR repository name"
+        required: false
+        default: backend
+        type: string
+      image_tag:
+        description: "Docker image tag"
+        required: true
+        default: latest
+        type: string
+      architecture:
+        description: "Build architecture mode"
+        required: true
+        type: choice
+        options:
+          - amd64
+          - multi
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: ap-northeast-2
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set build context
+        run: |
+          echo "DOCKER_DIR=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image URI
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          IMAGE_URI=$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ github.event.inputs.ecr_repository }}:${{ github.event.inputs.image_tag }}
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Build and push (amd64 only)
+        if: ${{ github.event.inputs.architecture == 'amd64' }}
+        run: |
+          docker build -t "$IMAGE_URI" "$DOCKER_DIR"
+          docker push "$IMAGE_URI"
+
+      - name: Set up QEMU
+        if: ${{ github.event.inputs.architecture == 'multi' }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        if: ${{ github.event.inputs.architecture == 'multi' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push (multi-arch)
+        if: ${{ github.event.inputs.architecture == 'multi' }}
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t "$IMAGE_URI" --push "$DOCKER_DIR"

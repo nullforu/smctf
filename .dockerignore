@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.env.*
+*.local.*
+*.local.sql
+*.local.md
+logs
+logs/**
+*.log
+coverage.out
