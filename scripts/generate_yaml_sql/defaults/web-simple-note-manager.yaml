@@ -1,11 +1,18 @@
 apiVersion: v1
-kind: Service
+kind: Pod
 metadata:
-  name: bookwish-service
+  name: simple-note-manager-pod
 spec:
-  selector:
-    app: 986129558966.dkr.ecr.ap-northeast-2.amazonaws.com/web-simple-note-manager:latest
-  ports:
-    - protocol: TCP
-      port: 5000
-      targetPort: 5000
+  containers:
+    - name: simple-note-manager-container
+      image: 986129558966.dkr.ecr.ap-northeast-2.amazonaws.com/web-simple-note-manager:latest
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 5000
+      resources:
+        limits:
+          memory: "128Mi"
+          cpu: "100m"
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
