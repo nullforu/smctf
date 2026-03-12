@@ -27,11 +27,13 @@ type StackService struct {
 
 var terminalStackStatusList = []string{"stopped", "failed", "node_deleted"}
 
-var terminalStackStatusSet = map[string]struct{}{
-	"stopped":      {},
-	"failed":       {},
-	"node_deleted": {},
-}
+var terminalStackStatusSet = func() map[string]struct{} {
+	m := make(map[string]struct{}, len(terminalStackStatusList))
+	for _, status := range terminalStackStatusList {
+		m[status] = struct{}{}
+	}
+	return m
+}()
 
 func NewStackService(cfg config.StackConfig, stackRepo *repo.StackRepo, challengeRepo *repo.ChallengeRepo, submissionRepo *repo.SubmissionRepo, client stack.API, redisClient *redis.Client) *StackService {
 	return &StackService{
