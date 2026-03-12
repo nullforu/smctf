@@ -139,6 +139,9 @@ func TestStackRepoCountByUserExcludingStatuses(t *testing.T) {
 	user := createUserWithNewTeam(t, env, "count@example.com", "count", "pass", models.UserRole)
 	challenge := createChallenge(t, env, "CountCh", 100, "flag{count}", true)
 	terminalChallenge := createChallenge(t, env, "CountChTerm", 100, "flag{count2}", true)
+	if terminalChallenge.ID == challenge.ID {
+		terminalChallenge = createChallenge(t, env, "CountChTerm2", 100, "flag{count3}", true)
+	}
 
 	now := time.Now().UTC()
 	createStack(t, env, user.ID, challenge.ID, "stack-running", now)

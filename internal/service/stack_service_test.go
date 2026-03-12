@@ -87,6 +87,7 @@ func TestStackServiceUserStackSummary(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "stack-summary@example.com", "stack-summary", "pass", models.UserRole)
 	challenge := createStackChallenge(t, env, "stack-summary")
+	terminalChallenge := createStackChallenge(t, env, "stack-summary-term")
 
 	cfg := config.StackConfig{
 		Enabled:      true,
@@ -130,7 +131,7 @@ func TestStackServiceUserStackSummary(t *testing.T) {
 
 	terminal := &models.Stack{
 		UserID:      user.ID,
-		ChallengeID: challenge.ID,
+		ChallengeID: terminalChallenge.ID,
 		StackID:     "stack-summary-stopped",
 		Status:      "stopped",
 		CreatedAt:   now.Add(-time.Minute),
