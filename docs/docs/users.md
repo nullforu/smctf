@@ -25,6 +25,8 @@ Response 200
     "team_name": "서울고등학교",
     "division_id": 2,
     "division_name": "고등부",
+    "stack_count": 0,
+    "stack_limit": 3,
     "blocked_reason": null,
     "blocked_at": null
 }
@@ -66,6 +68,8 @@ Response 200
     "team_name": "서울고등학교",
     "division_id": 2,
     "division_name": "고등부",
+    "stack_count": 0,
+    "stack_limit": 3,
     "blocked_reason": null,
     "blocked_at": null
 }

@@ -36,6 +36,20 @@ func NewStackService(cfg config.StackConfig, stackRepo *repo.StackRepo, challeng
 	}
 }
 
+func (s *StackService) UserStackSummary(ctx context.Context, userID int64) (int, int, error) {
+	limit := s.cfg.MaxPerUser
+	if userID <= 0 {
+		return 0, limit, nil
+	}
+
+	count, err := s.stackRepo.CountByUser(ctx, userID)
+	if err != nil {
+		return 0, limit, err
+	}
+
+	return count, limit, nil
+}
+
 func (s *StackService) ListUserStacks(ctx context.Context, userID int64) ([]models.Stack, error) {
 	if err := s.ensureEnabled(); err != nil {
 		return nil, err

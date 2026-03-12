@@ -164,6 +164,12 @@ func TestMain(m *testing.M) {
 			FilePrefix:   "test",
 			MaxBodyBytes: 1024 * 1024,
 		},
+		Stack: config.StackConfig{
+			Enabled:      true,
+			MaxPerUser:   3,
+			CreateWindow: time.Minute,
+			CreateMax:    1,
+		},
 	}
 
 	logDir, err = os.MkdirTemp("", "smctf-logs-*")
@@ -443,15 +449,25 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		User         struct {
-			ID       int64  `json:"id"`
-			TeamID   int64  `json:"team_id"`
-			TeamName string `json:"team_name"`
+			ID         int64  `json:"id"`
+			TeamID     int64  `json:"team_id"`
+			TeamName   string `json:"team_name"`
+			StackCount int    `json:"stack_count"`
+			StackLimit int    `json:"stack_limit"`
 		} `json:"user"`
 	}
 
 	decodeJSON(t, rec, &loginResp)
 	if loginResp.User.TeamID == 0 || loginResp.User.TeamName == "" {
 		t.Fatalf("missing team fields in login response")
+	}
+
+	if loginResp.User.StackCount != 0 {
+		t.Fatalf("expected stack_count 0, got %d", loginResp.User.StackCount)
+	}
+
+	if loginResp.User.StackLimit != env.cfg.Stack.MaxPerUser {
+		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, loginResp.User.StackLimit)
 	}
 
 	return loginResp.AccessToken, loginResp.RefreshToken, loginResp.User.ID
@@ -517,9 +533,11 @@ func loginUser(t *testing.T, router *gin.Engine, email, password string) (string
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		User         struct {
-			ID       int64  `json:"id"`
-			TeamID   int64  `json:"team_id"`
-			TeamName string `json:"team_name"`
+			ID         int64  `json:"id"`
+			TeamID     int64  `json:"team_id"`
+			TeamName   string `json:"team_name"`
+			StackCount int    `json:"stack_count"`
+			StackLimit int    `json:"stack_limit"`
 		} `json:"user"`
 	}
 

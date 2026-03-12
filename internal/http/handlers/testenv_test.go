@@ -117,6 +117,12 @@ func TestMain(m *testing.M) {
 			LeaderboardTTL: 2 * time.Minute,
 			AppConfigTTL:   2 * time.Minute,
 		},
+		Stack: config.StackConfig{
+			Enabled:      true,
+			MaxPerUser:   3,
+			CreateWindow: time.Minute,
+			CreateMax:    1,
+		},
 	}
 
 	code := m.Run()

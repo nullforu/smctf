@@ -174,6 +174,8 @@ type userMeResponse struct {
 	TeamName      string     `json:"team_name"`
 	DivisionID    int64      `json:"division_id"`
 	DivisionName  string     `json:"division_name"`
+	StackCount    int        `json:"stack_count"`
+	StackLimit    int        `json:"stack_limit"`
 	BlockedReason *string    `json:"blocked_reason"`
 	BlockedAt     *time.Time `json:"blocked_at"`
 }
@@ -470,7 +472,7 @@ func timePtrUTC(value *time.Time) *time.Time {
 	return &utc
 }
 
-func newUserMeResponse(user *models.User) userMeResponse {
+func newUserMeResponse(user *models.User, stackCount, stackLimit int) userMeResponse {
 	return userMeResponse{
 		ID:            user.ID,
 		Email:         user.Email,
@@ -480,6 +482,8 @@ func newUserMeResponse(user *models.User) userMeResponse {
 		TeamName:      user.TeamName,
 		DivisionID:    user.DivisionID,
 		DivisionName:  user.DivisionName,
+		StackCount:    stackCount,
+		StackLimit:    stackLimit,
 		BlockedReason: user.BlockedReason,
 		BlockedAt:     user.BlockedAt,
 	}
