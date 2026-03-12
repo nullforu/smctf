@@ -133,6 +133,46 @@ func TestStackRepoListAll(t *testing.T) {
 	}
 }
 
+func TestStackRepoCountByUserExcludingStatuses(t *testing.T) {
+	env := setupRepoTest(t)
+
+	user := createUserWithNewTeam(t, env, "count@example.com", "count", "pass", models.UserRole)
+	challenge := createChallenge(t, env, "CountCh", 100, "flag{count}", true)
+
+	now := time.Now().UTC()
+	createStack(t, env, user.ID, challenge.ID, "stack-running", now)
+
+	terminal := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-stopped",
+		Status:      "stopped",
+		CreatedAt:   now.Add(-time.Minute),
+		UpdatedAt:   now.Add(-time.Minute),
+	}
+	if err := env.stackRepo.Create(context.Background(), terminal); err != nil {
+		t.Fatalf("create terminal stack: %v", err)
+	}
+
+	count, err := env.stackRepo.CountByUserExcludingStatuses(context.Background(), user.ID, []string{"stopped"})
+	if err != nil {
+		t.Fatalf("CountByUserExcludingStatuses: %v", err)
+	}
+
+	if count != 1 {
+		t.Fatalf("expected count 1, got %d", count)
+	}
+
+	count, err = env.stackRepo.CountByUserExcludingStatuses(context.Background(), user.ID, nil)
+	if err != nil {
+		t.Fatalf("CountByUserExcludingStatuses nil: %v", err)
+	}
+
+	if count != 2 {
+		t.Fatalf("expected count 2, got %d", count)
+	}
+}
+
 func TestStackRepoListAdmin(t *testing.T) {
 	env := setupRepoTest(t)
 

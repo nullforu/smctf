@@ -96,7 +96,17 @@ func TestStackServiceUserStackSummary(t *testing.T) {
 	}
 	stackSvc, stackRepo := newStackService(env, stack.NewProvisionerMock().Client(), cfg)
 
-	count, limit, err := stackSvc.UserStackSummary(context.Background(), 0)
+	disabledSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: false})
+	count, limit, err := disabledSvc.UserStackSummary(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("UserStackSummary disabled: %v", err)
+	}
+
+	if count != 0 || limit != 0 {
+		t.Fatalf("expected disabled summary 0/0, got %d/%d", count, limit)
+	}
+
+	count, limit, err = stackSvc.UserStackSummary(context.Background(), 0)
 	if err != nil {
 		t.Fatalf("UserStackSummary empty: %v", err)
 	}
@@ -116,6 +126,18 @@ func TestStackServiceUserStackSummary(t *testing.T) {
 	}
 	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
 		t.Fatalf("create stack: %v", err)
+	}
+
+	terminal := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-summary-stopped",
+		Status:      "stopped",
+		CreatedAt:   now.Add(-time.Minute),
+		UpdatedAt:   now.Add(-time.Minute),
+	}
+	if err := stackRepo.Create(context.Background(), terminal); err != nil {
+		t.Fatalf("create terminal stack: %v", err)
 	}
 
 	count, limit, err = stackSvc.UserStackSummary(context.Background(), user.ID)
