@@ -83,6 +83,73 @@ func TestStackServiceGetOrCreateStack(t *testing.T) {
 	}
 }
 
+func TestStackServiceUserStackSummary(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "stack-summary@example.com", "stack-summary", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "stack-summary")
+	terminalChallenge := createStackChallenge(t, env, "stack-summary-term")
+
+	cfg := config.StackConfig{
+		Enabled:      true,
+		MaxPerUser:   3,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	}
+	stackSvc, stackRepo := newStackService(env, stack.NewProvisionerMock().Client(), cfg)
+
+	disabledSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: false})
+	count, limit, err := disabledSvc.UserStackSummary(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("UserStackSummary disabled: %v", err)
+	}
+
+	if count != 0 || limit != 0 {
+		t.Fatalf("expected disabled summary 0/0, got %d/%d", count, limit)
+	}
+
+	count, limit, err = stackSvc.UserStackSummary(context.Background(), 0)
+	if err != nil {
+		t.Fatalf("UserStackSummary empty: %v", err)
+	}
+
+	if count != 0 || limit != cfg.MaxPerUser {
+		t.Fatalf("expected empty summary 0/%d, got %d/%d", cfg.MaxPerUser, count, limit)
+	}
+
+	now := time.Now().UTC()
+	stackModel := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge.ID,
+		StackID:     "stack-summary-1",
+		Status:      "running",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	terminal := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: terminalChallenge.ID,
+		StackID:     "stack-summary-stopped",
+		Status:      "stopped",
+		CreatedAt:   now.Add(-time.Minute),
+		UpdatedAt:   now.Add(-time.Minute),
+	}
+	if err := stackRepo.Create(context.Background(), terminal); err != nil {
+		t.Fatalf("create terminal stack: %v", err)
+	}
+
+	count, limit, err = stackSvc.UserStackSummary(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("UserStackSummary: %v", err)
+	}
+	if count != 1 || limit != cfg.MaxPerUser {
+		t.Fatalf("expected summary 1/%d, got %d/%d", cfg.MaxPerUser, count, limit)
+	}
+}
+
 func TestStackServiceCreateStackInvalidPorts(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge := createStackChallenge(t, env, "stack-invalid")

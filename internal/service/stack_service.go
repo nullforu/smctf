@@ -25,6 +25,16 @@ type StackService struct {
 	redis          *redis.Client
 }
 
+var terminalStackStatusList = []string{"stopped", "failed", "node_deleted"}
+
+var terminalStackStatusSet = func() map[string]struct{} {
+	m := make(map[string]struct{}, len(terminalStackStatusList))
+	for _, status := range terminalStackStatusList {
+		m[status] = struct{}{}
+	}
+	return m
+}()
+
 func NewStackService(cfg config.StackConfig, stackRepo *repo.StackRepo, challengeRepo *repo.ChallengeRepo, submissionRepo *repo.SubmissionRepo, client stack.API, redisClient *redis.Client) *StackService {
 	return &StackService{
 		cfg:            cfg,
@@ -34,6 +44,24 @@ func NewStackService(cfg config.StackConfig, stackRepo *repo.StackRepo, challeng
 		client:         client,
 		redis:          redisClient,
 	}
+}
+
+func (s *StackService) UserStackSummary(ctx context.Context, userID int64) (int, int, error) {
+	if !s.cfg.Enabled {
+		return 0, 0, nil
+	}
+
+	limit := s.cfg.MaxPerUser
+	if userID <= 0 {
+		return 0, limit, nil
+	}
+
+	count, err := s.stackRepo.CountByUserExcludingStatuses(ctx, userID, terminalStackStatusList)
+	if err != nil {
+		return 0, limit, err
+	}
+
+	return count, limit, nil
 }
 
 func (s *StackService) ListUserStacks(ctx context.Context, userID int64) ([]models.Stack, error) {
@@ -411,12 +439,8 @@ func (s *StackService) refreshStack(ctx context.Context, existing *models.Stack)
 }
 
 func isTerminalStackStatus(status string) bool {
-	switch status {
-	case "stopped", "failed", "node_deleted":
-		return true
-	default:
-		return false
-	}
+	_, ok := terminalStackStatusSet[status]
+	return ok
 }
 
 func mapProvisionerError(err error) error {

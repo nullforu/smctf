@@ -381,10 +381,12 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		User         struct {
-			TeamID       int64  `json:"team_id"`
-			TeamName     string `json:"team_name"`
-			DivisionID   int64  `json:"division_id"`
-			DivisionName string `json:"division_name"`
+			TeamID        int64      `json:"team_id"`
+			TeamName      string     `json:"team_name"`
+			DivisionID    int64      `json:"division_id"`
+			DivisionName  string     `json:"division_name"`
+			StackCount    int        `json:"stack_count"`
+			StackLimit    int        `json:"stack_limit"`
 			BlockedReason *string    `json:"blocked_reason"`
 			BlockedAt     *time.Time `json:"blocked_at"`
 		} `json:"user"`
@@ -402,6 +404,12 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	}
 	if loginResp.User.DivisionID == 0 || loginResp.User.DivisionName == "" {
 		t.Fatalf("missing division fields in login response")
+	}
+	if loginResp.User.StackCount != 0 {
+		t.Fatalf("expected stack_count 0, got %d", loginResp.User.StackCount)
+	}
+	if loginResp.User.StackLimit != env.cfg.Stack.MaxPerUser {
+		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, loginResp.User.StackLimit)
 	}
 	if loginResp.User.BlockedReason != nil || loginResp.User.BlockedAt != nil {
 		t.Fatalf("expected blocked fields to be null")
@@ -429,6 +437,15 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	env.handler.Logout(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("logout status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandlerUserStackSummaryWithoutStackService(t *testing.T) {
+	handler := New(handlerCfg, nil, nil, nil, nil, nil, nil, nil, nil, handlerRedis)
+
+	count, limit := handler.userStackSummary(context.Background(), 123)
+	if count != 0 || limit != 0 {
+		t.Fatalf("expected zero summary, got %d/%d", count, limit)
 	}
 }
 
@@ -2216,6 +2233,24 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 		t.Fatalf("me status %d: %s", rec.Code, rec.Body.String())
 	}
 
+	var meResp struct {
+		ID         int64 `json:"id"`
+		StackCount int   `json:"stack_count"`
+		StackLimit int   `json:"stack_limit"`
+	}
+	decodeJSON(t, rec, &meResp)
+	if meResp.ID != user.ID {
+		t.Fatalf("unexpected me response id: %d", meResp.ID)
+	}
+
+	if meResp.StackCount != 0 {
+		t.Fatalf("expected me stack_count 0, got %d", meResp.StackCount)
+	}
+
+	if meResp.StackLimit != env.cfg.Stack.MaxPerUser {
+		t.Fatalf("expected me stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, meResp.StackLimit)
+	}
+
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "user2"})
 	ctx.Set("userID", user.ID)
 
@@ -2227,6 +2262,24 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 	env.handler.UpdateMe(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update me status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var updateResp struct {
+		ID         int64 `json:"id"`
+		StackCount int   `json:"stack_count"`
+		StackLimit int   `json:"stack_limit"`
+	}
+	decodeJSON(t, rec, &updateResp)
+	if updateResp.ID != user.ID {
+		t.Fatalf("unexpected update response id: %d", updateResp.ID)
+	}
+
+	if updateResp.StackCount != 0 {
+		t.Fatalf("expected update stack_count 0, got %d", updateResp.StackCount)
+	}
+
+	if updateResp.StackLimit != env.cfg.Stack.MaxPerUser {
+		t.Fatalf("expected update stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, updateResp.StackLimit)
 	}
 
 	waitForCacheClear(t, env,

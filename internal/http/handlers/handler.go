@@ -392,6 +392,20 @@ func (h *Handler) Register(ctx *gin.Context) {
 	})
 }
 
+func (h *Handler) userStackSummary(ctx context.Context, userID int64) (int, int) {
+	if h.stacks == nil {
+		return 0, 0
+	}
+
+	count, limit, err := h.stacks.UserStackSummary(ctx, userID)
+	if err != nil {
+		slog.Warn("stack summary lookup failed", slog.Int64("user_id", userID), slog.Any("error", err))
+		return 0, limit
+	}
+
+	return count, limit
+}
+
 func (h *Handler) Login(ctx *gin.Context) {
 	var req loginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -405,10 +419,12 @@ func (h *Handler) Login(ctx *gin.Context) {
 		return
 	}
 
+	stackCount, stackLimit := h.userStackSummary(ctx.Request.Context(), user.ID)
+
 	ctx.JSON(http.StatusOK, loginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User: newUserMeResponse(user),
+		User:         newUserMeResponse(user, stackCount, stackLimit),
 	})
 }
 
@@ -454,7 +470,9 @@ func (h *Handler) Me(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newUserMeResponse(user))
+	stackCount, stackLimit := h.userStackSummary(ctx.Request.Context(), userID)
+
+	ctx.JSON(http.StatusOK, newUserMeResponse(user, stackCount, stackLimit))
 }
 
 func (h *Handler) UpdateMe(ctx *gin.Context) {
@@ -471,9 +489,11 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 		return
 	}
 
+	stackCount, stackLimit := h.userStackSummary(ctx.Request.Context(), userID)
+
 	h.notifyScoreboardChanged(ctx.Request.Context(), "user_profile_update", user.DivisionID)
 
-	ctx.JSON(http.StatusOK, newUserMeResponse(user))
+	ctx.JSON(http.StatusOK, newUserMeResponse(user, stackCount, stackLimit))
 }
 
 // Challenge Handlers

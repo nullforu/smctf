@@ -66,6 +66,8 @@ Response 200
         "team_name": "team-alpha",
         "division_id": 2,
         "division_name": "고등부",
+        "stack_count": 0,
+        "stack_limit": 3,
         "blocked_reason": null,
         "blocked_at": null
     }

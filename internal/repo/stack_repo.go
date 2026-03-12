@@ -80,6 +80,22 @@ func (r *StackRepo) CountByUser(ctx context.Context, userID int64) (int, error) 
 	return count, nil
 }
 
+func (r *StackRepo) CountByUserExcludingStatuses(ctx context.Context, userID int64, statuses []string) (int, error) {
+	query := r.db.NewSelect().
+		Model((*models.Stack)(nil)).
+		Where("user_id = ?", userID)
+	if len(statuses) > 0 {
+		query = query.Where("status NOT IN (?)", bun.In(statuses))
+	}
+
+	count, err := query.Count(ctx)
+	if err != nil {
+		return 0, wrapError("stackRepo.CountByUserExcludingStatuses", err)
+	}
+
+	return count, nil
+}
+
 func (r *StackRepo) GetByUserAndChallenge(ctx context.Context, userID, challengeID int64) (*models.Stack, error) {
 	stack := new(models.Stack)
 	if err := r.db.NewSelect().
