@@ -440,6 +440,15 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	}
 }
 
+func TestHandlerUserStackSummaryWithoutStackService(t *testing.T) {
+	handler := New(handlerCfg, nil, nil, nil, nil, nil, nil, nil, nil, handlerRedis)
+
+	count, limit := handler.userStackSummary(context.Background(), 123)
+	if count != 0 || limit != 0 {
+		t.Fatalf("expected zero summary, got %d/%d", count, limit)
+	}
+}
+
 func TestHandlerBindErrorDetails(t *testing.T) {
 	env := setupHandlerTest(t)
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/auth/register", "{")
