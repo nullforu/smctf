@@ -36,6 +36,10 @@ Errors:
 
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 
+Notes:
+
+- `stack_count` and `stack_limit` reflect the configured scope. If `STACKS_MAX_SCOPE=team`, these values are team-wide.
+
 ---
 
 ## Update Me
@@ -80,6 +84,10 @@ Errors:
 - 400 `invalid input`
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 403 `user blocked`
+
+Notes:
+
+- `stack_count` and `stack_limit` reflect the configured scope. If `STACKS_MAX_SCOPE=team`, these values are team-wide.
 
 ---
 

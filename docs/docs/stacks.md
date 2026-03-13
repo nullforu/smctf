@@ -22,6 +22,7 @@ Response 200
         {
             "stack_id": "stack-716b6384dd477b0b",
             "challenge_id": 12,
+            "challenge_title": "SQLi 101",
             "status": "running",
             "node_public_ip": "12.34.56.78",
             "ports": [
@@ -34,6 +35,8 @@ Response 200
             "ttl_expires_at": "2026-02-10T04:02:26Z",
             "created_at": "2026-02-10T02:02:26Z",
             "updated_at": "2026-02-10T02:07:29Z",
+            "created_by_user_id": 17,
+            "created_by_username": "alice",
             "ctf_state": "active"
         }
     ]
@@ -48,6 +51,7 @@ Errors:
 Notes:
 
 - Blocked users can access this endpoint (read-only).
+- If `STACKS_MAX_SCOPE=team`, this list includes stacks created by any member of the same team.
 
 ---
 
@@ -67,6 +71,7 @@ Response 201
 {
     "stack_id": "stack-716b6384dd477b0b",
     "challenge_id": 12,
+    "challenge_title": "SQLi 101",
     "status": "creating",
     "node_public_ip": "12.34.56.78",
     "ports": [
@@ -79,6 +84,8 @@ Response 201
     "ttl_expires_at": "2026-02-10T04:02:26Z",
     "created_at": "2026-02-10T02:02:26Z",
     "updated_at": "2026-02-10T02:02:26Z",
+    "created_by_user_id": 17,
+    "created_by_username": "alice",
     "ctf_state": "active"
 }
 ```
@@ -96,7 +103,8 @@ Errors:
 
 Notes:
 
-- Stack creation is rate-limited per user. Configure via `STACKS_CREATE_WINDOW` and `STACKS_CREATE_MAX`.
+- Stack creation is rate-limited by scope. Configure via `STACKS_CREATE_WINDOW` and `STACKS_CREATE_MAX`.
+- If `STACKS_MAX_SCOPE=team`, creating a stack counts against the team limit and team rate limit.
 
 ---
 
@@ -116,6 +124,7 @@ Response 200
 {
     "stack_id": "stack-716b6384dd477b0b",
     "challenge_id": 12,
+    "challenge_title": "SQLi 101",
     "status": "running",
     "node_public_ip": "12.34.56.78",
     "ports": [
@@ -128,6 +137,8 @@ Response 200
     "ttl_expires_at": "2026-02-10T04:02:26Z",
     "created_at": "2026-02-10T02:02:26Z",
     "updated_at": "2026-02-10T02:07:29Z",
+    "created_by_user_id": 17,
+    "created_by_username": "alice",
     "ctf_state": "active"
 }
 ```
@@ -141,6 +152,7 @@ Errors:
 Notes:
 
 - Blocked users can access this endpoint (read-only).
+- If `STACKS_MAX_SCOPE=team`, this returns the team stack for the challenge (if any).
 
 ---
 

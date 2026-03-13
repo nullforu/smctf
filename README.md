@@ -53,7 +53,7 @@ As a result, we decided to develop our own CTF platform as a long term project. 
 
 See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README only provides a brief overview.
 
-### Available/Stable features:
+<!-- ### Available/Stable features:
 
 - AuthN/AuthZ (JWT), including registration keys management
 - Challenge management (Jeopardy CTF style, See [`ctf_service.go`](./internal/service/ctf_service.go) for a list of categories.)
@@ -73,7 +73,7 @@ See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README 
     - Ref Issue: [#20](https://github.com/nullforu/smctf/issues/20), PR: [#21](https://github.com/nullforu/smctf/pull/21)
 - Per challenge individual Stack(instance/VM) provisioning support via Kubernetes
     - Ref PR: [#25](https://github.com/nullforu/smctf/pull/25), See [container-provisioner-k8s](https://github.com/nullforu/container-provisioner-k8s) and [docs](https://ctf.null4u.cloud/container-provisioner/) for more details.
-- ... and more! (See [docs](https://github.com/nullforu/smctf-docs) for more details)
+- ... and more! (See [docs](https://github.com/nullforu/smctf-docs) for more details) -->
 
 ### Planned/Upcoming features:
 
@@ -170,7 +170,8 @@ LEADERBOARD_CACHE_TTL=60s
 
 # Stack (Container Provisioner)
 STACKS_ENABLED=true
-STACKS_MAX_PER_USER=3
+STACKS_MAX_SCOPE=team
+STACKS_MAX_PER=3
 STACKS_PROVISIONER_BASE_URL=http://localhost:8081
 STACKS_PROVISIONER_API_KEY=change-me
 STACKS_PROVISIONER_TIMEOUT=5s
