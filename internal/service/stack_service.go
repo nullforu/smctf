@@ -208,6 +208,19 @@ func (s *StackService) GetOrCreateStack(ctx context.Context, userID, challengeID
 		return nil, err
 	}
 
+	if s.maxScopeIsTeam() {
+		teamID, lookupErr := s.stackRepo.TeamIDForUser(ctx, userID)
+		if lookupErr == nil {
+			if reloaded, reloadErr := s.stackRepo.GetByTeamAndChallenge(ctx, teamID, challengeID); reloadErr == nil {
+				return reloaded, nil
+			}
+		}
+	} else {
+		if reloaded, reloadErr := s.stackRepo.GetByUserAndChallenge(ctx, userID, challengeID); reloadErr == nil {
+			return reloaded, nil
+		}
+	}
+
 	return stackModel, nil
 }
 
@@ -440,17 +453,12 @@ func (s *StackService) applyRateLimit(ctx context.Context, userID int64) error {
 
 func (s *StackService) ensureUserLimit(ctx context.Context, userID int64) error {
 	if s.maxScopeIsTeam() {
-		teamID, err := s.stackRepo.TeamIDForUser(ctx, userID)
-		if err != nil {
-			return fmt.Errorf("stack.GetOrCreateStack team: %w", err)
-		}
-
-		count, err := s.stackRepo.CountByTeamExcludingStatuses(ctx, teamID, terminalStackStatusList)
+		activeStacks, err := s.ListUserStacks(ctx, userID)
 		if err != nil {
 			return fmt.Errorf("stack.GetOrCreateStack list: %w", err)
 		}
 
-		if count >= s.cfg.MaxPer {
+		if len(activeStacks) >= s.cfg.MaxPer {
 			return ErrStackLimitReached
 		}
 

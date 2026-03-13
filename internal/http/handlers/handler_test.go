@@ -1278,6 +1278,10 @@ func TestStackHandlersCRUD(t *testing.T) {
 		t.Fatalf("unexpected response: %+v", created)
 	}
 
+	if created.CreatedByUsername == "" || created.ChallengeTitle == "" {
+		t.Fatalf("expected created_by and challenge_title, got %+v", created)
+	}
+
 	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
