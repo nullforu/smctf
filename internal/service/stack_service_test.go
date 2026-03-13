@@ -315,6 +315,18 @@ func TestStackServiceCreateStackProvisionerUnavailable(t *testing.T) {
 	}
 }
 
+func TestStackServiceGetStackNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "get-missing@example.com", "get-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "get-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5})
+
+	if _, err := stackSvc.GetStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
+	}
+}
+
 func TestStackServiceLockedChallenge(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "locked-stack@example.com", "locked-stack", "pass", models.UserRole)
@@ -368,6 +380,66 @@ func TestStackServiceRateLimit(t *testing.T) {
 	}
 }
 
+func TestStackServiceGetStackTeamScopeNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-get-missing@example.com", "team-get-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "team-get-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	if _, err := stackSvc.GetStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
+	}
+}
+
+func TestStackServiceListUserStacksTeamScopeIgnoresOtherTeam(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-list-a@example.com", "team-list-a", "pass", models.UserRole)
+	otherUser := createUserWithNewTeam(t, env, "team-list-b@example.com", "team-list-b", "pass", models.UserRole)
+	challenge1 := createStackChallenge(t, env, "team-list-a")
+	challenge2 := createStackChallenge(t, env, "team-list-b")
+
+	client := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running"}, nil
+		},
+	}
+
+	stackSvc, stackRepo := newStackService(env, client, config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	now := time.Now().UTC()
+	stackOne := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "team-list-a-1", Status: "running", CreatedAt: now, UpdatedAt: now}
+	stackTwo := &models.Stack{UserID: otherUser.ID, ChallengeID: challenge2.ID, StackID: "team-list-b-1", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackOne); err != nil {
+		t.Fatalf("create stack one: %v", err)
+	}
+
+	if err := stackRepo.Create(context.Background(), stackTwo); err != nil {
+		t.Fatalf("create stack two: %v", err)
+	}
+
+	stacks, err := stackSvc.ListUserStacks(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("ListUserStacks team: %v", err)
+	}
+
+	if len(stacks) != 1 || stacks[0].StackID != "team-list-a-1" {
+		t.Fatalf("expected only team stack, got %+v", stacks)
+	}
+}
+
 func TestStackServiceRateLimitTeamScope(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "rate-team-1@example.com", "rate-team-1", "pass", models.UserRole)
@@ -392,6 +464,30 @@ func TestStackServiceRateLimitTeamScope(t *testing.T) {
 
 	if _, err := stackSvc.GetOrCreateStack(context.Background(), user2.ID, challenge2.ID); !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("expected team rate limit error, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "delete-missing@example.com", "delete-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "delete-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5})
+
+	if err := stackSvc.DeleteStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackByUserAndChallengeNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "delete-user-missing@example.com", "delete-user-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "delete-user-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5})
+
+	if err := stackSvc.DeleteStackByUserAndChallenge(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
 	}
 }
 
@@ -443,6 +539,92 @@ func TestStackServiceUserLimitTeamScope(t *testing.T) {
 
 	if _, err := stackSvc.GetOrCreateStack(context.Background(), user2.ID, challenge2.ID); !errors.Is(err, ErrStackLimitReached) {
 		t.Fatalf("expected team stack limit error, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-del-1@example.com", "team-del-1", "pass", models.UserRole)
+	userTwo := createUserWithTeam(t, env, "team-del-2@example.com", "team-del-2", "pass", models.UserRole, user.TeamID)
+	challenge := createStackChallenge(t, env, "team-del")
+
+	deleted := false
+	client := &stack.MockClient{
+		DeleteStackFn: func(ctx context.Context, stackID string) error {
+			if stackID == "team-del" {
+				deleted = true
+			}
+			return nil
+		},
+	}
+
+	stackSvc, stackRepo := newStackService(env, client, config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	now := time.Now().UTC()
+	stackModel := &models.Stack{UserID: userTwo.ID, ChallengeID: challenge.ID, StackID: "team-del", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	if err := stackSvc.DeleteStack(context.Background(), user.ID, challenge.ID); err != nil {
+		t.Fatalf("DeleteStack: %v", err)
+	}
+
+	if !deleted {
+		t.Fatalf("expected provisioner delete")
+	}
+
+	if _, err := stackRepo.GetByStackID(context.Background(), "team-del"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("expected stack deleted, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackByUserAndChallengeTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-del-u-1@example.com", "team-del-u-1", "pass", models.UserRole)
+	userTwo := createUserWithTeam(t, env, "team-del-u-2@example.com", "team-del-u-2", "pass", models.UserRole, user.TeamID)
+	challenge := createStackChallenge(t, env, "team-del-u")
+
+	deleted := false
+	client := &stack.MockClient{
+		DeleteStackFn: func(ctx context.Context, stackID string) error {
+			if stackID == "team-del-u" {
+				deleted = true
+			}
+			return nil
+		},
+	}
+
+	stackSvc, stackRepo := newStackService(env, client, config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	now := time.Now().UTC()
+	stackModel := &models.Stack{UserID: userTwo.ID, ChallengeID: challenge.ID, StackID: "team-del-u", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	if err := stackSvc.DeleteStackByUserAndChallenge(context.Background(), user.ID, challenge.ID); err != nil {
+		t.Fatalf("DeleteStackByUserAndChallenge: %v", err)
+	}
+
+	if !deleted {
+		t.Fatalf("expected provisioner delete")
+	}
+
+	if _, err := stackRepo.GetByStackID(context.Background(), "team-del-u"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("expected stack deleted, got %v", err)
 	}
 }
 
