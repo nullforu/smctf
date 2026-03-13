@@ -348,15 +348,18 @@ type adminReportResponse struct {
 }
 
 type stackResponse struct {
-	StackID      string                 `json:"stack_id"`
-	ChallengeID  int64                  `json:"challenge_id"`
-	Status       string                 `json:"status"`
-	NodePublicIP *string                `json:"node_public_ip,omitempty"`
-	Ports        []stackpkg.PortMapping `json:"ports,omitempty"`
-	TTLExpiresAt *time.Time             `json:"ttl_expires_at,omitempty"`
-	CreatedAt    time.Time              `json:"created_at"`
-	UpdatedAt    time.Time              `json:"updated_at"`
-	CTFState     string                 `json:"-"`
+	StackID           string                 `json:"stack_id"`
+	ChallengeID       int64                  `json:"challenge_id"`
+	Status            string                 `json:"status"`
+	NodePublicIP      *string                `json:"node_public_ip,omitempty"`
+	Ports             []stackpkg.PortMapping `json:"ports,omitempty"`
+	TTLExpiresAt      *time.Time             `json:"ttl_expires_at,omitempty"`
+	CreatedAt         time.Time              `json:"created_at"`
+	UpdatedAt         time.Time              `json:"updated_at"`
+	CreatedByUserID   int64                  `json:"created_by_user_id"`
+	CreatedByUsername string                 `json:"created_by_username"`
+	ChallengeTitle    string                 `json:"challenge_title"`
+	CTFState          string                 `json:"-"`
 }
 
 type stacksListResponse struct {
@@ -385,15 +388,18 @@ type adminStacksListResponse struct {
 
 func newStackResponse(stack *models.Stack, ctfState string) stackResponse {
 	return stackResponse{
-		StackID:      stack.StackID,
-		ChallengeID:  stack.ChallengeID,
-		Status:       stack.Status,
-		NodePublicIP: stack.NodePublicIP,
-		Ports:        []stackpkg.PortMapping(stack.Ports),
-		TTLExpiresAt: stack.TTLExpiresAt,
-		CreatedAt:    stack.CreatedAt.UTC(),
-		UpdatedAt:    stack.UpdatedAt.UTC(),
-		CTFState:     ctfState,
+		StackID:           stack.StackID,
+		ChallengeID:       stack.ChallengeID,
+		Status:            stack.Status,
+		NodePublicIP:      stack.NodePublicIP,
+		Ports:             []stackpkg.PortMapping(stack.Ports),
+		TTLExpiresAt:      stack.TTLExpiresAt,
+		CreatedAt:         stack.CreatedAt.UTC(),
+		UpdatedAt:         stack.UpdatedAt.UTC(),
+		CreatedByUserID:   stack.UserID,
+		CreatedByUsername: stack.Username,
+		ChallengeTitle:    stack.ChallengeTitle,
+		CTFState:          ctfState,
 	}
 }
 

@@ -113,7 +113,7 @@ func TestStackLifecycle(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -145,7 +145,7 @@ func TestStackCreateBlockedAfterSolve(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -172,7 +172,7 @@ func TestStackCreateRateLimit(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -200,7 +200,7 @@ func TestStackCreateLocked(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -233,7 +233,7 @@ func TestStacksBlockedBeforeStart(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -297,7 +297,7 @@ func TestStacksCreateBlockedAfterEnd(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}

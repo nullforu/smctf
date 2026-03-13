@@ -98,7 +98,8 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	os.Setenv("S3_FORCE_PATH_STYLE", "true")
 	os.Setenv("S3_PRESIGN_TTL", "20m")
 	os.Setenv("STACKS_ENABLED", "true")
-	os.Setenv("STACKS_MAX_PER_USER", "5")
+	os.Setenv("STACKS_MAX_SCOPE", "team")
+	os.Setenv("STACKS_MAX_PER", "5")
 	os.Setenv("STACKS_PROVISIONER_BASE_URL", "http://localhost:18081")
 	os.Setenv("STACKS_PROVISIONER_API_KEY", "custom-key")
 	os.Setenv("STACKS_PROVISIONER_TIMEOUT", "9s")
@@ -191,6 +192,12 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	if cfg.Stack.CreateMax != 2 {
 		t.Errorf("expected Stack.CreateMax 2, got %d", cfg.Stack.CreateMax)
 	}
+	if cfg.Stack.MaxScope != "team" {
+		t.Errorf("expected Stack.MaxScope team, got %s", cfg.Stack.MaxScope)
+	}
+	if cfg.Stack.MaxPer != 5 {
+		t.Errorf("expected Stack.MaxPer 5, got %d", cfg.Stack.MaxPer)
+	}
 }
 
 func TestLoadConfigInvalidValues(t *testing.T) {
@@ -210,6 +217,7 @@ func TestLoadConfigInvalidValues(t *testing.T) {
 		{"invalid s3 enabled", "S3_ENABLED", "not-a-bool"},
 		{"invalid s3 presign ttl", "S3_PRESIGN_TTL", "bad-duration"},
 		{"invalid s3 force path", "S3_FORCE_PATH_STYLE", "bad-bool"},
+		{"invalid stack max scope", "STACKS_MAX_SCOPE", "org"},
 		{"invalid leaderboard cache ttl", "LEADERBOARD_CACHE_TTL", "bad-duration"},
 		{"invalid app config cache ttl", "APP_CONFIG_CACHE_TTL", "bad-duration"},
 	}
@@ -623,7 +631,8 @@ func TestValidateConfigInvalidStackConfig(t *testing.T) {
 		},
 		Stack: StackConfig{
 			Enabled:            true,
-			MaxPerUser:         0,
+			MaxScope:           "user",
+			MaxPer:             0,
 			ProvisionerBaseURL: "",
 			ProvisionerAPIKey:  "",
 			ProvisionerTimeout: 0,
@@ -637,7 +646,7 @@ func TestValidateConfigInvalidStackConfig(t *testing.T) {
 		t.Fatal("expected stack validation error")
 	}
 
-	if !strings.Contains(err.Error(), "STACKS_MAX_PER_USER") {
+	if !strings.Contains(err.Error(), "STACKS_MAX_PER") {
 		t.Fatalf("expected stack error, got %v", err)
 	}
 }
@@ -823,7 +832,8 @@ func TestFormatForLog(t *testing.T) {
 		},
 		Stack: StackConfig{
 			Enabled:            true,
-			MaxPerUser:         3,
+			MaxScope:           "user",
+			MaxPer:             3,
 			ProvisionerBaseURL: "http://localhost:8081",
 			ProvisionerAPIKey:  "stack-key",
 			ProvisionerTimeout: 5 * time.Second,

@@ -20,10 +20,33 @@ func (r *StackRepo) ListByUser(ctx context.Context, userID int64) ([]models.Stac
 	stacks := make([]models.Stack, 0)
 	if err := r.db.NewSelect().
 		Model(&stacks).
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
+		ColumnExpr("stack.*").
+		ColumnExpr("u.username AS username").
+		ColumnExpr("c.title AS challenge_title").
+		Join("LEFT JOIN users AS u ON u.id = stack.user_id").
+		Join("LEFT JOIN challenges AS c ON c.id = stack.challenge_id").
+		Where("stack.user_id = ?", userID).
+		Order("stack.created_at DESC").
 		Scan(ctx); err != nil {
 		return nil, wrapError("stackRepo.ListByUser", err)
+	}
+
+	return stacks, nil
+}
+
+func (r *StackRepo) ListByTeam(ctx context.Context, teamID int64) ([]models.Stack, error) {
+	stacks := make([]models.Stack, 0)
+	if err := r.db.NewSelect().
+		Model(&stacks).
+		ColumnExpr("stack.*").
+		ColumnExpr("u.username AS username").
+		ColumnExpr("c.title AS challenge_title").
+		Join("JOIN users AS u ON u.id = stack.user_id").
+		Join("JOIN challenges AS c ON c.id = stack.challenge_id").
+		Where("u.team_id = ?", teamID).
+		Order("stack.created_at DESC").
+		Scan(ctx); err != nil {
+		return nil, wrapError("stackRepo.ListByTeam", err)
 	}
 
 	return stacks, nil
@@ -96,14 +119,67 @@ func (r *StackRepo) CountByUserExcludingStatuses(ctx context.Context, userID int
 	return count, nil
 }
 
+func (r *StackRepo) CountByTeamExcludingStatuses(ctx context.Context, teamID int64, statuses []string) (int, error) {
+	query := r.db.NewSelect().
+		Model((*models.Stack)(nil)).
+		Join("JOIN users AS u ON u.id = stack.user_id").
+		Where("u.team_id = ?", teamID)
+	if len(statuses) > 0 {
+		query = query.Where("stack.status NOT IN (?)", bun.In(statuses))
+	}
+
+	count, err := query.Count(ctx)
+	if err != nil {
+		return 0, wrapError("stackRepo.CountByTeamExcludingStatuses", err)
+	}
+
+	return count, nil
+}
+
+func (r *StackRepo) TeamIDForUser(ctx context.Context, userID int64) (int64, error) {
+	var teamID int64
+	if err := r.db.NewSelect().
+		TableExpr("users").
+		Column("team_id").
+		Where("id = ?", userID).
+		Scan(ctx, &teamID); err != nil {
+		return 0, wrapNotFound("stackRepo.TeamIDForUser", err)
+	}
+
+	return teamID, nil
+}
+
 func (r *StackRepo) GetByUserAndChallenge(ctx context.Context, userID, challengeID int64) (*models.Stack, error) {
 	stack := new(models.Stack)
 	if err := r.db.NewSelect().
 		Model(stack).
-		Where("user_id = ?", userID).
-		Where("challenge_id = ?", challengeID).
+		ColumnExpr("stack.*").
+		ColumnExpr("u.username AS username").
+		ColumnExpr("c.title AS challenge_title").
+		Join("LEFT JOIN users AS u ON u.id = stack.user_id").
+		Join("LEFT JOIN challenges AS c ON c.id = stack.challenge_id").
+		Where("stack.user_id = ?", userID).
+		Where("stack.challenge_id = ?", challengeID).
 		Scan(ctx); err != nil {
 		return nil, wrapNotFound("stackRepo.GetByUserAndChallenge", err)
+	}
+
+	return stack, nil
+}
+
+func (r *StackRepo) GetByTeamAndChallenge(ctx context.Context, teamID, challengeID int64) (*models.Stack, error) {
+	stack := new(models.Stack)
+	if err := r.db.NewSelect().
+		Model(stack).
+		ColumnExpr("stack.*").
+		ColumnExpr("u.username AS username").
+		ColumnExpr("c.title AS challenge_title").
+		Join("JOIN users AS u ON u.id = stack.user_id").
+		Join("JOIN challenges AS c ON c.id = stack.challenge_id").
+		Where("u.team_id = ?", teamID).
+		Where("stack.challenge_id = ?", challengeID).
+		Scan(ctx); err != nil {
+		return nil, wrapNotFound("stackRepo.GetByTeamAndChallenge", err)
 	}
 
 	return stack, nil
@@ -113,7 +189,12 @@ func (r *StackRepo) GetByStackID(ctx context.Context, stackID string) (*models.S
 	stack := new(models.Stack)
 	if err := r.db.NewSelect().
 		Model(stack).
-		Where("stack_id = ?", stackID).
+		ColumnExpr("stack.*").
+		ColumnExpr("u.username AS username").
+		ColumnExpr("c.title AS challenge_title").
+		Join("LEFT JOIN users AS u ON u.id = stack.user_id").
+		Join("LEFT JOIN challenges AS c ON c.id = stack.challenge_id").
+		Where("stack.stack_id = ?", stackID).
 		Scan(ctx); err != nil {
 		return nil, wrapNotFound("stackRepo.GetByStackID", err)
 	}

@@ -408,8 +408,8 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	if loginResp.User.StackCount != 0 {
 		t.Fatalf("expected stack_count 0, got %d", loginResp.User.StackCount)
 	}
-	if loginResp.User.StackLimit != env.cfg.Stack.MaxPerUser {
-		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, loginResp.User.StackLimit)
+	if loginResp.User.StackLimit != env.cfg.Stack.MaxPer {
+		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPer, loginResp.User.StackLimit)
 	}
 	if loginResp.User.BlockedReason != nil || loginResp.User.BlockedAt != nil {
 		t.Fatalf("expected blocked fields to be null")
@@ -1213,7 +1213,22 @@ func setupHandlerStackService(t *testing.T, env handlerEnv, client stack.API) (*
 	stackRepo := repo.NewStackRepo(env.db)
 	stackCfg := config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	}
+
+	stackSvc := service.NewStackService(stackCfg, stackRepo, env.challengeRepo, env.submissionRepo, client, env.redis)
+	return stackSvc, stackRepo
+}
+
+func setupHandlerStackServiceWithScope(t *testing.T, env handlerEnv, client stack.API, scope string) (*service.StackService, *repo.StackRepo) {
+	t.Helper()
+	stackRepo := repo.NewStackRepo(env.db)
+	stackCfg := config.StackConfig{
+		Enabled:      true,
+		MaxScope:     scope,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    5,
 	}
@@ -1329,6 +1344,107 @@ func TestStackHandlersList(t *testing.T) {
 
 	if len(resp.Stacks) != 2 {
 		t.Fatalf("expected 2 stacks, got %d", len(resp.Stacks))
+	}
+}
+
+func TestStackHandlersListTeamScope(t *testing.T) {
+	env := setupHandlerTest(t)
+	team := createHandlerTeam(t, env, "TeamList")
+	user := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
+	user2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", models.UserRole, team.ID)
+	challenge1 := createHandlerStackChallenge(t, env, "team-stack-1")
+	challenge2 := createHandlerStackChallenge(t, env, "team-stack-2")
+
+	mock := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+		},
+	}
+
+	stackSvc, stackRepo := setupHandlerStackServiceWithScope(t, env, mock, "team")
+	env.handler.stacks = stackSvc
+
+	now := time.Now().UTC()
+	stack1 := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "team-stack-1", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: now, UpdatedAt: now}
+	stack2 := &models.Stack{UserID: user2.ID, ChallengeID: challenge2.ID, StackID: "team-stack-2", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31002}}, CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stack1); err != nil {
+		t.Fatalf("create stack1: %v", err)
+	}
+
+	if err := stackRepo.Create(context.Background(), stack2); err != nil {
+		t.Fatalf("create stack2: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/stacks", nil)
+	ctx.Set("userID", user.ID)
+	env.handler.ListStacks(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp stacksListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if len(resp.Stacks) != 2 {
+		t.Fatalf("expected 2 team stacks, got %d", len(resp.Stacks))
+	}
+
+	if resp.Stacks[0].CreatedByUserID == 0 || resp.Stacks[0].CreatedByUsername == "" {
+		t.Fatalf("expected created_by fields set, got %+v", resp.Stacks[0])
+	}
+
+	if resp.Stacks[0].ChallengeTitle == "" {
+		t.Fatalf("expected challenge_title set, got %+v", resp.Stacks[0])
+	}
+}
+
+func TestStackHandlersGetTeamScope(t *testing.T) {
+	env := setupHandlerTest(t)
+	team := createHandlerTeam(t, env, "TeamGet")
+	user := createHandlerUserWithTeam(t, env, "g1@example.com", "g1", "pass", models.UserRole, team.ID)
+	user2 := createHandlerUserWithTeam(t, env, "g2@example.com", "g2", "pass", models.UserRole, team.ID)
+	challenge := createHandlerStackChallenge(t, env, "team-get")
+
+	mock := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+		},
+	}
+
+	stackSvc, stackRepo := setupHandlerStackServiceWithScope(t, env, mock, "team")
+	env.handler.stacks = stackSvc
+
+	now := time.Now().UTC()
+	stackModel := &models.Stack{UserID: user2.ID, ChallengeID: challenge.ID, StackID: "team-get", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+	env.handler.GetStack(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp stackResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.StackID != "team-get" {
+		t.Fatalf("expected team stack, got %+v", resp)
+	}
+
+	if resp.CreatedByUserID != user2.ID || resp.CreatedByUsername == "" {
+		t.Fatalf("expected created_by fields, got %+v", resp)
+	}
+
+	if resp.ChallengeTitle != challenge.Title {
+		t.Fatalf("expected challenge_title %q, got %q", challenge.Title, resp.ChallengeTitle)
 	}
 }
 
@@ -1551,7 +1667,7 @@ func TestAdminReport(t *testing.T) {
 	}
 
 	mock := &stack.MockClient{}
-	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPerUser: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
+	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPer: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
 	env.handler.stacks = stackSvc
 
 	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC())
@@ -1748,7 +1864,7 @@ func TestSubmitFlagDeletesStack(t *testing.T) {
 			return nil
 		},
 	}
-	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPerUser: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
+	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPer: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
 	env.handler.stacks = stackSvc
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/submit", submitRequest{Flag: "flag"})
@@ -2247,8 +2363,8 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 		t.Fatalf("expected me stack_count 0, got %d", meResp.StackCount)
 	}
 
-	if meResp.StackLimit != env.cfg.Stack.MaxPerUser {
-		t.Fatalf("expected me stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, meResp.StackLimit)
+	if meResp.StackLimit != env.cfg.Stack.MaxPer {
+		t.Fatalf("expected me stack_limit %d, got %d", env.cfg.Stack.MaxPer, meResp.StackLimit)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "user2"})
@@ -2278,8 +2394,8 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 		t.Fatalf("expected update stack_count 0, got %d", updateResp.StackCount)
 	}
 
-	if updateResp.StackLimit != env.cfg.Stack.MaxPerUser {
-		t.Fatalf("expected update stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, updateResp.StackLimit)
+	if updateResp.StackLimit != env.cfg.Stack.MaxPer {
+		t.Fatalf("expected update stack_limit %d, got %d", env.cfg.Stack.MaxPer, updateResp.StackLimit)
 	}
 
 	waitForCacheClear(t, env,

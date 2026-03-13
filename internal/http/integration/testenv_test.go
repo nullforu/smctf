@@ -166,7 +166,7 @@ func TestMain(m *testing.M) {
 		},
 		Stack: config.StackConfig{
 			Enabled:      true,
-			MaxPerUser:   3,
+			MaxPer:   3,
 			CreateWindow: time.Minute,
 			CreateMax:    1,
 		},
@@ -466,8 +466,8 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 		t.Fatalf("expected stack_count 0, got %d", loginResp.User.StackCount)
 	}
 
-	if loginResp.User.StackLimit != env.cfg.Stack.MaxPerUser {
-		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPerUser, loginResp.User.StackLimit)
+	if loginResp.User.StackLimit != env.cfg.Stack.MaxPer {
+		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPer, loginResp.User.StackLimit)
 	}
 
 	return loginResp.AccessToken, loginResp.RefreshToken, loginResp.User.ID

@@ -46,6 +46,14 @@ func TestStackRepoCRUD(t *testing.T) {
 		t.Fatalf("expected stack %s, got %s", stack.StackID, got.StackID)
 	}
 
+	if got.Username != user.Username {
+		t.Fatalf("expected username %s, got %s", user.Username, got.Username)
+	}
+
+	if got.ChallengeTitle != challenge.Title {
+		t.Fatalf("expected challenge title %s, got %s", challenge.Title, got.ChallengeTitle)
+	}
+
 	got, err = env.stackRepo.GetByStackID(context.Background(), stack.StackID)
 	if err != nil {
 		t.Fatalf("GetByStackID: %v", err)
@@ -53,6 +61,14 @@ func TestStackRepoCRUD(t *testing.T) {
 
 	if got.ID != stack.ID {
 		t.Fatalf("expected stack id %d, got %d", stack.ID, got.ID)
+	}
+
+	if got.Username != user.Username {
+		t.Fatalf("expected username %s, got %s", user.Username, got.Username)
+	}
+
+	if got.ChallengeTitle != challenge.Title {
+		t.Fatalf("expected challenge title %s, got %s", challenge.Title, got.ChallengeTitle)
 	}
 
 	count, err := env.stackRepo.CountByUser(context.Background(), user.ID)
@@ -74,6 +90,14 @@ func TestStackRepoCRUD(t *testing.T) {
 
 	if stacks[0].StackID != stack.StackID {
 		t.Fatalf("expected stack %s, got %s", stack.StackID, stacks[0].StackID)
+	}
+
+	if stacks[0].Username != user.Username {
+		t.Fatalf("expected username %s, got %s", user.Username, stacks[0].Username)
+	}
+
+	if stacks[0].ChallengeTitle != challenge.Title {
+		t.Fatalf("expected challenge title %s, got %s", challenge.Title, stacks[0].ChallengeTitle)
 	}
 
 	if err := env.stackRepo.DeleteByUserAndChallenge(context.Background(), user.ID, challenge.ID); err != nil {
@@ -174,6 +198,113 @@ func TestStackRepoCountByUserExcludingStatuses(t *testing.T) {
 
 	if count != 2 {
 		t.Fatalf("expected count 2, got %d", count)
+	}
+}
+
+func TestStackRepoListByTeam(t *testing.T) {
+	env := setupRepoTest(t)
+
+	team := createTeam(t, env, "ListTeam")
+	userA := createUserWithTeam(t, env, "teamA@example.com", "teamA", "pass", models.UserRole, team.ID)
+	userB := createUserWithTeam(t, env, "teamB@example.com", "teamB", "pass", models.UserRole, team.ID)
+	otherTeam := createTeam(t, env, "OtherTeam")
+	otherUser := createUserWithTeam(t, env, "other@example.com", "other", "pass", models.UserRole, otherTeam.ID)
+
+	challengeA := createChallenge(t, env, "TeamCh1", 100, "flag{ta}", true)
+	challengeB := createChallenge(t, env, "TeamCh2", 100, "flag{tb}", true)
+	otherChallenge := createChallenge(t, env, "OtherCh", 100, "flag{tc}", true)
+
+	createStack(t, env, userA.ID, challengeA.ID, "stack-team-1", time.Now().UTC().Add(-time.Minute))
+	createStack(t, env, userB.ID, challengeB.ID, "stack-team-2", time.Now().UTC())
+	createStack(t, env, otherUser.ID, otherChallenge.ID, "stack-other", time.Now().UTC())
+
+	stacks, err := env.stackRepo.ListByTeam(context.Background(), team.ID)
+	if err != nil {
+		t.Fatalf("ListByTeam: %v", err)
+	}
+
+	if len(stacks) != 2 {
+		t.Fatalf("expected 2 stacks, got %d", len(stacks))
+	}
+
+	if stacks[0].StackID != "stack-team-2" {
+		t.Fatalf("expected newest team stack first, got %s", stacks[0].StackID)
+	}
+
+	if stacks[0].Username == "" || stacks[0].ChallengeTitle == "" {
+		t.Fatalf("expected username and challenge title set, got %+v", stacks[0])
+	}
+}
+
+func TestStackRepoGetByTeamAndChallenge(t *testing.T) {
+	env := setupRepoTest(t)
+
+	team := createTeam(t, env, "TeamGet")
+	user := createUserWithTeam(t, env, "teamget@example.com", "teamget", "pass", models.UserRole, team.ID)
+	challenge := createChallenge(t, env, "TeamGetCh", 100, "flag{tg}", true)
+
+	createStack(t, env, user.ID, challenge.ID, "stack-team-get", time.Now().UTC())
+
+	got, err := env.stackRepo.GetByTeamAndChallenge(context.Background(), team.ID, challenge.ID)
+	if err != nil {
+		t.Fatalf("GetByTeamAndChallenge: %v", err)
+	}
+
+	if got.StackID != "stack-team-get" {
+		t.Fatalf("expected stack-team-get, got %s", got.StackID)
+	}
+
+	if got.Username != user.Username || got.ChallengeTitle != challenge.Title {
+		t.Fatalf("expected username %s and title %s, got %+v", user.Username, challenge.Title, got)
+	}
+}
+
+func TestStackRepoCountByTeamExcludingStatuses(t *testing.T) {
+	env := setupRepoTest(t)
+
+	team := createTeam(t, env, "CountTeam")
+	user := createUserWithTeam(t, env, "countteam@example.com", "countteam", "pass", models.UserRole, team.ID)
+	challenge := createChallenge(t, env, "CountTeamCh", 100, "flag{ct}", true)
+	terminalChallenge := createChallenge(t, env, "CountTeamChTerm", 100, "flag{ct2}", true)
+
+	now := time.Now().UTC()
+	createStack(t, env, user.ID, challenge.ID, "stack-team-running", now)
+
+	terminal := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: terminalChallenge.ID,
+		StackID:     "stack-team-stopped",
+		Status:      "stopped",
+		CreatedAt:   now.Add(-time.Minute),
+		UpdatedAt:   now.Add(-time.Minute),
+	}
+	if err := env.stackRepo.Create(context.Background(), terminal); err != nil {
+		t.Fatalf("create terminal stack: %v", err)
+	}
+
+	count, err := env.stackRepo.CountByTeamExcludingStatuses(context.Background(), team.ID, []string{"stopped"})
+	if err != nil {
+		t.Fatalf("CountByTeamExcludingStatuses: %v", err)
+	}
+
+	if count != 1 {
+		t.Fatalf("expected count 1, got %d", count)
+	}
+}
+
+func TestStackRepoTeamIDForUser(t *testing.T) {
+	env := setupRepoTest(t)
+
+	team := createTeam(t, env, "TeamLookup")
+	user := createUserWithTeam(t, env, "lookup@example.com", "lookup", "pass", models.UserRole, team.ID)
+
+	teamID, err := env.stackRepo.TeamIDForUser(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("TeamIDForUser: %v", err)
+	}
+
+	if teamID != team.ID {
+		t.Fatalf("expected team id %d, got %d", team.ID, teamID)
 	}
 }
 

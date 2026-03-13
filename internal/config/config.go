@@ -91,7 +91,8 @@ type S3Config struct {
 
 type StackConfig struct {
 	Enabled            bool
-	MaxPerUser         int
+	MaxScope           string
+	MaxPer             int
 	ProvisionerBaseURL string
 	ProvisionerAPIKey  string
 	ProvisionerTimeout time.Duration
@@ -227,7 +228,9 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
-	stackMaxPerUser, err := getEnvInt("STACKS_MAX_PER_USER", 3)
+	stackMaxScope := strings.ToLower(strings.TrimSpace(getEnv("STACKS_MAX_SCOPE", "team")))
+
+	stackMaxPer, err := getEnvInt("STACKS_MAX_PER", 3)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -315,7 +318,8 @@ func Load() (Config, error) {
 		},
 		Stack: StackConfig{
 			Enabled:            stackEnabled,
-			MaxPerUser:         stackMaxPerUser,
+			MaxScope:           stackMaxScope,
+			MaxPer:             stackMaxPer,
 			ProvisionerBaseURL: getEnv("STACKS_PROVISIONER_BASE_URL", "http://localhost:8081"),
 			ProvisionerAPIKey:  getEnv("STACKS_PROVISIONER_API_KEY", ""),
 			ProvisionerTimeout: stackTimeout,
@@ -476,8 +480,11 @@ func validateConfig(cfg Config) error {
 	}
 
 	if cfg.Stack.Enabled {
-		if cfg.Stack.MaxPerUser <= 0 {
-			errs = append(errs, errors.New("STACKS_MAX_PER_USER must be positive"))
+		if cfg.Stack.MaxPer <= 0 {
+			errs = append(errs, errors.New("STACKS_MAX_PER must be positive"))
+		}
+		if cfg.Stack.MaxScope != "user" && cfg.Stack.MaxScope != "team" {
+			errs = append(errs, errors.New("STACKS_MAX_SCOPE must be user or team"))
 		}
 		if cfg.Stack.ProvisionerBaseURL == "" {
 			errs = append(errs, errors.New("STACKS_PROVISIONER_BASE_URL must not be empty"))
@@ -608,7 +615,8 @@ func FormatForLog(cfg Config) map[string]any {
 		},
 		"stack": map[string]any{
 			"enabled":              cfg.Stack.Enabled,
-			"max_per_user":         cfg.Stack.MaxPerUser,
+			"max_scope":            cfg.Stack.MaxScope,
+			"max_per":              cfg.Stack.MaxPer,
 			"provisioner_base_url": cfg.Stack.ProvisionerBaseURL,
 			"provisioner_api_key":  cfg.Stack.ProvisionerAPIKey,
 			"provisioner_timeout":  seconds(cfg.Stack.ProvisionerTimeout),
