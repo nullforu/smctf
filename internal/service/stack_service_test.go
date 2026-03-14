@@ -58,7 +58,7 @@ func TestStackServiceGetOrCreateStack(t *testing.T) {
 
 	cfg := config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   2,
+		MaxPer:       2,
 		CreateWindow: time.Minute,
 		CreateMax:    5,
 	}
@@ -91,7 +91,7 @@ func TestStackServiceUserStackSummary(t *testing.T) {
 
 	cfg := config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    5,
 	}
@@ -112,8 +112,8 @@ func TestStackServiceUserStackSummary(t *testing.T) {
 		t.Fatalf("UserStackSummary empty: %v", err)
 	}
 
-	if count != 0 || limit != cfg.MaxPerUser {
-		t.Fatalf("expected empty summary 0/%d, got %d/%d", cfg.MaxPerUser, count, limit)
+	if count != 0 || limit != cfg.MaxPer {
+		t.Fatalf("expected empty summary 0/%d, got %d/%d", cfg.MaxPer, count, limit)
 	}
 
 	now := time.Now().UTC()
@@ -145,8 +145,139 @@ func TestStackServiceUserStackSummary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UserStackSummary: %v", err)
 	}
-	if count != 1 || limit != cfg.MaxPerUser {
-		t.Fatalf("expected summary 1/%d, got %d/%d", cfg.MaxPerUser, count, limit)
+	if count != 1 || limit != cfg.MaxPer {
+		t.Fatalf("expected summary 1/%d, got %d/%d", cfg.MaxPer, count, limit)
+	}
+}
+
+func TestStackServiceUserStackSummaryTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-summary-1@example.com", "team-summary-1", "pass", models.UserRole)
+	user2 := createUserWithTeam(t, env, "team-summary-2@example.com", "team-summary-2", "pass", models.UserRole, user.TeamID)
+	challenge1 := createStackChallenge(t, env, "team-summary-1")
+	challenge2 := createStackChallenge(t, env, "team-summary-2")
+
+	cfg := config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	}
+	stackSvc, stackRepo := newStackService(env, stack.NewProvisionerMock().Client(), cfg)
+
+	now := time.Now().UTC()
+	stackOne := &models.Stack{
+		UserID:      user.ID,
+		ChallengeID: challenge1.ID,
+		StackID:     "team-summary-1",
+		Status:      "running",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := stackRepo.Create(context.Background(), stackOne); err != nil {
+		t.Fatalf("create stack one: %v", err)
+	}
+
+	stack2 := &models.Stack{
+		UserID:      user2.ID,
+		ChallengeID: challenge2.ID,
+		StackID:     "team-summary-2",
+		Status:      "running",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := stackRepo.Create(context.Background(), stack2); err != nil {
+		t.Fatalf("create stack 2: %v", err)
+	}
+
+	count, limit, err := stackSvc.UserStackSummary(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("UserStackSummary team: %v", err)
+	}
+
+	if count != 2 || limit != cfg.MaxPer {
+		t.Fatalf("expected team summary 2/%d, got %d/%d", cfg.MaxPer, count, limit)
+	}
+}
+
+func TestStackServiceListUserStacksTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-list-1@example.com", "team-list-1", "pass", models.UserRole)
+	user2 := createUserWithTeam(t, env, "team-list-2@example.com", "team-list-2", "pass", models.UserRole, user.TeamID)
+	challenge1 := createStackChallenge(t, env, "team-list-1")
+	challenge2 := createStackChallenge(t, env, "team-list-2")
+
+	client := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running"}, nil
+		},
+	}
+
+	cfg := config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	}
+	stackSvc, stackRepo := newStackService(env, client, cfg)
+
+	now := time.Now().UTC()
+	stackOne := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "team-list-1", Status: "running", CreatedAt: now, UpdatedAt: now}
+	stack2 := &models.Stack{UserID: user2.ID, ChallengeID: challenge2.ID, StackID: "team-list-2", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackOne); err != nil {
+		t.Fatalf("create stack one: %v", err)
+	}
+
+	if err := stackRepo.Create(context.Background(), stack2); err != nil {
+		t.Fatalf("create stack 2: %v", err)
+	}
+
+	stacks, err := stackSvc.ListUserStacks(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("ListUserStacks team: %v", err)
+	}
+
+	if len(stacks) != 2 {
+		t.Fatalf("expected 2 stacks, got %d", len(stacks))
+	}
+}
+
+func TestStackServiceGetStackTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-get-1@example.com", "team-get-1", "pass", models.UserRole)
+	user2 := createUserWithTeam(t, env, "team-get-2@example.com", "team-get-2", "pass", models.UserRole, user.TeamID)
+	challenge := createStackChallenge(t, env, "team-get")
+
+	client := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running"}, nil
+		},
+	}
+
+	cfg := config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	}
+	stackSvc, stackRepo := newStackService(env, client, cfg)
+
+	now := time.Now().UTC()
+	stackModel := &models.Stack{UserID: user2.ID, ChallengeID: challenge.ID, StackID: "team-get", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	got, err := stackSvc.GetStack(context.Background(), user.ID, challenge.ID)
+	if err != nil {
+		t.Fatalf("GetStack team: %v", err)
+	}
+
+	if got.StackID != "team-get" {
+		t.Fatalf("expected team stack, got %+v", got)
 	}
 }
 
@@ -159,7 +290,7 @@ func TestStackServiceCreateStackInvalidPorts(t *testing.T) {
 	}
 
 	mock := stack.NewProvisionerMock()
-	cfg := config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5}
+	cfg := config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5}
 	stackSvc, _ := newStackService(env, mock.Client(), cfg)
 
 	if _, err := stackSvc.GetOrCreateStack(context.Background(), 1, challenge.ID); !errors.Is(err, ErrStackInvalidSpec) {
@@ -176,11 +307,23 @@ func TestStackServiceCreateStackProvisionerUnavailable(t *testing.T) {
 			return nil, stack.ErrUnavailable
 		},
 	}
-	cfg := config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5}
+	cfg := config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5}
 	stackSvc, _ := newStackService(env, client, cfg)
 
 	if _, err := stackSvc.GetOrCreateStack(context.Background(), 1, challenge.ID); !errors.Is(err, ErrStackProvisionerDown) {
 		t.Fatalf("expected ErrStackProvisionerDown, got %v", err)
+	}
+}
+
+func TestStackServiceGetStackNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "get-missing@example.com", "get-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "get-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5})
+
+	if _, err := stackSvc.GetStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
 	}
 }
 
@@ -197,7 +340,7 @@ func TestStackServiceLockedChallenge(t *testing.T) {
 	mock := stack.NewProvisionerMock()
 	cfg := config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   2,
+		MaxPer:       2,
 		CreateWindow: time.Minute,
 		CreateMax:    5,
 	}
@@ -222,7 +365,7 @@ func TestStackServiceRateLimit(t *testing.T) {
 
 	cfg := config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   5,
+		MaxPer:       5,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -237,6 +380,117 @@ func TestStackServiceRateLimit(t *testing.T) {
 	}
 }
 
+func TestStackServiceGetStackTeamScopeNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-get-missing@example.com", "team-get-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "team-get-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	if _, err := stackSvc.GetStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
+	}
+}
+
+func TestStackServiceListUserStacksTeamScopeIgnoresOtherTeam(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-list-a@example.com", "team-list-a", "pass", models.UserRole)
+	otherUser := createUserWithNewTeam(t, env, "team-list-b@example.com", "team-list-b", "pass", models.UserRole)
+	challenge1 := createStackChallenge(t, env, "team-list-a")
+	challenge2 := createStackChallenge(t, env, "team-list-b")
+
+	client := &stack.MockClient{
+		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
+			return &stack.StackStatus{StackID: stackID, Status: "running"}, nil
+		},
+	}
+
+	stackSvc, stackRepo := newStackService(env, client, config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	now := time.Now().UTC()
+	stackOne := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "team-list-a-1", Status: "running", CreatedAt: now, UpdatedAt: now}
+	stackTwo := &models.Stack{UserID: otherUser.ID, ChallengeID: challenge2.ID, StackID: "team-list-b-1", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackOne); err != nil {
+		t.Fatalf("create stack one: %v", err)
+	}
+
+	if err := stackRepo.Create(context.Background(), stackTwo); err != nil {
+		t.Fatalf("create stack two: %v", err)
+	}
+
+	stacks, err := stackSvc.ListUserStacks(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("ListUserStacks team: %v", err)
+	}
+
+	if len(stacks) != 1 || stacks[0].StackID != "team-list-a-1" {
+		t.Fatalf("expected only team stack, got %+v", stacks)
+	}
+}
+
+func TestStackServiceRateLimitTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "rate-team-1@example.com", "rate-team-1", "pass", models.UserRole)
+	user2 := createUserWithTeam(t, env, "rate-team-2@example.com", "rate-team-2", "pass", models.UserRole, user.TeamID)
+	challenge1 := createStackChallenge(t, env, "rate-team-1")
+	challenge2 := createStackChallenge(t, env, "rate-team-2")
+
+	mock := stack.NewProvisionerMock()
+
+	cfg := config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
+	}
+	stackSvc, _ := newStackService(env, mock.Client(), cfg)
+
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), user.ID, challenge1.ID); err != nil {
+		t.Fatalf("first create: %v", err)
+	}
+
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), user2.ID, challenge2.ID); !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("expected team rate limit error, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "delete-missing@example.com", "delete-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "delete-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5})
+
+	if err := stackSvc.DeleteStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackByUserAndChallengeNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "delete-user-missing@example.com", "delete-user-missing", "pass", models.UserRole)
+	challenge := createStackChallenge(t, env, "delete-user-missing")
+
+	stackSvc, _ := newStackService(env, stack.NewProvisionerMock().Client(), config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5})
+
+	if err := stackSvc.DeleteStackByUserAndChallenge(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrStackNotFound) {
+		t.Fatalf("expected ErrStackNotFound, got %v", err)
+	}
+}
+
 func TestStackServiceUserLimit(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge1 := createStackChallenge(t, env, "stack-1")
@@ -246,7 +500,7 @@ func TestStackServiceUserLimit(t *testing.T) {
 
 	cfg := config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   1,
+		MaxPer:       1,
 		CreateWindow: time.Minute,
 		CreateMax:    10,
 	}
@@ -261,6 +515,119 @@ func TestStackServiceUserLimit(t *testing.T) {
 	}
 }
 
+func TestStackServiceUserLimitTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "limit-team-1@example.com", "limit-team-1", "pass", models.UserRole)
+	user2 := createUserWithTeam(t, env, "limit-team-2@example.com", "limit-team-2", "pass", models.UserRole, user.TeamID)
+	challenge1 := createStackChallenge(t, env, "limit-team-1")
+	challenge2 := createStackChallenge(t, env, "limit-team-2")
+
+	mock := stack.NewProvisionerMock()
+
+	cfg := config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       1,
+		CreateWindow: time.Minute,
+		CreateMax:    10,
+	}
+	stackSvc, _ := newStackService(env, mock.Client(), cfg)
+
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), user.ID, challenge1.ID); err != nil {
+		t.Fatalf("first create: %v", err)
+	}
+
+	if _, err := stackSvc.GetOrCreateStack(context.Background(), user2.ID, challenge2.ID); !errors.Is(err, ErrStackLimitReached) {
+		t.Fatalf("expected team stack limit error, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-del-1@example.com", "team-del-1", "pass", models.UserRole)
+	userTwo := createUserWithTeam(t, env, "team-del-2@example.com", "team-del-2", "pass", models.UserRole, user.TeamID)
+	challenge := createStackChallenge(t, env, "team-del")
+
+	deleted := false
+	client := &stack.MockClient{
+		DeleteStackFn: func(ctx context.Context, stackID string) error {
+			if stackID == "team-del" {
+				deleted = true
+			}
+			return nil
+		},
+	}
+
+	stackSvc, stackRepo := newStackService(env, client, config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	now := time.Now().UTC()
+	stackModel := &models.Stack{UserID: userTwo.ID, ChallengeID: challenge.ID, StackID: "team-del", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	if err := stackSvc.DeleteStack(context.Background(), user.ID, challenge.ID); err != nil {
+		t.Fatalf("DeleteStack: %v", err)
+	}
+
+	if !deleted {
+		t.Fatalf("expected provisioner delete")
+	}
+
+	if _, err := stackRepo.GetByStackID(context.Background(), "team-del"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("expected stack deleted, got %v", err)
+	}
+}
+
+func TestStackServiceDeleteStackByUserAndChallengeTeamScope(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "team-del-u-1@example.com", "team-del-u-1", "pass", models.UserRole)
+	userTwo := createUserWithTeam(t, env, "team-del-u-2@example.com", "team-del-u-2", "pass", models.UserRole, user.TeamID)
+	challenge := createStackChallenge(t, env, "team-del-u")
+
+	deleted := false
+	client := &stack.MockClient{
+		DeleteStackFn: func(ctx context.Context, stackID string) error {
+			if stackID == "team-del-u" {
+				deleted = true
+			}
+			return nil
+		},
+	}
+
+	stackSvc, stackRepo := newStackService(env, client, config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       5,
+		CreateWindow: time.Minute,
+		CreateMax:    5,
+	})
+
+	now := time.Now().UTC()
+	stackModel := &models.Stack{UserID: userTwo.ID, ChallengeID: challenge.ID, StackID: "team-del-u", Status: "running", CreatedAt: now, UpdatedAt: now}
+	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
+		t.Fatalf("create stack: %v", err)
+	}
+
+	if err := stackSvc.DeleteStackByUserAndChallenge(context.Background(), user.ID, challenge.ID); err != nil {
+		t.Fatalf("DeleteStackByUserAndChallenge: %v", err)
+	}
+
+	if !deleted {
+		t.Fatalf("expected provisioner delete")
+	}
+
+	if _, err := stackRepo.GetByStackID(context.Background(), "team-del-u"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("expected stack deleted, got %v", err)
+	}
+}
+
 func TestStackServiceTerminalStatusDeletes(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge := createStackChallenge(t, env, "stack")
@@ -269,7 +636,7 @@ func TestStackServiceTerminalStatusDeletes(t *testing.T) {
 
 	cfg := config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   2,
+		MaxPer:       2,
 		CreateWindow: time.Minute,
 		CreateMax:    5,
 	}
@@ -314,7 +681,7 @@ func TestStackServiceAlreadySolvedDeletesExisting(t *testing.T) {
 
 	mock := stack.NewProvisionerMock()
 
-	cfg := config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5}
+	cfg := config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5}
 	stackSvc := NewStackService(cfg, stackRepo, env.challengeRepo, env.submissionRepo, mock.Client(), env.redis)
 
 	if _, err := stackSvc.GetOrCreateStack(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrAlreadySolved) {
@@ -337,7 +704,7 @@ func TestStackServiceDeleteStackByStackID(t *testing.T) {
 
 	mock := stack.NewProvisionerMock()
 
-	cfg := config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5}
+	cfg := config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5}
 	stackSvc, stackRepo := newStackService(env, mock.Client(), cfg)
 
 	stackModel := &models.Stack{
@@ -379,7 +746,7 @@ func TestStackServiceGetStackByStackID(t *testing.T) {
 
 	mock := stack.NewProvisionerMock()
 
-	cfg := config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5}
+	cfg := config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5}
 	stackSvc, stackRepo := newStackService(env, mock.Client(), cfg)
 
 	stackModel := &models.Stack{
@@ -417,7 +784,7 @@ func TestStackServiceListAdminStacks(t *testing.T) {
 	challenge := createStackChallenge(t, env, "admin-stack")
 
 	mock := stack.NewProvisionerMock()
-	stackSvc, stackRepo := newStackService(env, mock.Client(), config.StackConfig{Enabled: true, MaxPerUser: 2, CreateWindow: time.Minute, CreateMax: 5})
+	stackSvc, stackRepo := newStackService(env, mock.Client(), config.StackConfig{Enabled: true, MaxPer: 2, CreateWindow: time.Minute, CreateMax: 5})
 
 	stackModel := &models.Stack{
 		UserID:      user.ID,

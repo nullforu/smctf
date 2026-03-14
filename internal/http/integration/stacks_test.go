@@ -113,7 +113,7 @@ func TestStackLifecycle(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -145,7 +145,7 @@ func TestStackCreateBlockedAfterSolve(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -172,7 +172,7 @@ func TestStackCreateRateLimit(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -200,7 +200,7 @@ func TestStackCreateLocked(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -229,11 +229,109 @@ func TestStackCreateLocked(t *testing.T) {
 	}
 }
 
+func TestStackListTeamScope(t *testing.T) {
+	cfg := testCfg
+	cfg.Stack = config.StackConfig{
+		Enabled:      true,
+		MaxScope:     "team",
+		MaxPer:       3,
+		CreateWindow: time.Minute,
+		CreateMax:    1,
+	}
+
+	mock := stack.NewProvisionerMock()
+	env := setupStackTest(t, cfg, mock.Client())
+
+	admin := ensureAdminUser(t, env)
+	team := createTeam(t, env, "team-"+nextRegistrationCode())
+	keyA := createRegistrationKeyWithTeam(t, env, admin.ID, team.ID)
+	keyB := createRegistrationKeyWithTeam(t, env, admin.ID, team.ID)
+
+	userA := func() string {
+		regBody := map[string]string{
+			"email":            "team-a@example.com",
+			"username":         "team-a",
+			"password":         "strong-pass",
+			"registration_key": keyA.Code,
+		}
+		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", regBody, nil)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("register team-a status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		loginBody := map[string]string{"email": "team-a@example.com", "password": "strong-pass"}
+		rec = doRequest(t, env.router, http.MethodPost, "/api/auth/login", loginBody, nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("login team-a status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var loginResp struct {
+			AccessToken string `json:"access_token"`
+		}
+		decodeJSON(t, rec, &loginResp)
+
+		return loginResp.AccessToken
+	}()
+
+	userB := func() string {
+		regBody := map[string]string{
+			"email":            "team-b@example.com",
+			"username":         "team-b",
+			"password":         "strong-pass",
+			"registration_key": keyB.Code,
+		}
+		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", regBody, nil)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("register team-b status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		loginBody := map[string]string{"email": "team-b@example.com", "password": "strong-pass"}
+		rec = doRequest(t, env.router, http.MethodPost, "/api/auth/login", loginBody, nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("login team-b status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var loginResp struct {
+			AccessToken string `json:"access_token"`
+		}
+		decodeJSON(t, rec, &loginResp)
+
+		return loginResp.AccessToken
+	}()
+
+	challenge := createStackChallenge(t, env, "TeamScopeStack")
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(userA))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/stacks", nil, authHeader(userB))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list stacks status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Stacks []struct {
+			CreatedByUsername string `json:"created_by_username"`
+			ChallengeTitle    string `json:"challenge_title"`
+		} `json:"stacks"`
+	}
+	decodeJSON(t, rec, &resp)
+	if len(resp.Stacks) != 1 {
+		t.Fatalf("expected 1 team stack, got %d", len(resp.Stacks))
+	}
+
+	if resp.Stacks[0].CreatedByUsername == "" || resp.Stacks[0].ChallengeTitle == "" {
+		t.Fatalf("expected created_by and challenge_title, got %+v", resp.Stacks[0])
+	}
+}
+
 func TestStacksBlockedBeforeStart(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -297,7 +395,7 @@ func TestStacksCreateBlockedAfterEnd(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}

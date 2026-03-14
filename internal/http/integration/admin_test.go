@@ -552,7 +552,7 @@ func TestAdminStackManagement(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
@@ -664,7 +664,7 @@ func TestAdminReportSuccess(t *testing.T) {
 	cfg := testCfg
 	cfg.Stack = config.StackConfig{
 		Enabled:      true,
-		MaxPerUser:   3,
+		MaxPer:   3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}

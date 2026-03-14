@@ -79,6 +79,10 @@ Errors:
 - 400 `invalid input`
 - 401 `invalid credentials`
 
+Notes:
+
+- `stack_count` and `stack_limit` reflect the configured scope. If `STACKS_MAX_SCOPE=team`, these values are team-wide.
+
 ---
 
 ## Refresh Token
