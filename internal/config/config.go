@@ -90,14 +90,16 @@ type S3Config struct {
 }
 
 type StackConfig struct {
-	Enabled            bool
-	MaxScope           string
-	MaxPer             int
-	ProvisionerBaseURL string
-	ProvisionerAPIKey  string
-	ProvisionerTimeout time.Duration
-	CreateWindow       time.Duration
-	CreateMax          int
+	Enabled             bool
+	MaxScope            string
+	MaxPer              int
+	ProvisionerBaseURL  string
+	ProvisionerGRPCAddr string
+	ProvisionerUseGRPC  bool
+	ProvisionerAPIKey   string
+	ProvisionerTimeout  time.Duration
+	CreateWindow        time.Duration
+	CreateMax           int
 }
 
 type BootstrapConfig struct {
@@ -240,6 +242,13 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
+	stackUseGRPC, err := getEnvBool("STACKS_PROVISIONER_USE_GRPC", false)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	stackGRPCAddr := getEnv("STACKS_PROVISIONER_GRPC_ADDR", "localhost:9090")
+
 	stackCreateWindow, err := getDuration("STACKS_CREATE_WINDOW", time.Minute)
 	if err != nil {
 		errs = append(errs, err)
@@ -317,14 +326,16 @@ func Load() (Config, error) {
 			PresignTTL:      s3PresignTTL,
 		},
 		Stack: StackConfig{
-			Enabled:            stackEnabled,
-			MaxScope:           stackMaxScope,
-			MaxPer:             stackMaxPer,
-			ProvisionerBaseURL: getEnv("STACKS_PROVISIONER_BASE_URL", "http://localhost:8081"),
-			ProvisionerAPIKey:  getEnv("STACKS_PROVISIONER_API_KEY", ""),
-			ProvisionerTimeout: stackTimeout,
-			CreateWindow:       stackCreateWindow,
-			CreateMax:          stackCreateMax,
+			Enabled:             stackEnabled,
+			MaxScope:            stackMaxScope,
+			MaxPer:              stackMaxPer,
+			ProvisionerBaseURL:  getEnv("STACKS_PROVISIONER_BASE_URL", "http://localhost:8081"),
+			ProvisionerGRPCAddr: stackGRPCAddr,
+			ProvisionerUseGRPC:  stackUseGRPC,
+			ProvisionerAPIKey:   getEnv("STACKS_PROVISIONER_API_KEY", ""),
+			ProvisionerTimeout:  stackTimeout,
+			CreateWindow:        stackCreateWindow,
+			CreateMax:           stackCreateMax,
 		},
 		Bootstrap: BootstrapConfig{
 			AdminTeamEnabled: bootstrapAdminTeamEnabled,
@@ -486,8 +497,12 @@ func validateConfig(cfg Config) error {
 		if cfg.Stack.MaxScope != "user" && cfg.Stack.MaxScope != "team" {
 			errs = append(errs, errors.New("STACKS_MAX_SCOPE must be user or team"))
 		}
-		if cfg.Stack.ProvisionerBaseURL == "" {
-			errs = append(errs, errors.New("STACKS_PROVISIONER_BASE_URL must not be empty"))
+		if cfg.Stack.ProvisionerUseGRPC {
+			if cfg.Stack.ProvisionerGRPCAddr == "" {
+				errs = append(errs, errors.New("STACKS_PROVISIONER_GRPC_ADDR must not be empty when STACKS_PROVISIONER_USE_GRPC=true"))
+			}
+		} else if cfg.Stack.ProvisionerBaseURL == "" {
+			errs = append(errs, errors.New("STACKS_PROVISIONER_BASE_URL must not be empty when STACKS_PROVISIONER_USE_GRPC=false"))
 		}
 		if cfg.Stack.ProvisionerTimeout <= 0 {
 			errs = append(errs, errors.New("STACKS_PROVISIONER_TIMEOUT must be positive"))
@@ -614,14 +629,16 @@ func FormatForLog(cfg Config) map[string]any {
 			"presign_ttl":       seconds(cfg.S3.PresignTTL),
 		},
 		"stack": map[string]any{
-			"enabled":              cfg.Stack.Enabled,
-			"max_scope":            cfg.Stack.MaxScope,
-			"max_per":              cfg.Stack.MaxPer,
-			"provisioner_base_url": cfg.Stack.ProvisionerBaseURL,
-			"provisioner_api_key":  cfg.Stack.ProvisionerAPIKey,
-			"provisioner_timeout":  seconds(cfg.Stack.ProvisionerTimeout),
-			"create_window":        seconds(cfg.Stack.CreateWindow),
-			"create_max":           cfg.Stack.CreateMax,
+			"enabled":               cfg.Stack.Enabled,
+			"max_scope":             cfg.Stack.MaxScope,
+			"max_per":               cfg.Stack.MaxPer,
+			"provisioner_base_url":  cfg.Stack.ProvisionerBaseURL,
+			"provisioner_grpc_addr": cfg.Stack.ProvisionerGRPCAddr,
+			"provisioner_use_grpc":  cfg.Stack.ProvisionerUseGRPC,
+			"provisioner_api_key":   cfg.Stack.ProvisionerAPIKey,
+			"provisioner_timeout":   seconds(cfg.Stack.ProvisionerTimeout),
+			"create_window":         seconds(cfg.Stack.CreateWindow),
+			"create_max":            cfg.Stack.CreateMax,
 		},
 		"bootstrap": map[string]any{
 			"admin_team_enabled": cfg.Bootstrap.AdminTeamEnabled,

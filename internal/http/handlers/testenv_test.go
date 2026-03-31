@@ -119,7 +119,7 @@ func TestMain(m *testing.M) {
 		},
 		Stack: config.StackConfig{
 			Enabled:      true,
-			MaxPer:   3,
+			MaxPer:       3,
 			CreateWindow: time.Minute,
 			CreateMax:    1,
 		},

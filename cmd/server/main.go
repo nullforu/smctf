@@ -103,7 +103,20 @@ func main() {
 	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
-	stackClient := stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+
+	var stackClient stack.API
+	if cfg.Stack.ProvisionerUseGRPC {
+		client, err := stack.NewGRPCClient(cfg.Stack.ProvisionerGRPCAddr, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+		if err != nil {
+			logger.Error("grpc stack client init error", slog.Any("error", err))
+			os.Exit(1)
+		}
+
+		stackClient = client
+	} else {
+		stackClient = stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+	}
+
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
 
 	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, divisionRepo, logger)
