@@ -105,6 +105,7 @@ func main() {
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
 
 	var stackClient stack.API
+	var stackClientCloser func() error
 	if cfg.Stack.ProvisionerUseGRPC {
 		client, err := stack.NewGRPCClient(cfg.Stack.ProvisionerGRPCAddr, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
 		if err != nil {
@@ -113,8 +114,16 @@ func main() {
 		}
 
 		stackClient = client
+		stackClientCloser = client.Close
 	} else {
 		stackClient = stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
+	}
+	if stackClientCloser != nil {
+		defer func() {
+			if err := stackClientCloser(); err != nil {
+				logger.Warn("stack client close error", slog.Any("error", err))
+			}
+		}()
 	}
 
 	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)

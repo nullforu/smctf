@@ -118,8 +118,12 @@ func (c *GRPCClient) withTimeout(ctx context.Context) (context.Context, context.
 		return ctx, func() {}
 	}
 
-	if _, ok := ctx.Deadline(); ok {
-		return ctx, func() {}
+	if deadline, ok := ctx.Deadline(); ok {
+		desired := time.Now().Add(c.timeout)
+		if deadline.Before(desired) {
+			return ctx, func() {}
+		}
+		return context.WithDeadline(ctx, desired)
 	}
 
 	return context.WithTimeout(ctx, c.timeout)
