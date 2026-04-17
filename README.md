@@ -173,6 +173,8 @@ STACKS_ENABLED=true
 STACKS_MAX_SCOPE=team
 STACKS_MAX_PER=3
 STACKS_PROVISIONER_BASE_URL=http://localhost:8081
+STACKS_PROVISIONER_USE_GRPC=false
+STACKS_PROVISIONER_GRPC_ADDR=localhost:9090
 STACKS_PROVISIONER_API_KEY=change-me
 STACKS_PROVISIONER_TIMEOUT=5s
 STACKS_CREATE_WINDOW=1m
@@ -202,6 +204,29 @@ S3_PRESIGN_TTL=15m
 ```
 
 </details>
+
+## Buf / BSR (container-provisioner proto)
+
+This repo consumes the container-provisioner proto via Buf Schema Registry (BSR).
+
+Setup:
+
+```bash
+make buf-install
+buf registry login
+```
+
+Generate code:
+
+```bash
+make buf-generate
+```
+
+Module reference is set via `BUF_MODULE` (Makefile). You can override via:
+
+```bash
+make buf-generate BUF_MODULE=buf.build/<org>/container-provisioner
+```
 
 > [!IMPORTANT]
 >
