@@ -233,3 +233,143 @@ func TestBootstrapAdminDisabled(t *testing.T) {
 		t.Fatalf("expected 0 teams, got %d", teamCount)
 	}
 }
+
+func TestEnsureAdminDivisionExisting(t *testing.T) {
+	db := setupBootstrapDB(t)
+	divisionRepo := repo.NewDivisionRepo(db)
+
+	firstID, err := ensureAdminDivision(context.Background(), divisionRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminDivision first: %v", err)
+	}
+
+	secondID, err := ensureAdminDivision(context.Background(), divisionRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminDivision second: %v", err)
+	}
+
+	if firstID != secondID {
+		t.Fatalf("expected existing division id reuse, got %d and %d", firstID, secondID)
+	}
+}
+
+func TestEnsureAdminUserSkipsWhenCredentialsMissing(t *testing.T) {
+	db := setupBootstrapDB(t)
+	userRepo := repo.NewUserRepo(db)
+	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
+
+	cfg := baseBootstrapConfig()
+	cfg.Bootstrap.AdminEmail = " "
+	cfg.Bootstrap.AdminPassword = ""
+
+	divisionID, err := ensureAdminDivision(context.Background(), divisionRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminDivision: %v", err)
+	}
+
+	team, err := ensureAdminTeam(context.Background(), teamRepo, divisionID)
+	if err != nil {
+		t.Fatalf("ensureAdminTeam: %v", err)
+	}
+
+	if team == nil {
+		t.Fatalf("expected team")
+	}
+
+	user, err := ensureAdminUser(context.Background(), cfg, team, userRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminUser: %v", err)
+	}
+
+	if user != nil {
+		t.Fatalf("expected nil user when credentials missing")
+	}
+}
+
+func TestEnsureAdminUserDefaultsUsername(t *testing.T) {
+	db := setupBootstrapDB(t)
+	userRepo := repo.NewUserRepo(db)
+	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
+
+	cfg := baseBootstrapConfig()
+	cfg.Bootstrap.AdminUsername = " "
+
+	divisionID, err := ensureAdminDivision(context.Background(), divisionRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminDivision: %v", err)
+	}
+
+	team, err := ensureAdminTeam(context.Background(), teamRepo, divisionID)
+	if err != nil {
+		t.Fatalf("ensureAdminTeam: %v", err)
+	}
+
+	if team == nil {
+		t.Fatalf("expected team")
+	}
+
+	user, err := ensureAdminUser(context.Background(), cfg, team, userRepo)
+	if err != nil {
+		t.Fatalf("ensureAdminUser: %v", err)
+	}
+
+	if user == nil || user.Username != "admin" {
+		t.Fatalf("expected default username 'admin', got %+v", user)
+	}
+}
+
+func TestBootstrapAdminTeamOnly(t *testing.T) {
+	db := setupBootstrapDB(t)
+	userRepo := repo.NewUserRepo(db)
+	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
+
+	cfg := baseBootstrapConfig()
+	cfg.Bootstrap.AdminUserEnabled = false
+	logger := newTestLogger(t)
+
+	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, divisionRepo, logger)
+
+	var teamCount int
+	if err := db.NewSelect().TableExpr("teams").ColumnExpr("COUNT(*)").Scan(context.Background(), &teamCount); err != nil {
+		t.Fatalf("count teams: %v", err)
+	}
+
+	if teamCount != 1 {
+		t.Fatalf("expected 1 team, got %d", teamCount)
+	}
+
+	var userCount int
+	if err := db.NewSelect().TableExpr("users").ColumnExpr("COUNT(*)").Scan(context.Background(), &userCount); err != nil {
+		t.Fatalf("count users: %v", err)
+	}
+
+	if userCount != 0 {
+		t.Fatalf("expected 0 users, got %d", userCount)
+	}
+}
+
+func TestBootstrapAdminUserOnlySkipsWithoutTeam(t *testing.T) {
+	db := setupBootstrapDB(t)
+	userRepo := repo.NewUserRepo(db)
+	teamRepo := repo.NewTeamRepo(db)
+	divisionRepo := repo.NewDivisionRepo(db)
+
+	cfg := baseBootstrapConfig()
+	cfg.Bootstrap.AdminTeamEnabled = false
+	cfg.Bootstrap.AdminUserEnabled = true
+	logger := newTestLogger(t)
+
+	BootstrapAdmin(context.Background(), cfg, db, userRepo, teamRepo, divisionRepo, logger)
+
+	var userCount int
+	if err := db.NewSelect().TableExpr("users").ColumnExpr("COUNT(*)").Scan(context.Background(), &userCount); err != nil {
+		t.Fatalf("count users: %v", err)
+	}
+
+	if userCount != 0 {
+		t.Fatalf("expected 0 users when team bootstrap disabled, got %d", userCount)
+	}
+}

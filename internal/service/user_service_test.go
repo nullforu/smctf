@@ -123,3 +123,68 @@ func TestUserServiceGetDivisionID(t *testing.T) {
 		t.Fatalf("expected not found, got %v", err)
 	}
 }
+
+func TestUserServiceGetByIDValidationAndNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+
+	if _, err := env.userSvc.GetByID(context.Background(), 0); err == nil {
+		t.Fatalf("expected validation error")
+	}
+
+	if _, err := env.userSvc.GetByID(context.Background(), 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestUserServiceListInvalidDivisionID(t *testing.T) {
+	env := setupServiceTest(t)
+	invalid := int64(0)
+
+	if _, err := env.userSvc.List(context.Background(), &invalid); err == nil {
+		t.Fatalf("expected validation error")
+	}
+}
+
+func TestUserServiceUpdateProfileWithoutUsernameChange(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "same@example.com", "same-user", "pass", models.UserRole)
+
+	updated, err := env.userSvc.UpdateProfile(context.Background(), user.ID, nil)
+	if err != nil {
+		t.Fatalf("UpdateProfile with nil username: %v", err)
+	}
+
+	if updated.Username != "same-user" {
+		t.Fatalf("expected username unchanged, got %q", updated.Username)
+	}
+}
+
+func TestUserServiceMoveUserTeamValidationAndNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "move2@example.com", "move2", "pass", models.UserRole)
+	team := createTeam(t, env, "target-team")
+
+	if _, err := env.userSvc.MoveUserTeam(context.Background(), user.ID, 0); err == nil {
+		t.Fatalf("expected validation error for team id")
+	}
+
+	if _, err := env.userSvc.MoveUserTeam(context.Background(), 999999, team.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for missing user, got %v", err)
+	}
+}
+
+func TestUserServiceBlockUnblockValidationAndNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+
+	if _, err := env.userSvc.BlockUser(context.Background(), 1, "   "); err == nil {
+		t.Fatalf("expected validation error for empty reason")
+	}
+
+	if _, err := env.userSvc.BlockUser(context.Background(), 999999, "policy"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for missing user, got %v", err)
+	}
+
+	if _, err := env.userSvc.UnblockUser(context.Background(), 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for missing user, got %v", err)
+	}
+}

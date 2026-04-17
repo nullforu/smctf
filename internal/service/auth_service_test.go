@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -326,5 +328,98 @@ func TestAuthServiceRegisterMissingKey(t *testing.T) {
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestAuthServiceLoginUserNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+
+	if _, _, _, err := env.authSvc.Login(context.Background(), "missing@example.com", "pass"); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds, got %v", err)
+	}
+}
+
+func TestAuthServiceParseRefreshTokenValidation(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "parse@example.com", "parse", "pass", models.UserRole)
+
+	access, err := auth.GenerateAccessToken(env.cfg.JWT, user.ID, user.Role)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+
+	if _, err := env.authSvc.parseRefreshToken(access); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds for access token, got %v", err)
+	}
+
+	if _, err := env.authSvc.parseRefreshToken("not-a-token"); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds for malformed token, got %v", err)
+	}
+}
+
+func TestAuthServiceAssertRefreshValidCases(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "assert@example.com", "assert", "pass", models.UserRole)
+	key := "custom-jti"
+
+	if err := env.authSvc.assertRefreshValid(context.Background(), key, user.ID); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds when key missing, got %v", err)
+	}
+
+	if err := env.redis.Set(context.Background(), refreshKey(key), "", time.Minute).Err(); err != nil {
+		t.Fatalf("seed redis empty value: %v", err)
+	}
+
+	if err := env.authSvc.assertRefreshValid(context.Background(), key, user.ID); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds for empty stored value, got %v", err)
+	}
+
+	if err := env.redis.Set(context.Background(), refreshKey(key), strconv.FormatInt(user.ID+1, 10), time.Minute).Err(); err != nil {
+		t.Fatalf("seed redis mismatched value: %v", err)
+	}
+
+	if err := env.authSvc.assertRefreshValid(context.Background(), key, user.ID); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds for mismatched user id, got %v", err)
+	}
+
+	if err := env.redis.Set(context.Background(), refreshKey(key), strconv.FormatInt(user.ID, 10), time.Minute).Err(); err != nil {
+		t.Fatalf("seed redis valid value: %v", err)
+	}
+
+	if err := env.authSvc.assertRefreshValid(context.Background(), key, user.ID); err != nil {
+		t.Fatalf("expected valid refresh state, got %v", err)
+	}
+}
+
+func TestAuthServiceRefreshOldTokenRevoked(t *testing.T) {
+	env := setupServiceTest(t)
+	createUserWithNewTeam(t, env, "refresh-old@example.com", "refresh-old", "pass", models.UserRole)
+
+	_, refresh, _, err := env.authSvc.Login(context.Background(), "refresh-old@example.com", "pass")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	if _, _, err := env.authSvc.Refresh(context.Background(), refresh); err != nil {
+		t.Fatalf("first refresh: %v", err)
+	}
+
+	if _, _, err := env.authSvc.Refresh(context.Background(), refresh); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("expected ErrInvalidCreds for revoked refresh token, got %v", err)
+	}
+}
+
+func TestAuthServiceRegisterTrimsNormalization(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUserWithNewTeam(t, env, "admin2@example.com", models.AdminRole, "pass", models.AdminRole)
+	key := createRegistrationKey(t, env, "ABCDEFGHJKLMNPQ7", admin.ID)
+
+	user, err := env.authSvc.Register(context.Background(), "  MiXeD@Example.com  ", "  trim-user  ", "pass1", "  "+strings.ToLower(key.Code)+"  ", " 192.0.2.5 ")
+	if err != nil {
+		t.Fatalf("register with normalization: %v", err)
+	}
+
+	if user.Email != "mixed@example.com" || user.Username != "trim-user" {
+		t.Fatalf("unexpected normalized user: %+v", user)
 	}
 }

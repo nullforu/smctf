@@ -110,3 +110,59 @@ func TestTeamServiceSolvedInvalidID(t *testing.T) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
 }
+
+func TestTeamServiceCreateDuplicateTeam(t *testing.T) {
+	env := setupServiceTest(t)
+
+	if _, err := env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID); err != nil {
+		t.Fatalf("create first team: %v", err)
+	}
+
+	_, err := env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID)
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestTeamServiceListTeamsDivisionFilterAndValidation(t *testing.T) {
+	env := setupServiceTest(t)
+	otherDivision := createDivision(t, env, "Other")
+
+	_, _ = env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID)
+	_, _ = env.teamSvc.CreateTeam(context.Background(), "Beta", otherDivision.ID)
+
+	rows, err := env.teamSvc.ListTeams(context.Background(), &env.defaultDivisionID)
+	if err != nil {
+		t.Fatalf("list teams by division: %v", err)
+	}
+
+	if len(rows) != 1 || rows[0].Name != "Alpha" {
+		t.Fatalf("unexpected filtered rows: %+v", rows)
+	}
+
+	invalid := int64(0)
+	if _, err := env.teamSvc.ListTeams(context.Background(), &invalid); err == nil {
+		t.Fatalf("expected validation error for division id")
+	}
+}
+
+func TestTeamServiceGetTeamValidation(t *testing.T) {
+	env := setupServiceTest(t)
+
+	if _, err := env.teamSvc.GetTeam(context.Background(), 0); err == nil {
+		t.Fatalf("expected validation error")
+	}
+}
+
+func TestTeamServiceMembersAndSolvedNotFound(t *testing.T) {
+	env := setupServiceTest(t)
+
+	if _, err := env.teamSvc.ListMembers(context.Background(), 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+
+	if _, err := env.teamSvc.ListSolvedChallenges(context.Background(), 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}

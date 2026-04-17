@@ -2603,6 +2603,72 @@ func TestOptionalUserID(t *testing.T) {
 	}
 }
 
+func TestOptionalUserIDInvalidHeaders(t *testing.T) {
+	cfg := config.Config{
+		JWT: config.JWTConfig{
+			Secret:     "test-secret",
+			Issuer:     "smctf-test",
+			AccessTTL:  time.Minute,
+			RefreshTTL: time.Hour,
+		},
+	}
+	handler := New(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	ctx, _ := newJSONContext(t, http.MethodGet, "/api/me", nil)
+	if got := handler.optionalUserID(ctx); got != 0 {
+		t.Fatalf("expected 0 for missing header, got %d", got)
+	}
+
+	ctx, _ = newJSONContext(t, http.MethodGet, "/api/me", nil)
+	ctx.Request.Header.Set("Authorization", "Token abc")
+	if got := handler.optionalUserID(ctx); got != 0 {
+		t.Fatalf("expected 0 for invalid scheme, got %d", got)
+	}
+
+	ctx, _ = newJSONContext(t, http.MethodGet, "/api/me", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer not-a-token")
+	if got := handler.optionalUserID(ctx); got != 0 {
+		t.Fatalf("expected 0 for malformed token, got %d", got)
+	}
+}
+
+func TestUniqueDivisionIDs(t *testing.T) {
+	if got := uniqueDivisionIDs(nil); got != nil {
+		t.Fatalf("expected nil for empty input, got %v", got)
+	}
+
+	got := uniqueDivisionIDs([]int64{-1, 0, 3, 3, 2, 0, 2, 1})
+	want := []int64{3, 2, 1}
+	if len(got) != len(want) {
+		t.Fatalf("unexpected length: %v", got)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("unexpected result: %v", got)
+		}
+	}
+}
+
+func TestParseOptionalPositiveIDQuery(t *testing.T) {
+	ctx, _ := newJSONContext(t, http.MethodGet, "/api/challenges", nil)
+	id, err := parseOptionalPositiveIDQuery(ctx, "division_id")
+	if err != nil || id != nil {
+		t.Fatalf("expected nil id and nil error, got id=%v err=%v", id, err)
+	}
+
+	ctx, _ = newJSONContext(t, http.MethodGet, "/api/challenges?division_id=12", nil)
+	id, err = parseOptionalPositiveIDQuery(ctx, "division_id")
+	if err != nil || id == nil || *id != 12 {
+		t.Fatalf("expected id 12, got id=%v err=%v", id, err)
+	}
+
+	ctx, _ = newJSONContext(t, http.MethodGet, "/api/challenges?division_id=0", nil)
+	if _, err = parseOptionalPositiveIDQuery(ctx, "division_id"); err == nil {
+		t.Fatalf("expected validation error for zero")
+	}
+}
+
 func TestOptionalStringUnmarshalJSON(t *testing.T) {
 	var opt optionalString
 	if err := opt.UnmarshalJSON([]byte(`"value"`)); err != nil {
