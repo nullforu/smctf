@@ -1,6 +1,6 @@
 # Contributing Guide
 
-## Standards
+## Standards (for Go)
 
 - use formatting tools like Prettier and Go fmt to maintain consistent code style.
 - write clear and concise code with proper naming conventions.
