@@ -397,7 +397,6 @@ func createSubmission(t *testing.T, env serviceEnv, userID, challengeID int64, c
 	sub := &models.Submission{
 		UserID:      userID,
 		ChallengeID: challengeID,
-		Provided:    "flag",
 		Correct:     correct,
 		SubmittedAt: submittedAt,
 	}

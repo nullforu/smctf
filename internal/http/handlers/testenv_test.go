@@ -452,7 +452,6 @@ func createHandlerSubmission(t *testing.T, env handlerEnv, userID, challengeID i
 	sub := &models.Submission{
 		UserID:      userID,
 		ChallengeID: challengeID,
-		Provided:    "flag",
 		Correct:     correct,
 		SubmittedAt: submittedAt,
 	}

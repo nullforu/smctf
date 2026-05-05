@@ -285,7 +285,7 @@ def generate_submissions(
     probabilities: Dict[str, Any],
     start_user_id: int = 1,
     skip_first_user: bool = False,
-) -> List[Tuple[int, int, str, bool, str, bool]]:
+) -> List[Tuple[int, int, bool, str, bool]]:
     submissions = []
     base_time = datetime.now(UTC) - timedelta(
         hours=timing["submissions_base_hours_ago"]
@@ -364,23 +364,19 @@ def generate_submissions(
                     wrong_time = submission_time - timedelta(
                         minutes=random.randint(wrong_before_min, wrong_before_max)
                     )
-                    wrong_flag = f"flag{{wrong_attempt_{random.randint(1000, 9999)}}}"
                     submissions.append(
                         (
                             user_id,
                             chal_id,
-                            wrong_flag,
                             False,
                             wrong_time.strftime("%Y-%m-%d %H:%M:%S"),
                         )
                     )
 
-                correct_flag = challenges[chal_id - 1]["flag"]
                 submissions.append(
                     (
                         user_id,
                         chal_id,
-                        correct_flag,
                         True,
                         submission_time.strftime("%Y-%m-%d %H:%M:%S"),
                     )
@@ -391,12 +387,10 @@ def generate_submissions(
                 attempt_time = submission_time + timedelta(
                     minutes=random.randint(fail_delay_min, fail_delay_max)
                 )
-                wrong_flag = f"flag{{incorrect_{random.randint(1000, 9999)}}}"
                 submissions.append(
                     (
                         user_id,
                         chal_id,
-                        wrong_flag,
                         False,
                         attempt_time.strftime("%Y-%m-%d %H:%M:%S"),
                     )
@@ -408,11 +402,10 @@ def generate_submissions(
 
     for idx in recent_indices:
         recent_time = now - timedelta(minutes=random.randint(0, recent_minutes))
-        user_id, chal_id, provided, correct, _ = submissions[idx]
+        user_id, chal_id, correct, _ = submissions[idx]
         submissions[idx] = (
             user_id,
             chal_id,
-            provided,
             correct,
             recent_time.strftime("%Y-%m-%d %H:%M:%S"),
         )
@@ -421,7 +414,7 @@ def generate_submissions(
 
     first_blood_seen = set()
     flagged = []
-    for user_id, chal_id, provided, correct, submitted_at in submissions:
+    for user_id, chal_id, correct, submitted_at in submissions:
         division = user_division_map.get(user_id, "Unknown")
         is_first_blood = False
         key = (division, chal_id)
@@ -432,7 +425,6 @@ def generate_submissions(
             (
                 user_id,
                 chal_id,
-                provided,
                 correct,
                 submitted_at,
                 is_first_blood,

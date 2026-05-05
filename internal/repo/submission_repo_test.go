@@ -208,7 +208,6 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 	sub1 := &models.Submission{
 		UserID:      user1.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: now,
 	}
@@ -229,7 +228,6 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeam(t *testing.T) {
 	sub2 := &models.Submission{
 		UserID:      user2.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: now.Add(time.Second),
 	}
@@ -268,7 +266,6 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamBlockedSolve(t *testing.T) 
 	sub1 := &models.Submission{
 		UserID:      blocked.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: now,
 	}
@@ -284,7 +281,6 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamBlockedSolve(t *testing.T) 
 	sub2 := &models.Submission{
 		UserID:      user.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: now.Add(time.Second),
 	}
@@ -308,7 +304,6 @@ func TestSubmissionRepoFirstBloodAcrossTeams(t *testing.T) {
 	sub1 := &models.Submission{
 		UserID:      user1.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: time.Now().UTC(),
 	}
@@ -325,7 +320,6 @@ func TestSubmissionRepoFirstBloodAcrossTeams(t *testing.T) {
 	sub2 := &models.Submission{
 		UserID:      user2.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: time.Now().UTC().Add(time.Second),
 	}
@@ -372,7 +366,6 @@ func TestSubmissionRepoFirstBloodPerDivision(t *testing.T) {
 	subA := &models.Submission{
 		UserID:      userA.ID,
 		ChallengeID: ch.ID,
-		Provided:    "FLAG{FB}",
 		Correct:     true,
 		SubmittedAt: time.Now().UTC(),
 	}
@@ -389,7 +382,6 @@ func TestSubmissionRepoFirstBloodPerDivision(t *testing.T) {
 	subB := &models.Submission{
 		UserID:      userB.ID,
 		ChallengeID: ch.ID,
-		Provided:    "FLAG{FB}",
 		Correct:     true,
 		SubmittedAt: time.Now().UTC().Add(time.Second),
 	}
@@ -413,7 +405,6 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamSameUser(t *testing.T) {
 	sub1 := &models.Submission{
 		UserID:      user.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: now,
 	}
@@ -430,7 +421,6 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamSameUser(t *testing.T) {
 	sub2 := &models.Submission{
 		UserID:      user.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{1}",
 		Correct:     true,
 		SubmittedAt: now.Add(time.Second),
 	}
@@ -452,7 +442,6 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamIncorrect(t *testing.T) {
 	sub := &models.Submission{
 		UserID:      user.ID,
 		ChallengeID: ch.ID,
-		Provided:    "flag{wrong}",
 		Correct:     false,
 		SubmittedAt: time.Now().UTC(),
 	}

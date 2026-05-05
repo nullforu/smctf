@@ -20,7 +20,6 @@ import (
 
 const (
 	redisSubmitPrefix = "submit:"
-	maxFlagLength     = 128
 )
 
 var challengeCategories = map[string]struct{}{
@@ -447,7 +446,6 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 	sub := &models.Submission{
 		UserID:      userID,
 		ChallengeID: challengeID,
-		Provided:    trimTo(flag, maxFlagLength),
 		Correct:     correct,
 		SubmittedAt: time.Now().UTC(),
 	}
