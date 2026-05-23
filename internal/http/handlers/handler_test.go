@@ -378,9 +378,7 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	}
 
 	var loginResp struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		User         struct {
+		User struct {
 			TeamID        int64      `json:"team_id"`
 			TeamName      string     `json:"team_name"`
 			DivisionID    int64      `json:"division_id"`
@@ -393,9 +391,6 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	}
 	decodeJSON(t, rec, &loginResp)
 
-	if loginResp.AccessToken == "" || loginResp.RefreshToken == "" {
-		t.Fatalf("missing tokens")
-	}
 	if loginResp.User.TeamID != key.TeamID {
 		t.Fatalf("expected team_id %d, got %d", key.TeamID, loginResp.User.TeamID)
 	}
@@ -415,25 +410,51 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 		t.Fatalf("expected blocked fields to be null")
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/refresh", map[string]string{"refresh_token": "bad"})
+	refreshToken := ""
+	csrfToken := ""
+	for _, c := range rec.Header().Values("Set-Cookie") {
+		if after, ok := strings.CutPrefix(c, "refresh_token="); ok {
+			refreshToken = strings.SplitN(after, ";", 2)[0]
+		}
+		if after, ok := strings.CutPrefix(c, "csrf_token="); ok {
+			csrfToken = strings.SplitN(after, ";", 2)[0]
+		}
+	}
+	if refreshToken == "" || csrfToken == "" {
+		t.Fatalf("missing refresh/csrf cookies on login")
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/refresh", nil)
+	ctx.Request.AddCookie(&http.Cookie{Name: "refresh_token", Value: "bad"})
+	ctx.Request.AddCookie(&http.Cookie{Name: "csrf_token", Value: "csrf"})
+	ctx.Request.Header.Set("X-CSRF-Token", "csrf")
 	env.handler.Refresh(ctx)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("refresh invalid status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/refresh", map[string]string{"refresh_token": loginResp.RefreshToken})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/refresh", nil)
+	ctx.Request.AddCookie(&http.Cookie{Name: "refresh_token", Value: refreshToken})
+	ctx.Request.AddCookie(&http.Cookie{Name: "csrf_token", Value: csrfToken})
+	ctx.Request.Header.Set("X-CSRF-Token", csrfToken)
 	env.handler.Refresh(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("refresh status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/logout", map[string]string{"refresh_token": "bad"})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/logout", nil)
+	ctx.Request.AddCookie(&http.Cookie{Name: "refresh_token", Value: "bad"})
+	ctx.Request.AddCookie(&http.Cookie{Name: "csrf_token", Value: "csrf"})
+	ctx.Request.Header.Set("X-CSRF-Token", "csrf")
 	env.handler.Logout(ctx)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("logout invalid status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/logout", map[string]string{"refresh_token": loginResp.RefreshToken})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/auth/logout", nil)
+	ctx.Request.AddCookie(&http.Cookie{Name: "refresh_token", Value: refreshToken})
+	ctx.Request.AddCookie(&http.Cookie{Name: "csrf_token", Value: csrfToken})
+	ctx.Request.Header.Set("X-CSRF-Token", csrfToken)
 	env.handler.Logout(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("logout status %d: %s", rec.Code, rec.Body.String())
@@ -831,7 +852,7 @@ func TestHandlerListChallengesNoPrereqWithAuth(t *testing.T) {
 	challenge := createHandlerChallenge(t, env, "NoPrereq", 100, "FLAG{N}", true)
 
 	ctx, rec := newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil)
-	ctx.Request.Header.Set("Authorization", "Bearer "+access)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
 	env.handler.ListChallenges(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list status %d: %s", rec.Code, rec.Body.String())
@@ -947,7 +968,7 @@ func TestHandlerListChallengesLocked(t *testing.T) {
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil)
-	ctx.Request.Header.Set("Authorization", "Bearer "+access)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
 	env.handler.ListChallenges(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list auth status %d: %s", rec.Code, rec.Body.String())
@@ -976,7 +997,7 @@ func TestHandlerListChallengesLocked(t *testing.T) {
 	createHandlerSubmission(t, env, user.ID, prev.ID, true, time.Now().UTC())
 
 	ctx, rec = newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil)
-	ctx.Request.Header.Set("Authorization", "Bearer "+access)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
 	env.handler.ListChallenges(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list unlocked status %d: %s", rec.Code, rec.Body.String())
@@ -2595,7 +2616,7 @@ func TestOptionalUserID(t *testing.T) {
 	}
 
 	ctx, _ := newJSONContext(t, http.MethodGet, "/api/me", nil)
-	ctx.Request.Header.Set("Authorization", "Bearer "+token)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: token})
 
 	userID := handler.optionalUserID(ctx)
 	if userID != 99 {
@@ -2620,13 +2641,13 @@ func TestOptionalUserIDInvalidHeaders(t *testing.T) {
 	}
 
 	ctx, _ = newJSONContext(t, http.MethodGet, "/api/me", nil)
-	ctx.Request.Header.Set("Authorization", "Token abc")
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: "not-a-jwt"})
 	if got := handler.optionalUserID(ctx); got != 0 {
 		t.Fatalf("expected 0 for invalid scheme, got %d", got)
 	}
 
 	ctx, _ = newJSONContext(t, http.MethodGet, "/api/me", nil)
-	ctx.Request.Header.Set("Authorization", "Bearer not-a-token")
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: "not-a-token"})
 	if got := handler.optionalUserID(ctx); got != 0 {
 		t.Fatalf("expected 0 for malformed token, got %d", got)
 	}

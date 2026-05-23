@@ -84,10 +84,6 @@ type loginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-type refreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
 type createChallengeRequest struct {
 	Title               string                    `json:"title" binding:"required"`
 	Description         string                    `json:"description" binding:"required"`
@@ -155,14 +151,11 @@ type registerResponse struct {
 type loginUserResponse = userMeResponse
 
 type loginResponse struct {
-	AccessToken  string            `json:"access_token"`
-	RefreshToken string            `json:"refresh_token"`
-	User         loginUserResponse `json:"user"`
+	User loginUserResponse `json:"user"`
 }
 
 type refreshResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	Status string `json:"status"`
 }
 
 type userMeResponse struct {

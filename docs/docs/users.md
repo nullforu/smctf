@@ -3,6 +3,10 @@ title: Users
 nav_order: 3
 ---
 
+Notes:
+
+- For authenticated `POST`, `PUT`, `PATCH`, and `DELETE` requests, send both `csrf_token` cookie and matching `X-CSRF-Token` header.
+
 ## Me
 
 `GET /api/me`
@@ -10,7 +14,7 @@ nav_order: 3
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -34,7 +38,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 
 Notes:
 
@@ -49,7 +53,7 @@ Notes:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -82,7 +86,7 @@ Response 200
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `user blocked`
 - 409 `user already exists` (username already in use)
 

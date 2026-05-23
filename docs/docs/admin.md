@@ -10,7 +10,7 @@ nav_order: 6
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -57,7 +57,7 @@ Response 200
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
 Notes:
@@ -73,7 +73,7 @@ Notes:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -165,7 +165,7 @@ Notes:
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
 ---
@@ -177,7 +177,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -215,7 +215,7 @@ Response 201
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
 Validation notes:
@@ -231,7 +231,7 @@ Validation notes:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -263,7 +263,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
 ---
@@ -275,7 +275,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -301,7 +301,7 @@ Response 201
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
 ---
@@ -331,7 +331,7 @@ Response 201
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
 ---
@@ -343,7 +343,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -372,7 +372,7 @@ Response 200
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `not found`
 
@@ -385,7 +385,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -414,7 +414,7 @@ Response 200
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `not found`
 
@@ -427,7 +427,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -448,7 +448,7 @@ Response 200
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `not found`
 
@@ -461,7 +461,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -522,7 +522,7 @@ Notes:
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
 ---
@@ -534,7 +534,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -544,19 +544,19 @@ To keep existing values, omit the field entirely.
 
 Field behavior:
 
-| Field                   | Type   | Omit          | null         | Empty/Whitespace String | Other                                                     |
-| ----------------------- | ------ | ------------- | ------------ | ----------------------- | --------------------------------------------------------- |
-| `title`                 | string | Keep existing | Error        | Allowed                 | Allowed                                                   |
-| `description`           | string | Keep existing | Error        | Allowed                 | Allowed                                                   |
-| `category`              | string | Keep existing | Error        | Error                   | Must be a valid category                                  |
-| `points`                | int    | Keep existing | Error        | Error                   | Must be >= 0                                              |
-| `minimum_points`        | int    | Keep existing | Error        | Error                   | Must be >= 0 and <= `points`                              |
-| `flag`                  | string | Keep existing | Error        | Error                   | Updates flag                                              |
-| `previous_challenge_id` | int    | Keep existing | Clears value | Error                   | Must be a valid challenge id (not self)                   |
-| `is_active`             | bool   | Keep existing | Error        | Error                   | Sets value                                                |
-| `stack_enabled`         | bool   | Keep existing | Error        | Error                   | If `false`, clears `stack_target_ports` + `stack_pod_spec` |
+| Field                   | Type   | Omit          | null         | Empty/Whitespace String | Other                                                                      |
+| ----------------------- | ------ | ------------- | ------------ | ----------------------- | -------------------------------------------------------------------------- |
+| `title`                 | string | Keep existing | Error        | Allowed                 | Allowed                                                                    |
+| `description`           | string | Keep existing | Error        | Allowed                 | Allowed                                                                    |
+| `category`              | string | Keep existing | Error        | Error                   | Must be a valid category                                                   |
+| `points`                | int    | Keep existing | Error        | Error                   | Must be >= 0                                                               |
+| `minimum_points`        | int    | Keep existing | Error        | Error                   | Must be >= 0 and <= `points`                                               |
+| `flag`                  | string | Keep existing | Error        | Error                   | Updates flag                                                               |
+| `previous_challenge_id` | int    | Keep existing | Clears value | Error                   | Must be a valid challenge id (not self)                                    |
+| `is_active`             | bool   | Keep existing | Error        | Error                   | Sets value                                                                 |
+| `stack_enabled`         | bool   | Keep existing | Error        | Error                   | If `false`, clears `stack_target_ports` + `stack_pod_spec`                 |
 | `stack_target_ports`    | array  | Keep existing | Error        | Error                   | Requires `stack_enabled` true; container port 1-65535 and protocol TCP/UDP |
-| `stack_pod_spec`        | string | Keep existing | Error        | Error                   | Requires `stack_enabled` true and non-empty value         |
+| `stack_pod_spec`        | string | Keep existing | Error        | Error                   | Requires `stack_enabled` true and non-empty value                          |
 
 If `stack_enabled` is true after updates, `stack_target_ports` and `stack_pod_spec` are required (non-empty).
 To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_ports` / `stack_pod_spec`).
@@ -613,7 +613,7 @@ Notes:
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `challenge not found`
 
@@ -630,7 +630,7 @@ Validation notes:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -666,7 +666,7 @@ Notes:
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `challenge not found`
 
@@ -679,7 +679,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -692,7 +692,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `challenge not found`
 
@@ -703,7 +703,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 ### List All Stacks
@@ -735,7 +735,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
 
@@ -766,7 +766,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `stack not found`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
@@ -786,7 +786,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `stack not found`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
@@ -800,7 +800,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Request
@@ -846,7 +846,7 @@ Notes:
 Errors:
 
 - 400 `invalid input`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `challenge not found`
 - 503 `storage unavailable`
@@ -860,7 +860,7 @@ Errors:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -882,7 +882,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `challenge not found` or `challenge file not found`
 - 503 `storage unavailable`

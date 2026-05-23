@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -397,6 +398,20 @@ func doRequest(t *testing.T, router *gin.Engine, method, path string, body any, 
 		req.Header.Set(k, v)
 	}
 
+	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete {
+		if req.Header.Get("X-CSRF-Token") == "" {
+			if cookieHeader := req.Header.Get("Cookie"); strings.Contains(cookieHeader, "csrf_token=") {
+				for part := range strings.SplitSeq(cookieHeader, ";") {
+					trimmed := strings.TrimSpace(part)
+					if after, ok := strings.CutPrefix(trimmed, "csrf_token="); ok {
+						req.Header.Set("X-CSRF-Token", after)
+						break
+					}
+				}
+			}
+		}
+	}
+
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -412,7 +427,22 @@ func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, dest any) {
 }
 
 func authHeader(token string) map[string]string {
-	return map[string]string{"Authorization": "Bearer " + token}
+	return map[string]string{"Cookie": "access_token=" + token + "; csrf_token=test-csrf", "X-CSRF-Token": "test-csrf"}
+}
+
+func refreshHeader(token string) map[string]string {
+	return map[string]string{"Cookie": "refresh_token=" + token + "; csrf_token=test-csrf", "X-CSRF-Token": "test-csrf"}
+}
+
+func cookieValueFromSetCookie(rec *httptest.ResponseRecorder, name string) string {
+	prefix := name + "="
+	for _, c := range rec.Header().Values("Set-Cookie") {
+		if after, ok := strings.CutPrefix(c, prefix); ok {
+			return strings.SplitN(after, ";", 2)[0]
+		}
+	}
+
+	return ""
 }
 
 func registerAndLogin(t *testing.T, env testEnv, email, username, password string) (string, string, int64) {
@@ -449,9 +479,7 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 	}
 
 	var loginResp struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		User         struct {
+		User struct {
 			ID         int64  `json:"id"`
 			TeamID     int64  `json:"team_id"`
 			TeamName   string `json:"team_name"`
@@ -473,7 +501,13 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPer, loginResp.User.StackLimit)
 	}
 
-	return loginResp.AccessToken, loginResp.RefreshToken, loginResp.User.ID
+	accessToken := cookieValueFromSetCookie(rec, "access_token")
+	refreshToken := cookieValueFromSetCookie(rec, "refresh_token")
+	if accessToken == "" || refreshToken == "" {
+		t.Fatalf("missing auth cookies from login response")
+	}
+
+	return accessToken, refreshToken, loginResp.User.ID
 }
 
 func createUser(t *testing.T, env testEnv, email, username, password, role string) *models.User {
@@ -533,9 +567,7 @@ func loginUser(t *testing.T, router *gin.Engine, email, password string) (string
 	}
 
 	var resp struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		User         struct {
+		User struct {
 			ID         int64  `json:"id"`
 			TeamID     int64  `json:"team_id"`
 			TeamName   string `json:"team_name"`
@@ -549,7 +581,13 @@ func loginUser(t *testing.T, router *gin.Engine, email, password string) (string
 		t.Fatalf("missing team fields in login response")
 	}
 
-	return resp.AccessToken, resp.RefreshToken, resp.User.ID
+	accessToken := cookieValueFromSetCookie(rec, "access_token")
+	refreshToken := cookieValueFromSetCookie(rec, "refresh_token")
+	if accessToken == "" || refreshToken == "" {
+		t.Fatalf("missing auth cookies from login response")
+	}
+
+	return accessToken, refreshToken, resp.User.ID
 }
 
 func ensureAdminUser(t *testing.T, env testEnv) *models.User {

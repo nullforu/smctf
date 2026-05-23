@@ -477,12 +477,12 @@ func TestChallengesDynamicScoring(t *testing.T) {
 			t.Fatalf("login status %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var resp struct {
-			AccessToken string `json:"access_token"`
+		accessToken := cookieValueFromSetCookie(rec, "access_token")
+		if accessToken == "" {
+			t.Fatalf("missing access_token cookie")
 		}
-		decodeJSON(t, rec, &resp)
 
-		return resp.AccessToken
+		return accessToken
 	}
 
 	accessTeam := login(userTeam.Email, "pass123")

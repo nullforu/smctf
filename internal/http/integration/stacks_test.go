@@ -265,12 +265,12 @@ func TestStackListTeamScope(t *testing.T) {
 			t.Fatalf("login team-a status %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var loginResp struct {
-			AccessToken string `json:"access_token"`
+		accessToken := cookieValueFromSetCookie(rec, "access_token")
+		if accessToken == "" {
+			t.Fatalf("missing access_token cookie")
 		}
-		decodeJSON(t, rec, &loginResp)
 
-		return loginResp.AccessToken
+		return accessToken
 	}()
 
 	userB := func() string {
@@ -291,12 +291,12 @@ func TestStackListTeamScope(t *testing.T) {
 			t.Fatalf("login team-b status %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var loginResp struct {
-			AccessToken string `json:"access_token"`
+		accessToken := cookieValueFromSetCookie(rec, "access_token")
+		if accessToken == "" {
+			t.Fatalf("missing access_token cookie")
 		}
-		decodeJSON(t, rec, &loginResp)
 
-		return loginResp.AccessToken
+		return accessToken
 	}()
 
 	challenge := createStackChallenge(t, env, "TeamScopeStack")

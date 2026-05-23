@@ -10,7 +10,7 @@ nav_order: 8
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -45,10 +45,10 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 503 `stack feature disabled`
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
-Notes:
+  Notes:
 
 - Blocked users can access this endpoint (read-only).
 - If `STACKS_MAX_SCOPE=team`, this list includes stacks created by any member of the same team.
@@ -62,7 +62,7 @@ Notes:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 201
@@ -93,7 +93,7 @@ Response 201
 Errors:
 
 - 400 `invalid input` or `stack not enabled for challenge`
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 403 `challenge locked`
 - 404 `challenge not found`
 - 409 `stack limit reached` or `challenge already solved`
@@ -115,7 +115,7 @@ Notes:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -145,11 +145,11 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 404 `stack not found`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
-Notes:
+  Notes:
 
 - Blocked users can access this endpoint (read-only).
 - If `STACKS_MAX_SCOPE=team`, this returns the team stack for the challenge (if any).
@@ -163,7 +163,7 @@ Notes:
 Headers
 
 ```
-Authorization: Bearer <access_token>
+Cookie: access_token=<jwt>
 ```
 
 Response 200
@@ -177,7 +177,7 @@ Response 200
 
 Errors:
 
-- 401 `invalid token` or `missing authorization` or `invalid authorization`
+- 401 `invalid token` or `missing access_token cookie`
 - 404 `stack not found`
 - 503 `stack feature disabled` or `stack provisioner unavailable`
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
