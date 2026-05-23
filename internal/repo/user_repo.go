@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"strings"
 
 	"smctf/internal/models"
 
@@ -10,6 +11,23 @@ import (
 
 type UserRepo struct {
 	db *bun.DB
+}
+
+func (r *UserRepo) ExistsByUsername(ctx context.Context, username string, excludeUserID *int64) (bool, error) {
+	query := r.db.NewSelect().
+		TableExpr("users AS u").
+		Where("u.username = ?", strings.TrimSpace(username))
+
+	if excludeUserID != nil {
+		query = query.Where("u.id != ?", *excludeUserID)
+	}
+
+	count, err := query.Count(ctx)
+	if err != nil {
+		return false, wrapError("userRepo.ExistsByUsername", err)
+	}
+
+	return count > 0, nil
 }
 
 func NewUserRepo(db *bun.DB) *UserRepo {

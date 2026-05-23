@@ -56,6 +56,22 @@ func TestAuthServiceRegisterValidation(t *testing.T) {
 	}
 }
 
+func TestAuthServiceRegisterPasswordTooLong(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	key := createRegistrationKey(t, env, "ABCDEFGHJKLMNPQ7", admin.ID)
+
+	_, err := env.authSvc.Register(context.Background(), "user@example.com", "user1", strings.Repeat("a", 73), key.Code, "")
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+
+	if len(ve.Fields) == 0 || ve.Fields[0].Field != "password" || ve.Fields[0].Reason != "max bytes is 72" {
+		t.Fatalf("unexpected validation details: %+v", ve.Fields)
+	}
+}
+
 func TestAuthServiceRegisterUserExists(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)

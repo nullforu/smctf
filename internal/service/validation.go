@@ -1,9 +1,12 @@
 package service
 
 import (
+	"fmt"
 	"net/mail"
 	"strings"
 )
+
+const bcryptInputMaxBytes = 72
 
 type fieldValidator struct {
 	fields []FieldError
@@ -38,6 +41,12 @@ func (v *fieldValidator) Email(field, value string) {
 
 	if _, err := mail.ParseAddress(value); err != nil {
 		v.fields = append(v.fields, FieldError{Field: field, Reason: "invalid format"})
+	}
+}
+
+func (v *fieldValidator) MaxBytes(field, value string, max int) {
+	if len(value) > max {
+		v.fields = append(v.fields, FieldError{Field: field, Reason: fmt.Sprintf("max bytes is %d", max)})
 	}
 }
 

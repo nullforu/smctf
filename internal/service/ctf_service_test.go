@@ -295,6 +295,20 @@ func TestCTFServiceUpdateChallenge(t *testing.T) {
 	}
 }
 
+func TestCTFServiceChallengeFlagTooLong(t *testing.T) {
+	env := setupServiceTest(t)
+	longFlag := strings.Repeat("a", 73)
+
+	if _, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 50, longFlag, true, false, nil, nil, nil); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected invalid input for create long flag, got %v", err)
+	}
+
+	challenge := createChallenge(t, env, "Old", 50, "FLAG{2}", true)
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, &longFlag, nil, nil, nil, nil, nil, false); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected invalid input for update long flag, got %v", err)
+	}
+}
+
 func TestCTFServiceDeleteChallenge(t *testing.T) {
 	env := setupServiceTest(t)
 	challenge := createChallenge(t, env, "Delete", 50, "FLAG{3}", true)

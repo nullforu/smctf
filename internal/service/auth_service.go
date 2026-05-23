@@ -47,6 +47,7 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 	validator.Required("password", password)
 	validator.Required("registration_key", registrationKey)
 	validator.Email("email", email)
+	validator.MaxBytes("password", password, bcryptInputMaxBytes)
 
 	if registrationKey != "" && !isRegistrationCode(registrationKey) {
 		validator.fields = append(validator.fields, FieldError{Field: "registration_key", Reason: "invalid"})

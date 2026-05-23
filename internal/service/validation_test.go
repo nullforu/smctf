@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -12,6 +13,7 @@ func TestFieldValidator(t *testing.T) {
 	v.Required("username", " ")
 	v.NonNegative("points", -1)
 	v.PositiveID("challenge_id", 0)
+	v.MaxBytes("password", strings.Repeat("a", 73), bcryptInputMaxBytes)
 
 	err := v.Error()
 
@@ -20,8 +22,8 @@ func TestFieldValidator(t *testing.T) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
 
-	if len(ve.Fields) != 5 {
-		t.Fatalf("expected 5 fields, got %d", len(ve.Fields))
+	if len(ve.Fields) != 6 {
+		t.Fatalf("expected 6 fields, got %d", len(ve.Fields))
 	}
 }
 

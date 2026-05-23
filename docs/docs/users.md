@@ -84,6 +84,7 @@ Errors:
 - 400 `invalid input`
 - 401 `invalid token` or `missing authorization` or `invalid authorization`
 - 403 `user blocked`
+- 409 `user already exists` (username already in use)
 
 Notes:
 

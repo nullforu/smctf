@@ -159,6 +159,17 @@ func TestUserServiceUpdateProfileWithoutUsernameChange(t *testing.T) {
 	}
 }
 
+func TestUserServiceUpdateProfileDuplicateUsername(t *testing.T) {
+	env := setupServiceTest(t)
+	user1 := createUserWithNewTeam(t, env, "dup1@example.com", "dup-user-1", "pass", models.UserRole)
+	_ = createUserWithNewTeam(t, env, "dup2@example.com", "dup-user-2", "pass", models.UserRole)
+
+	dup := "dup-user-2"
+	if _, err := env.userSvc.UpdateProfile(context.Background(), user1.ID, &dup); !errors.Is(err, ErrUserExists) {
+		t.Fatalf("expected ErrUserExists, got %v", err)
+	}
+}
+
 func TestUserServiceMoveUserTeamValidationAndNotFound(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "move2@example.com", "move2", "pass", models.UserRole)

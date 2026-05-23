@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"smctf/internal/models"
 	"smctf/internal/service"
+	"strings"
 	"testing"
 )
 
@@ -168,6 +169,29 @@ func TestRegister(t *testing.T) {
 			t.Fatalf("unexpected error: %s", resp.Error)
 		}
 	})
+
+	t.Run("password too long", func(t *testing.T) {
+		env := setupTest(t, testCfg)
+		admin := ensureAdminUser(t, env)
+		key := createRegistrationKey(t, env, admin.ID)
+		body := map[string]string{
+			"email":            "user@example.com",
+			"username":         "user1",
+			"password":         strings.Repeat("a", 73),
+			"registration_key": key.Code,
+		}
+
+		rec := doRequest(t, env.router, http.MethodPost, "/api/auth/register", body, nil)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var resp errorResp
+		decodeJSON(t, rec, &resp)
+		assertFieldErrors(t, resp.Details, map[string]string{
+			"password": "max bytes is 72",
+		})
+	})
 }
 
 func TestLogin(t *testing.T) {
@@ -314,6 +338,12 @@ func TestUpdateMe(t *testing.T) {
 
 	if resp.ID != userID || resp.Email != "user@example.com" || resp.Username != "newuser" || resp.Role != models.UserRole {
 		t.Fatalf("unexpected response: %+v", resp)
+	}
+
+	_, _, _ = registerAndLogin(t, env, "user2@example.com", "user2", "strong-password")
+	rec = doRequest(t, env.router, http.MethodPut, "/api/me", map[string]string{"username": "user2"}, authHeader(access))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

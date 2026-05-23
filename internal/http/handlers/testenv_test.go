@@ -182,7 +182,10 @@ func startHandlerPostgres(ctx context.Context) (testcontainers.Container, config
 			"POSTGRES_PASSWORD": "smctf",
 			"POSTGRES_DB":       "smctf_test",
 		},
-		WaitingFor: wait.ForListeningPort("5432/tcp"),
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("5432/tcp").SkipExternalCheck(),
+			wait.ForLog("database system is ready to accept connections"),
+		),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

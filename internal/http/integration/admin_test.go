@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,6 +75,20 @@ func TestAdminCreateChallenge(t *testing.T) {
 	decodeJSON(t, rec, &resp)
 
 	assertFieldErrors(t, resp.Details, map[string]string{"category": "invalid"})
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges", map[string]any{
+		"title":       "Ch4",
+		"description": "desc",
+		"category":    "Web",
+		"points":      100,
+		"flag":        strings.Repeat("a", 73),
+		"is_active":   true,
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	decodeJSON(t, rec, &resp)
+	assertFieldErrors(t, resp.Details, map[string]string{"flag": "max bytes is 72"})
 }
 
 func TestAdminUpdateChallenge(t *testing.T) {
@@ -162,6 +177,15 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("expected flag hash to be updated")
 	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"flag": strings.Repeat("a", 73),
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"flag": "max bytes is 72"})
 
 	nullCases := []struct {
 		name string

@@ -33,6 +33,10 @@ Errors:
 - 400 `invalid input`
 - 409 `user already exists`
 
+Validation notes:
+
+- `password` must be at most 72 bytes (bcrypt input limit).
+
 `registration_key` must be an admin-created alphanumeric code.
 Keys can be reused up to their configured `max_uses` and assign the user to the key's team.
 
