@@ -156,3 +156,35 @@ func TestUserRepoNotFoundCases(t *testing.T) {
 		t.Fatalf("expected GetByEmailOrUsername not found, got %v", err)
 	}
 }
+
+func TestUserRepoExistsByUsername(t *testing.T) {
+	env := setupRepoTest(t)
+	user := createUserWithNewTeam(t, env, "exists@example.com", "exists-user", "pass", models.UserRole)
+
+	exists, err := env.userRepo.ExistsByUsername(context.Background(), "exists-user", nil)
+	if err != nil {
+		t.Fatalf("ExistsByUsername: %v", err)
+	}
+
+	if !exists {
+		t.Fatalf("expected exists=true")
+	}
+
+	exists, err = env.userRepo.ExistsByUsername(context.Background(), "exists-user", &user.ID)
+	if err != nil {
+		t.Fatalf("ExistsByUsername with exclude id: %v", err)
+	}
+
+	if exists {
+		t.Fatalf("expected exists=false when excluding same user")
+	}
+
+	exists, err = env.userRepo.ExistsByUsername(context.Background(), " missing-user ", nil)
+	if err != nil {
+		t.Fatalf("ExistsByUsername missing: %v", err)
+	}
+
+	if exists {
+		t.Fatalf("expected exists=false for missing username")
+	}
+}

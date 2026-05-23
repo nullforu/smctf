@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"smctf/internal/models"
@@ -167,6 +168,26 @@ func TestUserServiceUpdateProfileDuplicateUsername(t *testing.T) {
 	dup := "dup-user-2"
 	if _, err := env.userSvc.UpdateProfile(context.Background(), user1.ID, &dup); !errors.Is(err, ErrUserExists) {
 		t.Fatalf("expected ErrUserExists, got %v", err)
+	}
+}
+
+func TestUserServiceUpdateProfileTrimAndRequired(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "trim@example.com", "trim-user", "pass", models.UserRole)
+
+	newName := "  trimmed-name  "
+	updated, err := env.userSvc.UpdateProfile(context.Background(), user.ID, &newName)
+	if err != nil {
+		t.Fatalf("expected trim update success, got %v", err)
+	}
+
+	if updated.Username != "trimmed-name" {
+		t.Fatalf("expected trimmed username, got %q", updated.Username)
+	}
+
+	blank := strings.Repeat(" ", 5)
+	if _, err := env.userSvc.UpdateProfile(context.Background(), user.ID, &blank); err == nil {
+		t.Fatalf("expected validation error for blank username")
 	}
 }
 
