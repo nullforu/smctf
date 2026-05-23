@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"smctf/internal/auth"
 	"smctf/internal/config"
@@ -17,27 +16,20 @@ const (
 	ctxUserIDKey = "userID"
 	ctxRoleKey   = "role"
 
-	errMissingAuth  = "missing authorization"
-	errInvalidAuth  = "invalid authorization"
+	errMissingAuth  = "missing access_token cookie"
 	errInvalidToken = "invalid token"
 	errForbidden    = "forbidden"
 )
 
 func Auth(cfg config.JWTConfig) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		authHeader := ctx.GetHeader("Authorization")
-		if authHeader == "" {
+		token, err := ctx.Cookie("access_token")
+		if err != nil || token == "" {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errMissingAuth})
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errInvalidAuth})
-			return
-		}
-
-		claims, err := auth.ParseToken(cfg, parts[1])
+		claims, err := auth.ParseToken(cfg, token)
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errInvalidToken})
 			return

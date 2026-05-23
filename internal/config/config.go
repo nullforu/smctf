@@ -18,6 +18,7 @@ type Config struct {
 	ShutdownTimeout time.Duration
 	AutoMigrate     bool
 	BcryptCost      int
+	CookieDomain    string
 
 	DB        DBConfig
 	Redis     RedisConfig
@@ -275,6 +276,7 @@ func Load() (Config, error) {
 		ShutdownTimeout: shutdownTimeout,
 		AutoMigrate:     autoMigrate,
 		BcryptCost:      bcryptCost,
+		CookieDomain:    getEnv("COOKIE_DOMAIN", ""),
 		DB: DBConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            dbPort,

@@ -50,16 +50,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/protected", nil)
-	req.Header.Set("Authorization", "Token abc")
-
-	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/protected", nil)
-	req.Header.Set("Authorization", "Bearer invalid.token")
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "invalid.token"})
 
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
@@ -73,7 +64,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/protected", nil)
-	req.Header.Set("Authorization", "Bearer "+refresh)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: refresh})
 	router.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
@@ -87,7 +78,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/protected", nil)
-	req.Header.Set("Authorization", "Bearer "+access)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: access})
 
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -116,7 +107,7 @@ func TestRequireRole(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
-	req.Header.Set("Authorization", "Bearer "+userToken)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: userToken})
 
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -130,7 +121,7 @@ func TestRequireRole(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
-	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: adminToken})
 
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -176,7 +167,7 @@ func TestRequireActiveUser(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/active", nil)
-	req.Header.Set("Authorization", "Bearer "+accessUser)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: accessUser})
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
@@ -189,7 +180,7 @@ func TestRequireActiveUser(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/active", nil)
-	req.Header.Set("Authorization", "Bearer "+accessBlocked)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: accessBlocked})
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", rec.Code)
@@ -198,7 +189,7 @@ func TestRequireActiveUser(t *testing.T) {
 	users.err = errors.New("db down")
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/active", nil)
-	req.Header.Set("Authorization", "Bearer "+accessUser)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: accessUser})
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rec.Code)

@@ -221,17 +221,12 @@ func (h *Handler) resolveDivisionID(ctx *gin.Context, require bool) (*int64, boo
 }
 
 func (h *Handler) optionalUserID(ctx *gin.Context) int64 {
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
+	token, err := ctx.Cookie("access_token")
+	if err != nil || token == "" {
 		return 0
 	}
 
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return 0
-	}
-
-	claims, err := auth.ParseToken(h.cfg.JWT, parts[1])
+	claims, err := auth.ParseToken(h.cfg.JWT, token)
 	if err != nil || claims.Type != auth.TokenTypeAccess {
 		return 0
 	}
@@ -418,47 +413,48 @@ func (h *Handler) Login(ctx *gin.Context) {
 		writeError(ctx, err)
 		return
 	}
+	if err := setAuthCookies(ctx, h.cfg, accessToken, refreshToken); err != nil {
+		writeError(ctx, err)
+		return
+	}
 
 	stackCount, stackLimit := h.userStackSummary(ctx.Request.Context(), user.ID)
 
 	ctx.JSON(http.StatusOK, loginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User:         newUserMeResponse(user, stackCount, stackLimit),
+		User: newUserMeResponse(user, stackCount, stackLimit),
 	})
 }
 
 func (h *Handler) Refresh(ctx *gin.Context) {
-	var req refreshRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		writeBindError(ctx, err)
+	refreshTokenValue, ok := currentRefreshToken(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
 
-	accessToken, refreshToken, err := h.auth.Refresh(ctx.Request.Context(), req.RefreshToken)
+	accessToken, refreshToken, err := h.auth.Refresh(ctx.Request.Context(), refreshTokenValue)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
-
-	ctx.JSON(http.StatusOK, refreshResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	})
-}
-
-func (h *Handler) Logout(ctx *gin.Context) {
-	var req refreshRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		writeBindError(ctx, err)
-		return
-	}
-
-	if err := h.auth.Logout(ctx.Request.Context(), req.RefreshToken); err != nil {
+	if err := setAuthCookies(ctx, h.cfg, accessToken, refreshToken); err != nil {
 		writeError(ctx, err)
 		return
 	}
 
+	ctx.JSON(http.StatusOK, refreshResponse{Status: "ok"})
+}
+
+func (h *Handler) Logout(ctx *gin.Context) {
+	refreshTokenValue, ok := currentRefreshToken(ctx)
+	if ok {
+		if err := h.auth.Logout(ctx.Request.Context(), refreshTokenValue); err != nil {
+			writeError(ctx, err)
+			return
+		}
+	}
+
+	clearAuthCookies(ctx, h.cfg)
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 

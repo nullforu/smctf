@@ -24,7 +24,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r := gin.New()
 	r.Use(middleware.RecoveryLogger(logger))
 	r.Use(middleware.RequestLogger(cfg.Logging, logger))
-	r.Use(middleware.CORS(cfg.AppEnv != "production", cfg.CORS.AllowedOrigins))
+	r.Use(middleware.CORS(cfg.AppEnv == "local", cfg.CORS.AllowedOrigins))
+	r.Use(middleware.CSRF())
 
 	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, redis)
 	sseHandler := handlers.NewSSEHandler(sse)

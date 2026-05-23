@@ -59,8 +59,6 @@ Response 200
 
 ```json
 {
-    "access_token": "<jwt>",
-    "refresh_token": "<jwt>",
     "user": {
         "id": 1,
         "email": "user@example.com",
@@ -86,6 +84,8 @@ Errors:
 Notes:
 
 - `stack_count` and `stack_limit` reflect the configured scope. If `STACKS_MAX_SCOPE=team`, these values are team-wide.
+- `access_token` and `refresh_token` are issued as `HttpOnly` cookies.
+- `csrf_token` is issued as a readable cookie for double-submit CSRF protection.
 
 ---
 
@@ -93,20 +93,13 @@ Notes:
 
 `POST /api/auth/refresh`
 
-Request
-
-```json
-{
-    "refresh_token": "<jwt>"
-}
-```
+Request: send `refresh_token` cookie (and `X-CSRF-Token` header matching `csrf_token` cookie).
 
 Response 200
 
 ```json
 {
-    "access_token": "<jwt>",
-    "refresh_token": "<jwt>"
+    "status": "ok"
 }
 ```
 
@@ -121,13 +114,7 @@ Errors:
 
 `POST /api/auth/logout`
 
-Request
-
-```json
-{
-    "refresh_token": "<jwt>"
-}
-```
+Request: send `refresh_token` cookie (and `X-CSRF-Token` header matching `csrf_token` cookie).
 
 Response 200
 
