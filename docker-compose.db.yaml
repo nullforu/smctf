@@ -3,10 +3,10 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16
-    container_name: local-postgres
+    container_name: local-postgres-smctf
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "25432:5432"
     environment:
       POSTGRES_DB: app_db
       POSTGRES_USER: app_user
@@ -18,10 +18,10 @@ services:
 
   redis:
     image: redis:7
-    container_name: local-redis
+    container_name: local-redis-smctf
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "26379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
