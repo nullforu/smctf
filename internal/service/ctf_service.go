@@ -135,6 +135,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	validator.Required("flag", flag)
 	validator.NonNegative("points", points)
 	validator.NonNegative("minimum_points", minimumPoints)
+	validator.MaxBytes("flag", flag, bcryptInputMaxBytes)
 	if previousChallengeID != nil {
 		validator.PositiveID("previous_challenge_id", *previousChallengeID)
 	}
@@ -241,6 +242,7 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 		if value == "" {
 			validator.fields = append(validator.fields, FieldError{Field: "flag", Reason: "required"})
 		} else {
+			validator.MaxBytes("flag", value, bcryptInputMaxBytes)
 			normalizedFlag = &value
 		}
 	}
