@@ -18,8 +18,8 @@ import (
 	"smctf/internal/realtime"
 	"smctf/internal/repo"
 	"smctf/internal/service"
-	"smctf/internal/stack"
 	"smctf/internal/storage"
+	"smctf/internal/vm"
 )
 
 func main() {
@@ -84,7 +84,7 @@ func main() {
 	submissionRepo := repo.NewSubmissionRepo(database)
 	scoreRepo := repo.NewScoreboardRepo(database)
 	appConfigRepo := repo.NewAppConfigRepo(database)
-	stackRepo := repo.NewStackRepo(database)
+	vmRepo := repo.NewVMRepo(database)
 
 	var fileStore storage.ChallengeFileStore
 	if cfg.S3.Enabled {
@@ -104,29 +104,8 @@ func main() {
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
 
-	var stackClient stack.API
-	var stackClientCloser func() error
-	if cfg.Stack.ProvisionerUseGRPC {
-		client, err := stack.NewGRPCClient(cfg.Stack.ProvisionerGRPCAddr, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-		if err != nil {
-			logger.Error("grpc stack client init error", slog.Any("error", err))
-			os.Exit(1)
-		}
-
-		stackClient = client
-		stackClientCloser = client.Close
-	} else {
-		stackClient = stack.NewClient(cfg.Stack.ProvisionerBaseURL, cfg.Stack.ProvisionerAPIKey, cfg.Stack.ProvisionerTimeout)
-	}
-	if stackClientCloser != nil {
-		defer func() {
-			if err := stackClientCloser(); err != nil {
-				logger.Warn("stack client close error", slog.Any("error", err))
-			}
-		}()
-	}
-
-	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, stackClient, redisClient)
+	vmClient := vm.NewClient(cfg.VM.OrchestratorBaseURL, cfg.VM.OrchestratorTimeout)
+	vmSvc := service.NewVMService(cfg.VM, vmRepo, challengeRepo, submissionRepo, vmClient, redisClient)
 
 	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, divisionRepo, logger)
 
@@ -143,7 +122,7 @@ func main() {
 	leaderboardBus := realtime.NewScoreboardBus(redisClient, cfg, scoreSvc, divisionSvc, logger, sseHub)
 	leaderboardBus.Start(ctx)
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, redisClient, logger, sseHub)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, redisClient, logger, sseHub)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,

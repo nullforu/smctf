@@ -11,9 +11,9 @@ import (
 	"smctf/internal/db"
 	"smctf/internal/models"
 	"smctf/internal/repo"
-	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
+	"smctf/internal/vm"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
@@ -35,14 +35,14 @@ type serviceEnv struct {
 	challengeRepo     *repo.ChallengeRepo
 	submissionRepo    *repo.SubmissionRepo
 	scoreRepo         *repo.ScoreboardRepo
-	stackRepo         *repo.StackRepo
+	vmRepo            *repo.VMRepo
 	authSvc           *AuthService
 	userSvc           *UserService
 	scoreSvc          *ScoreboardService
 	ctfSvc            *CTFService
 	divisionSvc       *DivisionService
 	teamSvc           *TeamService
-	stackSvc          *StackService
+	vmSvc             *VMService
 	defaultDivisionID int64
 }
 
@@ -199,7 +199,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 	challengeRepo := repo.NewChallengeRepo(serviceDB)
 	submissionRepo := repo.NewSubmissionRepo(serviceDB)
 	scoreRepo := repo.NewScoreboardRepo(serviceDB)
-	stackRepo := repo.NewStackRepo(serviceDB)
+	vmRepo := repo.NewVMRepo(serviceDB)
 
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
@@ -209,7 +209,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 	divisionSvc := NewDivisionService(divisionRepo)
 	teamSvc := NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := NewCTFService(serviceCfg, challengeRepo, submissionRepo, serviceRedis, fileStore)
-	stackSvc := NewStackService(serviceCfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, serviceRedis)
+	vmSvc := NewVMService(serviceCfg.VM, vmRepo, challengeRepo, submissionRepo, &vm.MockClient{}, serviceRedis)
 
 	env := serviceEnv{
 		cfg:            serviceCfg,
@@ -222,14 +222,14 @@ func setupServiceTest(t *testing.T) serviceEnv {
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		scoreRepo:      scoreRepo,
-		stackRepo:      stackRepo,
+		vmRepo:         vmRepo,
 		authSvc:        authSvc,
 		userSvc:        userSvc,
 		scoreSvc:       scoreSvc,
 		ctfSvc:         ctfSvc,
 		divisionSvc:    divisionSvc,
 		teamSvc:        teamSvc,
-		stackSvc:       stackSvc,
+		vmSvc:          vmSvc,
 	}
 
 	division := &models.Division{
@@ -248,7 +248,7 @@ func setupServiceTest(t *testing.T) serviceEnv {
 func resetServiceState(t *testing.T) {
 	t.Helper()
 
-	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := serviceDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, vms, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 

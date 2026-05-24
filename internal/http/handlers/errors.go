@@ -116,24 +116,24 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	case errors.Is(err, service.ErrRateLimited):
 		status = http.StatusTooManyRequests
 		resp.Error = service.ErrRateLimited.Error()
-	case errors.Is(err, service.ErrStackDisabled):
+	case errors.Is(err, service.ErrVMDisabled):
 		status = http.StatusServiceUnavailable
-		resp.Error = service.ErrStackDisabled.Error()
-	case errors.Is(err, service.ErrStackNotEnabled):
+		resp.Error = service.ErrVMDisabled.Error()
+	case errors.Is(err, service.ErrVMNotEnabled):
 		status = http.StatusBadRequest
-		resp.Error = service.ErrStackNotEnabled.Error()
-	case errors.Is(err, service.ErrStackLimitReached):
+		resp.Error = service.ErrVMNotEnabled.Error()
+	case errors.Is(err, service.ErrVMLimitReached):
 		status = http.StatusConflict
-		resp.Error = service.ErrStackLimitReached.Error()
-	case errors.Is(err, service.ErrStackNotFound):
+		resp.Error = service.ErrVMLimitReached.Error()
+	case errors.Is(err, service.ErrVMNotFound):
 		status = http.StatusNotFound
-		resp.Error = service.ErrStackNotFound.Error()
-	case errors.Is(err, service.ErrStackProvisionerDown):
+		resp.Error = service.ErrVMNotFound.Error()
+	case errors.Is(err, service.ErrVMOrchestratorDown):
 		status = http.StatusServiceUnavailable
-		resp.Error = service.ErrStackProvisionerDown.Error()
-	case errors.Is(err, service.ErrStackInvalidSpec):
+		resp.Error = service.ErrVMOrchestratorDown.Error()
+	case errors.Is(err, service.ErrVMInvalidSpec):
 		status = http.StatusBadRequest
-		resp.Error = service.ErrStackInvalidSpec.Error()
+		resp.Error = service.ErrVMInvalidSpec.Error()
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 		resp.Error = "not found"

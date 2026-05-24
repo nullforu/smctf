@@ -21,9 +21,9 @@ import (
 	"smctf/internal/realtime"
 	"smctf/internal/repo"
 	"smctf/internal/service"
-	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
+	"smctf/internal/vm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
@@ -383,8 +383,8 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 			TeamName      string     `json:"team_name"`
 			DivisionID    int64      `json:"division_id"`
 			DivisionName  string     `json:"division_name"`
-			StackCount    int        `json:"stack_count"`
-			StackLimit    int        `json:"stack_limit"`
+			VMCount       int        `json:"vm_count"`
+			VMLimit       int        `json:"vm_limit"`
 			BlockedReason *string    `json:"blocked_reason"`
 			BlockedAt     *time.Time `json:"blocked_at"`
 		} `json:"user"`
@@ -400,11 +400,11 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	if loginResp.User.DivisionID == 0 || loginResp.User.DivisionName == "" {
 		t.Fatalf("missing division fields in login response")
 	}
-	if loginResp.User.StackCount != 0 {
-		t.Fatalf("expected stack_count 0, got %d", loginResp.User.StackCount)
+	if loginResp.User.VMCount != 0 {
+		t.Fatalf("expected vm_count 0, got %d", loginResp.User.VMCount)
 	}
-	if loginResp.User.StackLimit != env.cfg.Stack.MaxPer {
-		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPer, loginResp.User.StackLimit)
+	if loginResp.User.VMLimit != env.cfg.VM.MaxPer {
+		t.Fatalf("expected vm_limit %d, got %d", env.cfg.VM.MaxPer, loginResp.User.VMLimit)
 	}
 	if loginResp.User.BlockedReason != nil || loginResp.User.BlockedAt != nil {
 		t.Fatalf("expected blocked fields to be null")
@@ -461,10 +461,10 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 	}
 }
 
-func TestHandlerUserStackSummaryWithoutStackService(t *testing.T) {
+func TestHandlerUserVMSummaryWithoutVMService(t *testing.T) {
 	handler := New(handlerCfg, nil, nil, nil, nil, nil, nil, nil, nil, handlerRedis)
 
-	count, limit := handler.userStackSummary(context.Background(), 123)
+	count, limit := handler.userVMSummary(context.Background(), 123)
 	if count != 0 || limit != 0 {
 		t.Fatalf("expected zero summary, got %d/%d", count, limit)
 	}
@@ -755,11 +755,11 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 		t.Fatalf("expected whitespace title to be allowed, got %d", rec.Code)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"stack_enabled": true, "stack_pod_spec": nil, "stack_target_ports": []map[string]any{{"container_port": 80, "protocol": "TCP"}}})
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"vm_enabled": true, "vm_spec": nil})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 	env.handler.UpdateChallenge(ctx)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for null stack_pod_spec with stack_enabled, got %d", rec.Code)
+		t.Fatalf("expected 400 for null vm_spec with vm_enabled, got %d", rec.Code)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", "{")
@@ -769,22 +769,21 @@ func TestHandlerChallengesAndSubmit(t *testing.T) {
 		t.Fatalf("expected 400 for invalid JSON, got %d", rec.Code)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"stack_enabled": false, "stack_pod_spec": "   "})
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{"vm_enabled": false, "vm_spec": "   "})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 	env.handler.UpdateChallenge(ctx)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for stack_pod_spec when stack disabled, got %d", rec.Code)
+		t.Fatalf("expected 400 for vm_spec when vm disabled, got %d", rec.Code)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{
-		"stack_enabled":      true,
-		"stack_target_ports": []map[string]any{{"container_port": 70000, "protocol": "TCP"}},
-		"stack_pod_spec":     "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n",
+		"vm_enabled": true,
+		"vm_spec":    "",
 	})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
 	env.handler.UpdateChallenge(ctx)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for out-of-range stack_target_ports, got %d", rec.Code)
+		t.Fatalf("expected 400 for out-of-range vm_spec, got %d", rec.Code)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/challenges/1", map[string]any{
@@ -1199,22 +1198,19 @@ func TestHandlerCreateChallengeAndBindErrors(t *testing.T) {
 	)
 }
 
-func createHandlerStackChallenge(t *testing.T, env handlerEnv, title string) *models.Challenge {
+func createHandlerVMChallenge(t *testing.T, env handlerEnv, title string) *models.Challenge {
 	t.Helper()
-	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: handler\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	sandboxSpec := "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: handler\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 	challenge := &models.Challenge{
 		Title:         title,
 		Description:   "desc",
 		Category:      "Web",
 		Points:        100,
 		MinimumPoints: 100,
-		StackEnabled:  true,
-		StackTargetPorts: stack.TargetPortSpecs{
-			{ContainerPort: 80, Protocol: "TCP"},
-		},
-		StackPodSpec: &podSpec,
-		IsActive:     true,
-		CreatedAt:    time.Now().UTC(),
+		VMEnabled:     true,
+		VMSpec:        &sandboxSpec,
+		IsActive:      true,
+		CreatedAt:     time.Now().UTC(),
 	}
 	hash, err := utils.HashFlag("flag", bcrypt.MinCost)
 	if err != nil {
@@ -1229,24 +1225,24 @@ func createHandlerStackChallenge(t *testing.T, env handlerEnv, title string) *mo
 	return challenge
 }
 
-func setupHandlerStackService(t *testing.T, env handlerEnv, client stack.API) (*service.StackService, *repo.StackRepo) {
+func setupHandlerVMService(t *testing.T, env handlerEnv, client vm.API) (*service.VMService, *repo.VMRepo) {
 	t.Helper()
-	stackRepo := repo.NewStackRepo(env.db)
-	stackCfg := config.StackConfig{
+	vmRepo := repo.NewVMRepo(env.db)
+	vmCfg := config.VMConfig{
 		Enabled:      true,
 		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    5,
 	}
 
-	stackSvc := service.NewStackService(stackCfg, stackRepo, env.challengeRepo, env.submissionRepo, client, env.redis)
-	return stackSvc, stackRepo
+	vmSvc := service.NewVMService(vmCfg, vmRepo, env.challengeRepo, env.submissionRepo, client, env.redis)
+	return vmSvc, vmRepo
 }
 
-func setupHandlerStackServiceWithScope(t *testing.T, env handlerEnv, client stack.API, scope string) (*service.StackService, *repo.StackRepo) {
+func setupHandlerVMServiceWithScope(t *testing.T, env handlerEnv, client vm.API, scope string) (*service.VMService, *repo.VMRepo) {
 	t.Helper()
-	stackRepo := repo.NewStackRepo(env.db)
-	stackCfg := config.StackConfig{
+	vmRepo := repo.NewVMRepo(env.db)
+	vmCfg := config.VMConfig{
 		Enabled:      true,
 		MaxScope:     scope,
 		MaxPer:       3,
@@ -1254,48 +1250,58 @@ func setupHandlerStackServiceWithScope(t *testing.T, env handlerEnv, client stac
 		CreateMax:    5,
 	}
 
-	stackSvc := service.NewStackService(stackCfg, stackRepo, env.challengeRepo, env.submissionRepo, client, env.redis)
-	return stackSvc, stackRepo
+	vmSvc := service.NewVMService(vmCfg, vmRepo, env.challengeRepo, env.submissionRepo, client, env.redis)
+	return vmSvc, vmRepo
 }
 
-func TestStackHandlersCRUD(t *testing.T) {
+func TestVMHandlersCRUD(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
-	challenge := createHandlerStackChallenge(t, env, "stack")
+	challenge := createHandlerVMChallenge(t, env, "vm")
 
 	var deleteCalls atomic.Int32
-	mock := &stack.MockClient{
-		CreateStackFn: func(ctx context.Context, targetPorts []stack.TargetPortSpec, podSpec string) (*stack.StackInfo, error) {
-			return &stack.StackInfo{
-				StackID: "stack-1",
-				Status:  "running",
-				Ports:   []stack.PortMapping{{ContainerPort: targetPorts[0].ContainerPort, Protocol: targetPorts[0].Protocol, NodePort: 31001}},
+	mock := &vm.MockClient{
+		CreateSandboxFn: func(ctx context.Context, id string, specYAML string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{
+				ID: id,
+				Status: vm.SandboxStatus{
+					Phase:         "Running",
+					ExternalIP:    "127.0.0.1",
+					AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", HostPort: 31001}},
+				},
 			}, nil
 		},
-		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
-			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{
+				ID: vmID,
+				Status: vm.SandboxStatus{
+					Phase:         "Running",
+					ExternalIP:    "127.0.0.1",
+					AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", HostPort: 31001}},
+				},
+			}, nil
 		},
-		DeleteStackFn: func(ctx context.Context, stackID string) error {
+		DeleteSandboxFn: func(ctx context.Context, vmID string) error {
 			deleteCalls.Add(1)
 			return nil
 		},
 	}
 
-	stackSvc, _ := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	vmSvc, _ := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
 
-	env.handler.CreateStack(ctx)
+	env.handler.CreateVM(ctx)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d", rec.Code)
 	}
 
-	var created stackResponse
+	var created vmResponse
 	decodeJSON(t, rec, &created)
-	if created.StackID == "" || len(created.Ports) != 1 || created.Ports[0].ContainerPort != 80 {
+	if created.VMID == "" || len(created.Ports) != 1 || created.Ports[0].ContainerPort != 80 {
 		t.Fatalf("unexpected response: %+v", created)
 	}
 
@@ -1303,20 +1309,20 @@ func TestStackHandlersCRUD(t *testing.T) {
 		t.Fatalf("expected created_by and challenge_title, got %+v", created)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
 
-	env.handler.GetStack(ctx)
+	env.handler.GetVM(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
 
-	env.handler.DeleteStack(ctx)
+	env.handler.DeleteVM(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
@@ -1326,39 +1332,39 @@ func TestStackHandlersCRUD(t *testing.T) {
 	}
 }
 
-func TestStackHandlersList(t *testing.T) {
+func TestVMHandlersList(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "u2@example.com", "u2", "pass", models.UserRole)
-	challenge1 := createHandlerStackChallenge(t, env, "stack-1")
-	challenge2 := createHandlerStackChallenge(t, env, "stack-2")
+	challenge1 := createHandlerVMChallenge(t, env, "vm-1")
+	challenge2 := createHandlerVMChallenge(t, env, "vm-2")
 
-	mock := &stack.MockClient{
-		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
-			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+	mock := &vm.MockClient{
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running", AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}}, nil
 		},
 	}
 
-	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	vmSvc, vmRepo := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	stack1 := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "stack-1", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
-	stack2 := &models.Stack{UserID: user.ID, ChallengeID: challenge2.ID, StackID: "stack-2", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31002}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
-	if err := stackRepo.Create(context.Background(), stack1); err != nil {
-		t.Fatalf("create stack1: %v", err)
+	vm1 := &models.VM{UserID: user.ID, ChallengeID: challenge1.ID, VMID: "vm-1", Status: "running", Ports: vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	vm2 := &models.VM{UserID: user.ID, ChallengeID: challenge2.ID, VMID: "vm-2", Status: "running", Ports: vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31002}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	if err := vmRepo.Create(context.Background(), vm1); err != nil {
+		t.Fatalf("create vm1: %v", err)
 	}
 
-	if err := stackRepo.Create(context.Background(), stack2); err != nil {
-		t.Fatalf("create stack2: %v", err)
+	if err := vmRepo.Create(context.Background(), vm2); err != nil {
+		t.Fatalf("create vm2: %v", err)
 	}
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/stacks", nil)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/vms", nil)
 	ctx.Set("userID", user.ID)
-	env.handler.ListStacks(ctx)
+	env.handler.ListVMs(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var resp stacksListResponse
+	var resp vmsListResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1367,101 +1373,101 @@ func TestStackHandlersList(t *testing.T) {
 		t.Fatalf("expected ctf_state active, got %s", resp.CTFState)
 	}
 
-	if len(resp.Stacks) != 2 {
-		t.Fatalf("expected 2 stacks, got %d", len(resp.Stacks))
+	if len(resp.VMs) != 2 {
+		t.Fatalf("expected 2 vms, got %d", len(resp.VMs))
 	}
 }
 
-func TestStackHandlersListTeamScope(t *testing.T) {
+func TestVMHandlersListTeamScope(t *testing.T) {
 	env := setupHandlerTest(t)
 	team := createHandlerTeam(t, env, "TeamList")
 	user := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
 	user2 := createHandlerUserWithTeam(t, env, "t2@example.com", "t2", "pass", models.UserRole, team.ID)
-	challenge1 := createHandlerStackChallenge(t, env, "team-stack-1")
-	challenge2 := createHandlerStackChallenge(t, env, "team-stack-2")
+	challenge1 := createHandlerVMChallenge(t, env, "team-vm-1")
+	challenge2 := createHandlerVMChallenge(t, env, "team-vm-2")
 
-	mock := &stack.MockClient{
-		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
-			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+	mock := &vm.MockClient{
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running", AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}}, nil
 		},
 	}
 
-	stackSvc, stackRepo := setupHandlerStackServiceWithScope(t, env, mock, "team")
-	env.handler.stacks = stackSvc
+	vmSvc, vmRepo := setupHandlerVMServiceWithScope(t, env, mock, "team")
+	env.handler.vms = vmSvc
 
 	now := time.Now().UTC()
-	stack1 := &models.Stack{UserID: user.ID, ChallengeID: challenge1.ID, StackID: "team-stack-1", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: now, UpdatedAt: now}
-	stack2 := &models.Stack{UserID: user2.ID, ChallengeID: challenge2.ID, StackID: "team-stack-2", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31002}}, CreatedAt: now, UpdatedAt: now}
-	if err := stackRepo.Create(context.Background(), stack1); err != nil {
-		t.Fatalf("create stack1: %v", err)
+	vm1 := &models.VM{UserID: user.ID, ChallengeID: challenge1.ID, VMID: "team-vm-1", Status: "running", Ports: vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: now, UpdatedAt: now}
+	vm2 := &models.VM{UserID: user2.ID, ChallengeID: challenge2.ID, VMID: "team-vm-2", Status: "running", Ports: vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31002}}, CreatedAt: now, UpdatedAt: now}
+	if err := vmRepo.Create(context.Background(), vm1); err != nil {
+		t.Fatalf("create vm1: %v", err)
 	}
 
-	if err := stackRepo.Create(context.Background(), stack2); err != nil {
-		t.Fatalf("create stack2: %v", err)
+	if err := vmRepo.Create(context.Background(), vm2); err != nil {
+		t.Fatalf("create vm2: %v", err)
 	}
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/stacks", nil)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/vms", nil)
 	ctx.Set("userID", user.ID)
-	env.handler.ListStacks(ctx)
+	env.handler.ListVMs(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var resp stacksListResponse
+	var resp vmsListResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if len(resp.Stacks) != 2 {
-		t.Fatalf("expected 2 team stacks, got %d", len(resp.Stacks))
+	if len(resp.VMs) != 2 {
+		t.Fatalf("expected 2 team vms, got %d", len(resp.VMs))
 	}
 
-	if resp.Stacks[0].CreatedByUserID == 0 || resp.Stacks[0].CreatedByUsername == "" {
-		t.Fatalf("expected created_by fields set, got %+v", resp.Stacks[0])
+	if resp.VMs[0].CreatedByUserID == 0 || resp.VMs[0].CreatedByUsername == "" {
+		t.Fatalf("expected created_by fields set, got %+v", resp.VMs[0])
 	}
 
-	if resp.Stacks[0].ChallengeTitle == "" {
-		t.Fatalf("expected challenge_title set, got %+v", resp.Stacks[0])
+	if resp.VMs[0].ChallengeTitle == "" {
+		t.Fatalf("expected challenge_title set, got %+v", resp.VMs[0])
 	}
 }
 
-func TestStackHandlersGetTeamScope(t *testing.T) {
+func TestVMHandlersGetTeamScope(t *testing.T) {
 	env := setupHandlerTest(t)
 	team := createHandlerTeam(t, env, "TeamGet")
 	user := createHandlerUserWithTeam(t, env, "g1@example.com", "g1", "pass", models.UserRole, team.ID)
 	user2 := createHandlerUserWithTeam(t, env, "g2@example.com", "g2", "pass", models.UserRole, team.ID)
-	challenge := createHandlerStackChallenge(t, env, "team-get")
+	challenge := createHandlerVMChallenge(t, env, "team-get")
 
-	mock := &stack.MockClient{
-		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
-			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+	mock := &vm.MockClient{
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running", AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}}, nil
 		},
 	}
 
-	stackSvc, stackRepo := setupHandlerStackServiceWithScope(t, env, mock, "team")
-	env.handler.stacks = stackSvc
+	vmSvc, vmRepo := setupHandlerVMServiceWithScope(t, env, mock, "team")
+	env.handler.vms = vmSvc
 
 	now := time.Now().UTC()
-	stackModel := &models.Stack{UserID: user2.ID, ChallengeID: challenge.ID, StackID: "team-get", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: now, UpdatedAt: now}
-	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
-		t.Fatalf("create stack: %v", err)
+	vmModel := &models.VM{UserID: user2.ID, ChallengeID: challenge.ID, VMID: "team-get", Status: "running", Ports: vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: now, UpdatedAt: now}
+	if err := vmRepo.Create(context.Background(), vmModel); err != nil {
+		t.Fatalf("create vm: %v", err)
 	}
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
-	env.handler.GetStack(ctx)
+	env.handler.GetVM(ctx)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("get stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("get vm status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp stackResponse
+	var resp vmResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if resp.StackID != "team-get" {
-		t.Fatalf("expected team stack, got %+v", resp)
+	if resp.VMID != "team-get" {
+		t.Fatalf("expected team vm, got %+v", resp)
 	}
 
 	if resp.CreatedByUserID != user2.ID || resp.CreatedByUsername == "" {
@@ -1473,98 +1479,98 @@ func TestStackHandlersGetTeamScope(t *testing.T) {
 	}
 }
 
-func TestAdminStackHandlersList(t *testing.T) {
+func TestAdminVMHandlersList(t *testing.T) {
 	env := setupHandlerTest(t)
 	team := createHandlerTeam(t, env, "Alpha")
 	user := createHandlerUserWithTeam(t, env, "admin@example.com", "uadmin", "pass", models.UserRole, team.ID)
-	challenge := createHandlerStackChallenge(t, env, "admin-stack")
+	challenge := createHandlerVMChallenge(t, env, "admin-vm")
 
-	mock := &stack.MockClient{
-		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
-			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+	mock := &vm.MockClient{
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running", AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}}, nil
 		},
 	}
 
-	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	vmSvc, vmRepo := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	stackModel := &models.Stack{
+	vmModel := &models.VM{
 		UserID:      user.ID,
 		ChallengeID: challenge.ID,
-		StackID:     "stack-admin-1",
+		VMID:        "vm-admin-1",
 		Status:      "running",
-		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
-	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
-		t.Fatalf("create stack: %v", err)
+	if err := vmRepo.Create(context.Background(), vmModel); err != nil {
+		t.Fatalf("create vm: %v", err)
 	}
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks", nil)
-	env.handler.AdminListStacks(ctx)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/vms", nil)
+	env.handler.AdminListVMs(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var resp adminStacksListResponse
+	var resp adminVMsListResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if len(resp.Stacks) != 1 {
-		t.Fatalf("expected 1 stack, got %d", len(resp.Stacks))
+	if len(resp.VMs) != 1 {
+		t.Fatalf("expected 1 vm, got %d", len(resp.VMs))
 	}
 
-	item := resp.Stacks[0]
-	if item.StackID != "stack-admin-1" || item.Username != user.Username || item.TeamName != team.Name || item.ChallengeTitle != challenge.Title {
-		t.Fatalf("unexpected admin stack response: %+v", item)
+	item := resp.VMs[0]
+	if item.VMID != "vm-admin-1" || item.Username != user.Username || item.TeamName != team.Name || item.ChallengeTitle != challenge.Title {
+		t.Fatalf("unexpected admin vm response: %+v", item)
 	}
 }
 
-func TestAdminStackHandlersListDisabled(t *testing.T) {
+func TestAdminVMHandlersListDisabled(t *testing.T) {
 	env := setupHandlerTest(t)
-	env.handler.stacks = nil
+	env.handler.vms = nil
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks", nil)
-	env.handler.AdminListStacks(ctx)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/vms", nil)
+	env.handler.AdminListVMs(ctx)
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503, got %d", rec.Code)
 	}
 }
 
-func TestAdminStackHandlersDelete(t *testing.T) {
+func TestAdminVMHandlersDelete(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "admin@example.com", "uadmin-del", "pass", models.UserRole)
-	challenge := createHandlerStackChallenge(t, env, "admin-del")
+	challenge := createHandlerVMChallenge(t, env, "admin-del")
 
 	var deleteCalls atomic.Int32
-	mock := &stack.MockClient{
-		DeleteStackFn: func(ctx context.Context, stackID string) error {
+	mock := &vm.MockClient{
+		DeleteSandboxFn: func(ctx context.Context, vmID string) error {
 			deleteCalls.Add(1)
 			return nil
 		},
 	}
 
-	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	vmSvc, vmRepo := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	stackModel := &models.Stack{
+	vmModel := &models.VM{
 		UserID:      user.ID,
 		ChallengeID: challenge.ID,
-		StackID:     "stack-admin-del",
+		VMID:        "vm-admin-del",
 		Status:      "running",
-		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
-	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
-		t.Fatalf("create stack: %v", err)
+	if err := vmRepo.Create(context.Background(), vmModel); err != nil {
+		t.Fatalf("create vm: %v", err)
 	}
 
-	ctx, rec := newJSONContext(t, http.MethodDelete, "/api/admin/stacks/stack-admin-del", nil)
-	ctx.Params = gin.Params{{Key: "stack_id", Value: "stack-admin-del"}}
-	env.handler.AdminDeleteStack(ctx)
+	ctx, rec := newJSONContext(t, http.MethodDelete, "/api/admin/vms/vm-admin-del", nil)
+	ctx.Params = gin.Params{{Key: "vm_id", Value: "vm-admin-del"}}
+	env.handler.AdminDeleteVM(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
@@ -1573,19 +1579,19 @@ func TestAdminStackHandlersDelete(t *testing.T) {
 		t.Fatalf("expected delete call, got %d", deleteCalls.Load())
 	}
 
-	if _, err := stackRepo.GetByStackID(context.Background(), "stack-admin-del"); !errors.Is(err, repo.ErrNotFound) {
-		t.Fatalf("expected stack deleted, got %v", err)
+	if _, err := vmRepo.GetByVMID(context.Background(), "vm-admin-del"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("expected vm deleted, got %v", err)
 	}
 }
 
-func TestAdminStackHandlersDeleteMissingStackID(t *testing.T) {
+func TestAdminVMHandlersDeleteMissingVMID(t *testing.T) {
 	env := setupHandlerTest(t)
-	mock := &stack.MockClient{}
-	stackSvc, _ := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	mock := &vm.MockClient{}
+	vmSvc, _ := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	ctx, rec := newJSONContext(t, http.MethodDelete, "/api/admin/stacks/", nil)
-	env.handler.AdminDeleteStack(ctx)
+	ctx, rec := newJSONContext(t, http.MethodDelete, "/api/admin/vms/", nil)
+	env.handler.AdminDeleteVM(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
@@ -1597,55 +1603,55 @@ func TestAdminStackHandlersDeleteMissingStackID(t *testing.T) {
 	}
 }
 
-func TestAdminStackHandlersGet(t *testing.T) {
+func TestAdminVMHandlersGet(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "u-admin-get@example.com", "uadmin-get", "pass", models.UserRole)
-	challenge := createHandlerStackChallenge(t, env, "admin-get")
+	challenge := createHandlerVMChallenge(t, env, "admin-get")
 
-	mock := &stack.MockClient{
-		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
-			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+	mock := &vm.MockClient{
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running", AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}}, nil
 		},
 	}
 
-	stackSvc, stackRepo := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	vmSvc, vmRepo := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	stackModel := &models.Stack{
+	vmModel := &models.VM{
 		UserID:      user.ID,
 		ChallengeID: challenge.ID,
-		StackID:     "stack-admin-get",
+		VMID:        "vm-admin-get",
 		Status:      "running",
-		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
-	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
-		t.Fatalf("create stack: %v", err)
+	if err := vmRepo.Create(context.Background(), vmModel); err != nil {
+		t.Fatalf("create vm: %v", err)
 	}
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/stack-admin-get", nil)
-	ctx.Params = gin.Params{{Key: "stack_id", Value: "stack-admin-get"}}
-	env.handler.AdminGetStack(ctx)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/vms/vm-admin-get", nil)
+	ctx.Params = gin.Params{{Key: "vm_id", Value: "vm-admin-get"}}
+	env.handler.AdminGetVM(ctx)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var resp stackResponse
+	var resp vmResponse
 	decodeJSON(t, rec, &resp)
-	if resp.StackID != "stack-admin-get" || resp.ChallengeID != challenge.ID {
+	if resp.VMID != "vm-admin-get" || resp.ChallengeID != challenge.ID {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 }
 
-func TestAdminStackHandlersGetMissingStackID(t *testing.T) {
+func TestAdminVMHandlersGetMissingVMID(t *testing.T) {
 	env := setupHandlerTest(t)
-	mock := &stack.MockClient{}
-	stackSvc, _ := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	mock := &vm.MockClient{}
+	vmSvc, _ := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/", nil)
-	env.handler.AdminGetStack(ctx)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/vms/", nil)
+	env.handler.AdminGetVM(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
@@ -1657,15 +1663,15 @@ func TestAdminStackHandlersGetMissingStackID(t *testing.T) {
 	}
 }
 
-func TestAdminStackHandlersGetNotFound(t *testing.T) {
+func TestAdminVMHandlersGetNotFound(t *testing.T) {
 	env := setupHandlerTest(t)
-	mock := &stack.MockClient{}
-	stackSvc, _ := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	mock := &vm.MockClient{}
+	vmSvc, _ := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/stacks/missing", nil)
-	ctx.Params = gin.Params{{Key: "stack_id", Value: "missing"}}
-	env.handler.AdminGetStack(ctx)
+	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/vms/missing", nil)
+	ctx.Params = gin.Params{{Key: "vm_id", Value: "missing"}}
+	env.handler.AdminGetVM(ctx)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rec.Code)
 	}
@@ -1675,25 +1681,25 @@ func TestAdminReport(t *testing.T) {
 	env := setupHandlerTest(t)
 
 	user := createHandlerUser(t, env, "report@example.com", "reporter", "pass", models.UserRole)
-	challenge := createHandlerStackChallenge(t, env, "report-challenge")
+	challenge := createHandlerVMChallenge(t, env, "report-challenge")
 
-	stackRepo := repo.NewStackRepo(env.db)
-	stackModel := &models.Stack{
+	vmRepo := repo.NewVMRepo(env.db)
+	vmModel := &models.VM{
 		UserID:      user.ID,
 		ChallengeID: challenge.ID,
-		StackID:     "stack-report",
+		VMID:        "vm-report",
 		Status:      "running",
-		Ports:       stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
+		Ports:       vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}},
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
-	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
-		t.Fatalf("create stack: %v", err)
+	if err := vmRepo.Create(context.Background(), vmModel); err != nil {
+		t.Fatalf("create vm: %v", err)
 	}
 
-	mock := &stack.MockClient{}
-	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPer: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
-	env.handler.stacks = stackSvc
+	mock := &vm.MockClient{}
+	vmSvc := service.NewVMService(config.VMConfig{Enabled: true, MaxPer: 3, CreateWindow: time.Minute, CreateMax: 5}, vmRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
+	env.handler.vms = vmSvc
 
 	createHandlerSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC())
 
@@ -1764,29 +1770,29 @@ func TestAdminReport(t *testing.T) {
 	}
 }
 
-func TestStackHandlersNotStarted(t *testing.T) {
+func TestVMHandlersNotStarted(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", models.UserRole)
-	challenge := createHandlerStackChallenge(t, env, "stack")
+	challenge := createHandlerVMChallenge(t, env, "vm")
 
 	start := time.Now().Add(2 * time.Hour)
 	setHandlerCTFWindow(t, env, &start, nil)
 
-	mock := &stack.MockClient{
-		GetStackStatusFn: func(ctx context.Context, stackID string) (*stack.StackStatus, error) {
-			return &stack.StackStatus{StackID: stackID, Status: "running", Ports: []stack.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}, nil
+	mock := &vm.MockClient{
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running", AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}}, nil
 		},
 	}
 
-	stackSvc, _ := setupHandlerStackService(t, env, mock)
-	env.handler.stacks = stackSvc
+	vmSvc, _ := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
 
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
-	env.handler.CreateStack(ctx)
+	env.handler.CreateVM(ctx)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("create vm status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var resp map[string]any
@@ -1795,11 +1801,11 @@ func TestStackHandlersNotStarted(t *testing.T) {
 		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/stacks", nil)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/vms", nil)
 	ctx.Set("userID", user.ID)
-	env.handler.ListStacks(ctx)
+	env.handler.ListVMs(ctx)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("list stacks status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("list vms status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	resp = map[string]any{}
@@ -1808,12 +1814,12 @@ func TestStackHandlersNotStarted(t *testing.T) {
 		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
-	env.handler.GetStack(ctx)
+	env.handler.GetVM(ctx)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("get stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("get vm status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	resp = map[string]any{}
@@ -1822,12 +1828,12 @@ func TestStackHandlersNotStarted(t *testing.T) {
 		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/stack", nil)
+	ctx, rec = newJSONContext(t, http.MethodDelete, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
 	ctx.Set("userID", user.ID)
-	env.handler.DeleteStack(ctx)
+	env.handler.DeleteVM(ctx)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("delete stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("delete vm status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	resp = map[string]any{}
@@ -1837,9 +1843,9 @@ func TestStackHandlersNotStarted(t *testing.T) {
 	}
 }
 
-func TestAdminGetChallengeIncludesStackSpec(t *testing.T) {
+func TestAdminGetChallengeIncludesVMSpec(t *testing.T) {
 	env := setupHandlerTest(t)
-	challenge := createHandlerStackChallenge(t, env, "stack")
+	challenge := createHandlerVMChallenge(t, env, "vm")
 
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/admin/challenges/"+fmt.Sprint(challenge.ID), nil)
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
@@ -1853,8 +1859,8 @@ func TestAdminGetChallengeIncludesStackSpec(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if resp["stack_pod_spec"] == nil {
-		t.Fatalf("expected stack_pod_spec in response")
+	if resp["vm_spec"] == nil {
+		t.Fatalf("expected vm_spec in response")
 	}
 }
 
@@ -1869,28 +1875,28 @@ func TestAdminGetChallengeInvalidID(t *testing.T) {
 	}
 }
 
-func TestSubmitFlagDeletesStack(t *testing.T) {
+func TestSubmitFlagDeletesVM(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "u3@example.com", "u3", "pass", models.UserRole)
-	challenge := createHandlerStackChallenge(t, env, "stack")
+	challenge := createHandlerVMChallenge(t, env, "vm")
 
-	stackRepo := repo.NewStackRepo(env.db)
-	stackModel := &models.Stack{UserID: user.ID, ChallengeID: challenge.ID, StackID: "stack-sub", Status: "running", Ports: stack.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
-	if err := stackRepo.Create(context.Background(), stackModel); err != nil {
-		t.Fatalf("create stack: %v", err)
+	vmRepo := repo.NewVMRepo(env.db)
+	vmModel := &models.VM{UserID: user.ID, ChallengeID: challenge.ID, VMID: "vm-sub", Status: "running", Ports: vm.PortMappings{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	if err := vmRepo.Create(context.Background(), vmModel); err != nil {
+		t.Fatalf("create vm: %v", err)
 	}
 
 	deleted := false
-	mock := &stack.MockClient{
-		DeleteStackFn: func(ctx context.Context, stackID string) error {
-			if stackID == "stack-sub" {
+	mock := &vm.MockClient{
+		DeleteSandboxFn: func(ctx context.Context, vmID string) error {
+			if vmID == "vm-sub" {
 				deleted = true
 			}
 			return nil
 		},
 	}
-	stackSvc := service.NewStackService(config.StackConfig{Enabled: true, MaxPer: 3, CreateWindow: time.Minute, CreateMax: 5}, stackRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
-	env.handler.stacks = stackSvc
+	vmSvc := service.NewVMService(config.VMConfig{Enabled: true, MaxPer: 3, CreateWindow: time.Minute, CreateMax: 5}, vmRepo, env.challengeRepo, env.submissionRepo, mock, env.redis)
+	env.handler.vms = vmSvc
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/submit", submitRequest{Flag: "flag"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
@@ -1902,7 +1908,7 @@ func TestSubmitFlagDeletesStack(t *testing.T) {
 	}
 
 	if !deleted {
-		t.Fatalf("expected stack delete call")
+		t.Fatalf("expected vm delete call")
 	}
 }
 
@@ -2375,21 +2381,21 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 	}
 
 	var meResp struct {
-		ID         int64 `json:"id"`
-		StackCount int   `json:"stack_count"`
-		StackLimit int   `json:"stack_limit"`
+		ID      int64 `json:"id"`
+		VMCount int   `json:"vm_count"`
+		VMLimit int   `json:"vm_limit"`
 	}
 	decodeJSON(t, rec, &meResp)
 	if meResp.ID != user.ID {
 		t.Fatalf("unexpected me response id: %d", meResp.ID)
 	}
 
-	if meResp.StackCount != 0 {
-		t.Fatalf("expected me stack_count 0, got %d", meResp.StackCount)
+	if meResp.VMCount != 0 {
+		t.Fatalf("expected me vm_count 0, got %d", meResp.VMCount)
 	}
 
-	if meResp.StackLimit != env.cfg.Stack.MaxPer {
-		t.Fatalf("expected me stack_limit %d, got %d", env.cfg.Stack.MaxPer, meResp.StackLimit)
+	if meResp.VMLimit != env.cfg.VM.MaxPer {
+		t.Fatalf("expected me vm_limit %d, got %d", env.cfg.VM.MaxPer, meResp.VMLimit)
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "user2"})
@@ -2406,21 +2412,21 @@ func TestHandlerMeUpdateUsers(t *testing.T) {
 	}
 
 	var updateResp struct {
-		ID         int64 `json:"id"`
-		StackCount int   `json:"stack_count"`
-		StackLimit int   `json:"stack_limit"`
+		ID      int64 `json:"id"`
+		VMCount int   `json:"vm_count"`
+		VMLimit int   `json:"vm_limit"`
 	}
 	decodeJSON(t, rec, &updateResp)
 	if updateResp.ID != user.ID {
 		t.Fatalf("unexpected update response id: %d", updateResp.ID)
 	}
 
-	if updateResp.StackCount != 0 {
-		t.Fatalf("expected update stack_count 0, got %d", updateResp.StackCount)
+	if updateResp.VMCount != 0 {
+		t.Fatalf("expected update vm_count 0, got %d", updateResp.VMCount)
 	}
 
-	if updateResp.StackLimit != env.cfg.Stack.MaxPer {
-		t.Fatalf("expected update stack_limit %d, got %d", env.cfg.Stack.MaxPer, updateResp.StackLimit)
+	if updateResp.VMLimit != env.cfg.VM.MaxPer {
+		t.Fatalf("expected update vm_limit %d, got %d", env.cfg.VM.MaxPer, updateResp.VMLimit)
 	}
 
 	waitForCacheClear(t, env,

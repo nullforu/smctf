@@ -115,8 +115,8 @@ def generate_challenges(
     timing: Dict[str, Any],
     constraints: Dict[str, Any],
     bcrypt_cost: int,
-    stack_config: Optional[Dict[str, Any]] = None,
-    stack_pod_spec_content: str = "",
+    vm_config: Optional[Dict[str, Any]] = None,
+    vm_spec_content: str = "",
     file_config: Optional[Dict[str, Any]] = None,
 ) -> List[
     Tuple[
@@ -130,7 +130,6 @@ def generate_challenges(
         bool,
         str,
         bool,
-        List[Dict[str, Any]],
         str,
         Optional[str],
         Optional[str],
@@ -142,21 +141,16 @@ def generate_challenges(
     step_minutes = timing["challenge_created_minutes_step"]
     ratio = constraints["min_points_ratio"]
     floor = constraints["min_points_floor"]
-    stack_config = stack_config or {}
+    vm_config = vm_config or {}
     file_config = file_config or {}
-    stack_enabled_default = bool(stack_config.get("enabled", False))
-    stack_random_count = int(stack_config.get("random_challenge_count", 0))
-    stack_target_ports_default = stack_config.get("target_ports")
-    if not stack_target_ports_default and "target_port" in stack_config:
-        stack_target_ports_default = [{"container_port": int(stack_config["target_port"]), "protocol": "TCP"}]
-    if not stack_target_ports_default:
-        stack_target_ports_default = [{"container_port": 80, "protocol": "TCP"}]
+    vm_enabled_default = bool(vm_config.get("enabled", False))
+    vm_random_count = int(vm_config.get("random_challenge_count", 0))
     file_enabled_default = bool(file_config.get("enabled", False))
     file_random_count = int(file_config.get("random_challenge_count", 0))
     file_default_name = str(file_config.get("file_name", "challenge.zip"))
     file_uploaded_after_max = int(file_config.get("uploaded_minutes_after_create_max", 120))
-    stack_indices = _pick_random_indices(
-        len(challenges), stack_random_count if stack_enabled_default else 0
+    vm_indices = _pick_random_indices(
+        len(challenges), vm_random_count if vm_enabled_default else 0
     )
     file_indices = _pick_random_indices(
         len(challenges),
@@ -168,18 +162,15 @@ def generate_challenges(
         flag_hash = hash_flag(chal["flag"], bcrypt_cost)
         minimum_points = max(floor, int(chal["points"] * ratio))
         created_at = base_time + timedelta(minutes=i * step_minutes)
-        stack_enabled = bool(chal.get("stack_enabled", False))
-        if not stack_enabled and i in stack_indices:
-            stack_enabled = True
-        stack_target_ports = list(chal.get("stack_target_ports", [])) if stack_enabled else []
-        if stack_enabled and not stack_target_ports:
-            stack_target_ports = list(stack_target_ports_default)
-        stack_pod_spec = str(chal.get("stack_pod_spec", "")) if stack_enabled else ""
-        if stack_enabled and not stack_pod_spec:
-            stack_pod_spec = stack_pod_spec_content
-        if stack_enabled and not stack_pod_spec:
+        vm_enabled = bool(chal.get("vm_enabled", False))
+        if not vm_enabled and i in vm_indices:
+            vm_enabled = True
+        vm_spec = str(chal.get("vm_spec", "")) if vm_enabled else ""
+        if vm_enabled and not vm_spec:
+            vm_spec = vm_spec_content
+        if vm_enabled and not vm_spec:
             raise SystemExit(
-                "Error: stack_enabled challenge requires stack_pod_spec content"
+                "Error: vm_enabled challenge requires vm_spec content"
             )
         file_key = chal.get("file_key")
         file_name = chal.get("file_name")
@@ -204,9 +195,8 @@ def generate_challenges(
                 chal.get("previous_challenge_id"),
                 True,
                 created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                stack_enabled,
-                stack_target_ports,
-                stack_pod_spec,
+                vm_enabled,
+                vm_spec,
                 file_key,
                 file_name,
                 file_uploaded_at,

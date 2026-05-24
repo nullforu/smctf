@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"smctf/internal/models"
-	stackpkg "smctf/internal/stack"
+	vmpkg "smctf/internal/vm"
 )
 
 type appConfigResponse struct {
@@ -85,31 +85,29 @@ type loginRequest struct {
 }
 
 type createChallengeRequest struct {
-	Title               string                    `json:"title" binding:"required"`
-	Description         string                    `json:"description" binding:"required"`
-	Category            string                    `json:"category" binding:"required"`
-	Points              int                       `json:"points" binding:"required"`
-	MinimumPoints       *int                      `json:"minimum_points"`
-	Flag                string                    `json:"flag" binding:"required"`
-	PreviousChallengeID *int64                    `json:"previous_challenge_id"`
-	IsActive            *bool                     `json:"is_active"`
-	StackEnabled        *bool                     `json:"stack_enabled"`
-	StackTargetPorts    []stackpkg.TargetPortSpec `json:"stack_target_ports"`
-	StackPodSpec        *string                   `json:"stack_pod_spec"`
+	Title               string  `json:"title" binding:"required"`
+	Description         string  `json:"description" binding:"required"`
+	Category            string  `json:"category" binding:"required"`
+	Points              int     `json:"points" binding:"required"`
+	MinimumPoints       *int    `json:"minimum_points"`
+	Flag                string  `json:"flag" binding:"required"`
+	PreviousChallengeID *int64  `json:"previous_challenge_id"`
+	IsActive            *bool   `json:"is_active"`
+	VMEnabled           *bool   `json:"vm_enabled"`
+	VMSpec              *string `json:"vm_spec"`
 }
 
 type updateChallengeRequest struct {
-	Title               optionalString             `json:"title"`
-	Description         optionalString             `json:"description"`
-	Category            optionalString             `json:"category"`
-	Points              *int                       `json:"points"`
-	MinimumPoints       *int                       `json:"minimum_points"`
-	Flag                optionalString             `json:"flag"`
-	PreviousChallengeID optionalInt64              `json:"previous_challenge_id"`
-	IsActive            *bool                      `json:"is_active"`
-	StackEnabled        *bool                      `json:"stack_enabled"`
-	StackTargetPorts    *[]stackpkg.TargetPortSpec `json:"stack_target_ports"`
-	StackPodSpec        optionalString             `json:"stack_pod_spec"`
+	Title               optionalString `json:"title"`
+	Description         optionalString `json:"description"`
+	Category            optionalString `json:"category"`
+	Points              *int           `json:"points"`
+	MinimumPoints       *int           `json:"minimum_points"`
+	Flag                optionalString `json:"flag"`
+	PreviousChallengeID optionalInt64  `json:"previous_challenge_id"`
+	IsActive            *bool          `json:"is_active"`
+	VMEnabled           *bool          `json:"vm_enabled"`
+	VMSpec              optionalString `json:"vm_spec"`
 }
 
 type challengeFileUploadRequest struct {
@@ -139,8 +137,7 @@ type adminBlockUserRequest struct {
 	Reason string `json:"reason" binding:"required"`
 }
 
-type adminUnblockUserRequest struct {
-}
+type adminUnblockUserRequest struct{}
 
 type registerResponse struct {
 	ID       int64  `json:"id"`
@@ -167,8 +164,8 @@ type userMeResponse struct {
 	TeamName      string     `json:"team_name"`
 	DivisionID    int64      `json:"division_id"`
 	DivisionName  string     `json:"division_name"`
-	StackCount    int        `json:"stack_count"`
-	StackLimit    int        `json:"stack_limit"`
+	VMCount       int        `json:"vm_count"`
+	VMLimit       int        `json:"vm_limit"`
 	BlockedReason *string    `json:"blocked_reason"`
 	BlockedAt     *time.Time `json:"blocked_at"`
 }
@@ -199,21 +196,20 @@ type adminUserResponse struct {
 }
 
 type challengeResponse struct {
-	ID                  int64                     `json:"id"`
-	Title               string                    `json:"title"`
-	Description         string                    `json:"description"`
-	Category            string                    `json:"category"`
-	Points              int                       `json:"points"`
-	InitialPoints       int                       `json:"initial_points"`
-	MinimumPoints       int                       `json:"minimum_points"`
-	SolveCount          int                       `json:"solve_count"`
-	PreviousChallengeID *int64                    `json:"previous_challenge_id,omitempty"`
-	IsActive            bool                      `json:"is_active"`
-	IsLocked            bool                      `json:"is_locked"`
-	HasFile             bool                      `json:"has_file"`
-	FileName            *string                   `json:"file_name,omitempty"`
-	StackEnabled        bool                      `json:"stack_enabled"`
-	StackTargetPorts    []stackpkg.TargetPortSpec `json:"stack_target_ports"`
+	ID                  int64   `json:"id"`
+	Title               string  `json:"title"`
+	Description         string  `json:"description"`
+	Category            string  `json:"category"`
+	Points              int     `json:"points"`
+	InitialPoints       int     `json:"initial_points"`
+	MinimumPoints       int     `json:"minimum_points"`
+	SolveCount          int     `json:"solve_count"`
+	PreviousChallengeID *int64  `json:"previous_challenge_id,omitempty"`
+	IsActive            bool    `json:"is_active"`
+	IsLocked            bool    `json:"is_locked"`
+	HasFile             bool    `json:"has_file"`
+	FileName            *string `json:"file_name,omitempty"`
+	VMEnabled           bool    `json:"vm_enabled"`
 }
 
 type lockedChallengeResponse struct {
@@ -242,7 +238,7 @@ type challengesListResponse struct {
 
 type adminChallengeResponse struct {
 	challengeResponse
-	StackPodSpec *string `json:"stack_pod_spec,omitempty"`
+	VMSpec *string `json:"vm_spec,omitempty"`
 }
 
 type presignedPostResponse struct {
@@ -260,6 +256,10 @@ type presignedURLResponse struct {
 type challengeFileUploadResponse struct {
 	Challenge challengeResponse     `json:"challenge"`
 	Upload    presignedPostResponse `json:"upload"`
+}
+
+type challengeFileDownloadResponse struct {
+	Download presignedURLResponse `json:"download"`
 }
 
 type teamResponse struct {
@@ -282,23 +282,22 @@ type teamTimelineResponse struct {
 }
 
 type adminReportChallenge struct {
-	ID                  int64                     `json:"id"`
-	Title               string                    `json:"title"`
-	Description         string                    `json:"description"`
-	Category            string                    `json:"category"`
-	Points              int                       `json:"points"`
-	InitialPoints       int                       `json:"initial_points"`
-	MinimumPoints       int                       `json:"minimum_points"`
-	SolveCount          int                       `json:"solve_count"`
-	PreviousChallengeID *int64                    `json:"previous_challenge_id,omitempty"`
-	IsActive            bool                      `json:"is_active"`
-	FileKey             *string                   `json:"file_key,omitempty"`
-	FileName            *string                   `json:"file_name,omitempty"`
-	FileUploadedAt      *time.Time                `json:"file_uploaded_at,omitempty"`
-	StackEnabled        bool                      `json:"stack_enabled"`
-	StackTargetPorts    []stackpkg.TargetPortSpec `json:"stack_target_ports"`
-	StackPodSpec        *string                   `json:"stack_pod_spec,omitempty"`
-	CreatedAt           time.Time                 `json:"created_at"`
+	ID                  int64      `json:"id"`
+	Title               string     `json:"title"`
+	Description         string     `json:"description"`
+	Category            string     `json:"category"`
+	Points              int        `json:"points"`
+	InitialPoints       int        `json:"initial_points"`
+	MinimumPoints       int        `json:"minimum_points"`
+	SolveCount          int        `json:"solve_count"`
+	PreviousChallengeID *int64     `json:"previous_challenge_id,omitempty"`
+	IsActive            bool       `json:"is_active"`
+	FileKey             *string    `json:"file_key,omitempty"`
+	FileName            *string    `json:"file_name,omitempty"`
+	FileUploadedAt      *time.Time `json:"file_uploaded_at,omitempty"`
+	VMEnabled           bool       `json:"vm_enabled"`
+	VMSpec              *string    `json:"vm_spec,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
 }
 
 type adminReportUser struct {
@@ -330,7 +329,7 @@ type adminReportResponse struct {
 	Divisions        []models.Division               `json:"divisions"`
 	Teams            []models.TeamSummary            `json:"teams"`
 	Users            []adminReportUser               `json:"users"`
-	Stacks           []models.Stack                  `json:"stacks"`
+	VMs              []models.VM                     `json:"vms"`
 	RegistrationKeys []models.RegistrationKeySummary `json:"registration_keys"`
 	Submissions      []adminReportSubmission         `json:"submissions"`
 	AppConfig        []models.AppConfig              `json:"app_config"`
@@ -340,28 +339,30 @@ type adminReportResponse struct {
 	TeamLeaderboard  models.TeamLeaderboardResponse  `json:"team_leaderboard"`
 }
 
-type stackResponse struct {
-	StackID           string                 `json:"stack_id"`
-	ChallengeID       int64                  `json:"challenge_id"`
-	Status            string                 `json:"status"`
-	NodePublicIP      *string                `json:"node_public_ip,omitempty"`
-	Ports             []stackpkg.PortMapping `json:"ports,omitempty"`
-	TTLExpiresAt      *time.Time             `json:"ttl_expires_at,omitempty"`
-	CreatedAt         time.Time              `json:"created_at"`
-	UpdatedAt         time.Time              `json:"updated_at"`
-	CreatedByUserID   int64                  `json:"created_by_user_id"`
-	CreatedByUsername string                 `json:"created_by_username"`
-	ChallengeTitle    string                 `json:"challenge_title"`
-	CTFState          string                 `json:"-"`
+type vmResponse struct {
+	VMID              string              `json:"vm_id"`
+	ChallengeID       int64               `json:"challenge_id"`
+	Status            string              `json:"status"`
+	NodeName          *string             `json:"node_name,omitempty"`
+	ExternalIP        *string             `json:"external_ip,omitempty"`
+	Ports             []vmpkg.PortMapping `json:"ports,omitempty"`
+	TTLExpiresAt      *time.Time          `json:"ttl_expires_at,omitempty"`
+	LastError         *string             `json:"last_error,omitempty"`
+	CreatedAt         time.Time           `json:"created_at"`
+	UpdatedAt         time.Time           `json:"updated_at"`
+	CreatedByUserID   int64               `json:"created_by_user_id"`
+	CreatedByUsername string              `json:"created_by_username"`
+	ChallengeTitle    string              `json:"challenge_title"`
+	CTFState          string              `json:"-"`
 }
 
-type stacksListResponse struct {
-	CTFState string          `json:"ctf_state"`
-	Stacks   []stackResponse `json:"stacks,omitempty"`
+type vmsListResponse struct {
+	CTFState string       `json:"ctf_state"`
+	VMs      []vmResponse `json:"vms,omitempty"`
 }
 
-type adminStackResponse struct {
-	StackID           string     `json:"stack_id"`
+type adminVMResponse struct {
+	VMID              string     `json:"vm_id"`
 	TTLExpiresAt      *time.Time `json:"ttl_expires_at,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
@@ -375,41 +376,43 @@ type adminStackResponse struct {
 	ChallengeCategory string     `json:"challenge_category"`
 }
 
-type adminStacksListResponse struct {
-	Stacks []adminStackResponse `json:"stacks,omitempty"`
+type adminVMsListResponse struct {
+	VMs []adminVMResponse `json:"vms,omitempty"`
 }
 
-func newStackResponse(stack *models.Stack, ctfState string) stackResponse {
-	return stackResponse{
-		StackID:           stack.StackID,
-		ChallengeID:       stack.ChallengeID,
-		Status:            stack.Status,
-		NodePublicIP:      stack.NodePublicIP,
-		Ports:             []stackpkg.PortMapping(stack.Ports),
-		TTLExpiresAt:      stack.TTLExpiresAt,
-		CreatedAt:         stack.CreatedAt.UTC(),
-		UpdatedAt:         stack.UpdatedAt.UTC(),
-		CreatedByUserID:   stack.UserID,
-		CreatedByUsername: stack.Username,
-		ChallengeTitle:    stack.ChallengeTitle,
+func newVMResponse(vm *models.VM, ctfState string) vmResponse {
+	return vmResponse{
+		VMID:              vm.VMID,
+		ChallengeID:       vm.ChallengeID,
+		Status:            vm.Status,
+		NodeName:          vm.NodeName,
+		ExternalIP:        vm.ExternalIP,
+		Ports:             []vmpkg.PortMapping(vm.Ports),
+		TTLExpiresAt:      vm.TTLExpiresAt,
+		LastError:         vm.LastError,
+		CreatedAt:         vm.CreatedAt.UTC(),
+		UpdatedAt:         vm.UpdatedAt.UTC(),
+		CreatedByUserID:   vm.UserID,
+		CreatedByUsername: vm.Username,
+		ChallengeTitle:    vm.ChallengeTitle,
 		CTFState:          ctfState,
 	}
 }
 
-func newAdminStackResponse(stack models.AdminStackSummary) adminStackResponse {
-	return adminStackResponse{
-		StackID:           stack.StackID,
-		TTLExpiresAt:      timePtrUTC(stack.TTLExpiresAt),
-		CreatedAt:         stack.CreatedAt.UTC(),
-		UpdatedAt:         stack.UpdatedAt.UTC(),
-		UserID:            stack.UserID,
-		Username:          stack.Username,
-		Email:             stack.Email,
-		TeamID:            stack.TeamID,
-		TeamName:          stack.TeamName,
-		ChallengeID:       stack.ChallengeID,
-		ChallengeTitle:    stack.ChallengeTitle,
-		ChallengeCategory: stack.ChallengeCategory,
+func newAdminVMResponse(vm models.AdminVMSummary) adminVMResponse {
+	return adminVMResponse{
+		VMID:              vm.VMID,
+		TTLExpiresAt:      timePtrUTC(vm.TTLExpiresAt),
+		CreatedAt:         vm.CreatedAt.UTC(),
+		UpdatedAt:         vm.UpdatedAt.UTC(),
+		UserID:            vm.UserID,
+		Username:          vm.Username,
+		Email:             vm.Email,
+		TeamID:            vm.TeamID,
+		TeamName:          vm.TeamName,
+		ChallengeID:       vm.ChallengeID,
+		ChallengeTitle:    vm.ChallengeTitle,
+		ChallengeCategory: vm.ChallengeCategory,
 	}
 }
 
@@ -428,9 +431,8 @@ func newAdminReportChallenge(challenge models.Challenge) adminReportChallenge {
 		FileKey:             challenge.FileKey,
 		FileName:            challenge.FileName,
 		FileUploadedAt:      challenge.FileUploadedAt,
-		StackEnabled:        challenge.StackEnabled,
-		StackTargetPorts:    []stackpkg.TargetPortSpec(challenge.StackTargetPorts),
-		StackPodSpec:        challenge.StackPodSpec,
+		VMEnabled:           challenge.VMEnabled,
+		VMSpec:              challenge.VMSpec,
 		CreatedAt:           challenge.CreatedAt.UTC(),
 	}
 }
@@ -471,7 +473,7 @@ func timePtrUTC(value *time.Time) *time.Time {
 	return &utc
 }
 
-func newUserMeResponse(user *models.User, stackCount, stackLimit int) userMeResponse {
+func newUserMeResponse(user *models.User, vmCount, vmLimit int) userMeResponse {
 	return userMeResponse{
 		ID:            user.ID,
 		Email:         user.Email,
@@ -481,8 +483,8 @@ func newUserMeResponse(user *models.User, stackCount, stackLimit int) userMeResp
 		TeamName:      user.TeamName,
 		DivisionID:    user.DivisionID,
 		DivisionName:  user.DivisionName,
-		StackCount:    stackCount,
-		StackLimit:    stackLimit,
+		VMCount:       vmCount,
+		VMLimit:       vmLimit,
 		BlockedReason: user.BlockedReason,
 		BlockedAt:     user.BlockedAt,
 	}
@@ -533,8 +535,7 @@ func newChallengeResponse(challenge *models.Challenge) challengeResponse {
 		IsLocked:            false,
 		HasFile:             hasFile,
 		FileName:            challenge.FileName,
-		StackEnabled:        challenge.StackEnabled,
-		StackTargetPorts:    []stackpkg.TargetPortSpec(challenge.StackTargetPorts),
+		VMEnabled:           challenge.VMEnabled,
 	}
 }
 

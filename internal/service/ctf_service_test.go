@@ -10,7 +10,6 @@ import (
 	"smctf/internal/db"
 	"smctf/internal/models"
 	"smctf/internal/repo"
-	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
 
@@ -58,7 +57,7 @@ func newClosedServiceDB(t *testing.T) *bun.DB {
 func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 	env := setupServiceTest(t)
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 80, "FLAG{1}", true, false, nil, nil, nil)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 80, "FLAG{1}", true, false, nil, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -88,62 +87,47 @@ func TestCTFServiceCreateAndListChallenges(t *testing.T) {
 
 func TestCTFServiceCreateChallengeValidation(t *testing.T) {
 	env := setupServiceTest(t)
-	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, 0, "", true, false, nil, nil, nil)
+	_, err := env.ctfSvc.CreateChallenge(context.Background(), "", "", "Nope", -1, 0, "", true, false, nil, nil)
 
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
 
-	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 200, "FLAG{X}", true, false, nil, nil, nil)
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 200, "FLAG{X}", true, false, nil, nil)
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error for minimum_points, got %v", err)
 	}
 
-	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
-	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{S}", true, true, nil, &podSpec, nil)
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "VM", "Desc", "Web", 100, 80, "FLAG{S}", true, true, nil, nil)
 	if !errors.As(err, &ve) {
-		t.Fatalf("expected validation error for stack_target_ports, got %v", err)
+		t.Fatalf("expected validation error for vm_spec, got %v", err)
 	}
 
 	missingPrev := int64(9999)
-	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Locked", "Desc", "Misc", 100, 80, "FLAG{P}", true, false, nil, nil, &missingPrev)
+	_, err = env.ctfSvc.CreateChallenge(context.Background(), "Locked", "Desc", "Misc", 100, 80, "FLAG{P}", true, false, nil, &missingPrev)
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error for previous_challenge_id, got %v", err)
 	}
 }
 
-func TestCTFServiceStackTargetPortsValidation(t *testing.T) {
+func TestCTFServiceVMSpecValidation(t *testing.T) {
 	env := setupServiceTest(t)
-	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	sandboxSpec := "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n"
+	empty := "   "
 
-	invalidProtocol := stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "ICMP"}}
-	_, err := env.ctfSvc.CreateChallenge(context.Background(), "StackBadProto", "Desc", "Web", 100, 80, "FLAG{P1}", true, true, invalidProtocol, &podSpec, nil)
+	_, err := env.ctfSvc.CreateChallenge(context.Background(), "VMBadSpec", "Desc", "Web", 100, 80, "FLAG{P1}", true, true, &empty, nil)
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
-		t.Fatalf("expected validation error for stack_target_ports protocol, got %v", err)
+		t.Fatalf("expected validation error for empty vm_spec, got %v", err)
 	}
 
-	duplicatePorts := stack.TargetPortSpecs{
-		{ContainerPort: 80, Protocol: "tcp"},
-		{ContainerPort: 80, Protocol: "TCP"},
-	}
-	_, err = env.ctfSvc.CreateChallenge(context.Background(), "StackDup", "Desc", "Web", 100, 80, "FLAG{P2}", true, true, duplicatePorts, &podSpec, nil)
-	if !errors.As(err, &ve) {
-		t.Fatalf("expected validation error for duplicate stack_target_ports, got %v", err)
-	}
-
-	mixedProtocols := stack.TargetPortSpecs{
-		{ContainerPort: 80, Protocol: "tcp"},
-		{ContainerPort: 80, Protocol: "udp"},
-	}
-	created, err := env.ctfSvc.CreateChallenge(context.Background(), "StackOK", "Desc", "Web", 100, 80, "FLAG{P3}", true, true, mixedProtocols, &podSpec, nil)
+	created, err := env.ctfSvc.CreateChallenge(context.Background(), "VMOK", "Desc", "Web", 100, 80, "FLAG{P3}", true, true, &sandboxSpec, nil)
 	if err != nil {
-		t.Fatalf("expected mixed protocols to be allowed, got %v", err)
+		t.Fatalf("expected vm challenge create, got %v", err)
 	}
-
-	if len(created.StackTargetPorts) != 2 {
-		t.Fatalf("expected 2 stack_target_ports, got %d", len(created.StackTargetPorts))
+	if created.VMSpec == nil || strings.TrimSpace(*created.VMSpec) == "" {
+		t.Fatalf("expected non-empty vm_spec")
 	}
 }
 
@@ -153,7 +137,7 @@ func TestCTFServiceListChallengesDynamicPoints(t *testing.T) {
 	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
 	soloUser := createUserWithNewTeam(t, env, "s1@example.com", "s1", "pass", models.UserRole)
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true, false, nil, nil, nil)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Dynamic", "Desc", "Misc", 500, 100, "FLAG{DYN}", true, false, nil, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
@@ -299,7 +283,7 @@ func TestCTFServiceChallengeFlagTooLong(t *testing.T) {
 	env := setupServiceTest(t)
 	longFlag := strings.Repeat("a", 73)
 
-	if _, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 50, longFlag, true, false, nil, nil, nil); !errors.Is(err, ErrInvalidInput) {
+	if _, err := env.ctfSvc.CreateChallenge(context.Background(), "Title", "Desc", "Misc", 100, 50, longFlag, true, false, nil, nil); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected invalid input for create long flag, got %v", err)
 	}
 
@@ -769,38 +753,38 @@ func TestChallengeFileDeleteMissing(t *testing.T) {
 	}
 }
 
-func TestCTFServiceStackFields(t *testing.T) {
+func TestCTFServiceVMFields(t *testing.T) {
 	env := setupServiceTest(t)
-	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	sandboxSpec := "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: test\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
 
-	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "Stack", "Desc", "Web", 100, 80, "FLAG{STACK}", true, true, stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "TCP"}}, &podSpec, nil)
+	challenge, err := env.ctfSvc.CreateChallenge(context.Background(), "VM", "Desc", "Web", 100, 80, "FLAG{VM}", true, true, &sandboxSpec, nil)
 	if err != nil {
 		t.Fatalf("create challenge: %v", err)
 	}
 
-	if !challenge.StackEnabled || len(challenge.StackTargetPorts) != 1 || challenge.StackTargetPorts[0].ContainerPort != 80 || challenge.StackPodSpec == nil {
-		t.Fatalf("unexpected stack fields: %+v", challenge)
+	if !challenge.VMEnabled || challenge.VMSpec == nil {
+		t.Fatalf("unexpected vm fields: %+v", challenge)
 	}
 
 	disable := false
 	updated, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &disable, nil, nil, nil, false)
 	if err != nil {
-		t.Fatalf("disable stack: %v", err)
+		t.Fatalf("disable vm: %v", err)
 	}
 
-	if updated.StackEnabled || len(updated.StackTargetPorts) != 0 || updated.StackPodSpec != nil {
-		t.Fatalf("expected stack cleared, got %+v", updated)
+	if updated.VMEnabled || updated.VMSpec != nil {
+		t.Fatalf("expected vm cleared, got %+v", updated)
 	}
 
-	newPorts := []stack.TargetPortSpec{{ContainerPort: 80, Protocol: "TCP"}}
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, &newPorts, nil, nil, false); err == nil {
-		t.Fatalf("expected validation error when stack disabled")
+	newSpec := "apiVersion: v1"
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, nil, nil, &newSpec, nil, false); err == nil {
+		t.Fatalf("expected validation error when vm disabled")
 	}
 
 	enable := true
 	empty := ""
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &newPorts, &empty, nil, false); err == nil {
-		t.Fatalf("expected validation error for empty pod spec")
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, nil, &empty, nil, false); err == nil {
+		t.Fatalf("expected validation error for empty sandbox spec")
 	} else {
 		var ve *ValidationError
 		if !errors.As(err, &ve) {
@@ -808,18 +792,8 @@ func TestCTFServiceStackFields(t *testing.T) {
 		}
 	}
 
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, nil, &podSpec, nil, false); err == nil {
-		t.Fatalf("expected validation error for missing stack_target_ports when stack enabled")
-	}
-
-	outOfRangePorts := []stack.TargetPortSpec{{ContainerPort: 70000, Protocol: "TCP"}}
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &outOfRangePorts, &podSpec, nil, false); err == nil {
-		t.Fatalf("expected validation error for out-of-range port")
-	}
-
-	zeroPorts := []stack.TargetPortSpec{{ContainerPort: 0, Protocol: "TCP"}}
-	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, &zeroPorts, &podSpec, nil, false); err == nil {
-		t.Fatalf("expected validation error for zero port")
+	if _, err := env.ctfSvc.UpdateChallenge(context.Background(), challenge.ID, nil, nil, nil, nil, nil, nil, nil, &enable, nil, &sandboxSpec, nil, false); err != nil {
+		t.Fatalf("expected vm enable update success, got %v", err)
 	}
 }
 

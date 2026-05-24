@@ -91,4 +91,4 @@ For blocked users:
 
 Notes:
 
-- Returned only on endpoints that require an active (non-blocked) user. Some read-only endpoints are still available to blocked users (e.g. stack listing and stack detail).
+- Returned only on endpoints that require an active (non-blocked) user. Some read-only endpoints are still available to blocked users (e.g. vm listing and vm detail).

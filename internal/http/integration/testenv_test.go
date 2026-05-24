@@ -23,9 +23,9 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
-	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
+	"smctf/internal/vm"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
@@ -46,13 +46,13 @@ type testEnv struct {
 	challengeRepo     *repo.ChallengeRepo
 	submissionRepo    *repo.SubmissionRepo
 	appConfigRepo     *repo.AppConfigRepo
-	stackRepo         *repo.StackRepo
+	vmRepo            *repo.VMRepo
 	authSvc           *service.AuthService
 	ctfSvc            *service.CTFService
 	divisionSvc       *service.DivisionService
 	teamSvc           *service.TeamService
 	appConfigSvc      *service.AppConfigService
-	stackSvc          *service.StackService
+	vmSvc             *service.VMService
 	defaultDivisionID int64
 }
 
@@ -165,7 +165,7 @@ func TestMain(m *testing.M) {
 			FilePrefix:   "test",
 			MaxBodyBytes: 1024 * 1024,
 		},
-		Stack: config.StackConfig{
+		VM: config.VMConfig{
 			Enabled:      true,
 			MaxPer:       3,
 			CreateWindow: time.Minute,
@@ -277,7 +277,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	submissionRepo := repo.NewSubmissionRepo(testDB)
 	scoreRepo := repo.NewScoreboardRepo(testDB)
 	appConfigRepo := repo.NewAppConfigRepo(testDB)
-	stackRepo := repo.NewStackRepo(testDB)
+	vmRepo := repo.NewVMRepo(testDB)
 
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
@@ -288,9 +288,9 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
-	stackSvc := service.NewStackService(cfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, testRedis)
+	vmSvc := service.NewVMService(cfg.VM, vmRepo, challengeRepo, submissionRepo, &vm.MockClient{}, testRedis)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, testRedis, testLogger, nil)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, testRedis, testLogger, nil)
 
 	env := testEnv{
 		cfg:            cfg,
@@ -302,13 +302,13 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		appConfigRepo:  appConfigRepo,
-		stackRepo:      stackRepo,
+		vmRepo:         vmRepo,
 		authSvc:        authSvc,
 		ctfSvc:         ctfSvc,
 		divisionSvc:    divisionSvc,
 		teamSvc:        teamSvc,
 		appConfigSvc:   appConfigSvc,
-		stackSvc:       stackSvc,
+		vmSvc:          vmSvc,
 	}
 
 	division := &models.Division{
@@ -319,6 +319,62 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 		t.Fatalf("create division: %v", err)
 	}
 
+	env.defaultDivisionID = division.ID
+
+	return env
+}
+
+func setupVMTest(t *testing.T, cfg config.Config, client vm.API) testEnv {
+	t.Helper()
+	skipIfIntegrationDisabled(t)
+	resetState(t)
+
+	userRepo := repo.NewUserRepo(testDB)
+	registrationKeyRepo := repo.NewRegistrationKeyRepo(testDB)
+	divisionRepo := repo.NewDivisionRepo(testDB)
+	teamRepo := repo.NewTeamRepo(testDB)
+	challengeRepo := repo.NewChallengeRepo(testDB)
+	submissionRepo := repo.NewSubmissionRepo(testDB)
+	scoreRepo := repo.NewScoreboardRepo(testDB)
+	appConfigRepo := repo.NewAppConfigRepo(testDB)
+	vmRepo := repo.NewVMRepo(testDB)
+
+	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
+
+	authSvc := service.NewAuthService(cfg, testDB, userRepo, registrationKeyRepo, teamRepo, testRedis)
+	userSvc := service.NewUserService(userRepo, teamRepo)
+	scoreSvc := service.NewScoreboardService(scoreRepo)
+	divisionSvc := service.NewDivisionService(divisionRepo)
+	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
+	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, testRedis, fileStore)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
+	vmSvc := service.NewVMService(cfg.VM, vmRepo, challengeRepo, submissionRepo, client, testRedis)
+
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, testRedis, testLogger, nil)
+
+	env := testEnv{
+		cfg:            cfg,
+		router:         router,
+		userRepo:       userRepo,
+		regKeyRepo:     registrationKeyRepo,
+		divisionRepo:   divisionRepo,
+		teamRepo:       teamRepo,
+		challengeRepo:  challengeRepo,
+		submissionRepo: submissionRepo,
+		appConfigRepo:  appConfigRepo,
+		vmRepo:         vmRepo,
+		authSvc:        authSvc,
+		ctfSvc:         ctfSvc,
+		divisionSvc:    divisionSvc,
+		teamSvc:        teamSvc,
+		appConfigSvc:   appConfigSvc,
+		vmSvc:          vmSvc,
+	}
+
+	division := &models.Division{Name: "Default", CreatedAt: time.Now().UTC()}
+	if err := divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
 	env.defaultDivisionID = division.ID
 
 	return env
@@ -354,7 +410,7 @@ func setCTFWindow(t *testing.T, env testEnv, startAt, endAt *time.Time) {
 func resetState(t *testing.T) {
 	t.Helper()
 
-	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := testDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, vms, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 
@@ -480,11 +536,11 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 
 	var loginResp struct {
 		User struct {
-			ID         int64  `json:"id"`
-			TeamID     int64  `json:"team_id"`
-			TeamName   string `json:"team_name"`
-			StackCount int    `json:"stack_count"`
-			StackLimit int    `json:"stack_limit"`
+			ID       int64  `json:"id"`
+			TeamID   int64  `json:"team_id"`
+			TeamName string `json:"team_name"`
+			VMCount  int    `json:"vm_count"`
+			VMLimit  int    `json:"vm_limit"`
 		} `json:"user"`
 	}
 
@@ -493,12 +549,12 @@ func registerAndLogin(t *testing.T, env testEnv, email, username, password strin
 		t.Fatalf("missing team fields in login response")
 	}
 
-	if loginResp.User.StackCount != 0 {
-		t.Fatalf("expected stack_count 0, got %d", loginResp.User.StackCount)
+	if loginResp.User.VMCount != 0 {
+		t.Fatalf("expected vm_count 0, got %d", loginResp.User.VMCount)
 	}
 
-	if loginResp.User.StackLimit != env.cfg.Stack.MaxPer {
-		t.Fatalf("expected stack_limit %d, got %d", env.cfg.Stack.MaxPer, loginResp.User.StackLimit)
+	if loginResp.User.VMLimit != env.cfg.VM.MaxPer {
+		t.Fatalf("expected vm_limit %d, got %d", env.cfg.VM.MaxPer, loginResp.User.VMLimit)
 	}
 
 	accessToken := cookieValueFromSetCookie(rec, "access_token")
@@ -568,11 +624,11 @@ func loginUser(t *testing.T, router *gin.Engine, email, password string) (string
 
 	var resp struct {
 		User struct {
-			ID         int64  `json:"id"`
-			TeamID     int64  `json:"team_id"`
-			TeamName   string `json:"team_name"`
-			StackCount int    `json:"stack_count"`
-			StackLimit int    `json:"stack_limit"`
+			ID       int64  `json:"id"`
+			TeamID   int64  `json:"team_id"`
+			TeamName string `json:"team_name"`
+			VMCount  int    `json:"vm_count"`
+			VMLimit  int    `json:"vm_limit"`
 		} `json:"user"`
 	}
 
@@ -685,6 +741,18 @@ func createChallenge(t *testing.T, env testEnv, title string, points int, flag s
 		t.Fatalf("create challenge: %v", err)
 	}
 
+	return challenge
+}
+
+func createVMChallenge(t *testing.T, env testEnv, title string) *models.Challenge {
+	t.Helper()
+	challenge := createChallenge(t, env, title, 100, "flag{vm}", true)
+	spec := "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n"
+	challenge.VMEnabled = true
+	challenge.VMSpec = &spec
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update vm challenge: %v", err)
+	}
 	return challenge
 }
 

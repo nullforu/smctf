@@ -12,7 +12,7 @@ if SCRIPTS_DIR not in sys.path:
 
 from data_loader import load_data, validate_data
 from generator import (
-    apply_challenge_pod_spec_paths,
+    apply_challenge_vm_spec_paths,
     generate_challenges,
     generate_divisions,
     generate_teams,
@@ -74,7 +74,7 @@ def main(argv: List[str]) -> int:
         raise SystemExit("Error: divisions must be provided in data YAML")
     validate_data(data)
 
-    apply_challenge_pod_spec_paths(
+    apply_challenge_vm_spec_paths(
         data.get("challenges", []), os.path.dirname(data_path)
     )
 

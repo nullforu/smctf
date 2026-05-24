@@ -16,7 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userSvc *service.UserService, scoreSvc *service.ScoreboardService, divisionSvc *service.DivisionService, teamSvc *service.TeamService, stackSvc *service.StackService, redis *redis.Client, logger *logging.Logger, sse *realtime.SSEHub) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userSvc *service.UserService, scoreSvc *service.ScoreboardService, divisionSvc *service.DivisionService, teamSvc *service.TeamService, vmSvc *service.VMService, redis *redis.Client, logger *logging.Logger, sse *realtime.SSEHub) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -27,7 +27,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(middleware.CORS(cfg.AppEnv == "local", cfg.CORS.AllowedOrigins))
 	r.Use(middleware.CSRF())
 
-	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, redis)
+	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, redis)
 	sseHandler := handlers.NewSSEHandler(sse)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
@@ -62,16 +62,16 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		auth := api.Group("")
 		auth.Use(middleware.Auth(cfg.JWT))
 		auth.GET("/me", h.Me)
-		auth.GET("/stacks", h.ListStacks)
-		auth.GET("/challenges/:id/stack", h.GetStack)
+		auth.GET("/vms", h.ListVMs)
+		auth.GET("/challenges/:id/vm", h.GetVM)
 
 		unblocked := auth.Group("")
 		unblocked.Use(middleware.RequireActiveUser(userSvc))
 		unblocked.PUT("/me", h.UpdateMe)
 		unblocked.POST("/challenges/:id/submit", h.SubmitFlag)
 		unblocked.POST("/challenges/:id/file/download", h.RequestChallengeFileDownload)
-		unblocked.POST("/challenges/:id/stack", h.CreateStack)
-		unblocked.DELETE("/challenges/:id/stack", h.DeleteStack)
+		unblocked.POST("/challenges/:id/vm", h.CreateVM)
+		unblocked.DELETE("/challenges/:id/vm", h.DeleteVM)
 
 		admin := api.Group("/admin")
 		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireActiveUser(userSvc), middleware.RequireRole(models.AdminRole))
@@ -86,9 +86,9 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.GET("/registration-keys", h.ListRegistrationKeys)
 		admin.POST("/divisions", h.CreateDivision)
 		admin.POST("/teams", h.CreateTeam)
-		admin.GET("/stacks", h.AdminListStacks)
-		admin.GET("/stacks/:stack_id", h.AdminGetStack)
-		admin.DELETE("/stacks/:stack_id", h.AdminDeleteStack)
+		admin.GET("/vms", h.AdminListVMs)
+		admin.GET("/vms/:vm_id", h.AdminGetVM)
+		admin.DELETE("/vms/:vm_id", h.AdminDeleteVM)
 		admin.GET("/report", h.AdminReport)
 		admin.POST("/users/:id/team", h.AdminMoveUserTeam)
 		admin.POST("/users/:id/block", h.AdminBlockUser)

@@ -38,23 +38,8 @@
                     "is_active": {
                         "type": "boolean"
                     },
-                    "stack_enabled": {
+                    "vm_enabled": {
                         "type": "boolean"
-                    },
-                    "stack_target_ports": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "container_port": {
-                                    "type": "number"
-                                },
-                                "protocol": {
-                                    "type": "string"
-                                }
-                            },
-                            "required": ["container_port", "protocol"]
-                        }
                     },
                     "created_at": {
                         "type": "string"
@@ -68,8 +53,8 @@
                     "file_uploaded_at": {
                         "type": "string"
                     },
-                    "stack_pod_spec": {
-                        "type": "string"
+                    "vm_spec": {
+                        "type": ["string", "null"]
                     }
                 },
                 "required": [
@@ -82,8 +67,8 @@
                     "minimum_points",
                     "solve_count",
                     "is_active",
-                    "stack_enabled",
-                    "stack_target_ports",
+                    "vm_enabled",
+                    "vm_spec",
                     "created_at"
                 ]
             }
@@ -133,15 +118,7 @@
                         "type": "number"
                     }
                 },
-                "required": [
-                    "id",
-                    "name",
-                    "division_id",
-                    "division_name",
-                    "created_at",
-                    "member_count",
-                    "total_score"
-                ]
+                "required": ["id", "name", "division_id", "division_name", "created_at", "member_count", "total_score"]
             }
         },
         "users": {
@@ -194,7 +171,7 @@
                 ]
             }
         },
-        "stacks": {
+        "vms": {
             "type": "array",
             "items": {}
         },
@@ -505,7 +482,7 @@
         "divisions",
         "teams",
         "users",
-        "stacks",
+        "vms",
         "registration_keys",
         "submissions",
         "app_config",

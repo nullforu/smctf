@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from sql_common.crypto_utils import hash_flag, hash_password
 
 UTC = timezone.utc
-DEFAULT_STACK_TARGET_PORTS = [{"container_port": 80, "protocol": "TCP"}]
+DEFAULT_VM_TARGET_PORTS = [{"container_port": 80, "protocol": "TCP"}]
 
 
 def _render_username(pattern: str, team_name: str, number: int) -> str:
@@ -132,17 +132,12 @@ def generate_challenges(
         minimum_points = max(floor, int(points * ratio))
         flag_hash = hash_flag(chal["flag"], bcrypt_cost)
 
-        stack_enabled = bool(chal.get("stack_enabled", False))
-        stack_target_ports = []
-        stack_pod_spec = str(chal.get("stack_pod_spec", ""))
-        if stack_enabled:
-            stack_target_ports = list(chal.get("stack_target_ports", []))
-            if not stack_target_ports:
-                stack_target_ports = list(DEFAULT_STACK_TARGET_PORTS)
-            if not stack_pod_spec:
-                raise SystemExit(
-                    f"Error: stack_enabled challenge {chal.get('title')} requires stack_pod_spec"
-                )
+        vm_enabled = bool(chal.get("vm_enabled", False))
+        vm_spec = str(chal.get("vm_spec", "")) if vm_enabled else ""
+        if vm_enabled and not vm_spec:
+            raise SystemExit(
+                f"Error: vm_enabled challenge {chal.get('title')} requires vm_spec"
+            )
 
         file_name = chal.get("file_name")
         file_key = chal.get("file_key")
@@ -164,9 +159,8 @@ def generate_challenges(
                 "previous_challenge_id": chal.get("previous_challenge_id"),
                 "is_active": bool(chal.get("is_active", True)),
                 "created_at": created_at_str,
-                "stack_enabled": stack_enabled,
-                "stack_target_ports": stack_target_ports,
-                "stack_pod_spec": stack_pod_spec,
+                "vm_enabled": vm_enabled,
+                "vm_spec": vm_spec,
                 "file_key": file_key,
                 "file_name": file_name,
                 "file_uploaded_at": file_uploaded_at,
@@ -176,17 +170,17 @@ def generate_challenges(
     return generated
 
 
-def apply_challenge_pod_spec_paths(challenges: List[Dict[str, Any]], base_dir: str) -> None:
+def apply_challenge_vm_spec_paths(challenges: List[Dict[str, Any]], base_dir: str) -> None:
     from sql_common.yaml_utils import resolve_path
 
     for chal in challenges:
-        pod_spec_path = chal.get("stack_pod_spec_path")
-        if not pod_spec_path:
+        vm_spec_path = chal.get("vm_spec_path")
+        if not vm_spec_path:
             continue
-        resolved = resolve_path(pod_spec_path, base_dir)
+        resolved = resolve_path(vm_spec_path, base_dir)
         if not os.path.exists(resolved):
             raise SystemExit(
-                f"Error: challenge pod spec file not found: {pod_spec_path}"
+                f"Error: challenge sandbox spec file not found: {vm_spec_path}"
             )
         with open(resolved, "r", encoding="utf-8") as f:
-            chal["stack_pod_spec"] = f.read().rstrip("\n")
+            chal["vm_spec"] = f.read().rstrip("\n")

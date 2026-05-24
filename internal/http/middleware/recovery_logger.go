@@ -3,7 +3,6 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
-	"runtime/debug"
 
 	"smctf/internal/logging"
 
@@ -24,7 +23,6 @@ func RecoveryLogger(logger *logging.Logger) gin.HandlerFunc {
 						slog.Any("error", recovered),
 						slog.String("path", ctx.Request.URL.Path),
 						slog.String("method", ctx.Request.Method),
-						slog.String("stack", string(debug.Stack())),
 					)
 				}
 

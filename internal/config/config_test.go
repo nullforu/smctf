@@ -11,7 +11,6 @@ import (
 
 func TestLoadConfigDefaults(t *testing.T) {
 	os.Clearenv()
-	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
 	defer os.Clearenv()
 
 	cfg, err := Load()
@@ -59,12 +58,12 @@ func TestLoadConfigDefaults(t *testing.T) {
 		t.Errorf("expected S3.Region us-east-1, got %s", cfg.S3.Region)
 	}
 
-	if cfg.Stack.CreateWindow != time.Minute {
-		t.Errorf("expected Stack.CreateWindow 1m, got %v", cfg.Stack.CreateWindow)
+	if cfg.VM.CreateWindow != time.Minute {
+		t.Errorf("expected VM.CreateWindow 1m, got %v", cfg.VM.CreateWindow)
 	}
 
-	if cfg.Stack.CreateMax != 1 {
-		t.Errorf("expected Stack.CreateMax 1, got %d", cfg.Stack.CreateMax)
+	if cfg.VM.CreateMax != 1 {
+		t.Errorf("expected VM.CreateMax 1, got %d", cfg.VM.CreateMax)
 	}
 }
 
@@ -97,14 +96,13 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	os.Setenv("S3_ENDPOINT", "https://s3.example.com")
 	os.Setenv("S3_FORCE_PATH_STYLE", "true")
 	os.Setenv("S3_PRESIGN_TTL", "20m")
-	os.Setenv("STACKS_ENABLED", "true")
-	os.Setenv("STACKS_MAX_SCOPE", "team")
-	os.Setenv("STACKS_MAX_PER", "5")
-	os.Setenv("STACKS_PROVISIONER_BASE_URL", "http://localhost:18081")
-	os.Setenv("STACKS_PROVISIONER_API_KEY", "custom-key")
-	os.Setenv("STACKS_PROVISIONER_TIMEOUT", "9s")
-	os.Setenv("STACKS_CREATE_WINDOW", "2m")
-	os.Setenv("STACKS_CREATE_MAX", "2")
+	os.Setenv("VMS_ENABLED", "true")
+	os.Setenv("VMS_MAX_SCOPE", "team")
+	os.Setenv("VMS_MAX_PER", "5")
+	os.Setenv("VMS_ORCHESTRATOR_BASE_URL", "http://localhost:18081")
+	os.Setenv("VMS_ORCHESTRATOR_TIMEOUT", "9s")
+	os.Setenv("VMS_CREATE_WINDOW", "2m")
+	os.Setenv("VMS_CREATE_MAX", "2")
 
 	defer os.Clearenv()
 
@@ -186,17 +184,17 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	if cfg.Logging.MaxBodyBytes != 2048 {
 		t.Errorf("expected Logging.MaxBodyBytes 2048, got %d", cfg.Logging.MaxBodyBytes)
 	}
-	if cfg.Stack.CreateWindow != 2*time.Minute {
-		t.Errorf("expected Stack.CreateWindow 2m, got %v", cfg.Stack.CreateWindow)
+	if cfg.VM.CreateWindow != 2*time.Minute {
+		t.Errorf("expected VM.CreateWindow 2m, got %v", cfg.VM.CreateWindow)
 	}
-	if cfg.Stack.CreateMax != 2 {
-		t.Errorf("expected Stack.CreateMax 2, got %d", cfg.Stack.CreateMax)
+	if cfg.VM.CreateMax != 2 {
+		t.Errorf("expected VM.CreateMax 2, got %d", cfg.VM.CreateMax)
 	}
-	if cfg.Stack.MaxScope != "team" {
-		t.Errorf("expected Stack.MaxScope team, got %s", cfg.Stack.MaxScope)
+	if cfg.VM.MaxScope != "team" {
+		t.Errorf("expected VM.MaxScope team, got %s", cfg.VM.MaxScope)
 	}
-	if cfg.Stack.MaxPer != 5 {
-		t.Errorf("expected Stack.MaxPer 5, got %d", cfg.Stack.MaxPer)
+	if cfg.VM.MaxPer != 5 {
+		t.Errorf("expected VM.MaxPer 5, got %d", cfg.VM.MaxPer)
 	}
 }
 
@@ -217,7 +215,7 @@ func TestLoadConfigInvalidValues(t *testing.T) {
 		{"invalid s3 enabled", "S3_ENABLED", "not-a-bool"},
 		{"invalid s3 presign ttl", "S3_PRESIGN_TTL", "bad-duration"},
 		{"invalid s3 force path", "S3_FORCE_PATH_STYLE", "bad-bool"},
-		{"invalid stack max scope", "STACKS_MAX_SCOPE", "org"},
+		{"invalid vm max scope", "VMS_MAX_SCOPE", "org"},
 		{"invalid leaderboard cache ttl", "LEADERBOARD_CACHE_TTL", "bad-duration"},
 		{"invalid app config cache ttl", "APP_CONFIG_CACHE_TTL", "bad-duration"},
 	}
@@ -334,7 +332,6 @@ func TestValidateConfigInvalidS3(t *testing.T) {
 func TestLoadConfigProductionValidation(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("APP_ENV", "production")
-	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
 	defer os.Clearenv()
 
 	_, err := Load()
@@ -343,7 +340,6 @@ func TestLoadConfigProductionValidation(t *testing.T) {
 	}
 
 	os.Setenv("JWT_SECRET", "production-secret-123")
-	os.Setenv("STACKS_PROVISIONER_API_KEY", "test-key")
 
 	cfg, err := Load()
 	if err != nil {
@@ -588,7 +584,7 @@ func TestValidateConfigInvalidDBConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfigInvalidStackConfig(t *testing.T) {
+func TestValidateConfigInvalidVMConfig(t *testing.T) {
 	cfg := Config{
 		AppEnv:     "local",
 		HTTPAddr:   ":8080",
@@ -629,25 +625,24 @@ func TestValidateConfigInvalidStackConfig(t *testing.T) {
 			FilePrefix:   "app",
 			MaxBodyBytes: 1024,
 		},
-		Stack: StackConfig{
-			Enabled:            true,
-			MaxScope:           "user",
-			MaxPer:             0,
-			ProvisionerBaseURL: "",
-			ProvisionerAPIKey:  "",
-			ProvisionerTimeout: 0,
-			CreateWindow:       0,
-			CreateMax:          0,
+		VM: VMConfig{
+			Enabled:             true,
+			MaxScope:            "user",
+			MaxPer:              0,
+			OrchestratorBaseURL: "",
+			OrchestratorTimeout: 0,
+			CreateWindow:        0,
+			CreateMax:           0,
 		},
 	}
 
 	err := validateConfig(cfg)
 	if err == nil {
-		t.Fatal("expected stack validation error")
+		t.Fatal("expected vm validation error")
 	}
 
-	if !strings.Contains(err.Error(), "STACKS_MAX_PER") {
-		t.Fatalf("expected stack error, got %v", err)
+	if !strings.Contains(err.Error(), "VMS_MAX_PER") {
+		t.Fatalf("expected vm error, got %v", err)
 	}
 }
 
@@ -714,9 +709,7 @@ func TestRedact(t *testing.T) {
 			AccessKeyID:     "access-key",
 			SecretAccessKey: "secret-key",
 		},
-		Stack: StackConfig{
-			ProvisionerAPIKey: "stack-key",
-		},
+		VM: VMConfig{},
 		Bootstrap: BootstrapConfig{
 			AdminEmail:    "admin@example.com",
 			AdminPassword: "adminpass",
@@ -743,10 +736,6 @@ func TestRedact(t *testing.T) {
 
 	if redacted.S3.SecretAccessKey == cfg.S3.SecretAccessKey {
 		t.Fatalf("expected s3 secret key redacted")
-	}
-
-	if redacted.Stack.ProvisionerAPIKey == cfg.Stack.ProvisionerAPIKey {
-		t.Fatalf("expected stack api key redacted")
 	}
 
 	if redacted.Bootstrap.AdminEmail == cfg.Bootstrap.AdminEmail {
@@ -830,13 +819,12 @@ func TestFormatForLog(t *testing.T) {
 			ForcePathStyle:  true,
 			PresignTTL:      10 * time.Minute,
 		},
-		Stack: StackConfig{
-			Enabled:            true,
-			MaxScope:           "user",
-			MaxPer:             3,
-			ProvisionerBaseURL: "http://localhost:8081",
-			ProvisionerAPIKey:  "stack-key",
-			ProvisionerTimeout: 5 * time.Second,
+		VM: VMConfig{
+			Enabled:             true,
+			MaxScope:            "user",
+			MaxPer:              3,
+			OrchestratorBaseURL: "http://localhost:8081",
+			OrchestratorTimeout: 5 * time.Second,
 		},
 		Bootstrap: BootstrapConfig{
 			AdminTeamEnabled: true,
@@ -854,9 +842,7 @@ func TestFormatForLog(t *testing.T) {
 	db := out["db"].(map[string]any)
 	redis := out["redis"].(map[string]any)
 	jwt := out["jwt"].(map[string]any)
-	stack := out["stack"].(map[string]any)
-
-	if db["password"].(string) == "dbpass" || redis["password"].(string) == "redispass" || jwt["secret"].(string) == "jwtsecret" || stack["provisioner_api_key"].(string) == "stack-key" {
+	if db["password"].(string) == "dbpass" || redis["password"].(string) == "redispass" || jwt["secret"].(string) == "jwtsecret" {
 		t.Fatalf("expected secrets redacted")
 	}
 
