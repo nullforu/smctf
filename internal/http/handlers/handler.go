@@ -974,7 +974,7 @@ func (h *Handler) UpdateChallenge(ctx *gin.Context) {
 		previousChallengeID = req.PreviousChallengeID.Value
 	}
 
-	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, title, description, category, req.Points, req.MinimumPoints, flag, req.IsActive, req.VMEnabled, nil, vmSpec, previousChallengeID, previousChallengeSet)
+	challenge, err := h.ctf.UpdateChallenge(ctx.Request.Context(), challengeID, title, description, category, req.Points, req.MinimumPoints, flag, req.IsActive, req.VMEnabled, vmSpec, previousChallengeID, previousChallengeSet)
 	if err != nil {
 		writeError(ctx, err)
 		return

@@ -168,7 +168,7 @@ func (s *CTFService) CreateChallenge(ctx context.Context, title, description, ca
 	return challenge, nil
 }
 
-func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, vmEnabled *bool, legacyVMSpec *string, vmSpec *string, previousChallengeID *int64, previousChallengeSet bool) (*models.Challenge, error) {
+func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, description, category *string, points *int, minimumPoints *int, flag *string, active *bool, vmEnabled *bool, vmSpec *string, previousChallengeID *int64, previousChallengeSet bool) (*models.Challenge, error) {
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
 
@@ -209,9 +209,6 @@ func (s *CTFService) UpdateChallenge(ctx context.Context, id int64, title, descr
 	var normalizedVMSpec *string
 	if vmSpec != nil {
 		value := strings.TrimSpace(*vmSpec)
-		normalizedVMSpec = &value
-	} else if legacyVMSpec != nil {
-		value := strings.TrimSpace(*legacyVMSpec)
 		normalizedVMSpec = &value
 	}
 

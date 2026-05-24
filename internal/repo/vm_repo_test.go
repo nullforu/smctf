@@ -142,3 +142,84 @@ func TestVMRepoNotFound(t *testing.T) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
+
+func TestVMRepoTeamScopeQueries(t *testing.T) {
+	env := setupRepoTest(t)
+	vmRepo := NewVMRepo(env.db)
+
+	team := createTeam(t, env, "TeamScope")
+	user1 := createUserWithTeam(t, env, "team1@example.com", "team1", "pass", models.UserRole, team.ID)
+	user2 := createUserWithTeam(t, env, "team2@example.com", "team2", "pass", models.UserRole, team.ID)
+	other := createUserWithNewTeam(t, env, "other@example.com", "other", "pass", models.UserRole)
+
+	ch1 := createChallenge(t, env, "Team Challenge 1", 100, "flag{t1}", true)
+	ch2 := createChallenge(t, env, "Team Challenge 2", 100, "flag{t2}", true)
+	chOther := createChallenge(t, env, "Other Challenge", 100, "flag{o}", true)
+
+	now := time.Now().UTC()
+	createVMRow(t, vmRepo, user1.ID, ch1.ID, "vm-team-1", "Running", now.Add(-time.Minute))
+	createVMRow(t, vmRepo, user2.ID, ch2.ID, "vm-team-2", "Pending", now)
+	createVMRow(t, vmRepo, other.ID, chOther.ID, "vm-other-1", "Running", now.Add(-2*time.Minute))
+
+	list, err := vmRepo.ListByTeamUser(context.Background(), user1.ID)
+	if err != nil {
+		t.Fatalf("ListByTeamUser: %v", err)
+	}
+
+	if len(list) != 2 {
+		t.Fatalf("expected 2 team VMs, got %d", len(list))
+	}
+
+	if list[0].VMID != "vm-team-2" {
+		t.Fatalf("expected newest team VM first, got %+v", list)
+	}
+
+	count, err := vmRepo.CountByTeamUser(context.Background(), user1.ID)
+	if err != nil {
+		t.Fatalf("CountByTeamUser: %v", err)
+	}
+
+	if count != 2 {
+		t.Fatalf("expected count 2, got %d", count)
+	}
+
+	got, err := vmRepo.GetByTeamUserAndChallenge(context.Background(), user1.ID, ch2.ID)
+	if err != nil {
+		t.Fatalf("GetByTeamUserAndChallenge: %v", err)
+	}
+
+	if got.VMID != "vm-team-2" {
+		t.Fatalf("expected vm-team-2, got %+v", got)
+	}
+
+	if _, err := vmRepo.GetByTeamUserAndChallenge(context.Background(), user1.ID, chOther.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for other team VM, got %v", err)
+	}
+}
+
+func TestVMRepoListAll(t *testing.T) {
+	env := setupRepoTest(t)
+	vmRepo := NewVMRepo(env.db)
+
+	user := createUserWithNewTeam(t, env, "all1@example.com", "all1", "pass", models.UserRole)
+	user2 := createUserWithNewTeam(t, env, "all2@example.com", "all2", "pass", models.UserRole)
+	ch1 := createChallenge(t, env, "All 1", 100, "flag{a1}", true)
+	ch2 := createChallenge(t, env, "All 2", 100, "flag{a2}", true)
+
+	now := time.Now().UTC()
+	createVMRow(t, vmRepo, user.ID, ch1.ID, "vm-all-1", "Running", now.Add(-time.Minute))
+	createVMRow(t, vmRepo, user2.ID, ch2.ID, "vm-all-2", "Pending", now)
+
+	rows, err := vmRepo.ListAll(context.Background())
+	if err != nil {
+		t.Fatalf("ListAll: %v", err)
+	}
+
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+
+	if rows[0].VMID != "vm-all-2" {
+		t.Fatalf("expected newest row first, got %+v", rows)
+	}
+}

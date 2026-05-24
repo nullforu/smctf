@@ -93,3 +93,38 @@ func TestMockClientDeleteSandbox(t *testing.T) {
 		}
 	})
 }
+
+func TestNewOrchestratorMockLifecycle(t *testing.T) {
+	orch := NewOrchestratorMock()
+	client := orch.Client()
+
+	sandbox, err := client.CreateSandbox(context.Background(), "vm-mock-1", "spec")
+	if err != nil {
+		t.Fatalf("CreateSandbox: %v", err)
+	}
+
+	if sandbox.ID != "vm-mock-1" {
+		t.Fatalf("unexpected sandbox id: %+v", sandbox)
+	}
+
+	if sandbox.Status.Phase == "" {
+		t.Fatalf("expected phase to be set")
+	}
+
+	got, err := client.GetSandbox(context.Background(), "vm-mock-1")
+	if err != nil {
+		t.Fatalf("GetSandbox: %v", err)
+	}
+
+	if got.ID != "vm-mock-1" {
+		t.Fatalf("unexpected sandbox: %+v", got)
+	}
+
+	if err := client.DeleteSandbox(context.Background(), "vm-mock-1"); err != nil {
+		t.Fatalf("DeleteSandbox: %v", err)
+	}
+
+	if _, err := client.GetSandbox(context.Background(), "vm-mock-1"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound after delete, got %v", err)
+	}
+}
