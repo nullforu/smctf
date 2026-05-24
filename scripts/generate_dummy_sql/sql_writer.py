@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -22,7 +21,6 @@ def write_sql_file(
             bool,
             str,
             bool,
-            List[Dict[str, Any]],
             str,
             Optional[str],
             Optional[str],
@@ -40,9 +38,7 @@ def write_sql_file(
         f.write(f"-- BCRYPT_COST: {meta['bcrypt_cost']}\n")
         f.write(f"-- Default password for all users: {meta['default_password']}\n")
         if meta.get("include_admin", True):
-            f.write(
-                f"-- Admin credentials: {meta['admin_email']} / {meta['admin_password']}\n\n"
-            )
+            f.write(f"-- Admin credentials: {meta['admin_email']} / {meta['admin_password']}\n\n")
         else:
             f.write("-- Admin credentials: bootstrapped (see server config)\n\n")
 
@@ -52,35 +48,23 @@ def write_sql_file(
         f.write("-- Clear existing data\n")
         f.write("TRUNCATE TABLE submissions, registration_key_uses, registration_keys, challenges RESTART IDENTITY CASCADE;\n")
         if meta.get("bootstrap_mode", False):
-            f.write(
-                "-- TRUNCATE TABLE users, teams, divisions RESTART IDENTITY CASCADE;\n\n"
-            )
+            f.write("-- TRUNCATE TABLE users, teams, divisions RESTART IDENTITY CASCADE;\n\n")
         else:
             f.write("TRUNCATE TABLE users, teams, divisions RESTART IDENTITY CASCADE;\n\n")
 
         f.write("-- Insert divisions\n")
         for name, created_at in divisions:
             name_esc = escape_sql_string(name)
-            prefix = ""
-            if meta.get("bootstrap_mode", False) and name == "Admin":
-                prefix = "-- "
-            f.write(f"{prefix}INSERT INTO divisions (name, created_at) VALUES ")
-            f.write(
-                f"('{name_esc}', '{created_at}') ON CONFLICT (name) DO NOTHING;\n"
-            )
+            prefix = "-- " if meta.get("bootstrap_mode", False) and name == "Admin" else ""
+            f.write(f"{prefix}INSERT INTO divisions (name, created_at) VALUES ('{name_esc}', '{created_at}') ON CONFLICT (name) DO NOTHING;\n")
         f.write("\n")
 
         f.write("-- Insert teams\n")
         for idx, (name, division, created_at) in enumerate(teams, start=1):
             name_esc = escape_sql_string(name)
             division_esc = escape_sql_string(division)
-            prefix = ""
-            if meta.get("bootstrap_mode", False) and idx == 1:
-                prefix = "-- "
-            f.write(f"{prefix}INSERT INTO teams (name, division_id, created_at) VALUES ")
-            f.write(
-                f"('{name_esc}', (SELECT id FROM divisions WHERE name = '{division_esc}'), '{created_at}');\n"
-            )
+            prefix = "-- " if meta.get("bootstrap_mode", False) and idx == 1 else ""
+            f.write(f"{prefix}INSERT INTO teams (name, division_id, created_at) VALUES ('{name_esc}', (SELECT id FROM divisions WHERE name = '{division_esc}'), '{created_at}');\n")
         f.write("\n")
 
         f.write("-- Insert users\n")
@@ -89,49 +73,29 @@ def write_sql_file(
             username_esc = escape_sql_string(username)
             password_hash_esc = escape_sql_string(password_hash)
             role_esc = escape_sql_string(role)
-
-            prefix = ""
-            if meta.get("bootstrap_mode", False) and idx == 1:
-                prefix = "-- "
+            prefix = "-- " if meta.get("bootstrap_mode", False) and idx == 1 else ""
             f.write(
                 f"{prefix}INSERT INTO users (email, username, password_hash, role, team_id, created_at, updated_at) VALUES "
-            )
-            f.write(
                 f"('{email_esc}', '{username_esc}', '{password_hash_esc}', '{role_esc}', {team_id}, '{created_at}', '{created_at}');\n"
             )
-
         f.write("\n")
 
         f.write("-- Insert registration keys\n")
-        for (
-            key_id,
-            code,
-            created_by,
-            team_id,
-            max_uses,
-            used_count,
-            created_at,
-        ) in registration_keys:
+        for key_id, code, created_by, team_id, max_uses, used_count, created_at in registration_keys:
             code_esc = escape_sql_string(code)
-
             f.write(
                 "INSERT INTO registration_keys (id, code, created_by, team_id, max_uses, used_count, created_at) VALUES "
-            )
-            f.write(
                 f"({key_id}, '{code_esc}', {created_by}, {team_id}, {max_uses}, {used_count}, '{created_at}');\n"
             )
-
         f.write("\n")
+
         f.write("-- Insert registration key uses\n")
         for key_id, used_by, used_by_ip, used_at in registration_key_uses:
             used_by_ip_value = f"'{escape_sql_string(used_by_ip)}'"
             f.write(
                 "INSERT INTO registration_key_uses (registration_key_id, used_by, used_by_ip, used_at) VALUES "
-            )
-            f.write(
                 f"({key_id}, {used_by}, {used_by_ip_value}, '{used_at}');\n"
             )
-
         f.write("\n")
 
         f.write("-- Insert challenges\n")
@@ -145,9 +109,8 @@ def write_sql_file(
             previous_challenge_id,
             is_active,
             created_at,
-            stack_enabled,
-            stack_target_ports,
-            stack_pod_spec,
+            vm_enabled,
+            vm_spec,
             file_key,
             file_name,
             file_uploaded_at,
@@ -156,42 +119,22 @@ def write_sql_file(
             description_esc = escape_sql_string(description)
             category_esc = escape_sql_string(category)
             flag_hash_esc = escape_sql_string(flag_hash)
-            stack_pod_spec_esc = escape_sql_string(stack_pod_spec)
-            stack_pod_spec_value = "NULL" if stack_pod_spec_esc == "" else f"'{stack_pod_spec_esc}'"
-            file_key_value = "NULL"
-            file_name_value = "NULL"
-            file_uploaded_at_value = "NULL"
-            if file_key:
-                file_key_value = f"'{escape_sql_string(str(file_key))}'"
-            if file_name:
-                file_name_value = f"'{escape_sql_string(str(file_name))}'"
-            if file_uploaded_at:
-                file_uploaded_at_value = f"'{escape_sql_string(str(file_uploaded_at))}'"
-
-            previous_value = "NULL"
-            if previous_challenge_id:
-                previous_value = str(int(previous_challenge_id))
-
-            stack_target_ports_value = "NULL"
-            if stack_target_ports:
-                ports_json = json.dumps(stack_target_ports, ensure_ascii=False)
-                stack_target_ports_value = f"'{escape_sql_string(ports_json)}'"
+            vm_spec_value = "NULL" if not vm_spec else f"'{escape_sql_string(vm_spec)}'"
+            previous_value = "NULL" if not previous_challenge_id else str(int(previous_challenge_id))
+            file_key_value = "NULL" if not file_key else f"'{escape_sql_string(str(file_key))}'"
+            file_name_value = "NULL" if not file_name else f"'{escape_sql_string(str(file_name))}'"
+            file_uploaded_at_value = "NULL" if not file_uploaded_at else f"'{escape_sql_string(str(file_uploaded_at))}'"
 
             f.write(
-                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, previous_challenge_id, is_active, created_at, stack_enabled, stack_target_ports, stack_pod_spec, file_key, file_name, file_uploaded_at) VALUES "
+                "INSERT INTO challenges (title, description, category, points, minimum_points, flag_hash, previous_challenge_id, is_active, created_at, vm_enabled, vm_spec, file_key, file_name, file_uploaded_at) VALUES "
+                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {previous_value}, {is_active}, '{created_at}', {vm_enabled}, {vm_spec_value}, {file_key_value}, {file_name_value}, {file_uploaded_at_value});\n"
             )
-            f.write(
-                f"('{title_esc}', '{description_esc}', '{category_esc}', {points}, {minimum_points}, '{flag_hash_esc}', {previous_value}, {is_active}, '{created_at}', {stack_enabled}, {stack_target_ports_value}, {stack_pod_spec_value}, {file_key_value}, {file_name_value}, {file_uploaded_at_value});\n"
-            )
-
         f.write("\n")
 
         f.write("-- Insert submissions\n")
         for user_id, challenge_id, correct, submitted_at, is_first_blood in submissions:
             f.write(
                 "INSERT INTO submissions (user_id, challenge_id, correct, is_first_blood, submitted_at) VALUES "
-            )
-            f.write(
                 f"({user_id}, {challenge_id}, {correct}, {is_first_blood}, '{submitted_at}');\n"
             )
 
@@ -200,15 +143,7 @@ def write_sql_file(
         f.write("SELECT setval('divisions_id_seq', (SELECT MAX(id) FROM divisions));\n")
         f.write("SELECT setval('teams_id_seq', (SELECT MAX(id) FROM teams));\n")
         f.write("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));\n")
-        f.write(
-            "SELECT setval('challenges_id_seq', (SELECT MAX(id) FROM challenges));\n"
-        )
-        f.write(
-            "SELECT setval('registration_keys_id_seq', (SELECT MAX(id) FROM registration_keys));\n"
-        )
-        f.write(
-            "SELECT setval('registration_key_uses_id_seq', (SELECT MAX(id) FROM registration_key_uses));\n"
-        )
-        f.write(
-            "SELECT setval('submissions_id_seq', (SELECT MAX(id) FROM submissions));\n"
-        )
+        f.write("SELECT setval('challenges_id_seq', (SELECT MAX(id) FROM challenges));\n")
+        f.write("SELECT setval('registration_keys_id_seq', (SELECT MAX(id) FROM registration_keys));\n")
+        f.write("SELECT setval('registration_key_uses_id_seq', (SELECT MAX(id) FROM registration_key_uses));\n")
+        f.write("SELECT setval('submissions_id_seq', (SELECT MAX(id) FROM submissions));\n")

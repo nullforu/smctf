@@ -71,12 +71,12 @@ func TestMapErrorSentinels(t *testing.T) {
 		{service.ErrStorageUnavailable, http.StatusServiceUnavailable, service.ErrStorageUnavailable.Error(), 0},
 		{service.ErrAlreadySolved, http.StatusConflict, service.ErrAlreadySolved.Error(), 0},
 		{service.ErrRateLimited, http.StatusTooManyRequests, service.ErrRateLimited.Error(), 0},
-		{service.ErrStackDisabled, http.StatusServiceUnavailable, service.ErrStackDisabled.Error(), 0},
-		{service.ErrStackNotEnabled, http.StatusBadRequest, service.ErrStackNotEnabled.Error(), 0},
-		{service.ErrStackLimitReached, http.StatusConflict, service.ErrStackLimitReached.Error(), 0},
-		{service.ErrStackNotFound, http.StatusNotFound, service.ErrStackNotFound.Error(), 0},
-		{service.ErrStackProvisionerDown, http.StatusServiceUnavailable, service.ErrStackProvisionerDown.Error(), 0},
-		{service.ErrStackInvalidSpec, http.StatusBadRequest, service.ErrStackInvalidSpec.Error(), 0},
+		{service.ErrVMDisabled, http.StatusServiceUnavailable, service.ErrVMDisabled.Error(), 0},
+		{service.ErrVMNotEnabled, http.StatusBadRequest, service.ErrVMNotEnabled.Error(), 0},
+		{service.ErrVMLimitReached, http.StatusConflict, service.ErrVMLimitReached.Error(), 0},
+		{service.ErrVMNotFound, http.StatusNotFound, service.ErrVMNotFound.Error(), 0},
+		{service.ErrVMOrchestratorDown, http.StatusServiceUnavailable, service.ErrVMOrchestratorDown.Error(), 0},
+		{service.ErrVMInvalidSpec, http.StatusBadRequest, service.ErrVMInvalidSpec.Error(), 0},
 		{service.ErrNotFound, http.StatusNotFound, "not found", 0},
 	}
 

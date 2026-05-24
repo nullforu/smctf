@@ -2,7 +2,7 @@ from pathlib import Path
 
 exclude = {
     'internal/storage/s3.go',
-    'internal/stack/client.go',
+    'internal/vm/client.go',
     'internal/http/handlers/types.go',
 }
 covered = 0

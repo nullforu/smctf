@@ -28,7 +28,7 @@ type Config struct {
 	CORS      CORSConfig
 	Logging   LoggingConfig
 	S3        S3Config
-	Stack     StackConfig
+	VM        VMConfig
 	Bootstrap BootstrapConfig
 }
 
@@ -90,15 +90,12 @@ type S3Config struct {
 	PresignTTL      time.Duration
 }
 
-type StackConfig struct {
+type VMConfig struct {
 	Enabled             bool
 	MaxScope            string
 	MaxPer              int
-	ProvisionerBaseURL  string
-	ProvisionerGRPCAddr string
-	ProvisionerUseGRPC  bool
-	ProvisionerAPIKey   string
-	ProvisionerTimeout  time.Duration
+	OrchestratorBaseURL string
+	OrchestratorTimeout time.Duration
 	CreateWindow        time.Duration
 	CreateMax           int
 }
@@ -226,36 +223,29 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 
-	stackEnabled, err := getEnvBool("STACKS_ENABLED", true)
+	vmEnabled, err := getEnvBool("VMS_ENABLED", true)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	stackMaxScope := strings.ToLower(strings.TrimSpace(getEnv("STACKS_MAX_SCOPE", "team")))
+	vmMaxScope := strings.ToLower(strings.TrimSpace(getEnv("VMS_MAX_SCOPE", "team")))
 
-	stackMaxPer, err := getEnvInt("STACKS_MAX_PER", 3)
+	vmMaxPer, err := getEnvInt("VMS_MAX_PER", 3)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	stackTimeout, err := getDuration("STACKS_PROVISIONER_TIMEOUT", 5*time.Second)
+	vmTimeout, err := getDuration("VMS_ORCHESTRATOR_TIMEOUT", 5*time.Second)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	stackUseGRPC, err := getEnvBool("STACKS_PROVISIONER_USE_GRPC", false)
+	vmCreateWindow, err := getDuration("VMS_CREATE_WINDOW", time.Minute)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	stackGRPCAddr := getEnv("STACKS_PROVISIONER_GRPC_ADDR", "localhost:9090")
-
-	stackCreateWindow, err := getDuration("STACKS_CREATE_WINDOW", time.Minute)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	stackCreateMax, err := getEnvInt("STACKS_CREATE_MAX", 1)
+	vmCreateMax, err := getEnvInt("VMS_CREATE_MAX", 1)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -327,17 +317,14 @@ func Load() (Config, error) {
 			ForcePathStyle:  s3ForcePathStyle,
 			PresignTTL:      s3PresignTTL,
 		},
-		Stack: StackConfig{
-			Enabled:             stackEnabled,
-			MaxScope:            stackMaxScope,
-			MaxPer:              stackMaxPer,
-			ProvisionerBaseURL:  getEnv("STACKS_PROVISIONER_BASE_URL", "http://localhost:8081"),
-			ProvisionerGRPCAddr: stackGRPCAddr,
-			ProvisionerUseGRPC:  stackUseGRPC,
-			ProvisionerAPIKey:   getEnv("STACKS_PROVISIONER_API_KEY", ""),
-			ProvisionerTimeout:  stackTimeout,
-			CreateWindow:        stackCreateWindow,
-			CreateMax:           stackCreateMax,
+		VM: VMConfig{
+			Enabled:             vmEnabled,
+			MaxScope:            vmMaxScope,
+			MaxPer:              vmMaxPer,
+			OrchestratorBaseURL: getEnv("VMS_ORCHESTRATOR_BASE_URL", "http://localhost:8081"),
+			OrchestratorTimeout: vmTimeout,
+			CreateWindow:        vmCreateWindow,
+			CreateMax:           vmCreateMax,
 		},
 		Bootstrap: BootstrapConfig{
 			AdminTeamEnabled: bootstrapAdminTeamEnabled,
@@ -492,31 +479,24 @@ func validateConfig(cfg Config) error {
 		}
 	}
 
-	if cfg.Stack.Enabled {
-		if cfg.Stack.MaxPer <= 0 {
-			errs = append(errs, errors.New("STACKS_MAX_PER must be positive"))
+	if cfg.VM.Enabled {
+		if cfg.VM.MaxPer <= 0 {
+			errs = append(errs, errors.New("VMS_MAX_PER must be positive"))
 		}
-		if cfg.Stack.MaxScope != "user" && cfg.Stack.MaxScope != "team" {
-			errs = append(errs, errors.New("STACKS_MAX_SCOPE must be user or team"))
+		if cfg.VM.MaxScope != "user" && cfg.VM.MaxScope != "team" {
+			errs = append(errs, errors.New("VMS_MAX_SCOPE must be user or team"))
 		}
-		if cfg.Stack.ProvisionerUseGRPC {
-			if cfg.Stack.ProvisionerGRPCAddr == "" {
-				errs = append(errs, errors.New("STACKS_PROVISIONER_GRPC_ADDR must not be empty when STACKS_PROVISIONER_USE_GRPC=true"))
-			}
-		} else if cfg.Stack.ProvisionerBaseURL == "" {
-			errs = append(errs, errors.New("STACKS_PROVISIONER_BASE_URL must not be empty when STACKS_PROVISIONER_USE_GRPC=false"))
+		if cfg.VM.OrchestratorBaseURL == "" {
+			errs = append(errs, errors.New("VMS_ORCHESTRATOR_BASE_URL must not be empty"))
 		}
-		if cfg.Stack.ProvisionerTimeout <= 0 {
-			errs = append(errs, errors.New("STACKS_PROVISIONER_TIMEOUT must be positive"))
+		if cfg.VM.OrchestratorTimeout <= 0 {
+			errs = append(errs, errors.New("VMS_ORCHESTRATOR_TIMEOUT must be positive"))
 		}
-		if cfg.Stack.ProvisionerAPIKey == "" {
-			errs = append(errs, errors.New("STACKS_PROVISIONER_API_KEY must not be empty"))
+		if cfg.VM.CreateWindow <= 0 {
+			errs = append(errs, errors.New("VMS_CREATE_WINDOW must be positive"))
 		}
-		if cfg.Stack.CreateWindow <= 0 {
-			errs = append(errs, errors.New("STACKS_CREATE_WINDOW must be positive"))
-		}
-		if cfg.Stack.CreateMax <= 0 {
-			errs = append(errs, errors.New("STACKS_CREATE_MAX must be positive"))
+		if cfg.VM.CreateMax <= 0 {
+			errs = append(errs, errors.New("VMS_CREATE_MAX must be positive"))
 		}
 	}
 
@@ -533,7 +513,6 @@ func Redact(cfg Config) Config {
 	cfg.JWT.Secret = redact(cfg.JWT.Secret)
 	cfg.S3.AccessKeyID = redact(cfg.S3.AccessKeyID)
 	cfg.S3.SecretAccessKey = redact(cfg.S3.SecretAccessKey)
-	cfg.Stack.ProvisionerAPIKey = redact(cfg.Stack.ProvisionerAPIKey)
 	cfg.Bootstrap.AdminEmail = redact(cfg.Bootstrap.AdminEmail)
 	cfg.Bootstrap.AdminPassword = redact(cfg.Bootstrap.AdminPassword)
 
@@ -630,17 +609,14 @@ func FormatForLog(cfg Config) map[string]any {
 			"force_path_style":  cfg.S3.ForcePathStyle,
 			"presign_ttl":       seconds(cfg.S3.PresignTTL),
 		},
-		"stack": map[string]any{
-			"enabled":               cfg.Stack.Enabled,
-			"max_scope":             cfg.Stack.MaxScope,
-			"max_per":               cfg.Stack.MaxPer,
-			"provisioner_base_url":  cfg.Stack.ProvisionerBaseURL,
-			"provisioner_grpc_addr": cfg.Stack.ProvisionerGRPCAddr,
-			"provisioner_use_grpc":  cfg.Stack.ProvisionerUseGRPC,
-			"provisioner_api_key":   cfg.Stack.ProvisionerAPIKey,
-			"provisioner_timeout":   seconds(cfg.Stack.ProvisionerTimeout),
-			"create_window":         seconds(cfg.Stack.CreateWindow),
-			"create_max":            cfg.Stack.CreateMax,
+		"vm": map[string]any{
+			"enabled":               cfg.VM.Enabled,
+			"max_scope":             cfg.VM.MaxScope,
+			"max_per":               cfg.VM.MaxPer,
+			"orchestrator_base_url": cfg.VM.OrchestratorBaseURL,
+			"orchestrator_timeout":  seconds(cfg.VM.OrchestratorTimeout),
+			"create_window":         seconds(cfg.VM.CreateWindow),
+			"create_max":            cfg.VM.CreateMax,
 		},
 		"bootstrap": map[string]any{
 			"admin_team_enabled": cfg.Bootstrap.AdminTeamEnabled,

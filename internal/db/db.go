@@ -42,7 +42,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 		(*models.Team)(nil),
 		(*models.User)(nil),
 		(*models.Challenge)(nil),
-		(*models.Stack)(nil),
+		(*models.VM)(nil),
 		(*models.Submission)(nil),
 		(*models.RegistrationKey)(nil),
 		(*models.RegistrationKeyUse)(nil),
@@ -103,16 +103,16 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 			query: "CREATE INDEX IF NOT EXISTS idx_registration_key_uses_key_id ON registration_key_uses (registration_key_id)",
 		},
 		{
-			name:  "idx_stacks_user_id",
-			query: "CREATE INDEX IF NOT EXISTS idx_stacks_user_id ON stacks (user_id)",
+			name:  "idx_vms_user_id",
+			query: "CREATE INDEX IF NOT EXISTS idx_vms_user_id ON vms (user_id)",
 		},
 		{
-			name:  "idx_stacks_user_challenge",
-			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_stacks_user_challenge ON stacks (user_id, challenge_id)",
+			name:  "idx_vms_user_challenge",
+			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_vms_user_challenge ON vms (user_id, challenge_id)",
 		},
 		{
-			name:  "idx_stacks_stack_id",
-			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_stacks_stack_id ON stacks (stack_id)",
+			name:  "idx_vms_vm_id",
+			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_vms_vm_id ON vms (vm_id)",
 		},
 	}
 

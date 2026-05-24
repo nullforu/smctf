@@ -1,7 +1,7 @@
 apiVersion: v1
-kind: Pod
+kind: Sandbox
 metadata:
-  name: xss-filtering-bypass-pod
+  name: xss-filtering-bypass-sandbox
 spec:
   containers:
     - name: xss-filtering-bypass-container

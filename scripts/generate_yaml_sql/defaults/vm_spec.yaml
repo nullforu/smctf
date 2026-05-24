@@ -1,7 +1,7 @@
 apiVersion: v1
-kind: Pod
+kind: Sandbox
 metadata:
-  name: challenge-pod
+  name: challenge-sandbox
 spec:
   containers:
     - name: challenge

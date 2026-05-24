@@ -94,9 +94,8 @@ Response 200
             "file_key": null,
             "file_name": null,
             "file_uploaded_at": null,
-            "stack_enabled": false,
-            "stack_target_ports": [],
-            "stack_pod_spec": null,
+            "vm_enabled": false,
+            "vm_spec": null,
             "created_at": "2026-02-17T12:00:00Z"
         }
     ],
@@ -134,7 +133,7 @@ Response 200
             "updated_at": "2026-02-17T10:00:00Z"
         }
     ],
-    "stacks": [],
+    "vms": [],
     "registration_keys": [],
     "submissions": [],
     "app_config": [],
@@ -476,19 +475,13 @@ Request
     "flag": "flag{...}",
     "previous_challenge_id": 1,
     "is_active": true,
-    "stack_enabled": false,
-    "stack_target_ports": [
-        {
-            "container_port": 80,
-            "protocol": "TCP"
-        }
-    ],
-    "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
+    "vm_enabled": false,
+    "vm_spec": "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
 
 If `minimum_points` is omitted, it defaults to the same value as `points`.
-If `stack_enabled` is true, both `stack_target_ports` and `stack_pod_spec` are required.
+If `vm_enabled` is true, `vm_spec` is required.
 
 Categories
 
@@ -511,7 +504,8 @@ Response 201
     "solve_count": 0,
     "previous_challenge_id": 1,
     "is_active": true,
-    "has_file": false
+    "has_file": false,
+    "vm_enabled": false
 }
 ```
 
@@ -544,22 +538,21 @@ To keep existing values, omit the field entirely.
 
 Field behavior:
 
-| Field                   | Type   | Omit          | null         | Empty/Whitespace String | Other                                                                      |
-| ----------------------- | ------ | ------------- | ------------ | ----------------------- | -------------------------------------------------------------------------- |
-| `title`                 | string | Keep existing | Error        | Allowed                 | Allowed                                                                    |
-| `description`           | string | Keep existing | Error        | Allowed                 | Allowed                                                                    |
-| `category`              | string | Keep existing | Error        | Error                   | Must be a valid category                                                   |
-| `points`                | int    | Keep existing | Error        | Error                   | Must be >= 0                                                               |
-| `minimum_points`        | int    | Keep existing | Error        | Error                   | Must be >= 0 and <= `points`                                               |
-| `flag`                  | string | Keep existing | Error        | Error                   | Updates flag                                                               |
-| `previous_challenge_id` | int    | Keep existing | Clears value | Error                   | Must be a valid challenge id (not self)                                    |
-| `is_active`             | bool   | Keep existing | Error        | Error                   | Sets value                                                                 |
-| `stack_enabled`         | bool   | Keep existing | Error        | Error                   | If `false`, clears `stack_target_ports` + `stack_pod_spec`                 |
-| `stack_target_ports`    | array  | Keep existing | Error        | Error                   | Requires `stack_enabled` true; container port 1-65535 and protocol TCP/UDP |
-| `stack_pod_spec`        | string | Keep existing | Error        | Error                   | Requires `stack_enabled` true and non-empty value                          |
+| Field                   | Type   | Omit          | null         | Empty/Whitespace String | Other                                          |
+| ----------------------- | ------ | ------------- | ------------ | ----------------------- | ---------------------------------------------- |
+| `title`                 | string | Keep existing | Error        | Allowed                 | Allowed                                        |
+| `description`           | string | Keep existing | Error        | Allowed                 | Allowed                                        |
+| `category`              | string | Keep existing | Error        | Error                   | Must be a valid category                       |
+| `points`                | int    | Keep existing | Error        | Error                   | Must be >= 0                                   |
+| `minimum_points`        | int    | Keep existing | Error        | Error                   | Must be >= 0 and <= `points`                   |
+| `flag`                  | string | Keep existing | Error        | Error                   | Updates flag                                   |
+| `previous_challenge_id` | int    | Keep existing | Clears value | Error                   | Must be a valid challenge id (not self)        |
+| `is_active`             | bool   | Keep existing | Error        | Error                   | Sets value                                     |
+| `vm_enabled`            | bool   | Keep existing | Error        | Error                   | If `false`, clears `vm_spec`                   |
+| `vm_spec`               | string | Keep existing | Error        | Error                   | Requires `vm_enabled` true and non-empty value |
 
-If `stack_enabled` is true after updates, `stack_target_ports` and `stack_pod_spec` are required (non-empty).
-To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_ports` / `stack_pod_spec`).
+If `vm_enabled` is true after updates, `vm_spec` is required (non-empty).
+To clear vm fields, set `vm_enabled` to `false` (and omit `vm_spec`).
 
 ```json
 {
@@ -569,14 +562,8 @@ To clear stack fields, set `stack_enabled` to `false` (and omit `stack_target_po
     "flag": "flag{rotated}",
     "previous_challenge_id": 1,
     "is_active": false,
-    "stack_enabled": true,
-    "stack_target_ports": [
-        {
-            "container_port": 80,
-            "protocol": "TCP"
-        }
-    ],
-    "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
+    "vm_enabled": true,
+    "vm_spec": "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
 
@@ -596,13 +583,7 @@ Response 200
     "is_active": false,
     "has_file": true,
     "file_name": "challenge.zip",
-    "stack_enabled": true,
-    "stack_target_ports": [
-        {
-            "container_port": 80,
-            "protocol": "TCP"
-        }
-    ]
+    "vm_enabled": true
 }
 ```
 
@@ -649,20 +630,14 @@ Response 200
     "is_active": false,
     "has_file": true,
     "file_name": "challenge.zip",
-    "stack_enabled": true,
-    "stack_target_ports": [
-        {
-            "container_port": 80,
-            "protocol": "TCP"
-        }
-    ],
-    "stack_pod_spec": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
+    "vm_enabled": true,
+    "vm_spec": "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx:stable\n      ports:\n        - containerPort: 80"
 }
 ```
 
 Notes:
 
-- `stack_pod_spec` is only returned via this admin-only endpoint.
+- `vm_spec` is only returned via this admin-only endpoint.
 
 Errors:
 
@@ -698,7 +673,7 @@ Errors:
 
 ---
 
-## Stack Management (Admin)
+## VM Management (Admin)
 
 Headers
 
@@ -706,17 +681,17 @@ Headers
 Cookie: access_token=<jwt>
 ```
 
-### List All Stacks
+### List All VMs
 
-`GET /api/admin/stacks`
+`GET /api/admin/vms`
 
 Response 200
 
 ```json
 {
-    "stacks": [
+    "vms": [
         {
-            "stack_id": "stack-716b6384dd477b0b",
+            "vm_id": "vm-716b6384dd477b0b",
             "ttl_expires_at": "2026-02-10T04:02:26.535664Z",
             "created_at": "2026-02-10T02:02:26.535664Z",
             "updated_at": "2026-02-10T02:06:33.16031Z",
@@ -737,30 +712,35 @@ Errors:
 
 - 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
-- 503 `stack feature disabled` or `stack provisioner unavailable`
+- 503 `vm feature disabled` or `vm orchestrator unavailable`
 
-### Get Stack Detail
+### Get VM Detail
 
-`GET /api/admin/stacks/{stack_id}`
+`GET /api/admin/vms/{vm_id}`
 
 Response 200
 
 ```json
 {
-    "stack_id": "stack-716b6384dd477b0b",
+    "vm_id": "vm-716b6384dd477b0b",
     "challenge_id": 5,
-    "status": "running",
-    "node_public_ip": "12.34.56.78",
+    "status": "Running",
+    "node_name": "sandboxd-node-1",
+    "external_ip": "12.34.56.78",
     "ports": [
         {
+            "host_port": 31538,
             "container_port": 80,
-            "protocol": "TCP",
-            "node_port": 31538
+            "protocol": "tcp"
         }
     ],
     "ttl_expires_at": "2026-02-10T04:02:26.535664Z",
+    "last_error": null,
     "created_at": "2026-02-10T02:02:26.535664Z",
-    "updated_at": "2026-02-10T02:06:33.16031Z"
+    "updated_at": "2026-02-10T02:06:33.16031Z",
+    "created_by_user_id": 12,
+    "created_by_username": "alice",
+    "challenge_title": "Web 1"
 }
 ```
 
@@ -768,19 +748,19 @@ Errors:
 
 - 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
-- 404 `stack not found`
-- 503 `stack feature disabled` or `stack provisioner unavailable`
+- 404 `vm not found`
+- 503 `vm feature disabled` or `vm orchestrator unavailable`
 
-### Delete Stack
+### Delete VM
 
-`DELETE /api/admin/stacks/{stack_id}`
+`DELETE /api/admin/vms/{vm_id}`
 
 Response 200
 
 ```json
 {
     "deleted": true,
-    "stack_id": "stack-716b6384dd477b0b"
+    "vm_id": "vm-716b6384dd477b0b"
 }
 ```
 
@@ -788,8 +768,8 @@ Errors:
 
 - 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
-- 404 `stack not found`
-- 503 `stack feature disabled` or `stack provisioner unavailable`
+- 404 `vm not found`
+- 503 `vm feature disabled` or `vm orchestrator unavailable`
 
 ---
 

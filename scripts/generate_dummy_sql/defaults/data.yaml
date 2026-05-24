@@ -85,11 +85,11 @@ challenges:
     points: 50
     flag: "flag{n3xtjs_cve_2O2S_2gg27_m1dd13w4r3}"
     category: "Web"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -108,11 +108,11 @@ challenges:
     points: 100
     flag: "flag{f8e88a73-000f-41fe-ba8f-9f8636f2d21c}"
     category: "Web"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
   - title: "Strong Bcrypt"
     description: |
       이 웹 서비스를 개발한 개발팀에서 어떠한 방법으로 인증(Authentication) 없이 바이패스되는 취약점이 존재한다는 제보를 받았습니다.
@@ -121,11 +121,11 @@ challenges:
     points: 100
     flag: "flag{5c8f6e2d-3b4a-4f7e-9f1d-2e5b6c7d8e9f}"
     category: "Web"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -138,11 +138,11 @@ challenges:
     flag: "flag{8b1a9a93-2b11-4a3c-9f8a-6f3f1a1f2b9d}"
     category: "Web"
     previous_challenge_id: 4
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -170,11 +170,11 @@ challenges:
     points: 150
     flag: "SMCH{c5u5t0m_pr0t0c0l_4n4lyz3d}"
     category: "Network"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -213,11 +213,11 @@ challenges:
     points: 200
     flag: "flag{p4ssw0rd_m4n4g3r_bre4k1n}"
     category: "Reversing"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -231,11 +231,11 @@ challenges:
     points: 250
     flag: "flag{vm_1ns1de_vm_exploit3d}"
     category: "Pwnable"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -253,11 +253,11 @@ challenges:
     points: 300
     flag: "flag{s3lf_m0d1fy1ng_n1ghtmar3}"
     category: "Reversing"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -276,11 +276,11 @@ challenges:
     points: 200
     flag: "ketchup{p0s_syst3m_expl01t3d}"
     category: "Reversing"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -289,11 +289,11 @@ challenges:
     points: 50
     flag: "flag{ret2win_successful}"
     category: "Pwnable"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -305,11 +305,11 @@ challenges:
     points: 200
     flag: "flag{h0use_0f_0rang3_expl01t3d}"
     category: "Pwnable"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -321,11 +321,11 @@ challenges:
     points: 300
     flag: "flag{seccomp_jail_byp4ss3d}"
     category: "Pwnable"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -337,11 +337,11 @@ challenges:
     points: 300
     flag: "flag{f1nal_r0p_ch4ll3ng3_m4st3r3d}"
     category: "Pwnable"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 80
         protocol: TCP
-    stack_pod_spec_path: "./stack_pod_spec.yaml"
+    vm_spec_path: "./vm_spec.yaml"
     file_name: "challenge.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -427,11 +427,11 @@ challenges:
   #   points: 50
   #   flag: "flag{w3lc0me_to_smctf_2024}"
   #   category: "Misc"
-  #   stack_enabled: true
-  #   stack_target_ports:
+  #   vm_enabled: true
+  #   vm_spec:
   #     - container_port: 80
   #       protocol: TCP
-  #   stack_pod_spec_path: "./stack_pod_spec.yaml"
+  #   vm_spec_path: "./vm_spec.yaml"
   #   file_name: "challenge.zip"
   #   file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
   #   file_uploaded_at: "2026-02-13 12:00:00"
@@ -575,11 +575,11 @@ challenges:
   #   points: 500
   #   flag: "flag{final_boss_defeated_2024}"
   #   category: "Misc"
-  #   stack_enabled: true
-  #   stack_target_ports:
+  #   vm_enabled: true
+  #   vm_spec:
   #     - container_port: 80
   #       protocol: TCP
-  #   stack_pod_spec_path: "./stack_pod_spec.yaml"
+  #   vm_spec_path: "./vm_spec.yaml"
   #   file_name: "challenge.zip"
   #   file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
   #   file_uploaded_at: "2026-02-13 12:00:00"

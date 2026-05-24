@@ -1,7 +1,7 @@
 apiVersion: v1
-kind: Pod
+kind: Sandbox
 metadata:
-  name: simple-note-manager-pod
+  name: simple-note-manager-sandbox
 spec:
   containers:
     - name: simple-note-manager-container

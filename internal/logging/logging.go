@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -135,7 +134,6 @@ func PanicLogger(logger *Logger, ctx context.Context, recovered any) {
 	err := fmt.Errorf("panic: %v", recovered)
 	log.Error("panic recovered",
 		slog.Any("error", err),
-		slog.String("stack", string(debug.Stack())),
 	)
 }
 

@@ -96,17 +96,17 @@ def load_text_file(path: str) -> str:
         return f.read().rstrip("\n")
 
 
-def apply_challenge_pod_spec_paths(challenges: List[dict], base_dir: str) -> None:
+def apply_challenge_vm_spec_paths(challenges: List[dict], base_dir: str) -> None:
     for chal in challenges:
-        pod_spec_path = chal.get("stack_pod_spec_path")
-        if not pod_spec_path:
+        vm_spec_path = chal.get("vm_spec_path")
+        if not vm_spec_path:
             continue
-        resolved = resolve_path(pod_spec_path, base_dir)
+        resolved = resolve_path(vm_spec_path, base_dir)
         if not os.path.exists(resolved):
             raise SystemExit(
-                f"Error: challenge pod spec file not found: {pod_spec_path}"
+                f"Error: challenge sandbox spec file not found: {vm_spec_path}"
             )
-        chal["stack_pod_spec"] = load_text_file(resolved)
+        chal["vm_spec"] = load_text_file(resolved)
 
 
 def normalize_divisions(raw_divisions: object, team_specs: List[dict]) -> List[str]:
@@ -182,7 +182,7 @@ def main(argv: List[str]) -> int:
 
     settings = load_settings(DEFAULT_SETTINGS_PATH, template_paths, settings_path)
     data = load_data(data_path)
-    apply_challenge_pod_spec_paths(
+    apply_challenge_vm_spec_paths(
         data.get("challenges", []), os.path.dirname(data_path)
     )
 
@@ -199,21 +199,21 @@ def main(argv: List[str]) -> int:
     security = settings["security"]
     auth = settings["auth"]
     admin_team_name = "Admin"
-    stack_config = settings.get("stack", {})
+    vm_config = settings.get("vm", {})
     files_config = settings.get("files", {})
-    stack_pod_spec = ""
-    pod_spec_path = stack_config.get("pod_spec_path")
-    if stack_config.get("enabled", False) and int(
-        stack_config.get("random_challenge_count", 0)
-    ) > 0 and not pod_spec_path:
+    vm_spec = ""
+    vm_spec_path = vm_config.get("vm_spec_path")
+    if vm_config.get("enabled", False) and int(
+        vm_config.get("random_challenge_count", 0)
+    ) > 0 and not vm_spec_path:
         raise SystemExit(
-            "Error: stack.pod_spec_path is required when stack is enabled"
+            "Error: vm.vm_spec_path is required when vm is enabled"
         )
-    if pod_spec_path:
-        resolved_pod_spec_path = resolve_path(pod_spec_path, os.getcwd())
-        if not os.path.exists(resolved_pod_spec_path):
-            raise SystemExit(f"Error: pod spec file not found: {pod_spec_path}")
-        stack_pod_spec = load_text_file(resolved_pod_spec_path)
+    if vm_spec_path:
+        resolved_vm_spec_path = resolve_path(vm_spec_path, os.getcwd())
+        if not os.path.exists(resolved_vm_spec_path):
+            raise SystemExit(f"Error: sandbox spec file not found: {vm_spec_path}")
+        vm_spec = load_text_file(resolved_vm_spec_path)
 
     bcrypt_cost = int(os.getenv("BCRYPT_COST", str(security["bcrypt_cost"])))
     output_file = os.getenv("OUTPUT_SQL_FILE", settings["output"]["file"])
@@ -273,8 +273,8 @@ def main(argv: List[str]) -> int:
         settings["timing"],
         constraints,
         bcrypt_cost,
-        stack_config,
-        stack_pod_spec,
+        vm_config,
+        vm_spec,
         files_config,
     )
     registration_keys, registration_key_uses = generate_registration_keys(

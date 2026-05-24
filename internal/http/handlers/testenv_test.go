@@ -12,9 +12,9 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/repo"
 	"smctf/internal/service"
-	"smctf/internal/stack"
 	"smctf/internal/storage"
 	"smctf/internal/utils"
+	"smctf/internal/vm"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
@@ -36,7 +36,7 @@ type handlerEnv struct {
 	challengeRepo     *repo.ChallengeRepo
 	submissionRepo    *repo.SubmissionRepo
 	appConfigRepo     *repo.AppConfigRepo
-	stackRepo         *repo.StackRepo
+	vmRepo            *repo.VMRepo
 	authSvc           *service.AuthService
 	userSvc           *service.UserService
 	scoreSvc          *service.ScoreboardService
@@ -44,7 +44,7 @@ type handlerEnv struct {
 	divisionSvc       *service.DivisionService
 	teamSvc           *service.TeamService
 	appConfigSvc      *service.AppConfigService
-	stackSvc          *service.StackService
+	vmSvc             *service.VMService
 	handler           *Handler
 	defaultDivisionID int64
 }
@@ -117,7 +117,7 @@ func TestMain(m *testing.M) {
 			LeaderboardTTL: 2 * time.Minute,
 			AppConfigTTL:   2 * time.Minute,
 		},
-		Stack: config.StackConfig{
+		VM: config.VMConfig{
 			Enabled:      true,
 			MaxPer:       3,
 			CreateWindow: time.Minute,
@@ -236,7 +236,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	submissionRepo := repo.NewSubmissionRepo(handlerDB)
 	scoreRepo := repo.NewScoreboardRepo(handlerDB)
 	appConfigRepo := repo.NewAppConfigRepo(handlerDB)
-	stackRepo := repo.NewStackRepo(handlerDB)
+	vmRepo := repo.NewVMRepo(handlerDB)
 
 	fileStore := storage.NewMemoryChallengeFileStore(10 * time.Minute)
 
@@ -247,9 +247,9 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	divisionSvc := service.NewDivisionService(divisionRepo)
 	teamSvc := service.NewTeamService(teamRepo, divisionRepo)
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
-	stackSvc := service.NewStackService(handlerCfg.Stack, stackRepo, challengeRepo, submissionRepo, &stack.MockClient{}, handlerRedis)
+	vmSvc := service.NewVMService(handlerCfg.VM, vmRepo, challengeRepo, submissionRepo, &vm.MockClient{}, handlerRedis)
 
-	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, stackSvc, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, handlerRedis)
 
 	env := handlerEnv{
 		cfg:            handlerCfg,
@@ -262,7 +262,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		challengeRepo:  challengeRepo,
 		submissionRepo: submissionRepo,
 		appConfigRepo:  appConfigRepo,
-		stackRepo:      stackRepo,
+		vmRepo:         vmRepo,
 		authSvc:        authSvc,
 		userSvc:        userSvc,
 		scoreSvc:       scoreSvc,
@@ -270,7 +270,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		divisionSvc:    divisionSvc,
 		teamSvc:        teamSvc,
 		appConfigSvc:   appConfigSvc,
-		stackSvc:       stackSvc,
+		vmSvc:          vmSvc,
 		handler:        handler,
 	}
 
@@ -290,7 +290,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 func resetHandlerState(t *testing.T) {
 	t.Helper()
 
-	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, stacks, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, vms, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 

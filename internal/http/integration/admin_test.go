@@ -10,8 +10,8 @@ import (
 
 	"smctf/internal/config"
 	"smctf/internal/models"
-	"smctf/internal/stack"
 	"smctf/internal/utils"
+	"smctf/internal/vm"
 )
 
 func TestAdminCreateChallenge(t *testing.T) {
@@ -211,26 +211,24 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	}
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
-		"stack_enabled":      true,
-		"stack_target_ports": []map[string]any{{"container_port": 80, "protocol": "TCP"}},
-		"stack_pod_spec":     nil,
+		"vm_enabled": true,
+		"vm_spec":    nil,
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
-		"stack_enabled":  false,
-		"stack_pod_spec": "   ",
+		"vm_enabled": false,
+		"vm_spec":    "   ",
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
-		"stack_enabled":      true,
-		"stack_target_ports": []map[string]any{{"container_port": 70000, "protocol": "TCP"}},
-		"stack_pod_spec":     "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n",
+		"vm_enabled": true,
+		"vm_spec":    "",
 	}, authHeader(adminAccess))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
@@ -243,6 +241,48 @@ func TestAdminUpdateChallenge(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
+
+	sandboxSpec := "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"vm_enabled": true,
+		"vm_spec":    sandboxSpec,
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	model, err := env.challengeRepo.GetByID(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+
+	if !model.VMEnabled {
+		t.Fatalf("expected vm_enabled to be true")
+	}
+
+	if model.VMSpec == nil || strings.TrimSpace(*model.VMSpec) != strings.TrimSpace(sandboxSpec) {
+		t.Fatalf("expected vm_spec to be persisted")
+	}
+
+	rec = doRequest(t, env.router, http.MethodPut, "/api/admin/challenges/"+itoa(created.ID), map[string]any{
+		"vm_enabled": false,
+	}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	model, err = env.challengeRepo.GetByID(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("GetByID after disable: %v", err)
+	}
+
+	if model.VMEnabled {
+		t.Fatalf("expected vm_enabled to be false")
+	}
+
+	if model.VMSpec != nil {
+		t.Fatalf("expected vm_spec to be cleared when vm is disabled")
+	}
 }
 
 func TestAdminGetChallengeDetail(t *testing.T) {
@@ -250,11 +290,10 @@ func TestAdminGetChallengeDetail(t *testing.T) {
 	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 
-	podSpec := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
-	challenge := createChallenge(t, env, "Stacked", 100, "flag{stack}", true)
-	challenge.StackEnabled = true
-	challenge.StackTargetPorts = stack.TargetPortSpecs{{ContainerPort: 80, Protocol: "TCP"}}
-	challenge.StackPodSpec = &podSpec
+	sandboxSpec := "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: challenge\nspec:\n  containers:\n    - name: app\n      image: nginx\n      ports:\n        - containerPort: 80\n"
+	challenge := createChallenge(t, env, "VMed", 100, "flag{vm}", true)
+	challenge.VMEnabled = true
+	challenge.VMSpec = &sandboxSpec
 	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
 		t.Fatalf("update challenge: %v", err)
 	}
@@ -266,8 +305,8 @@ func TestAdminGetChallengeDetail(t *testing.T) {
 
 	var resp map[string]any
 	decodeJSON(t, rec, &resp)
-	if resp["stack_pod_spec"] == nil {
-		t.Fatalf("expected stack_pod_spec")
+	if resp["vm_spec"] == nil {
+		t.Fatalf("expected vm_spec")
 	}
 }
 
@@ -572,100 +611,100 @@ func TestAdminUnblockUser(t *testing.T) {
 	}
 }
 
-func TestAdminStackManagement(t *testing.T) {
+func TestAdminVMManagement(t *testing.T) {
 	cfg := testCfg
-	cfg.Stack = config.StackConfig{
+	cfg.VM = config.VMConfig{
 		Enabled:      true,
 		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
 
-	mock := stack.NewProvisionerMock()
-	env := setupStackTest(t, cfg, mock.Client())
+	mock := vm.NewOrchestratorMock()
+	env := setupVMTest(t, cfg, mock.Client())
 
 	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
-	challenge := createStackChallenge(t, env, "StackChal")
+	challenge := createVMChallenge(t, env, "VMChal")
 
-	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(userAccess))
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/vm", nil, authHeader(userAccess))
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("create vm status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var created struct {
-		StackID string `json:"stack_id"`
+		VMID string `json:"vm_id"`
 	}
 	decodeJSON(t, rec, &created)
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks", nil, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/vms", nil, authHeader(adminAccess))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("admin list stacks status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin list vms status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var listResp struct {
-		Stacks []struct {
-			StackID string `json:"stack_id"`
-		} `json:"stacks"`
+		VMs []struct {
+			VMID string `json:"vm_id"`
+		} `json:"vms"`
 	}
 	decodeJSON(t, rec, &listResp)
-	if len(listResp.Stacks) != 1 || listResp.Stacks[0].StackID != created.StackID {
-		t.Fatalf("unexpected admin stacks response: %+v", listResp.Stacks)
+	if len(listResp.VMs) != 1 || listResp.VMs[0].VMID != created.VMID {
+		t.Fatalf("unexpected admin vms response: %+v", listResp.VMs)
 	}
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks/"+created.StackID, nil, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/vms/"+created.VMID, nil, authHeader(adminAccess))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("admin get stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin get vm status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var detailResp struct {
-		StackID string `json:"stack_id"`
+		VMID string `json:"vm_id"`
 	}
 	decodeJSON(t, rec, &detailResp)
-	if detailResp.StackID != created.StackID {
-		t.Fatalf("unexpected admin stack detail: %+v", detailResp)
+	if detailResp.VMID != created.VMID {
+		t.Fatalf("unexpected admin vm detail: %+v", detailResp)
 	}
 
-	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/stacks/"+created.StackID, nil, authHeader(adminAccess))
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/vms/"+created.VMID, nil, authHeader(adminAccess))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("admin delete stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin delete vm status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
-func TestAdminStackEndpointsAuth(t *testing.T) {
+func TestAdminVMEndpointsAuth(t *testing.T) {
 	env := setupTest(t, testCfg)
 
-	rec := doRequest(t, env.router, http.MethodGet, "/api/admin/stacks", nil, nil)
+	rec := doRequest(t, env.router, http.MethodGet, "/api/admin/vms", nil, nil)
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("admin stacks unauth status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin vms unauth status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks/stack-missing", nil, nil)
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/vms/vm-missing", nil, nil)
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("admin stack detail unauth status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin vm detail unauth status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/stacks/stack-missing", nil, nil)
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/vms/vm-missing", nil, nil)
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("admin stack delete unauth status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin vm delete unauth status %d: %s", rec.Code, rec.Body.String())
 	}
 
 	accessUser, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks", nil, authHeader(accessUser))
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/vms", nil, authHeader(accessUser))
 	if rec.Code != http.StatusForbidden {
-		t.Fatalf("admin stacks forbidden status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin vms forbidden status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/stacks/stack-missing", nil, authHeader(accessUser))
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/vms/vm-missing", nil, authHeader(accessUser))
 	if rec.Code != http.StatusForbidden {
-		t.Fatalf("admin stack detail forbidden status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin vm detail forbidden status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/stacks/stack-missing", nil, authHeader(accessUser))
+	rec = doRequest(t, env.router, http.MethodDelete, "/api/admin/vms/vm-missing", nil, authHeader(accessUser))
 	if rec.Code != http.StatusForbidden {
-		t.Fatalf("admin stack delete forbidden status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("admin vm delete forbidden status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -686,27 +725,27 @@ func TestAdminReportAuth(t *testing.T) {
 
 func TestAdminReportSuccess(t *testing.T) {
 	cfg := testCfg
-	cfg.Stack = config.StackConfig{
+	cfg.VM = config.VMConfig{
 		Enabled:      true,
 		MaxPer:       3,
 		CreateWindow: time.Minute,
 		CreateMax:    1,
 	}
 
-	mock := stack.NewProvisionerMock()
-	env := setupStackTest(t, cfg, mock.Client())
+	mock := vm.NewOrchestratorMock()
+	env := setupVMTest(t, cfg, mock.Client())
 
 	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
 	adminAccess, _, _ := loginUser(t, env.router, "admin@example.com", "adminpass")
 	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", models.UserRole, "strong-pass")
-	challenge := createStackChallenge(t, env, "StackChal")
+	challenge := createVMChallenge(t, env, "VMChal")
 
-	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/stack", nil, authHeader(userAccess))
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/vm", nil, authHeader(userAccess))
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("create stack status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("create vm status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{stack}"}, authHeader(userAccess))
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{vm}"}, authHeader(userAccess))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit flag status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -726,8 +765,8 @@ func TestAdminReportSuccess(t *testing.T) {
 		t.Fatalf("expected users in report")
 	}
 
-	if _, ok := resp["stacks"]; !ok {
-		t.Fatalf("expected stacks in report")
+	if _, ok := resp["vms"]; !ok {
+		t.Fatalf("expected vms in report")
 	}
 
 	if _, ok := resp["leaderboard"]; !ok {

@@ -32,11 +32,11 @@ challenges:
     points: 100
     flag: "DH{Bookwish}"
     category: "Web"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 8000
         protocol: TCP
-    stack_pod_spec_path: "./web-bookwish.yaml"
+    vm_spec_path: "./web-bookwish.yaml"
     file_name: "bookwish-user.zip"
     file_key: "9f6c1c2a-5b2f-4d0f-9e4f-0f2f7eaa12ab.zip"
     file_uploaded_at: "2026-02-13 12:00:00"
@@ -52,11 +52,11 @@ challenges:
     points: 100
     flag: "DH{Simple_Note_Manager}"
     category: "Web"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 5000
         protocol: TCP
-    stack_pod_spec_path: "./web-simple-note-manager.yaml"
+    vm_spec_path: "./web-simple-note-manager.yaml"
     file_name: "simple-note-manager.zip"
     file_key: "7e8c9d1b-3a4f-4e5d-9f6a-1b2c3d4e5f6g.zip"
     file_uploaded_at: "2026-02-14 15:30:00"
@@ -70,11 +70,11 @@ challenges:
     points: 100
     flag: "DH{XSS_Filtering_Bypass}"
     category: "Web"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 8000
         protocol: TCP
-    stack_pod_spec_path: "./web-xss-filtering-bypass.yaml"
+    vm_spec_path: "./web-xss-filtering-bypass.yaml"
     file_name: "xss-filtering-bypass.zip"
     file_key: "0a1b2c3d-4e5f-6g7h-8i9j-0k1l2m3n4o5p.zip"
     file_uploaded_at: "2026-02-15 09:00:00"
@@ -88,11 +88,11 @@ challenges:
     points: 100
     flag: "DH{XSS_Filtering_Bypass_Advanced}"
     category: "Web"
-    stack_enabled: true
-    stack_target_ports:
+    vm_enabled: true
+    vm_spec:
       - container_port: 8000
         protocol: TCP
-    stack_pod_spec_path: "./web-xss-filtering-bypass-advanced.yaml"
+    vm_spec_path: "./web-xss-filtering-bypass-advanced.yaml"
     file_name: "xss-filtering-bypass-advanced.zip"
     file_key: "1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p.zip"
     file_uploaded_at: "2026-02-15 10:00:00"

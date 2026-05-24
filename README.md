@@ -23,8 +23,8 @@
         Docs
     </a>
     | <strong>Backend</strong> |
-    <a href="https://github.com/nullforu/container-provisioner-k8s">
-        Container Provisioner
+    <a href="https://github.com/swualabs/sandboxd-o">
+        Container Orchestrator
     </a>
     |
     <a href="https://github.com/nullforu/smctfe">
@@ -71,8 +71,8 @@ See [SMCTF Docs](https://ctf.null4u.cloud/smctf/) for more details. This README 
     - Frontend has been moved to a separate repository ([nullforu/smctfe](https://github.com/nullforu/smctfe))
 - Challenge file upload/download support via AWS S3 Presigned URL
     - Ref Issue: [#20](https://github.com/nullforu/smctf/issues/20), PR: [#21](https://github.com/nullforu/smctf/pull/21)
-- Per challenge individual Stack(instance/VM) provisioning support via Kubernetes
-    - Ref PR: [#25](https://github.com/nullforu/smctf/pull/25), See [container-provisioner-k8s](https://github.com/nullforu/container-provisioner-k8s) and [docs](https://ctf.null4u.cloud/container-provisioner/) for more details.
+- Per challenge individual VM(instance/VM) provisioning support via Kubernetes
+    - Ref PR: [#25](https://github.com/nullforu/smctf/pull/25), See [container-orchestrator-k8s](https://github.com/nullforu/container-orchestrator-k8s) and [docs](https://ctf.null4u.cloud/container-orchestrator/) for more details.
 - ... and more! (See [docs](https://github.com/nullforu/smctf-docs) for more details) -->
 
 ### Planned/Upcoming features:
@@ -82,10 +82,10 @@ Also, the following features are planned to be implemented. see [issues](https:/
 - (WIP) Systematized admin dashboard and behavior log/monitoring system integration
 - ... and more features to be added.
 
-## Tech Stacks
+## Tech VMs
 
 - Backend: [Go](https://go.dev/), [Gin](https://github.com/gin-gonic/gin), [Bun ORM](https://bun.uptrace.dev/)
-- Container Provisioner: [Go (nullforu/container-provisioner-k8s)](https://github.com/nullforu/container-provisioner-k8s)
+- Container Orchestrator: [Go (nullforu/container-orchestrator-k8s)](https://github.com/nullforu/container-orchestrator-k8s)
 - Frontend: React [(nullforu/smctfe)](https://github.com/nullforu/smctfe)
 - Database, Cache: [PostgreSQL](https://www.postgresql.org/)(instead of MySQL/MariaDB), [Redis](https://redis.io/)
 - Testing: [Testcontainers for Go](https://github.com/testcontainers/testcontainers-go)
@@ -168,17 +168,14 @@ SUBMIT_MAX=10
 TIMELINE_CACHE_TTL=60s
 LEADERBOARD_CACHE_TTL=60s
 
-# Stack (Container Provisioner)
-STACKS_ENABLED=true
-STACKS_MAX_SCOPE=team
-STACKS_MAX_PER=3
-STACKS_PROVISIONER_BASE_URL=http://localhost:8081
-STACKS_PROVISIONER_USE_GRPC=false
-STACKS_PROVISIONER_GRPC_ADDR=localhost:9090
-STACKS_PROVISIONER_API_KEY=change-me
-STACKS_PROVISIONER_TIMEOUT=5s
-STACKS_CREATE_WINDOW=1m
-STACKS_CREATE_MAX=1
+# VM (Container Orchestrator)
+VMS_ENABLED=true
+VMS_MAX_SCOPE=team
+VMS_MAX_PER=3
+VMS_ORCHESTRATOR_BASE_URL=http://localhost:8081
+VMS_ORCHESTRATOR_TIMEOUT=5s
+VMS_CREATE_WINDOW=1m
+VMS_CREATE_MAX=1
 
 # Logging
 LOG_DIR=logs
@@ -204,29 +201,6 @@ S3_PRESIGN_TTL=15m
 ```
 
 </details>
-
-## Buf / BSR (container-provisioner proto)
-
-This repo consumes the container-provisioner proto via Buf Schema Registry (BSR).
-
-Setup:
-
-```bash
-make buf-install
-buf registry login
-```
-
-Generate code:
-
-```bash
-make buf-generate
-```
-
-Module reference is set via `BUF_MODULE` (Makefile). You can override via:
-
-```bash
-make buf-generate BUF_MODULE=buf.build/<org>/container-provisioner
-```
 
 > [!IMPORTANT]
 >
@@ -271,7 +245,7 @@ go build -o smctf ./cmd/server
         "app": { "type": "string" },
         "legacy": { "type": "boolean" },
         "error": {},
-        "stack": { "type": "string" },
+        "stack_trace": { "type": "string" },
         "http": {
             "type": "object",
             "additionalProperties": true,

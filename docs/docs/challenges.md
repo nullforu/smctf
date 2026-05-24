@@ -28,8 +28,7 @@ Response 200
             "is_locked": false,
             "has_file": true,
             "file_name": "challenge.zip",
-            "stack_enabled": false,
-            "stack_target_ports": []
+            "vm_enabled": false
         }
     ]
 }
@@ -39,7 +38,7 @@ Notes:
 
 - `points` is dynamically calculated based on solves.
 - `has_file` indicates whether a challenge file is available.
-- `stack_enabled` indicates if a stack instance is supported for this challenge. Scope is controlled by `STACKS_MAX_SCOPE` (user or team).
+- `vm_enabled` indicates if a vm instance is supported for this challenge. Scope is controlled by `VMS_MAX_SCOPE` (user or team).
 - If a challenge is locked, the response includes only `id`, `title`, `category`, `points`, `initial_points`, `minimum_points`, `solve_count`, `previous_challenge_id`, `previous_challenge_title`, `previous_challenge_category`, `is_active`, and `is_locked`.
 - If `ctf_state` is `not_started`, the response only includes `ctf_state`.
 
