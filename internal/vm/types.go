@@ -18,24 +18,50 @@ type PortMapping struct {
 type PortMappings []PortMapping
 
 type ResourceSpec struct {
-	CPU    string `json:"cpu" yaml:"cpu"`
-	Memory string `json:"memory" yaml:"memory"`
+	CPU              string `json:"cpu" yaml:"cpu"`
+	Memory           string `json:"memory" yaml:"memory"`
+	EphemeralStorage string `json:"ephemeral_storage,omitempty" yaml:"ephemeral_storage,omitempty"`
+}
+
+type VolumeSpec struct {
+	Name             string `json:"name" yaml:"name"`
+	EphemeralStorage string `json:"ephemeral_storage" yaml:"ephemeral_storage"`
+}
+
+type VolumeMountSpec struct {
+	Name      string `json:"name" yaml:"name"`
+	MountPath string `json:"mount_path" yaml:"mount_path"`
+	ReadOnly  bool   `json:"read_only,omitempty" yaml:"read_only,omitempty"`
+}
+
+type ReadinessProbeSpec struct {
+	Protocol            string `json:"protocol" yaml:"protocol"`
+	Path                string `json:"path,omitempty" yaml:"path,omitempty"`
+	Port                int    `json:"port" yaml:"port"`
+	InitialDelaySeconds int    `json:"initial_delay_seconds,omitempty" yaml:"initial_delay_seconds,omitempty"`
+	PeriodSeconds       int    `json:"period_seconds,omitempty" yaml:"period_seconds,omitempty"`
+	TimeoutSeconds      int    `json:"timeout_seconds,omitempty" yaml:"timeout_seconds,omitempty"`
+	SuccessThreshold    int    `json:"success_threshold,omitempty" yaml:"success_threshold,omitempty"`
+	FailureThreshold    int    `json:"failure_threshold,omitempty" yaml:"failure_threshold,omitempty"`
 }
 
 type ContainerSpec struct {
-	Name     string       `json:"name" yaml:"name"`
-	Image    string       `json:"image" yaml:"image"`
-	Args     []string     `json:"args,omitempty" yaml:"args,omitempty"`
-	Env      []string     `json:"env,omitempty" yaml:"env,omitempty"`
-	WorkDir  string       `json:"work_dir,omitempty" yaml:"work_dir,omitempty"`
-	Resource ResourceSpec `json:"resource" yaml:"resource"`
+	Name         string            `json:"name" yaml:"name"`
+	Image        string            `json:"image" yaml:"image"`
+	Args         []string          `json:"args,omitempty" yaml:"args,omitempty"`
+	Env          []string          `json:"env,omitempty" yaml:"env,omitempty"`
+	WorkDir      string            `json:"work_dir,omitempty" yaml:"work_dir,omitempty"`
+	VolumeMounts []VolumeMountSpec `json:"volume_mounts,omitempty" yaml:"volume_mounts,omitempty"`
+	Resource     ResourceSpec      `json:"resource" yaml:"resource"`
 }
 
 type SandboxSpec struct {
-	Egress     bool            `json:"egress" yaml:"egress"`
-	TTLSeconds int64           `json:"ttl_seconds,omitempty" yaml:"ttl_seconds,omitempty"`
-	Ports      []PortSpec      `json:"ports,omitempty" yaml:"ports,omitempty"`
-	Containers []ContainerSpec `json:"containers" yaml:"containers"`
+	Egress         bool                `json:"egress" yaml:"egress"`
+	TTLSeconds     int64               `json:"ttl_seconds,omitempty" yaml:"ttl_seconds,omitempty"`
+	Ports          []PortSpec          `json:"ports,omitempty" yaml:"ports,omitempty"`
+	Volumes        []VolumeSpec        `json:"volumes,omitempty" yaml:"volumes,omitempty"`
+	ReadinessProbe *ReadinessProbeSpec `json:"readiness_probe,omitempty" yaml:"readiness_probe,omitempty"`
+	Containers     []ContainerSpec     `json:"containers" yaml:"containers"`
 }
 
 type CreateSandboxRequest struct {

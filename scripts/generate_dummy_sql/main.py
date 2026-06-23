@@ -58,6 +58,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         action="store_true",
         help="List bundled templates and exit.",
     )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip interactive confirmation prompt.",
+    )
     return parser.parse_args(argv)
 
 
@@ -210,7 +215,8 @@ def main(argv: List[str]) -> int:
             "Error: vm.vm_spec_path is required when vm is enabled"
         )
     if vm_spec_path:
-        resolved_vm_spec_path = resolve_path(vm_spec_path, os.getcwd())
+        settings_base_dir = os.path.dirname(settings_path) if settings_path else os.getcwd()
+        resolved_vm_spec_path = resolve_path(vm_spec_path, settings_base_dir)
         if not os.path.exists(resolved_vm_spec_path):
             raise SystemExit(f"Error: sandbox spec file not found: {vm_spec_path}")
         vm_spec = load_text_file(resolved_vm_spec_path)
@@ -246,10 +252,14 @@ def main(argv: List[str]) -> int:
     print(f"Teams: {len(team_specs)}")
     print(f"Challenges: {len(data['challenges'])}")
     print(f"Registration keys: {counts['registration_keys']}")
-    proceed = input("Type 'Y' to continue: ").strip()
-    if proceed != "Y":
-        print("Aborted.")
-        return 0
+    should_skip_prompt = args.yes or not sys.stdin.isatty()
+    if should_skip_prompt:
+        print("Non-interactive mode: confirmation skipped.")
+    else:
+        proceed = input("Type 'Y' to continue: ").strip()
+        if proceed != "Y":
+            print("Aborted.")
+            return 0
 
     division_rows = generate_divisions(divisions, settings["timing"])
     teams = generate_teams(team_specs, settings["timing"])

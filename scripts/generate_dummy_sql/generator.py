@@ -387,20 +387,22 @@ def generate_submissions(
                 )
 
     now = datetime.now(UTC)
-    recent_count = max(1, int(len(submissions) * recent_fraction))
-    recent_indices = random.sample(range(len(submissions)), recent_count)
+    if submissions:
+        recent_count = max(1, int(len(submissions) * recent_fraction))
+        recent_count = min(recent_count, len(submissions))
+        recent_indices = random.sample(range(len(submissions)), recent_count)
 
-    for idx in recent_indices:
-        recent_time = now - timedelta(minutes=random.randint(0, recent_minutes))
-        user_id, chal_id, correct, _ = submissions[idx]
-        submissions[idx] = (
-            user_id,
-            chal_id,
-            correct,
-            recent_time.strftime("%Y-%m-%d %H:%M:%S"),
-        )
+        for idx in recent_indices:
+            recent_time = now - timedelta(minutes=random.randint(0, recent_minutes))
+            user_id, chal_id, correct, _ = submissions[idx]
+            submissions[idx] = (
+                user_id,
+                chal_id,
+                correct,
+                recent_time.strftime("%Y-%m-%d %H:%M:%S"),
+            )
 
-    submissions.sort(key=lambda x: x[4])
+    submissions.sort(key=lambda x: x[3])
 
     first_blood_seen = set()
     flagged = []

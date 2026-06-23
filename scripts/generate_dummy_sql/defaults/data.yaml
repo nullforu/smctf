@@ -3,8 +3,6 @@ users:
     username: "junyoung.kim"
   - name: "강대용"
     username: "daeyong.kang"
-  - name: "정회전"
-    username: "rotation.jung"
   - name: "박대준"
     username: "daejoon.park"
   - name: "김치환"
@@ -59,20 +57,75 @@ users:
     username: "taesung.kang"
   - name: "강진호"
     username: "jinho.kang"
+  - name: '홍길동'
+    username: 'hong.gildong'
+  - name: '김철수'
+    username: 'chulsoo.kim'
+  - name: '이영희'
+    username: 'younghee.lee'
+  - name: '박영수'
+    username: 'youngsoo.park'
+  - name: '최민수'
+    username: 'minsoo.choi'
+  - name: '박준영'
+    username: 'junyoung.park'
+  - name: '최준영'
+    username: 'junyoung.choi'
+  - name: '이준영'
+    username: 'junyoung.lee'
+  - name: '서준영'
+    username: 'junyoung.seo'
+  - name: '정준영'
+    username: 'junyoung.jung'
+  - name: '강준영'
+    username: 'junyoung.kang'
+  - name: '조준영'
+    username: 'junyoung.jo'
 
 divisions:
   - "고등부"
   - "대학부"
+  - "일반부"
 
 teams:
   - name: "두명컴퓨터고등학교"
     division: "고등부"
   - name: "한명컴퓨터고등학교"
     division: "고등부"
+  - name: "GALF"
+    division: "고등부"
+  - name: "SCA"
+    division: "고등부"
+  - name: "Null4U"
+    division: "고등부"
+  - name: "GoPro"
+    division: "고등부"
   - name: "세명컴퓨터고등학교"
-    division: "대학부"
+    division: "고등부"
   - name: "네명컴퓨터고등학교"
+    division: "고등부"
+  - name: "Swua"
     division: "대학부"
+  - name: "대충대충"
+    division: "대학부"
+  - name: "인생은실전"
+    division: "대학부"
+  - name: "대충서울에있는대학교"
+    division: "대학부"
+  - name: "맥도날드케찹도둑"
+    division: "대학부"
+  - name: "SwuaLabs"
+    division: "일반부"
+  - name: "사성전자"
+    division: "일반부"
+  - name: "김치국"
+    division: "일반부"
+  - name: "김준영과따까리들"
+    division: "일반부"
+  - name: "UNLINK"
+    division: "일반부"
+  - name: "Ground0"
+    division: "일반부"
 
 challenges:
   - title: "Reverse It"

@@ -22,6 +22,7 @@ from sql_writer import write_sql_file
 from sql_common.yaml_utils import deep_merge, resolve_path
 
 DEFAULT_OUTPUT_FILE = "output.sql"
+DEFAULT_DATA_PATH = os.path.join(BASE_DIR, "defaults", "data.yaml")
 DEFAULT_SETTINGS = {
     "security": {
         "bcrypt_cost": 12,
@@ -37,8 +38,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate smctf SQL from YAML")
     parser.add_argument(
         "--data",
-        required=True,
-        help="Path to data YAML (teams/challenges).",
+        default=DEFAULT_DATA_PATH,
+        help="Path to data YAML (teams/challenges). Defaults to bundled data.yaml.",
     )
     parser.add_argument(
         "--settings",

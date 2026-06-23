@@ -12,8 +12,8 @@ auth:
 bootstrap:
   use_bootstrap_admin: true
 counts:
-  users: 30
-  registration_keys: 30
+  users: 40
+  registration_keys: 40
 constraints:
   min_user_names: 30
   min_points_ratio: 0.2

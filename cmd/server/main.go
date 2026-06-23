@@ -104,7 +104,7 @@ func main() {
 	ctfSvc := service.NewCTFService(cfg, challengeRepo, submissionRepo, redisClient, fileStore)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, redisClient, cfg.Cache.AppConfigTTL)
 
-	vmClient := vm.NewClient(cfg.VM.OrchestratorBaseURL, cfg.VM.OrchestratorTimeout)
+	vmClient := vm.NewClient(cfg.VM.OrchestratorBaseURL, cfg.VM.OrchestratorSecret, cfg.VM.OrchestratorTimeout)
 	vmSvc := service.NewVMService(cfg.VM, vmRepo, challengeRepo, submissionRepo, vmClient, redisClient)
 
 	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, divisionRepo, logger)

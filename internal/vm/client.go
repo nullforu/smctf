@@ -54,12 +54,14 @@ type API interface {
 
 type Client struct {
 	baseURL    string
+	secret     string
 	httpClient *http.Client
 }
 
-func NewClient(baseURL string, timeout time.Duration) *Client {
+func NewClient(baseURL, secret string, timeout time.Duration) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
+		secret:  secret,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
@@ -115,6 +117,9 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body any, out 
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if c.secret != "" {
+		req.Header.Set("Authorization", "Bearer "+c.secret)
 	}
 
 	resp, err := c.httpClient.Do(req)
