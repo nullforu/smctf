@@ -249,7 +249,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 	ctfSvc := service.NewCTFService(handlerCfg, challengeRepo, submissionRepo, handlerRedis, fileStore)
 	vmSvc := service.NewVMService(handlerCfg.VM, vmRepo, challengeRepo, submissionRepo, &vm.MockClient{}, handlerRedis)
 
-	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, handlerRedis)
+	handler := New(handlerCfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, handlerRedis, nil)
 
 	env := handlerEnv{
 		cfg:            handlerCfg,

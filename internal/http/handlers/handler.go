@@ -22,20 +22,21 @@ import (
 )
 
 type Handler struct {
-	cfg   config.Config
-	auth  *service.AuthService
-	ctf   *service.CTFService
-	app   *service.AppConfigService
-	users *service.UserService
-	score *service.ScoreboardService
-	divs  *service.DivisionService
-	teams *service.TeamService
-	vms   *service.VMService
-	redis *redis.Client
+	cfg     config.Config
+	auth    *service.AuthService
+	ctf     *service.CTFService
+	app     *service.AppConfigService
+	users   *service.UserService
+	score   *service.ScoreboardService
+	divs    *service.DivisionService
+	teams   *service.TeamService
+	vms     *service.VMService
+	discord *service.DiscordService
+	redis   *redis.Client
 }
 
-func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *service.UserService, score *service.ScoreboardService, divisions *service.DivisionService, teams *service.TeamService, vms *service.VMService, redis *redis.Client) *Handler {
-	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, divs: divisions, teams: teams, vms: vms, redis: redis}
+func New(cfg config.Config, auth *service.AuthService, ctf *service.CTFService, app *service.AppConfigService, users *service.UserService, score *service.ScoreboardService, divisions *service.DivisionService, teams *service.TeamService, vms *service.VMService, redis *redis.Client, discord *service.DiscordService) *Handler {
+	return &Handler{cfg: cfg, auth: auth, ctf: ctf, app: app, users: users, score: score, divs: divisions, teams: teams, vms: vms, redis: redis, discord: discord}
 }
 
 func (h *Handler) respondFromCache(ctx *gin.Context, cacheKey string) bool {

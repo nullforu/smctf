@@ -134,6 +134,27 @@ func mapError(err error) (int, errorResponse, map[string]string) {
 	case errors.Is(err, service.ErrVMInvalidSpec):
 		status = http.StatusBadRequest
 		resp.Error = service.ErrVMInvalidSpec.Error()
+	case errors.Is(err, service.ErrDiscordDisabled):
+		status = http.StatusServiceUnavailable
+		resp.Error = service.ErrDiscordDisabled.Error()
+	case errors.Is(err, service.ErrDiscordNotConnected):
+		status = http.StatusNotFound
+		resp.Error = service.ErrDiscordNotConnected.Error()
+	case errors.Is(err, service.ErrDiscordStateInvalid):
+		status = http.StatusBadRequest
+		resp.Error = service.ErrDiscordStateInvalid.Error()
+	case errors.Is(err, service.ErrDiscordExchangeFailed):
+		status = http.StatusBadGateway
+		resp.Error = service.ErrDiscordExchangeFailed.Error()
+	case errors.Is(err, service.ErrDiscordAlreadyLinked):
+		status = http.StatusConflict
+		resp.Error = service.ErrDiscordAlreadyLinked.Error()
+	case errors.Is(err, service.ErrDiscordBotUnavailable):
+		status = http.StatusServiceUnavailable
+		resp.Error = service.ErrDiscordBotUnavailable.Error()
+	case errors.Is(err, service.ErrDiscordRateLimited):
+		status = http.StatusTooManyRequests
+		resp.Error = service.ErrDiscordRateLimited.Error()
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 		resp.Error = "not found"

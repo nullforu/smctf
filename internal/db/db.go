@@ -46,6 +46,7 @@ func AutoMigrate(ctx context.Context, db *bun.DB) error {
 		(*models.Submission)(nil),
 		(*models.RegistrationKey)(nil),
 		(*models.RegistrationKeyUse)(nil),
+		(*models.DiscordConnection)(nil),
 	}
 
 	if err := createTables(ctx, db, modelsToCreate); err != nil {
@@ -70,6 +71,14 @@ func createIndexes(ctx context.Context, db *bun.DB) error {
 		name  string
 		query string
 	}{
+		{
+			name:  "idx_discord_connections_user",
+			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_discord_connections_user ON discord_connections (user_id)",
+		},
+		{
+			name:  "idx_discord_connections_discord_user",
+			query: "CREATE UNIQUE INDEX IF NOT EXISTS idx_discord_connections_discord_user ON discord_connections (discord_user_id)",
+		},
 		{
 			name:  "idx_submissions_user",
 			query: "CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions (user_id)",

@@ -860,3 +860,126 @@ func TestFormatForLog(t *testing.T) {
 		t.Fatalf("expected cache fields")
 	}
 }
+
+func discordEnabledEnv() {
+	os.Setenv("DISCORD_ENABLED", "true")
+	os.Setenv("DISCORD_CLIENT_ID", "cid")
+	os.Setenv("DISCORD_CLIENT_SECRET", "csecret")
+	os.Setenv("DISCORD_REDIRECT_URI", "http://localhost:8080/api/discord/callback")
+	os.Setenv("DISCORD_OAUTH_SCOPES", "identify")
+	os.Setenv("DISCORD_BOT_BASE_URL", "http://localhost:8083")
+	os.Setenv("DISCORD_BOT_SECRET", "bot-secret")
+}
+
+func TestLoadConfigDiscordEnabled(t *testing.T) {
+	os.Clearenv()
+	discordEnabledEnv()
+	defer os.Clearenv()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if !cfg.Discord.Enabled {
+		t.Fatal("expected Discord enabled")
+	}
+	if cfg.Discord.ClientID != "cid" || cfg.Discord.BotSecret != "bot-secret" {
+		t.Errorf("unexpected discord config: %+v", cfg.Discord)
+	}
+	if !cfg.Discord.AutoJoin {
+		t.Error("expected AutoJoin true by default")
+	}
+	if cfg.Discord.StateTTL != 5*time.Minute {
+		t.Errorf("expected StateTTL 5m, got %v", cfg.Discord.StateTTL)
+	}
+
+	red := Redact(cfg)
+	if red.Discord.ClientSecret == "csecret" || red.Discord.BotSecret == "bot-secret" {
+		t.Error("expected discord secrets to be redacted")
+	}
+
+	if _, ok := FormatForLog(cfg)["discord"]; !ok {
+		t.Error("expected discord section in log map")
+	}
+}
+
+func TestLoadConfigDiscordValidationErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+		val  string
+	}{
+		{"missing client id", "DISCORD_CLIENT_ID", ""},
+		{"missing client secret", "DISCORD_CLIENT_SECRET", ""},
+		{"missing redirect uri", "DISCORD_REDIRECT_URI", ""},
+		{"missing bot secret", "DISCORD_BOT_SECRET", ""},
+		{"invalid state ttl", "DISCORD_STATE_TTL", "0s"},
+		{"invalid bot timeout", "DISCORD_BOT_TIMEOUT", "0s"},
+		{"invalid oauth timeout", "DISCORD_OAUTH_TIMEOUT", "0s"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Clearenv()
+			discordEnabledEnv()
+			os.Setenv(tt.key, tt.val)
+			defer os.Clearenv()
+
+			if _, err := Load(); err == nil {
+				t.Fatalf("expected error for %s", tt.name)
+			}
+		})
+	}
+}
+
+func TestValidateConfigInvalidDiscord(t *testing.T) {
+	cfg := Config{
+		HTTPAddr:   ":8080",
+		BcryptCost: bcrypt.DefaultCost,
+		DB: DBConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "user",
+			Name:            "db",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			PoolSize: 10,
+		},
+		JWT: JWTConfig{
+			Secret:     "secret",
+			Issuer:     "issuer",
+			AccessTTL:  time.Hour,
+			RefreshTTL: 24 * time.Hour,
+		},
+		Security: SecurityConfig{
+			SubmissionWindow: time.Minute,
+			SubmissionMax:    10,
+		},
+		Logging: LoggingConfig{
+			Dir:          "logs",
+			FilePrefix:   "app",
+			MaxBodyBytes: 1024,
+		},
+		Discord: DiscordConfig{
+			Enabled:      true,
+			ClientID:     "cid",
+			ClientSecret: "csecret",
+			RedirectURI:  "http://localhost/cb",
+			Scopes:       "",
+			BotBaseURL:   "",
+			BotSecret:    "bot-secret",
+			StateTTL:     time.Minute,
+			BotTimeout:   time.Second,
+			OAuthTimeout: time.Second,
+		},
+	}
+
+	if err := validateConfig(cfg); err == nil {
+		t.Fatal("expected discord validation errors")
+	}
+}
