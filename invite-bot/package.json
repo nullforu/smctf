@@ -1,0 +1,29 @@
+{
+    "name": "wargame-invite-bot",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Discord bot server for wargame account linking (role grant / guild join).",
+    "type": "module",
+    "engines": {
+        "node": ">=20.12"
+    },
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "build": "tsc -p tsconfig.json",
+        "start": "node dist/index.js",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "lint": "tsc -p tsconfig.json --noEmit",
+        "format": "prettier --write ."
+    },
+    "dependencies": {
+        "discord.js": "^14.16.3",
+        "express": "^4.21.2"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/node": "^22.10.2",
+        "prettier": "^3.8.4",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}
