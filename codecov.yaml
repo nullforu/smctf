@@ -14,6 +14,7 @@ comment:
   require_changes: false
 
 ignore:
+  - "invite-bot/**" # standalone invite bot server (TypeScript), not part of Go coverage
   - "**/*_test.go"
   - "**/mock/**"
   - "cmd/**"

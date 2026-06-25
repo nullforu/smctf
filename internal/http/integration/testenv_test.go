@@ -290,7 +290,7 @@ func setupTest(t *testing.T, cfg config.Config) testEnv {
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
 	vmSvc := service.NewVMService(cfg.VM, vmRepo, challengeRepo, submissionRepo, &vm.MockClient{}, testRedis)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, testRedis, testLogger, nil)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, nil, testRedis, testLogger, nil)
 
 	env := testEnv{
 		cfg:            cfg,
@@ -350,7 +350,7 @@ func setupVMTest(t *testing.T, cfg config.Config, client vm.API) testEnv {
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, testRedis, cfg.Cache.AppConfigTTL)
 	vmSvc := service.NewVMService(cfg.VM, vmRepo, challengeRepo, submissionRepo, client, testRedis)
 
-	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, testRedis, testLogger, nil)
+	router := apphttp.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, nil, testRedis, testLogger, nil)
 
 	env := testEnv{
 		cfg:            cfg,

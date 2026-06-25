@@ -462,7 +462,7 @@ func TestHandlerRegisterLoginRefreshLogout(t *testing.T) {
 }
 
 func TestHandlerUserVMSummaryWithoutVMService(t *testing.T) {
-	handler := New(handlerCfg, nil, nil, nil, nil, nil, nil, nil, nil, handlerRedis)
+	handler := New(handlerCfg, nil, nil, nil, nil, nil, nil, nil, nil, handlerRedis, nil)
 
 	count, limit := handler.userVMSummary(context.Background(), 123)
 	if count != 0 || limit != 0 {
@@ -1091,7 +1091,7 @@ func TestHandlerRequestChallengeFileUploadStorageUnavailable(t *testing.T) {
 	ctfSvc := service.NewCTFService(env.cfg, env.challengeRepo, env.submissionRepo, env.redis, nil)
 	scoreRepo := repo.NewScoreboardRepo(env.db)
 	scoreSvc := service.NewScoreboardService(scoreRepo)
-	handler := New(env.cfg, env.authSvc, ctfSvc, env.appConfigSvc, env.userSvc, scoreSvc, env.divisionSvc, env.teamSvc, nil, env.redis)
+	handler := New(env.cfg, env.authSvc, ctfSvc, env.appConfigSvc, env.userSvc, scoreSvc, env.divisionSvc, env.teamSvc, nil, env.redis, nil)
 
 	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/challenges/1/file/upload", map[string]string{"filename": "bundle.zip"})
 	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", challenge.ID)}}
@@ -2202,7 +2202,7 @@ func TestHandlerLeaderboardError(t *testing.T) {
 	closedDB := newClosedHandlerDB(t)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
 	scoreSvc := service.NewScoreboardService(scoreRepo)
-	handler := New(handlerCfg, nil, nil, nil, nil, scoreSvc, nil, nil, nil, handlerRedis)
+	handler := New(handlerCfg, nil, nil, nil, nil, scoreSvc, nil, nil, nil, handlerRedis, nil)
 
 	divisionID := int64(1)
 	ctx, rec := newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/leaderboard?division_id=%d", divisionID), nil)
@@ -2223,7 +2223,7 @@ func TestHandlerListChallengesError(t *testing.T) {
 	scoreSvc := service.NewScoreboardService(scoreRepo)
 	appConfigRepo := repo.NewAppConfigRepo(closedDB)
 	appConfigSvc := service.NewAppConfigService(appConfigRepo, handlerRedis, handlerCfg.Cache.AppConfigTTL)
-	handler := New(handlerCfg, nil, ctfSvc, appConfigSvc, nil, scoreSvc, nil, nil, nil, handlerRedis)
+	handler := New(handlerCfg, nil, ctfSvc, appConfigSvc, nil, scoreSvc, nil, nil, nil, handlerRedis, nil)
 
 	divisionID := int64(1)
 	ctx, rec := newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", divisionID), nil)
@@ -2614,7 +2614,7 @@ func TestOptionalUserID(t *testing.T) {
 			RefreshTTL: time.Hour,
 		},
 	}
-	handler := New(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := New(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	token, err := auth.GenerateAccessToken(cfg.JWT, 99, models.UserRole)
 	if err != nil {
@@ -2639,7 +2639,7 @@ func TestOptionalUserIDInvalidHeaders(t *testing.T) {
 			RefreshTTL: time.Hour,
 		},
 	}
-	handler := New(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := New(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx, _ := newJSONContext(t, http.MethodGet, "/api/me", nil)
 	if got := handler.optionalUserID(ctx); got != 0 {

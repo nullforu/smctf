@@ -13,6 +13,7 @@ import (
 	"smctf/internal/cache"
 	"smctf/internal/config"
 	"smctf/internal/db"
+	"smctf/internal/discord"
 	httpserver "smctf/internal/http"
 	"smctf/internal/logging"
 	"smctf/internal/realtime"
@@ -85,6 +86,7 @@ func main() {
 	scoreRepo := repo.NewScoreboardRepo(database)
 	appConfigRepo := repo.NewAppConfigRepo(database)
 	vmRepo := repo.NewVMRepo(database)
+	discordRepo := repo.NewDiscordRepo(database)
 
 	var fileStore storage.ChallengeFileStore
 	if cfg.S3.Enabled {
@@ -107,6 +109,18 @@ func main() {
 	vmClient := vm.NewClient(cfg.VM.OrchestratorBaseURL, cfg.VM.OrchestratorSecret, cfg.VM.OrchestratorTimeout)
 	vmSvc := service.NewVMService(cfg.VM, vmRepo, challengeRepo, submissionRepo, vmClient, redisClient)
 
+	var discordSvc *service.DiscordService
+	if cfg.Discord.Enabled {
+		discordBotClient := discord.NewBotClient(cfg.Discord.BotBaseURL, cfg.Discord.BotSecret, cfg.Discord.BotTimeout)
+		discordOAuthClient := discord.NewOAuthClient(discord.OAuthConfig{
+			ClientID:     cfg.Discord.ClientID,
+			ClientSecret: cfg.Discord.ClientSecret,
+			RedirectURI:  cfg.Discord.RedirectURI,
+			Scopes:       cfg.Discord.Scopes,
+		}, cfg.Discord.OAuthTimeout)
+		discordSvc = service.NewDiscordService(cfg.Discord, discordRepo, discordBotClient, discordOAuthClient, redisClient)
+	}
+
 	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, divisionRepo, logger)
 
 	if cfg, _, _, err := appConfigSvc.Get(ctx); err != nil {
@@ -122,7 +136,7 @@ func main() {
 	leaderboardBus := realtime.NewScoreboardBus(redisClient, cfg, scoreSvc, divisionSvc, logger, sseHub)
 	leaderboardBus.Start(ctx)
 
-	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, redisClient, logger, sseHub)
+	router := httpserver.NewRouter(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, discordSvc, redisClient, logger, sseHub)
 	srv := &nethttp.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,

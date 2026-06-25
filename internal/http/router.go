@@ -16,7 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userSvc *service.UserService, scoreSvc *service.ScoreboardService, divisionSvc *service.DivisionService, teamSvc *service.TeamService, vmSvc *service.VMService, redis *redis.Client, logger *logging.Logger, sse *realtime.SSEHub) *gin.Engine {
+func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.CTFService, appConfigSvc *service.AppConfigService, userSvc *service.UserService, scoreSvc *service.ScoreboardService, divisionSvc *service.DivisionService, teamSvc *service.TeamService, vmSvc *service.VMService, discordSvc *service.DiscordService, redis *redis.Client, logger *logging.Logger, sse *realtime.SSEHub) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -27,7 +27,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 	r.Use(middleware.CORS(cfg.AppEnv == "local", cfg.CORS.AllowedOrigins))
 	r.Use(middleware.CSRF())
 
-	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, redis)
+	h := handlers.New(cfg, authSvc, ctfSvc, appConfigSvc, userSvc, scoreSvc, divisionSvc, teamSvc, vmSvc, redis, discordSvc)
 	sseHandler := handlers.NewSSEHandler(sse)
 
 	r.GET("/healthz", func(ctx *gin.Context) {
@@ -58,12 +58,15 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		api.GET("/users", h.ListUsers)
 		api.GET("/users/:id", h.GetUser)
 		api.GET("/users/:id/solved", h.GetUserSolved)
+		api.GET("/discord/callback", h.DiscordCallback)
 
 		auth := api.Group("")
 		auth.Use(middleware.Auth(cfg.JWT))
 		auth.GET("/me", h.Me)
 		auth.GET("/vms", h.ListVMs)
 		auth.GET("/challenges/:id/vm", h.GetVM)
+		auth.GET("/discord/connect", h.DiscordConnect)
+		auth.GET("/discord/status", h.DiscordStatus)
 
 		unblocked := auth.Group("")
 		unblocked.Use(middleware.RequireActiveUser(userSvc))
@@ -72,6 +75,8 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		unblocked.POST("/challenges/:id/file/download", h.RequestChallengeFileDownload)
 		unblocked.POST("/challenges/:id/vm", h.CreateVM)
 		unblocked.DELETE("/challenges/:id/vm", h.DeleteVM)
+		unblocked.POST("/discord/sync-role", h.DiscordSyncRole)
+		unblocked.DELETE("/discord/unlink", h.DiscordUnlink)
 
 		admin := api.Group("/admin")
 		admin.Use(middleware.Auth(cfg.JWT), middleware.RequireActiveUser(userSvc), middleware.RequireRole(models.AdminRole))
