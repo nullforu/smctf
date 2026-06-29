@@ -20,6 +20,11 @@ on:
         options:
           - amd64
           - multi
+      dockerfile_path:
+        description: "Dockerfile path. Use . for repository root Dockerfile, or ./foo/Dockerfile"
+        required: true
+        default: .
+        type: string
 
 jobs:
   build:
@@ -36,9 +41,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set build context
+      - name: Set build context and Dockerfile path
         run: |
           echo "DOCKER_DIR=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
+
+          INPUT_DOCKERFILE="${{ github.event.inputs.dockerfile_path }}"
+
+          if [ "$INPUT_DOCKERFILE" = "." ] || [ "$INPUT_DOCKERFILE" = "./" ]; then
+            DOCKERFILE_PATH="${GITHUB_WORKSPACE}/Dockerfile"
+          else
+            DOCKERFILE_PATH="${GITHUB_WORKSPACE}/${INPUT_DOCKERFILE#./}"
+          fi
+
+          if [ ! -f "$DOCKERFILE_PATH" ]; then
+            echo "Dockerfile not found: $DOCKERFILE_PATH"
+            exit 1
+          fi
+
+          echo "DOCKERFILE_PATH=$DOCKERFILE_PATH" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -58,7 +78,11 @@ jobs:
       - name: Build and push (amd64 only)
         if: ${{ github.event.inputs.architecture == 'amd64' }}
         run: |
-          docker build -t "$IMAGE_URI" "$DOCKER_DIR"
+          docker build \
+            -f "$DOCKERFILE_PATH" \
+            -t "$IMAGE_URI" \
+            "$DOCKER_DIR"
+
           docker push "$IMAGE_URI"
 
       - name: Set up QEMU
@@ -74,4 +98,7 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            -t "$IMAGE_URI" --push "$DOCKER_DIR"
+            -f "$DOCKERFILE_PATH" \
+            -t "$IMAGE_URI" \
+            --push \
+            "$DOCKER_DIR"
