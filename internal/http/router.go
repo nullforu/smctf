@@ -58,7 +58,6 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		api.GET("/users", h.ListUsers)
 		api.GET("/users/:id", h.GetUser)
 		api.GET("/users/:id/solved", h.GetUserSolved)
-		api.GET("/discord/callback", h.DiscordCallback)
 
 		auth := api.Group("")
 		auth.Use(middleware.Auth(cfg.JWT))
@@ -66,6 +65,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		auth.GET("/vms", h.ListVMs)
 		auth.GET("/challenges/:id/vm", h.GetVM)
 		auth.GET("/discord/connect", h.DiscordConnect)
+		auth.GET("/discord/callback", h.DiscordCallback)
 		auth.GET("/discord/status", h.DiscordStatus)
 
 		unblocked := auth.Group("")
