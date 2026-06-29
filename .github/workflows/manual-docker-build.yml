@@ -21,7 +21,12 @@ on:
           - amd64
           - multi
       dockerfile_path:
-        description: "Dockerfile path. Use . for repository root Dockerfile, or ./foo/Dockerfile"
+        description: "Dockerfile path"
+        required: true
+        default: ./Dockerfile
+        type: string
+      build_context:
+        description: "Docker build context directory"
         required: true
         default: .
         type: string
@@ -41,24 +46,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set build context and Dockerfile path
+      - name: Set Docker build paths
         run: |
-          echo "DOCKER_DIR=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
+          DOCKERFILE_PATH="${GITHUB_WORKSPACE}/${{ github.event.inputs.dockerfile_path }}"
+          BUILD_CONTEXT="${GITHUB_WORKSPACE}/${{ github.event.inputs.build_context }}"
 
-          INPUT_DOCKERFILE="${{ github.event.inputs.dockerfile_path }}"
-
-          if [ "$INPUT_DOCKERFILE" = "." ] || [ "$INPUT_DOCKERFILE" = "./" ]; then
-            DOCKERFILE_PATH="${GITHUB_WORKSPACE}/Dockerfile"
-          else
-            DOCKERFILE_PATH="${GITHUB_WORKSPACE}/${INPUT_DOCKERFILE#./}"
-          fi
+          DOCKERFILE_PATH="$(realpath "$DOCKERFILE_PATH")"
+          BUILD_CONTEXT="$(realpath "$BUILD_CONTEXT")"
 
           if [ ! -f "$DOCKERFILE_PATH" ]; then
             echo "Dockerfile not found: $DOCKERFILE_PATH"
             exit 1
           fi
 
+          if [ ! -d "$BUILD_CONTEXT" ]; then
+            echo "Build context directory not found: $BUILD_CONTEXT"
+            exit 1
+          fi
+
           echo "DOCKERFILE_PATH=$DOCKERFILE_PATH" >> "$GITHUB_ENV"
+          echo "BUILD_CONTEXT=$BUILD_CONTEXT" >> "$GITHUB_ENV"
+
+          echo "Dockerfile path: $DOCKERFILE_PATH"
+          echo "Build context: $BUILD_CONTEXT"
+          echo "Build context files:"
+          find "$BUILD_CONTEXT" -maxdepth 2 -type f | sort
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -81,7 +93,7 @@ jobs:
           docker build \
             -f "$DOCKERFILE_PATH" \
             -t "$IMAGE_URI" \
-            "$DOCKER_DIR"
+            "$BUILD_CONTEXT"
 
           docker push "$IMAGE_URI"
 
@@ -101,4 +113,4 @@ jobs:
             -f "$DOCKERFILE_PATH" \
             -t "$IMAGE_URI" \
             --push \
-            "$DOCKER_DIR"
+            "$BUILD_CONTEXT"
