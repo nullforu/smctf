@@ -118,7 +118,7 @@ func main() {
 			RedirectURI:  cfg.Discord.RedirectURI,
 			Scopes:       cfg.Discord.Scopes,
 		}, cfg.Discord.OAuthTimeout)
-		discordSvc = service.NewDiscordService(cfg.Discord, discordRepo, discordBotClient, discordOAuthClient, redisClient)
+		discordSvc = service.NewDiscordService(cfg.Discord, discordRepo, userRepo, discordBotClient, discordOAuthClient, redisClient)
 	}
 
 	bootstrap.BootstrapAdmin(ctx, cfg, database, userRepo, teamRepo, divisionRepo, logger)

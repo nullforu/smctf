@@ -71,6 +71,8 @@ type BotAPI interface {
 	GrantRole(ctx context.Context, discordUserID string) error
 	KickMember(ctx context.Context, discordUserID string) error
 	GetMember(ctx context.Context, discordUserID string) (*Member, error)
+	Announce(ctx context.Context, content string) error
+	SetNickname(ctx context.Context, discordUserID, nickname string) error
 }
 
 type BotClient struct {
@@ -93,6 +95,14 @@ type joinRequest struct {
 	AccessToken string `json:"access_token"`
 }
 
+type announceRequest struct {
+	Content string `json:"content"`
+}
+
+type nicknameRequest struct {
+	Nickname string `json:"nickname"`
+}
+
 func (c *BotClient) JoinGuild(ctx context.Context, discordUserID, accessToken string) error {
 	return c.doJSON(ctx, http.MethodPut, "/internal/guild/members/"+url.PathEscape(discordUserID), joinRequest{AccessToken: accessToken}, nil)
 }
@@ -103,6 +113,14 @@ func (c *BotClient) GrantRole(ctx context.Context, discordUserID string) error {
 
 func (c *BotClient) KickMember(ctx context.Context, discordUserID string) error {
 	return c.doJSON(ctx, http.MethodDelete, "/internal/guild/members/"+url.PathEscape(discordUserID), nil, nil)
+}
+
+func (c *BotClient) Announce(ctx context.Context, content string) error {
+	return c.doJSON(ctx, http.MethodPost, "/internal/announce", announceRequest{Content: content}, nil)
+}
+
+func (c *BotClient) SetNickname(ctx context.Context, discordUserID, nickname string) error {
+	return c.doJSON(ctx, http.MethodPatch, "/internal/guild/members/"+url.PathEscape(discordUserID)+"/nickname", nicknameRequest{Nickname: nickname}, nil)
 }
 
 func (c *BotClient) GetMember(ctx context.Context, discordUserID string) (*Member, error) {

@@ -13,6 +13,10 @@ func TestDivisionServiceCreateListGet(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 
+	if _, err := env.divisionSvc.CreateDivision(context.Background(), "ThisNameIsWayTooLong"); err == nil {
+		t.Fatalf("expected max-length validation error")
+	}
+
 	division, err := env.divisionSvc.CreateDivision(context.Background(), "Alpha")
 	if err != nil {
 		t.Fatalf("create division: %v", err)

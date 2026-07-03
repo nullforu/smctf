@@ -175,19 +175,24 @@ func TestUserServiceUpdateProfileTrimAndRequired(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "trim@example.com", "trim-user", "pass", models.UserRole)
 
-	newName := "  trimmed-name  "
+	newName := "  trimmed  "
 	updated, err := env.userSvc.UpdateProfile(context.Background(), user.ID, &newName)
 	if err != nil {
 		t.Fatalf("expected trim update success, got %v", err)
 	}
 
-	if updated.Username != "trimmed-name" {
+	if updated.Username != "trimmed" {
 		t.Fatalf("expected trimmed username, got %q", updated.Username)
 	}
 
 	blank := strings.Repeat(" ", 5)
 	if _, err := env.userSvc.UpdateProfile(context.Background(), user.ID, &blank); err == nil {
 		t.Fatalf("expected validation error for blank username")
+	}
+
+	tooLong := "ThisNameIsWayTooLong"
+	if _, err := env.userSvc.UpdateProfile(context.Background(), user.ID, &tooLong); err == nil {
+		t.Fatalf("expected validation error for over-length username")
 	}
 }
 

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,12 +14,14 @@ import (
 )
 
 type fakeBot struct {
-	joinErr  error
-	grantErr error
-	kickErr  error
-	joined   bool
-	granted  bool
-	kicked   bool
+	joinErr   error
+	grantErr  error
+	kickErr   error
+	joined    bool
+	granted   bool
+	kicked    bool
+	announced []string
+	nickname  string
 }
 
 func (f *fakeBot) JoinGuild(_ context.Context, _, _ string) error {
@@ -38,6 +41,16 @@ func (f *fakeBot) KickMember(_ context.Context, _ string) error {
 
 func (f *fakeBot) GetMember(_ context.Context, _ string) (*discord.Member, error) {
 	return &discord.Member{}, nil
+}
+
+func (f *fakeBot) Announce(_ context.Context, content string) error {
+	f.announced = append(f.announced, content)
+	return nil
+}
+
+func (f *fakeBot) SetNickname(_ context.Context, _, nickname string) error {
+	f.nickname = nickname
+	return nil
 }
 
 type fakeOAuth struct {
@@ -68,7 +81,7 @@ func discordTestConfig() config.DiscordConfig {
 
 func newDiscordServiceForTest(env serviceEnv, bot discord.BotAPI, user *discord.User) (*DiscordService, *repo.DiscordRepo) {
 	discordRepo := repo.NewDiscordRepo(env.db)
-	svc := NewDiscordService(discordTestConfig(), discordRepo, bot, fakeOAuth{user: user}, env.redis)
+	svc := NewDiscordService(discordTestConfig(), discordRepo, env.userRepo, bot, fakeOAuth{user: user}, env.redis)
 	return svc, discordRepo
 }
 
@@ -225,7 +238,7 @@ func TestDiscordGetConnectionNilWhenAbsent(t *testing.T) {
 func TestDiscordDisabledReturnsError(t *testing.T) {
 	env := setupServiceTest(t)
 	discordRepo := repo.NewDiscordRepo(env.db)
-	svc := NewDiscordService(config.DiscordConfig{Enabled: false}, discordRepo, &fakeBot{}, fakeOAuth{user: &discord.User{ID: "1"}}, env.redis)
+	svc := NewDiscordService(config.DiscordConfig{Enabled: false}, discordRepo, env.userRepo, &fakeBot{}, fakeOAuth{user: &discord.User{ID: "1"}}, env.redis)
 
 	if _, err := svc.BeginConnect(context.Background(), 1); !errors.Is(err, ErrDiscordDisabled) {
 		t.Fatalf("got %v, want ErrDiscordDisabled", err)
@@ -239,4 +252,68 @@ func seedState(t *testing.T, env serviceEnv, userID int64) string {
 		t.Fatalf("seed state: %v", err)
 	}
 	return state
+}
+
+func TestDiscordAnnounceSolve(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "ann@example.com", "annuser", "pass", models.UserRole)
+	bot := &fakeBot{}
+	svc, _ := newDiscordServiceForTest(env, bot, &discord.User{ID: "1"})
+
+	svc.AnnounceSolve(context.Background(), user.ID, "Web-101", true)
+	svc.AnnounceSolve(context.Background(), user.ID, "Web-102", false)
+
+	if len(bot.announced) != 2 {
+		t.Fatalf("expected 2 announcements, got %d", len(bot.announced))
+	}
+
+	if !strings.Contains(bot.announced[0], "First Blood") || !strings.Contains(bot.announced[0], "Web-101") || !strings.Contains(bot.announced[0], "annuser") {
+		t.Errorf("first blood msg = %q", bot.announced[0])
+	}
+
+	if strings.Contains(bot.announced[1], "First Blood") || !strings.Contains(bot.announced[1], "solved") {
+		t.Errorf("normal msg = %q", bot.announced[1])
+	}
+}
+
+func TestDiscordSyncNickname(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "nick@example.com", "nickuser", "pass", models.UserRole)
+	bot := &fakeBot{}
+	svc, discordRepo := newDiscordServiceForTest(env, bot, &discord.User{ID: "555"})
+
+	svc.SyncNickname(context.Background(), user.ID)
+	if bot.nickname != "" {
+		t.Fatalf("expected skip without connection, got %q", bot.nickname)
+	}
+
+	conn := &models.DiscordConnection{UserID: user.ID, DiscordUserID: "555", RoleStatus: models.DiscordStatusVerified, ConnectedAt: time.Now().UTC()}
+	if err := discordRepo.Create(context.Background(), conn); err != nil {
+		t.Fatalf("create connection: %v", err)
+	}
+
+	svc.SyncNickname(context.Background(), user.ID)
+	if !strings.Contains(bot.nickname, "nickuser") {
+		t.Fatalf("nickname = %q (expected division_team_nickuser)", bot.nickname)
+	}
+}
+
+func TestCTFServiceWasFirstBlood(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "cfb@example.com", "cfb", "pass", models.UserRole)
+	ch := createChallenge(t, env, "cfbch", 100, "FLAG{CFB}", true)
+
+	correct, err := env.ctfSvc.SubmitFlag(context.Background(), user.ID, ch.ID, "FLAG{CFB}")
+	if err != nil || !correct {
+		t.Fatalf("submit: correct=%v err=%v", correct, err)
+	}
+
+	fb, err := env.ctfSvc.WasFirstBlood(context.Background(), user.ID, ch.ID)
+	if err != nil {
+		t.Fatalf("WasFirstBlood: %v", err)
+	}
+
+	if !fb {
+		t.Fatal("expected first blood for first solver")
+	}
 }

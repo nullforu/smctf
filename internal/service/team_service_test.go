@@ -15,6 +15,10 @@ func TestTeamServiceCreateAndList(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 
+	if _, err := env.teamSvc.CreateTeam(context.Background(), "ThisNameIsWayTooLong", env.defaultDivisionID); err == nil {
+		t.Fatalf("expected max-length validation error")
+	}
+
 	_, err := env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID+999)
 	var ve *ValidationError
 	if !errors.As(err, &ve) {

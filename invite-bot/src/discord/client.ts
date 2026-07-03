@@ -91,6 +91,33 @@ export class DiscordBot {
         }
     }
 
+    async announce(content: string): Promise<void> {
+        if (!this.cfg.announceChannelId) {
+            return
+        }
+        try {
+            const channel = await this.client.channels.fetch(this.cfg.announceChannelId)
+            if (!channel || !channel.isTextBased() || !('send' in channel)) {
+                throw new BotError(400, 'INVALID', 'announce channel is not text-based')
+            }
+            await channel.send({ content, allowedMentions: { parse: [] } })
+        } catch (err) {
+            if (err instanceof BotError) {
+                throw err
+            }
+            throw mapDiscordError(err)
+        }
+    }
+
+    async setNickname(userId: string, nickname: string): Promise<void> {
+        const member = await this.fetchMember(userId)
+        try {
+            await member.setNickname(nickname.slice(0, 32), this.cfg.auditReason)
+        } catch (err) {
+            throw mapDiscordError(err)
+        }
+    }
+
     private async fetchMember(userId: string): Promise<GuildMember> {
         const guild = this.requireGuild()
         try {

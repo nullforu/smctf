@@ -408,6 +408,10 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 	return correct, nil
 }
 
+func (s *CTFService) WasFirstBlood(ctx context.Context, userID, challengeID int64) (bool, error) {
+	return s.submissionRepo.WasFirstBlood(ctx, userID, challengeID)
+}
+
 func (s *CTFService) RequestChallengeFileUpload(ctx context.Context, id int64, filename string) (*models.Challenge, storage.PresignedPost, error) {
 	filename = normalizeTrim(filename)
 	validator := newFieldValidator()

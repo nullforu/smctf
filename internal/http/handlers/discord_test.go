@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,8 +20,10 @@ import (
 )
 
 type fakeBot struct {
-	grantErr error
-	kicked   bool
+	grantErr  error
+	kicked    bool
+	announced []string
+	nickname  string
 }
 
 func (f *fakeBot) JoinGuild(_ context.Context, _, _ string) error { return nil }
@@ -32,6 +35,16 @@ func (f *fakeBot) KickMember(_ context.Context, _ string) error {
 
 func (f *fakeBot) GetMember(_ context.Context, _ string) (*discord.Member, error) {
 	return &discord.Member{}, nil
+}
+
+func (f *fakeBot) Announce(_ context.Context, content string) error {
+	f.announced = append(f.announced, content)
+	return nil
+}
+
+func (f *fakeBot) SetNickname(_ context.Context, _, nickname string) error {
+	f.nickname = nickname
+	return nil
 }
 
 type fakeOAuth struct {
@@ -59,7 +72,7 @@ func discordEnabledHandler(env handlerEnv, bot discord.BotAPI, user *discord.Use
 		SuccessRedirect: "http://localhost:3000/profile",
 		InviteURL:       "https://discord.gg/invite",
 	}
-	discordSvc := service.NewDiscordService(cfg.Discord, repo.NewDiscordRepo(env.db), bot, fakeOAuth{user: user}, env.redis)
+	discordSvc := service.NewDiscordService(cfg.Discord, repo.NewDiscordRepo(env.db), env.userRepo, bot, fakeOAuth{user: user}, env.redis)
 	return New(cfg, env.authSvc, env.ctfSvc, env.appConfigSvc, env.userSvc, env.scoreSvc, env.divisionSvc, env.teamSvc, env.vmSvc, env.redis, discordSvc)
 }
 
@@ -291,5 +304,53 @@ func TestHandlerDiscordUnlink(t *testing.T) {
 
 	if _, err := repo.NewDiscordRepo(env.db).GetByUserID(context.Background(), user.ID); err == nil {
 		t.Error("connection should be deleted")
+	}
+}
+
+func TestHandlerSubmitFlagAnnounces(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "solveann@example.com", "solveann", "pass", models.UserRole)
+	ch := createHandlerChallenge(t, env, "AnnounceChal", 100, "FLAG{ANN}", true)
+	bot := &fakeBot{}
+	h := discordEnabledHandler(env, bot, &discord.User{ID: "1"})
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/x/submit", map[string]string{"flag": "FLAG{ANN}"})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", ch.ID)}}
+	ctx.Set("userID", user.ID)
+
+	h.SubmitFlag(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if len(bot.announced) != 1 {
+		t.Fatalf("expected 1 announcement, got %d", len(bot.announced))
+	}
+
+	if !strings.Contains(bot.announced[0], "AnnounceChal") || !strings.Contains(bot.announced[0], "First Blood") {
+		t.Errorf("announce = %q", bot.announced[0])
+	}
+}
+
+func TestHandlerUpdateMeSyncsNickname(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "nickupd@example.com", "nickupd", "pass", models.UserRole)
+	bot := &fakeBot{}
+	h := discordEnabledHandler(env, bot, &discord.User{ID: "1"})
+
+	conn := &models.DiscordConnection{UserID: user.ID, DiscordUserID: "1", RoleStatus: models.DiscordStatusVerified, ConnectedAt: time.Now().UTC()}
+	if err := repo.NewDiscordRepo(env.db).Create(context.Background(), conn); err != nil {
+		t.Fatalf("create connection: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "renamed"})
+	ctx.Set("userID", user.ID)
+
+	h.UpdateMe(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update status %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(bot.nickname, "renamed") {
+		t.Fatalf("expected nickname synced to renamed, got %q", bot.nickname)
 	}
 }

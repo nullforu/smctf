@@ -137,3 +137,53 @@ func TestBotClientUnavailableOnDialError(t *testing.T) {
 		t.Fatalf("got %v, want ErrUnavailable", err)
 	}
 }
+
+func TestBotClientAnnounce(t *testing.T) {
+	var gotMethod, gotPath string
+	var body announceRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	client := NewBotClient(srv.URL, "secret", time.Second)
+	if err := client.Announce(context.Background(), "hello world"); err != nil {
+		t.Fatalf("Announce: %v", err)
+	}
+
+	if gotMethod != http.MethodPost || gotPath != "/internal/announce" {
+		t.Errorf("method=%q path=%q", gotMethod, gotPath)
+	}
+
+	if body.Content != "hello world" {
+		t.Errorf("content = %q", body.Content)
+	}
+}
+
+func TestBotClientSetNickname(t *testing.T) {
+	var gotMethod, gotPath string
+	var body nicknameRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	client := NewBotClient(srv.URL, "secret", time.Second)
+	if err := client.SetNickname(context.Background(), "123", "Div_Team_neo"); err != nil {
+		t.Fatalf("SetNickname: %v", err)
+	}
+
+	if gotMethod != http.MethodPatch || gotPath != "/internal/guild/members/123/nickname" {
+		t.Errorf("method=%q path=%q", gotMethod, gotPath)
+	}
+
+	if body.Nickname != "Div_Team_neo" {
+		t.Errorf("nickname = %q", body.Nickname)
+	}
+}

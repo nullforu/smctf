@@ -107,6 +107,28 @@ export function buildServer(cfg: BotConfig, bot: DiscordBot): Express {
         }),
     )
 
+    internal.post(
+        '/announce',
+        asyncRoute(async (req, res) => {
+            const content = (req.body?.content as string | undefined) ?? ''
+            if (content.trim() === '') {
+                res.status(400).json({ error: 'content required', code: 'INVALID' })
+                return
+            }
+            await bot.announce(content)
+            res.status(204).end()
+        }),
+    )
+
+    internal.patch(
+        '/guild/members/:userId/nickname',
+        asyncRoute(async (req, res) => {
+            const nickname = (req.body?.nickname as string | undefined) ?? ''
+            await bot.setNickname(pathUserId(req), nickname)
+            res.status(204).end()
+        }),
+    )
+
     app.use('/internal', internal)
 
     return app

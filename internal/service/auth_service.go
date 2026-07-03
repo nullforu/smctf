@@ -44,6 +44,7 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, r
 	validator := newFieldValidator()
 	validator.Required("email", email)
 	validator.Required("username", username)
+	validator.MaxLen("username", username, nameMaxLen)
 	validator.Required("password", password)
 	validator.Required("registration_key", registrationKey)
 	validator.Email("email", email)
