@@ -12,6 +12,8 @@ import (
 	"smctf/internal/repo"
 )
 
+const reservedAdminDivisionName = "Admin"
+
 type DivisionService struct {
 	divisionRepo *repo.DivisionRepo
 }
@@ -73,6 +75,10 @@ func (s *DivisionService) UpdateDivision(ctx context.Context, id int64, name str
 		}
 
 		return nil, fmt.Errorf("division.UpdateDivision get: %w", err)
+	}
+
+	if strings.EqualFold(division.Name, reservedAdminDivisionName) && !strings.EqualFold(name, reservedAdminDivisionName) {
+		return nil, NewValidationError(FieldError{Field: "name", Reason: "reserved"})
 	}
 
 	division.Name = name

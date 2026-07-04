@@ -161,6 +161,28 @@ func TestDivisionServiceUpdateDuplicateName(t *testing.T) {
 	}
 }
 
+func TestDivisionServiceUpdateCannotRenameReservedAdmin(t *testing.T) {
+	env := setupServiceTest(t)
+
+	admin, err := env.divisionSvc.CreateDivision(context.Background(), "Admin", nil, nil)
+	if err != nil {
+		t.Fatalf("create admin division: %v", err)
+	}
+
+	if _, err := env.divisionSvc.UpdateDivision(context.Background(), admin.ID, "Public", nil, nil); err == nil {
+		t.Fatalf("expected rename of reserved admin division to be rejected")
+	}
+
+	updated, err := env.divisionSvc.UpdateDivision(context.Background(), admin.ID, "Admin", sp("123456789012345678"), nil)
+	if err != nil {
+		t.Fatalf("expected discord-only update to succeed, got %v", err)
+	}
+
+	if updated.DiscordRoleID == nil || *updated.DiscordRoleID != "123456789012345678" {
+		t.Fatalf("role id not updated: %+v", updated.DiscordRoleID)
+	}
+}
+
 func TestDivisionServiceGetDivisionErrors(t *testing.T) {
 	env := setupServiceTest(t)
 

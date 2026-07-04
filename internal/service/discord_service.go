@@ -262,18 +262,17 @@ func (s *DiscordService) provision(ctx context.Context, conn *models.DiscordConn
 	conn.UpdatedAt = now
 	conn.LastError = nil
 
-	// Resolve the division-scoped role to grant. An empty role means this
-	// division does not assign a Discord role, so linking is considered
-	// verified without a role grant.
-	roleID := ""
-	if div, err := s.divisionForUser(ctx, conn.UserID); err != nil {
+	div, err := s.divisionForUser(ctx, conn.UserID)
+	if err != nil {
 		slog.Warn("discord: division lookup failed",
 			slog.Int64("user_id", conn.UserID),
 			slog.Any("error", err),
 		)
-	} else {
-		roleID = derefOrEmpty(div.DiscordRoleID)
+		s.applyGrantError(conn, err)
+		return
 	}
+
+	roleID := derefOrEmpty(div.DiscordRoleID)
 
 	if s.cfg.AutoJoin && accessToken != "" {
 		if err := s.bot.JoinGuild(ctx, conn.DiscordUserID, accessToken, roleID); err != nil {
