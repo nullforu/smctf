@@ -92,6 +92,7 @@ Errors:
 
 Notes:
 
+- `username` must be at most 10 characters (counted by Unicode code point).
 - `vm_count` and `vm_limit` reflect the configured scope. If `VMS_MAX_SCOPE=team`, these values are team-wide.
 
 ---

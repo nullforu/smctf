@@ -12,6 +12,25 @@ Notes:
 - For authenticated `POST`, `PUT`, `PATCH`, and `DELETE` requests, send both `csrf_token` cookie and matching `X-CSRF-Token` header.
 - All endpoints return `503 discord feature disabled` when `DISCORD_ENABLED=false`.
 
+## Solve Announcements & Nickname Sync
+
+When `DISCORD_ENABLED=true`, the backend performs two best-effort side effects
+through the invite-bot (failures are logged, never surfaced to the user):
+
+- **Solve announcements** — on a correct flag submission, a message is sent to the
+  channel `DISCORD_ANNOUNCE_CHANNEL_ID` (no-op when unset):
+    - Normal solve: `**division_team** — username solved **Challenge Title**`
+    - First blood: prefixed with 🩸 `First Blood!`
+
+    Announcements are independent of whether the solving user has linked their own
+    Discord account.
+
+- **Guild nickname sync** — when a user links Discord or changes their username,
+  the linked guild member's nickname is set to `division_team_username`. Because
+  `username`, team `name`, and division `name` are each capped at 10 characters,
+  this always fits Discord's 32-character nickname limit
+  (10 + 10 + 10 + two underscores).
+
 ## Discord Status Schema
 
 `discordStatusResponse` fields (omitted when empty):
@@ -210,6 +229,7 @@ Discord service options (backend):
 - `DISCORD_BOT_BASE_URL` (default: `http://localhost:8083`)
 - `DISCORD_BOT_SECRET` — shared bearer secret for the invite-bot internal API (must equal the bot's `DISCORD_INTERNAL_SECRET`).
 - `DISCORD_BOT_TIMEOUT` (default: `5s`)
+- `DISCORD_ANNOUNCE_CHANNEL_ID` — target channel for solve / first-blood announcements. Empty disables announcements (configured on the invite-bot server).
 
 Validation rules when `DISCORD_ENABLED=true`:
 

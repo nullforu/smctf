@@ -303,6 +303,10 @@ Errors:
 - 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 
+Validation notes:
+
+- `name` must be at most 10 characters (counted by Unicode code point).
+
 ---
 
 ## Create Division (Admin)
@@ -332,6 +336,10 @@ Errors:
 - 400 `invalid input`
 - 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
+
+Validation notes:
+
+- `name` must be at most 10 characters (counted by Unicode code point).
 
 ---
 
