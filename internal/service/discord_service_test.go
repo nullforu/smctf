@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,12 +15,14 @@ import (
 )
 
 type fakeBot struct {
-	joinErr   error
-	grantErr  error
-	kickErr   error
-	joined    bool
-	granted   bool
-	kicked    bool
+	joinErr  error
+	grantErr error
+	kickErr  error
+	joined   bool
+	granted  bool
+	kicked   bool
+
+	mu        sync.Mutex
 	announced []string
 	nickname  string
 }
@@ -44,13 +47,35 @@ func (f *fakeBot) GetMember(_ context.Context, _ string) (*discord.Member, error
 }
 
 func (f *fakeBot) Announce(_ context.Context, content string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.announced = append(f.announced, content)
 	return nil
 }
 
 func (f *fakeBot) SetNickname(_ context.Context, _, nickname string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.nickname = nickname
 	return nil
+}
+
+func (f *fakeBot) announcedCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.announced)
+}
+
+func (f *fakeBot) announcedAt(i int) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.announced[i]
+}
+
+func (f *fakeBot) nick() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.nickname
 }
 
 type fakeOAuth struct {
@@ -118,6 +143,7 @@ func TestDiscordHandleCallbackVerified(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HandleCallback: %v", err)
 	}
+	svc.Wait()
 
 	if conn.RoleStatus != models.DiscordStatusVerified {
 		t.Errorf("status = %q", conn.RoleStatus)
@@ -149,6 +175,7 @@ func TestDiscordHandleCallbackNotInGuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HandleCallback: %v", err)
 	}
+	svc.Wait()
 
 	if conn.RoleStatus != models.DiscordStatusNotInGuild {
 		t.Errorf("status = %q", conn.RoleStatus)
@@ -182,6 +209,7 @@ func TestDiscordHandleCallbackAlreadyLinked(t *testing.T) {
 	if _, err := svc.HandleCallback(context.Background(), owner.ID, "code", state); err != nil {
 		t.Fatalf("owner link: %v", err)
 	}
+	svc.Wait()
 
 	state2 := seedState(t, env, other.ID)
 	_, err := svc.HandleCallback(context.Background(), other.ID, "code", state2)
@@ -205,6 +233,7 @@ func TestDiscordUnlinkRemovesConnection(t *testing.T) {
 	if _, err := svc.HandleCallback(context.Background(), user.ID, "code", state); err != nil {
 		t.Fatalf("link: %v", err)
 	}
+	svc.Wait()
 
 	if err := svc.Unlink(context.Background(), user.ID); err != nil {
 		t.Fatalf("Unlink: %v", err)
@@ -261,18 +290,20 @@ func TestDiscordAnnounceSolve(t *testing.T) {
 	svc, _ := newDiscordServiceForTest(env, bot, &discord.User{ID: "1"})
 
 	svc.AnnounceSolve(context.Background(), user.ID, "Web-101", true)
+	svc.Wait()
 	svc.AnnounceSolve(context.Background(), user.ID, "Web-102", false)
+	svc.Wait()
 
-	if len(bot.announced) != 2 {
-		t.Fatalf("expected 2 announcements, got %d", len(bot.announced))
+	if bot.announcedCount() != 2 {
+		t.Fatalf("expected 2 announcements, got %d", bot.announcedCount())
 	}
 
-	if !strings.Contains(bot.announced[0], "First Blood") || !strings.Contains(bot.announced[0], "Web-101") || !strings.Contains(bot.announced[0], "annuser") {
-		t.Errorf("first blood msg = %q", bot.announced[0])
+	if !strings.Contains(bot.announcedAt(0), "First Blood") || !strings.Contains(bot.announcedAt(0), "Web-101") || !strings.Contains(bot.announcedAt(0), "annuser") {
+		t.Errorf("first blood msg = %q", bot.announcedAt(0))
 	}
 
-	if strings.Contains(bot.announced[1], "First Blood") || !strings.Contains(bot.announced[1], "solved") {
-		t.Errorf("normal msg = %q", bot.announced[1])
+	if strings.Contains(bot.announcedAt(1), "First Blood") || !strings.Contains(bot.announcedAt(1), "solved") {
+		t.Errorf("normal msg = %q", bot.announcedAt(1))
 	}
 }
 
@@ -283,8 +314,9 @@ func TestDiscordSyncNickname(t *testing.T) {
 	svc, discordRepo := newDiscordServiceForTest(env, bot, &discord.User{ID: "555"})
 
 	svc.SyncNickname(context.Background(), user.ID)
-	if bot.nickname != "" {
-		t.Fatalf("expected skip without connection, got %q", bot.nickname)
+	svc.Wait()
+	if bot.nick() != "" {
+		t.Fatalf("expected skip without connection, got %q", bot.nick())
 	}
 
 	conn := &models.DiscordConnection{UserID: user.ID, DiscordUserID: "555", RoleStatus: models.DiscordStatusVerified, ConnectedAt: time.Now().UTC()}
@@ -293,8 +325,9 @@ func TestDiscordSyncNickname(t *testing.T) {
 	}
 
 	svc.SyncNickname(context.Background(), user.ID)
-	if !strings.Contains(bot.nickname, "nickuser") {
-		t.Fatalf("nickname = %q (expected division_team_nickuser)", bot.nickname)
+	svc.Wait()
+	if !strings.Contains(bot.nick(), "nickuser") {
+		t.Fatalf("nickname = %q (expected division_team_nickuser)", bot.nick())
 	}
 }
 

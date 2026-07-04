@@ -489,7 +489,7 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 
 	h.notifyScoreboardChanged(ctx.Request.Context(), "user_profile_update", user.DivisionID)
 
-	if h.discord != nil {
+	if h.discord != nil && req.Username != nil {
 		h.discord.SyncNickname(ctx.Request.Context(), userID)
 	}
 
@@ -605,13 +605,10 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 
 		if h.discord != nil {
 			uid := middleware.UserID(ctx)
-			firstBlood, _ := h.ctf.WasFirstBlood(ctx.Request.Context(), uid, challengeID)
-			title := ""
-			if ch, cerr := h.ctf.GetChallengeByID(ctx.Request.Context(), challengeID); cerr == nil {
-				title = ch.Title
+			if ch, cerr := h.ctf.GetChallengeByID(ctx.Request.Context(), challengeID); cerr == nil && ch.Title != "" {
+				firstBlood, _ := h.ctf.WasFirstBlood(ctx.Request.Context(), uid, challengeID)
+				h.discord.AnnounceSolve(ctx.Request.Context(), uid, ch.Title, firstBlood)
 			}
-
-			h.discord.AnnounceSolve(ctx.Request.Context(), uid, title, firstBlood)
 		}
 	}
 

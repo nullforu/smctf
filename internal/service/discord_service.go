@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"smctf/internal/config"
@@ -31,6 +32,11 @@ type DiscordService struct {
 	bot   discord.BotAPI
 	oauth DiscordOAuth
 	redis *redis.Client
+	wg    sync.WaitGroup
+}
+
+func (s *DiscordService) Wait() {
+	s.wg.Wait()
 }
 
 func NewDiscordService(cfg config.DiscordConfig, discordRepo *repo.DiscordRepo, userRepo *repo.UserRepo, bot discord.BotAPI, oauth DiscordOAuth, redisClient *redis.Client) *DiscordService {
@@ -274,11 +280,19 @@ func (s *DiscordService) applyGrantError(conn *models.DiscordConnection, err err
 	}
 }
 
-func (s *DiscordService) AnnounceSolve(ctx context.Context, userID int64, challengeTitle string, firstBlood bool) {
+func (s *DiscordService) AnnounceSolve(_ context.Context, userID int64, challengeTitle string, firstBlood bool) {
 	if err := s.ensureEnabled(); err != nil {
 		return
 	}
 
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.announceSolve(context.Background(), userID, challengeTitle, firstBlood)
+	}()
+}
+
+func (s *DiscordService) announceSolve(ctx context.Context, userID int64, challengeTitle string, firstBlood bool) {
 	user, err := s.users.GetByID(ctx, userID)
 	if err != nil {
 		slog.Warn("discord announce: user lookup failed", slog.Int64("user_id", userID), slog.Any("error", err))
@@ -298,13 +312,24 @@ func (s *DiscordService) AnnounceSolve(ctx context.Context, userID int64, challe
 	}
 }
 
-func (s *DiscordService) SyncNickname(ctx context.Context, userID int64) {
+func (s *DiscordService) SyncNickname(_ context.Context, userID int64) {
 	if err := s.ensureEnabled(); err != nil {
 		return
 	}
 
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.syncNickname(context.Background(), userID)
+	}()
+}
+
+func (s *DiscordService) syncNickname(ctx context.Context, userID int64) {
 	conn, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
+		if !errors.Is(err, repo.ErrNotFound) {
+			slog.Warn("discord nickname: connection lookup failed", slog.Int64("user_id", userID), slog.Any("error", err))
+		}
 		return
 	}
 

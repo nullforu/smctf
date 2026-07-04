@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,8 +21,10 @@ import (
 )
 
 type fakeBot struct {
-	grantErr  error
-	kicked    bool
+	grantErr error
+	kicked   bool
+
+	mu        sync.Mutex
 	announced []string
 	nickname  string
 }
@@ -38,13 +41,35 @@ func (f *fakeBot) GetMember(_ context.Context, _ string) (*discord.Member, error
 }
 
 func (f *fakeBot) Announce(_ context.Context, content string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.announced = append(f.announced, content)
 	return nil
 }
 
 func (f *fakeBot) SetNickname(_ context.Context, _, nickname string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.nickname = nickname
 	return nil
+}
+
+func (f *fakeBot) announcedCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.announced)
+}
+
+func (f *fakeBot) announcedAt(i int) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.announced[i]
+}
+
+func (f *fakeBot) nick() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.nickname
 }
 
 type fakeOAuth struct {
@@ -206,6 +231,7 @@ func TestHandlerDiscordConnectAndCallback(t *testing.T) {
 	cbCtx, cbRec := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state="+state, nil)
 	cbCtx.Set("userID", user.ID)
 	h.DiscordCallback(cbCtx)
+	h.discord.Wait()
 	if cbRec.Code != http.StatusFound {
 		t.Fatalf("callback code = %d body=%s", cbRec.Code, cbRec.Body.String())
 	}
@@ -238,6 +264,7 @@ func TestHandlerDiscordSyncRole(t *testing.T) {
 	cbCtx, cbRec := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state="+state.Query().Get("state"), nil)
 	cbCtx.Set("userID", user.ID)
 	h.DiscordCallback(cbCtx)
+	h.discord.Wait()
 	if loc := cbRec.Header().Get("Location"); !strings.Contains(loc, "discord=connected_not_joined") {
 		t.Fatalf("callback location = %q", loc)
 	}
@@ -265,6 +292,7 @@ func TestHandlerDiscordCallbackInvalidState(t *testing.T) {
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state=bogus", nil)
 	ctx.Set("userID", user.ID)
 	h.DiscordCallback(ctx)
+	h.discord.Wait()
 
 	if rec.Code != http.StatusFound {
 		t.Fatalf("code = %d", rec.Code)
@@ -289,6 +317,7 @@ func TestHandlerDiscordUnlink(t *testing.T) {
 	cbCtx, _ := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state="+state.Query().Get("state"), nil)
 	cbCtx.Set("userID", user.ID)
 	h.DiscordCallback(cbCtx)
+	h.discord.Wait()
 
 	unlinkCtx, unlinkRec := newJSONContext(t, http.MethodDelete, "/api/discord/unlink", nil)
 	unlinkCtx.Set("userID", user.ID)
@@ -322,13 +351,14 @@ func TestHandlerSubmitFlagAnnounces(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit status %d: %s", rec.Code, rec.Body.String())
 	}
+	h.discord.Wait()
 
-	if len(bot.announced) != 1 {
-		t.Fatalf("expected 1 announcement, got %d", len(bot.announced))
+	if bot.announcedCount() != 1 {
+		t.Fatalf("expected 1 announcement, got %d", bot.announcedCount())
 	}
 
-	if !strings.Contains(bot.announced[0], "AnnounceChal") || !strings.Contains(bot.announced[0], "First Blood") {
-		t.Errorf("announce = %q", bot.announced[0])
+	if !strings.Contains(bot.announcedAt(0), "AnnounceChal") || !strings.Contains(bot.announcedAt(0), "First Blood") {
+		t.Errorf("announce = %q", bot.announcedAt(0))
 	}
 }
 
@@ -350,7 +380,8 @@ func TestHandlerUpdateMeSyncsNickname(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update status %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(bot.nickname, "renamed") {
-		t.Fatalf("expected nickname synced to renamed, got %q", bot.nickname)
+	h.discord.Wait()
+	if !strings.Contains(bot.nick(), "renamed") {
+		t.Fatalf("expected nickname synced to renamed, got %q", bot.nick())
 	}
 }
