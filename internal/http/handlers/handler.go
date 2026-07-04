@@ -489,6 +489,10 @@ func (h *Handler) UpdateMe(ctx *gin.Context) {
 
 	h.notifyScoreboardChanged(ctx.Request.Context(), "user_profile_update", user.DivisionID)
 
+	if h.discord != nil && req.Username != nil {
+		h.discord.SyncNickname(ctx.Request.Context(), userID)
+	}
+
 	ctx.JSON(http.StatusOK, newUserMeResponse(user, vmCount, vmLimit))
 }
 
@@ -597,6 +601,14 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 
 		if h.vms != nil {
 			_ = h.vms.DeleteVMByUserAndChallenge(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+		}
+
+		if h.discord != nil {
+			uid := middleware.UserID(ctx)
+			if ch, cerr := h.ctf.GetChallengeByID(ctx.Request.Context(), challengeID); cerr == nil && ch.Title != "" {
+				firstBlood, _ := h.ctf.WasFirstBlood(ctx.Request.Context(), uid, challengeID)
+				h.discord.AnnounceSolve(ctx.Request.Context(), uid, ch.Title, firstBlood)
+			}
 		}
 	}
 

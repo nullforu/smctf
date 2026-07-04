@@ -454,3 +454,33 @@ func TestSubmissionRepoCreateCorrectIfNotSolvedByTeamIncorrect(t *testing.T) {
 		t.Fatalf("expected incorrect submission to be inserted")
 	}
 }
+
+func TestSubmissionRepoWasFirstBlood(t *testing.T) {
+	env := setupRepoTest(t)
+	user := createUserWithNewTeam(t, env, "fb1@example.com", "fb1", "pass", models.UserRole)
+	ch := createChallenge(t, env, "fbch", 100, "FLAG{FB}", true)
+
+	sub := &models.Submission{UserID: user.ID, ChallengeID: ch.ID, Correct: true, SubmittedAt: time.Now().UTC()}
+	if _, err := env.submissionRepo.CreateCorrectIfNotSolvedByTeam(context.Background(), sub); err != nil {
+		t.Fatalf("create correct: %v", err)
+	}
+
+	fb, err := env.submissionRepo.WasFirstBlood(context.Background(), user.ID, ch.ID)
+	if err != nil {
+		t.Fatalf("WasFirstBlood: %v", err)
+	}
+
+	if !fb {
+		t.Fatal("expected first blood true for the first solver")
+	}
+
+	other := createChallenge(t, env, "fbch2", 100, "FLAG{FB2}", true)
+	fb, err = env.submissionRepo.WasFirstBlood(context.Background(), user.ID, other.ID)
+	if err != nil {
+		t.Fatalf("WasFirstBlood no submission: %v", err)
+	}
+
+	if fb {
+		t.Fatal("expected false when there is no correct submission")
+	}
+}

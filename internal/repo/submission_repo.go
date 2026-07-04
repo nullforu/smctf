@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"smctf/internal/models"
 
@@ -72,6 +74,26 @@ func (r *SubmissionRepo) lockChallengeScope(ctx context.Context, db bun.IDB, cha
 	}
 
 	return nil
+}
+
+func (r *SubmissionRepo) WasFirstBlood(ctx context.Context, userID, challengeID int64) (bool, error) {
+	var firstBlood bool
+	err := r.db.NewSelect().
+		Model((*models.Submission)(nil)).
+		Column("is_first_blood").
+		Where("user_id = ?", userID).
+		Where("challenge_id = ?", challengeID).
+		Where("correct = true").
+		Limit(1).
+		Scan(ctx, &firstBlood)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, wrapError("submissionRepo.WasFirstBlood", err)
+	}
+
+	return firstBlood, nil
 }
 
 func (r *SubmissionRepo) correctSubmissionCount(

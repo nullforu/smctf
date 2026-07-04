@@ -24,6 +24,7 @@ func (s *DivisionService) CreateDivision(ctx context.Context, name string) (*mod
 	name = strings.TrimSpace(name)
 	validator := newFieldValidator()
 	validator.Required("name", name)
+	validator.MaxLen("name", name, nameMaxLen)
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
@@ -64,6 +65,7 @@ func (s *DivisionService) GetDivision(ctx context.Context, id int64) (*models.Di
 		if errors.Is(err, repo.ErrNotFound) {
 			return nil, ErrNotFound
 		}
+
 		return nil, fmt.Errorf("division.GetDivision: %w", err)
 	}
 

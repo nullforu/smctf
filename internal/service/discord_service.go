@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"smctf/internal/config"
@@ -27,15 +28,22 @@ type DiscordOAuth interface {
 type DiscordService struct {
 	cfg   config.DiscordConfig
 	repo  *repo.DiscordRepo
+	users *repo.UserRepo
 	bot   discord.BotAPI
 	oauth DiscordOAuth
 	redis *redis.Client
+	wg    sync.WaitGroup
 }
 
-func NewDiscordService(cfg config.DiscordConfig, discordRepo *repo.DiscordRepo, bot discord.BotAPI, oauth DiscordOAuth, redisClient *redis.Client) *DiscordService {
+func (s *DiscordService) Wait() {
+	s.wg.Wait()
+}
+
+func NewDiscordService(cfg config.DiscordConfig, discordRepo *repo.DiscordRepo, userRepo *repo.UserRepo, bot discord.BotAPI, oauth DiscordOAuth, redisClient *redis.Client) *DiscordService {
 	return &DiscordService{
 		cfg:   cfg,
 		repo:  discordRepo,
+		users: userRepo,
 		bot:   bot,
 		oauth: oauth,
 		redis: redisClient,
@@ -104,6 +112,8 @@ func (s *DiscordService) HandleCallback(ctx context.Context, userID int64, code,
 	if err := s.repo.Update(ctx, conn); err != nil {
 		return nil, err
 	}
+
+	s.SyncNickname(ctx, userID)
 
 	return conn, nil
 }
@@ -267,6 +277,73 @@ func (s *DiscordService) applyGrantError(conn *models.DiscordConnection, err err
 		conn.RoleStatus = models.DiscordStatusNotInGuild
 	default:
 		conn.RoleStatus = models.DiscordStatusRoleFailed
+	}
+}
+
+func (s *DiscordService) AnnounceSolve(_ context.Context, userID int64, challengeTitle string, firstBlood bool) {
+	if err := s.ensureEnabled(); err != nil {
+		return
+	}
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.announceSolve(context.Background(), userID, challengeTitle, firstBlood)
+	}()
+}
+
+func (s *DiscordService) announceSolve(ctx context.Context, userID int64, challengeTitle string, firstBlood bool) {
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		slog.Warn("discord announce: user lookup failed", slog.Int64("user_id", userID), slog.Any("error", err))
+		return
+	}
+
+	team := fmt.Sprintf("%s_%s", user.DivisionName, user.TeamName)
+	var content string
+	if firstBlood {
+		content = fmt.Sprintf("\U0001FA78 **First Blood!** **%s** — %s solved **%s**!", team, user.Username, challengeTitle)
+	} else {
+		content = fmt.Sprintf("**%s** — %s solved **%s**", team, user.Username, challengeTitle)
+	}
+
+	if err := s.bot.Announce(ctx, content); err != nil {
+		slog.Warn("discord announce failed", slog.Int64("user_id", userID), slog.Any("error", err))
+	}
+}
+
+func (s *DiscordService) SyncNickname(_ context.Context, userID int64) {
+	if err := s.ensureEnabled(); err != nil {
+		return
+	}
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.syncNickname(context.Background(), userID)
+	}()
+}
+
+func (s *DiscordService) syncNickname(ctx context.Context, userID int64) {
+	conn, err := s.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		if !errors.Is(err, repo.ErrNotFound) {
+			slog.Warn("discord nickname: connection lookup failed", slog.Int64("user_id", userID), slog.Any("error", err))
+		}
+		return
+	}
+
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		slog.Warn("discord nickname: user lookup failed", slog.Int64("user_id", userID), slog.Any("error", err))
+		return
+	}
+
+	nickname := fmt.Sprintf("%s_%s_%s", user.DivisionName, user.TeamName, user.Username)
+	if err := s.bot.SetNickname(ctx, conn.DiscordUserID, nickname); err != nil {
+		if !errors.Is(err, discord.ErrNotInGuild) {
+			slog.Warn("discord nickname sync failed", slog.Int64("user_id", userID), slog.Any("error", err))
+		}
 	}
 }
 

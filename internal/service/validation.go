@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
+	"unicode/utf8"
 )
 
 const bcryptInputMaxBytes = 72
+
+// nameMaxLen bounds username, team name, and division name to 10 characters
+// each. Combined as "division_team_username" (10+10+10 + two underscores) this
+// fits Discord's 32-character nickname limit exactly.
+const nameMaxLen = 10
 
 type fieldValidator struct {
 	fields []FieldError
@@ -41,6 +47,12 @@ func (v *fieldValidator) Email(field, value string) {
 
 	if _, err := mail.ParseAddress(value); err != nil {
 		v.fields = append(v.fields, FieldError{Field: field, Reason: "invalid format"})
+	}
+}
+
+func (v *fieldValidator) MaxLen(field, value string, max int) {
+	if utf8.RuneCountInString(value) > max {
+		v.fields = append(v.fields, FieldError{Field: field, Reason: fmt.Sprintf("max length is %d characters", max)})
 	}
 }
 

@@ -25,6 +25,7 @@ func (s *TeamService) CreateTeam(ctx context.Context, name string, divisionID in
 	name = strings.TrimSpace(name)
 	validator := newFieldValidator()
 	validator.Required("name", name)
+	validator.MaxLen("name", name, nameMaxLen)
 	validator.PositiveID("division_id", divisionID)
 	if err := validator.Error(); err != nil {
 		return nil, err

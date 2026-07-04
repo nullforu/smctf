@@ -3,9 +3,11 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +23,10 @@ import (
 type fakeBot struct {
 	grantErr error
 	kicked   bool
+
+	mu        sync.Mutex
+	announced []string
+	nickname  string
 }
 
 func (f *fakeBot) JoinGuild(_ context.Context, _, _ string) error { return nil }
@@ -32,6 +38,38 @@ func (f *fakeBot) KickMember(_ context.Context, _ string) error {
 
 func (f *fakeBot) GetMember(_ context.Context, _ string) (*discord.Member, error) {
 	return &discord.Member{}, nil
+}
+
+func (f *fakeBot) Announce(_ context.Context, content string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.announced = append(f.announced, content)
+	return nil
+}
+
+func (f *fakeBot) SetNickname(_ context.Context, _, nickname string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nickname = nickname
+	return nil
+}
+
+func (f *fakeBot) announcedCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.announced)
+}
+
+func (f *fakeBot) announcedAt(i int) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.announced[i]
+}
+
+func (f *fakeBot) nick() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.nickname
 }
 
 type fakeOAuth struct {
@@ -59,7 +97,7 @@ func discordEnabledHandler(env handlerEnv, bot discord.BotAPI, user *discord.Use
 		SuccessRedirect: "http://localhost:3000/profile",
 		InviteURL:       "https://discord.gg/invite",
 	}
-	discordSvc := service.NewDiscordService(cfg.Discord, repo.NewDiscordRepo(env.db), bot, fakeOAuth{user: user}, env.redis)
+	discordSvc := service.NewDiscordService(cfg.Discord, repo.NewDiscordRepo(env.db), env.userRepo, bot, fakeOAuth{user: user}, env.redis)
 	return New(cfg, env.authSvc, env.ctfSvc, env.appConfigSvc, env.userSvc, env.scoreSvc, env.divisionSvc, env.teamSvc, env.vmSvc, env.redis, discordSvc)
 }
 
@@ -193,6 +231,7 @@ func TestHandlerDiscordConnectAndCallback(t *testing.T) {
 	cbCtx, cbRec := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state="+state, nil)
 	cbCtx.Set("userID", user.ID)
 	h.DiscordCallback(cbCtx)
+	h.discord.Wait()
 	if cbRec.Code != http.StatusFound {
 		t.Fatalf("callback code = %d body=%s", cbRec.Code, cbRec.Body.String())
 	}
@@ -225,6 +264,7 @@ func TestHandlerDiscordSyncRole(t *testing.T) {
 	cbCtx, cbRec := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state="+state.Query().Get("state"), nil)
 	cbCtx.Set("userID", user.ID)
 	h.DiscordCallback(cbCtx)
+	h.discord.Wait()
 	if loc := cbRec.Header().Get("Location"); !strings.Contains(loc, "discord=connected_not_joined") {
 		t.Fatalf("callback location = %q", loc)
 	}
@@ -252,6 +292,7 @@ func TestHandlerDiscordCallbackInvalidState(t *testing.T) {
 	ctx, rec := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state=bogus", nil)
 	ctx.Set("userID", user.ID)
 	h.DiscordCallback(ctx)
+	h.discord.Wait()
 
 	if rec.Code != http.StatusFound {
 		t.Fatalf("code = %d", rec.Code)
@@ -276,6 +317,7 @@ func TestHandlerDiscordUnlink(t *testing.T) {
 	cbCtx, _ := newJSONContext(t, http.MethodGet, "/api/discord/callback?code=abc&state="+state.Query().Get("state"), nil)
 	cbCtx.Set("userID", user.ID)
 	h.DiscordCallback(cbCtx)
+	h.discord.Wait()
 
 	unlinkCtx, unlinkRec := newJSONContext(t, http.MethodDelete, "/api/discord/unlink", nil)
 	unlinkCtx.Set("userID", user.ID)
@@ -291,5 +333,55 @@ func TestHandlerDiscordUnlink(t *testing.T) {
 
 	if _, err := repo.NewDiscordRepo(env.db).GetByUserID(context.Background(), user.ID); err == nil {
 		t.Error("connection should be deleted")
+	}
+}
+
+func TestHandlerSubmitFlagAnnounces(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "solveann@example.com", "solveann", "pass", models.UserRole)
+	ch := createHandlerChallenge(t, env, "AnnounceChal", 100, "FLAG{ANN}", true)
+	bot := &fakeBot{}
+	h := discordEnabledHandler(env, bot, &discord.User{ID: "1"})
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/x/submit", map[string]string{"flag": "FLAG{ANN}"})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", ch.ID)}}
+	ctx.Set("userID", user.ID)
+
+	h.SubmitFlag(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit status %d: %s", rec.Code, rec.Body.String())
+	}
+	h.discord.Wait()
+
+	if bot.announcedCount() != 1 {
+		t.Fatalf("expected 1 announcement, got %d", bot.announcedCount())
+	}
+
+	if !strings.Contains(bot.announcedAt(0), "AnnounceChal") || !strings.Contains(bot.announcedAt(0), "First Blood") {
+		t.Errorf("announce = %q", bot.announcedAt(0))
+	}
+}
+
+func TestHandlerUpdateMeSyncsNickname(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "nickupd@example.com", "nickupd", "pass", models.UserRole)
+	bot := &fakeBot{}
+	h := discordEnabledHandler(env, bot, &discord.User{ID: "1"})
+
+	conn := &models.DiscordConnection{UserID: user.ID, DiscordUserID: "1", RoleStatus: models.DiscordStatusVerified, ConnectedAt: time.Now().UTC()}
+	if err := repo.NewDiscordRepo(env.db).Create(context.Background(), conn); err != nil {
+		t.Fatalf("create connection: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/me", map[string]string{"username": "renamed"})
+	ctx.Set("userID", user.ID)
+
+	h.UpdateMe(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update status %d: %s", rec.Code, rec.Body.String())
+	}
+	h.discord.Wait()
+	if !strings.Contains(bot.nick(), "renamed") {
+		t.Fatalf("expected nickname synced to renamed, got %q", bot.nick())
 	}
 }

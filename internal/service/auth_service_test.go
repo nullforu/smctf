@@ -72,6 +72,29 @@ func TestAuthServiceRegisterPasswordTooLong(t *testing.T) {
 	}
 }
 
+func TestAuthServiceRegisterUsernameTooLong(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	key := createRegistrationKey(t, env, "ABCDEFGHJKLMNPQ7", admin.ID)
+
+	_, err := env.authSvc.Register(context.Background(), "user@example.com", "ThisNameIsWayTooLong", "pass1", key.Code, "")
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+
+	found := false
+	for _, f := range ve.Fields {
+		if f.Field == "username" {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected username length error, got %+v", ve.Fields)
+	}
+}
+
 func TestAuthServiceRegisterUserExists(t *testing.T) {
 	env := setupServiceTest(t)
 	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)

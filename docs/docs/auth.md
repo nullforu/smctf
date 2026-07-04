@@ -35,6 +35,7 @@ Errors:
 
 Validation notes:
 
+- `username` must be at most 10 characters (counted by Unicode code points).
 - `password` must be at most 72 bytes (bcrypt input limit).
 
 `registration_key` must be an admin-created alphanumeric code.

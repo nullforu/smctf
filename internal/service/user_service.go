@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"smctf/internal/db"
 	"smctf/internal/models"
@@ -86,6 +87,10 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID int64, username 
 		normalizedUsername := normalizeTrim(*username)
 		if normalizedUsername == "" {
 			return nil, NewValidationError(FieldError{Field: "username", Reason: "required"})
+		}
+
+		if utf8.RuneCountInString(normalizedUsername) > nameMaxLen {
+			return nil, NewValidationError(FieldError{Field: "username", Reason: fmt.Sprintf("max length is %d characters", nameMaxLen)})
 		}
 
 		exists, err := s.userRepo.ExistsByUsername(ctx, normalizedUsername, &userID)
