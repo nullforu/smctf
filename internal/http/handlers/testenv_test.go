@@ -274,9 +274,13 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 		handler:        handler,
 	}
 
+	defaultRoleID := "111111111111111111"
+	defaultChannelID := "222222222222222222"
 	division := &models.Division{
-		Name:      "Default",
-		CreatedAt: time.Now().UTC(),
+		Name:                     "Default",
+		DiscordRoleID:            &defaultRoleID,
+		DiscordAnnounceChannelID: &defaultChannelID,
+		CreatedAt:                time.Now().UTC(),
 	}
 	if err := divisionRepo.Create(context.Background(), division); err != nil {
 		t.Fatalf("create division: %v", err)
@@ -290,7 +294,7 @@ func setupHandlerTest(t *testing.T) handlerEnv {
 func resetHandlerState(t *testing.T) {
 	t.Helper()
 
-	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, vms, challenges, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := handlerDB.ExecContext(context.Background(), "TRUNCATE TABLE app_configs, submissions, registration_key_uses, registration_keys, vms, challenges, discord_connections, users, teams, divisions RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("truncate tables: %v", err)
 	}
 

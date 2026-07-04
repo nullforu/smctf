@@ -24,6 +24,28 @@ func (r *DivisionRepo) Create(ctx context.Context, division *models.Division) er
 	return nil
 }
 
+func (r *DivisionRepo) Update(ctx context.Context, division *models.Division) error {
+	res, err := r.db.NewUpdate().
+		Model(division).
+		Column("name", "discord_role_id", "discord_announce_channel_id").
+		WherePK().
+		Exec(ctx)
+	if err != nil {
+		return wrapError("divisionRepo.Update", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return wrapError("divisionRepo.Update", err)
+	}
+
+	if affected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 func (r *DivisionRepo) List(ctx context.Context) ([]models.Division, error) {
 	divisions := make([]models.Division, 0)
 	if err := r.db.NewSelect().Model(&divisions).OrderExpr("id ASC").Scan(ctx); err != nil {

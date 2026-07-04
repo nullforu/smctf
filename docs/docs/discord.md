@@ -6,11 +6,27 @@ nav_order: 12
 Notes:
 
 - Discord account linking uses the OAuth2 authorization-code flow on the backend (`identify`, optionally `guilds.join`).
-- Guild membership and role changes are performed by a separate **invite-bot** server over an internal HTTP API; the backend never holds the Discord bot token. The bot token, guild id, and verified-role id live on the bot server only.
+- Guild membership and role changes are performed by a separate **invite-bot** server over an internal HTTP API; the backend never holds the Discord bot token. The bot token and guild id live on the bot server only; the role and announcement channel are configured per division in the backend and passed to the bot per request.
 - Access/refresh tokens are **not** stored. Role granting uses the bot token on the bot server, not the user's OAuth token.
 - The acting user is identified by the JWT `access_token` cookie. `connect`, `callback`, and `status` require login; `sync-role` and `unlink` additionally require an unblocked (active) user.
 - For authenticated `POST`, `PUT`, `PATCH`, and `DELETE` requests, send both `csrf_token` cookie and matching `X-CSRF-Token` header.
 - All endpoints return `503 discord feature disabled` when `DISCORD_ENABLED=false`.
+
+## Per-Division Discord Configuration
+
+The Discord role granted on link and the solve-announcement channel are configured
+**per division** (Admin > Divisions, `discord_role_id` and
+`discord_announce_channel_id`), not as bot environment variables. Both are
+optional. The backend resolves the acting user's division and passes the relevant
+role id / channel id to the invite-bot on each request; the bot no longer holds a
+`DISCORD_VERIFIED_ROLE_ID` or `DISCORD_ANNOUNCE_CHANNEL_ID`.
+
+- **Role grant** — on link, the member is granted the division's `discord_role_id`.
+  If the division has no role configured, linking is still marked `VERIFIED` and no
+  role is granted.
+- **Announcement channel** — solves post to the division's
+  `discord_announce_channel_id`. If unset, that division's announcements are
+  disabled.
 
 ## Solve Announcements & Nickname Sync
 
@@ -18,7 +34,7 @@ When `DISCORD_ENABLED=true`, the backend performs two best-effort side effects
 through the invite-bot (failures are logged, never surfaced to the user):
 
 - **Solve announcements** — on a correct flag submission, a message is sent to the
-  channel `DISCORD_ANNOUNCE_CHANNEL_ID` (no-op when unset):
+  solving user's division announcement channel (no-op when the division has none):
     - Normal solve: `**division_team** — username solved **Challenge Title**`
     - First blood: prefixed with 🩸 `First Blood!`
 
@@ -229,7 +245,9 @@ Discord service options (backend):
 - `DISCORD_BOT_BASE_URL` (default: `http://localhost:8083`)
 - `DISCORD_BOT_SECRET` — shared bearer secret for the invite-bot internal API (must equal the bot's `DISCORD_INTERNAL_SECRET`).
 - `DISCORD_BOT_TIMEOUT` (default: `5s`)
-- `DISCORD_ANNOUNCE_CHANNEL_ID` — target channel for solve / first-blood announcements. Empty disables announcements (configured on the invite-bot server).
+
+The verified role and solve-announcement channel are **not** environment
+variables — configure them per division (Admin > Divisions).
 
 Validation rules when `DISCORD_ENABLED=true`:
 
@@ -241,4 +259,5 @@ Validation rules when `DISCORD_ENABLED=true`:
 - `DISCORD_BOT_TIMEOUT > 0`
 - `DISCORD_OAUTH_TIMEOUT > 0`
 
-The Discord bot token, guild id, and verified-role id are configured on the invite-bot server, not here.
+The Discord bot token and guild id are configured on the invite-bot server, not here.
+The verified role and announcement channel are configured per division in the backend.

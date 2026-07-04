@@ -43,22 +43,25 @@ export class DiscordBot {
         return this.guild
     }
 
-    async joinGuild(userId: string, accessToken: string): Promise<void> {
+    async joinGuild(userId: string, accessToken: string, roleId: string): Promise<void> {
         const guild = this.requireGuild()
         try {
             await guild.members.add(userId, {
                 accessToken,
-                roles: [this.cfg.verifiedRoleId],
+                roles: roleId ? [roleId] : [],
             })
         } catch (err) {
             throw mapDiscordError(err)
         }
     }
 
-    async grantRole(userId: string): Promise<void> {
+    async grantRole(userId: string, roleId: string): Promise<void> {
+        if (!roleId) {
+            return
+        }
         const member = await this.fetchMember(userId)
         try {
-            await member.roles.add(this.cfg.verifiedRoleId, this.cfg.auditReason)
+            await member.roles.add(roleId, this.cfg.auditReason)
         } catch (err) {
             throw mapDiscordError(err)
         }
@@ -76,12 +79,12 @@ export class DiscordBot {
         }
     }
 
-    async memberStatus(userId: string): Promise<MemberStatus> {
+    async memberStatus(userId: string, roleId: string): Promise<MemberStatus> {
         try {
             const member = await this.fetchMember(userId)
             return {
                 in_guild: true,
-                has_role: member.roles.cache.has(this.cfg.verifiedRoleId),
+                has_role: roleId ? member.roles.cache.has(roleId) : false,
             }
         } catch (err) {
             if (err instanceof BotError && err.code === 'NOT_IN_GUILD') {
@@ -91,12 +94,13 @@ export class DiscordBot {
         }
     }
 
-    async announce(content: string): Promise<void> {
-        if (!this.cfg.announceChannelId) {
+    async announce(channelId: string, content: string): Promise<void> {
+        if (!channelId) {
             return
         }
+
         try {
-            const channel = await this.client.channels.fetch(this.cfg.announceChannelId)
+            const channel = await this.client.channels.fetch(channelId)
             if (!channel || !channel.isTextBased() || !('send' in channel)) {
                 throw new BotError(400, 'INVALID', 'announce channel is not text-based')
             }

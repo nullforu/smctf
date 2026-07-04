@@ -270,7 +270,15 @@ type teamResponse struct {
 }
 
 type createDivisionRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name                     string  `json:"name" binding:"required"`
+	DiscordRoleID            *string `json:"discord_role_id"`
+	DiscordAnnounceChannelID *string `json:"discord_announce_channel_id"`
+}
+
+type updateDivisionRequest struct {
+	Name                     string  `json:"name" binding:"required"`
+	DiscordRoleID            *string `json:"discord_role_id"`
+	DiscordAnnounceChannelID *string `json:"discord_announce_channel_id"`
 }
 
 type timelineResponse struct {

@@ -1384,13 +1384,34 @@ func (h *Handler) CreateDivision(ctx *gin.Context) {
 		return
 	}
 
-	division, err := h.divs.CreateDivision(ctx.Request.Context(), req.Name)
+	division, err := h.divs.CreateDivision(ctx.Request.Context(), req.Name, req.DiscordRoleID, req.DiscordAnnounceChannelID)
 	if err != nil {
 		writeError(ctx, err)
 		return
 	}
 
 	ctx.JSON(http.StatusCreated, division)
+}
+
+func (h *Handler) UpdateDivision(ctx *gin.Context) {
+	id, ok := parseIDParamOrError(ctx, "id")
+	if !ok {
+		return
+	}
+
+	var req updateDivisionRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	division, err := h.divs.UpdateDivision(ctx.Request.Context(), id, req.Name, req.DiscordRoleID, req.DiscordAnnounceChannelID)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, division)
 }
 
 // Team Handlers

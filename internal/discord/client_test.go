@@ -12,15 +12,17 @@ import (
 
 func TestBotClientGrantRoleSuccess(t *testing.T) {
 	var gotPath, gotAuth string
+	var body roleRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotAuth = r.Header.Get("Authorization")
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer srv.Close()
 
 	client := NewBotClient(srv.URL, "secret", time.Second)
-	if err := client.GrantRole(context.Background(), "123"); err != nil {
+	if err := client.GrantRole(context.Background(), "123", "role-9"); err != nil {
 		t.Fatalf("GrantRole: %v", err)
 	}
 
@@ -30,6 +32,10 @@ func TestBotClientGrantRoleSuccess(t *testing.T) {
 
 	if gotAuth != "Bearer secret" {
 		t.Errorf("auth = %q", gotAuth)
+	}
+
+	if body.RoleID != "role-9" {
+		t.Errorf("role id = %q", body.RoleID)
 	}
 }
 
@@ -82,7 +88,7 @@ func TestBotClientGrantRoleMapsCodes(t *testing.T) {
 			defer srv.Close()
 
 			client := NewBotClient(srv.URL, "", time.Second)
-			err := client.GrantRole(context.Background(), "123")
+			err := client.GrantRole(context.Background(), "123", "role-1")
 			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("got %v, want %v", err, tc.wantErr)
 			}
@@ -103,12 +109,16 @@ func TestBotClientJoinGuildSendsAccessToken(t *testing.T) {
 	defer srv.Close()
 
 	client := NewBotClient(srv.URL, "", time.Second)
-	if err := client.JoinGuild(context.Background(), "u1", "tok-abc"); err != nil {
+	if err := client.JoinGuild(context.Background(), "u1", "tok-abc", "role-5"); err != nil {
 		t.Fatalf("JoinGuild: %v", err)
 	}
 
 	if body.AccessToken != "tok-abc" {
 		t.Errorf("access token = %q", body.AccessToken)
+	}
+
+	if body.RoleID != "role-5" {
+		t.Errorf("role id = %q", body.RoleID)
 	}
 }
 
@@ -132,7 +142,7 @@ func TestBotClientGetMember(t *testing.T) {
 
 func TestBotClientUnavailableOnDialError(t *testing.T) {
 	client := NewBotClient("http://127.0.0.1:0", "", 200*time.Millisecond)
-	err := client.GrantRole(context.Background(), "1")
+	err := client.GrantRole(context.Background(), "1", "role-1")
 	if !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("got %v, want ErrUnavailable", err)
 	}
@@ -150,7 +160,7 @@ func TestBotClientAnnounce(t *testing.T) {
 	defer srv.Close()
 
 	client := NewBotClient(srv.URL, "secret", time.Second)
-	if err := client.Announce(context.Background(), "hello world"); err != nil {
+	if err := client.Announce(context.Background(), "chan-1", "hello world"); err != nil {
 		t.Fatalf("Announce: %v", err)
 	}
 
@@ -160,6 +170,10 @@ func TestBotClientAnnounce(t *testing.T) {
 
 	if body.Content != "hello world" {
 		t.Errorf("content = %q", body.Content)
+	}
+
+	if body.ChannelID != "chan-1" {
+		t.Errorf("channel id = %q", body.ChannelID)
 	}
 }
 
