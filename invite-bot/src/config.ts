@@ -3,8 +3,6 @@ export interface BotConfig {
     internalSecret: string
     botToken: string
     guildId: string
-    verifiedRoleId: string
-    announceChannelId: string
     auditReason: string
 }
 
@@ -45,8 +43,6 @@ export function loadConfig(): BotConfig {
         internalSecret: required('DISCORD_INTERNAL_SECRET'),
         botToken: required('DISCORD_BOT_TOKEN'),
         guildId: required('DISCORD_GUILD_ID'),
-        verifiedRoleId: required('DISCORD_VERIFIED_ROLE_ID'),
-        announceChannelId: optional('DISCORD_ANNOUNCE_CHANNEL_ID', ''),
         auditReason: optional('DISCORD_AUDIT_REASON', 'External site verification'),
     }
 }

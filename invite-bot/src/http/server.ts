@@ -78,7 +78,8 @@ export function buildServer(cfg: BotConfig, bot: DiscordBot): Express {
                 return
             }
 
-            await bot.joinGuild(pathUserId(req), accessToken)
+            const roleId = (req.body?.role_id as string | undefined)?.trim() ?? ''
+            await bot.joinGuild(pathUserId(req), accessToken, roleId)
             res.status(204).end()
         }),
     )
@@ -86,7 +87,8 @@ export function buildServer(cfg: BotConfig, bot: DiscordBot): Express {
     internal.put(
         '/guild/members/:userId/role',
         asyncRoute(async (req, res) => {
-            await bot.grantRole(pathUserId(req))
+            const roleId = (req.body?.role_id as string | undefined)?.trim() ?? ''
+            await bot.grantRole(pathUserId(req), roleId)
             res.status(204).end()
         }),
     )
@@ -102,7 +104,9 @@ export function buildServer(cfg: BotConfig, bot: DiscordBot): Express {
     internal.get(
         '/guild/members/:userId',
         asyncRoute(async (req, res) => {
-            const status = await bot.memberStatus(pathUserId(req))
+            const rawRole = req.query.role_id
+            const roleId = typeof rawRole === 'string' ? rawRole.trim() : ''
+            const status = await bot.memberStatus(pathUserId(req), roleId)
             res.json(status)
         }),
     )
@@ -115,7 +119,8 @@ export function buildServer(cfg: BotConfig, bot: DiscordBot): Express {
                 res.status(400).json({ error: 'content required', code: 'INVALID' })
                 return
             }
-            await bot.announce(content)
+            const channelId = (req.body?.channel_id as string | undefined)?.trim() ?? ''
+            await bot.announce(channelId, content)
             res.status(204).end()
         }),
     )

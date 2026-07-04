@@ -2748,3 +2748,92 @@ func TestTimePtrUTC(t *testing.T) {
 		t.Fatalf("expected UTC time, got %v", utc)
 	}
 }
+
+func TestHandlerCreateDivisionWithDiscordConfig(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/divisions", map[string]any{
+		"name":                        "Uni",
+		"discord_role_id":             "123456789012345678",
+		"discord_announce_channel_id": "987654321098765432",
+	})
+	env.handler.CreateDivision(ctx)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create division status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		ID                       int64   `json:"id"`
+		Name                     string  `json:"name"`
+		DiscordRoleID            *string `json:"discord_role_id"`
+		DiscordAnnounceChannelID *string `json:"discord_announce_channel_id"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.ID == 0 || resp.Name != "Uni" {
+		t.Fatalf("unexpected division: %+v", resp)
+	}
+	if resp.DiscordRoleID == nil || *resp.DiscordRoleID != "123456789012345678" {
+		t.Fatalf("role id = %+v", resp.DiscordRoleID)
+	}
+	if resp.DiscordAnnounceChannelID == nil || *resp.DiscordAnnounceChannelID != "987654321098765432" {
+		t.Fatalf("channel id = %+v", resp.DiscordAnnounceChannelID)
+	}
+
+	// Invalid snowflake -> 400.
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/divisions", map[string]any{"name": "Bad", "discord_role_id": "abc"})
+	env.handler.CreateDivision(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid snowflake, got %d", rec.Code)
+	}
+
+	// Missing name -> 400.
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/divisions", map[string]any{})
+	env.handler.CreateDivision(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing name, got %d", rec.Code)
+	}
+}
+
+func TestHandlerUpdateDivision(t *testing.T) {
+	env := setupHandlerTest(t)
+
+	created, err := env.divisionSvc.CreateDivision(context.Background(), "Orig", nil, nil)
+	if err != nil {
+		t.Fatalf("seed division: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodPut, "/api/admin/divisions/x", map[string]any{
+		"name":            "Renamed",
+		"discord_role_id": "555555555555555555",
+	})
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprintf("%d", created.ID)}}
+	env.handler.UpdateDivision(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Name          string  `json:"name"`
+		DiscordRoleID *string `json:"discord_role_id"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.Name != "Renamed" || resp.DiscordRoleID == nil || *resp.DiscordRoleID != "555555555555555555" {
+		t.Fatalf("unexpected update response: %+v", resp)
+	}
+
+	// Non-numeric id -> 400.
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/divisions/abc", map[string]any{"name": "X"})
+	ctx.Params = gin.Params{{Key: "id", Value: "abc"}}
+	env.handler.UpdateDivision(ctx)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for bad id, got %d", rec.Code)
+	}
+
+	// Unknown id -> 404.
+	ctx, rec = newJSONContext(t, http.MethodPut, "/api/admin/divisions/999999", map[string]any{"name": "X"})
+	ctx.Params = gin.Params{{Key: "id", Value: "999999"}}
+	env.handler.UpdateDivision(ctx)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for unknown id, got %d", rec.Code)
+	}
+}

@@ -317,9 +317,16 @@ Request
 
 ```json
 {
-    "name": "고등부"
+    "name": "고등부",
+    "discord_role_id": "1522163303982563458",
+    "discord_announce_channel_id": "1522218332806447225"
 }
 ```
+
+`discord_role_id` and `discord_announce_channel_id` are optional. `discord_role_id`
+is the guild role granted to this division's members when they link Discord;
+`discord_announce_channel_id` is the channel that receives this division's solve /
+first-blood announcements. Both are omitted from the response when unset.
 
 Response 201
 
@@ -327,6 +334,8 @@ Response 201
 {
     "id": 2,
     "name": "고등부",
+    "discord_role_id": "1522163303982563458",
+    "discord_announce_channel_id": "1522218332806447225",
     "created_at": "2026-01-26T12:00:00Z"
 }
 ```
@@ -340,6 +349,53 @@ Errors:
 Validation notes:
 
 - `name` must be at most 10 characters (counted by Unicode code point).
+- `discord_role_id` / `discord_announce_channel_id`, when present, must be numeric
+  Discord IDs (snowflakes). An empty string clears the value.
+
+---
+
+## Update Division (Admin)
+
+`PUT /api/admin/divisions/:id`
+
+Updates a division's name and per-division Discord configuration. Divisions cannot
+be deleted.
+
+Request
+
+```json
+{
+    "name": "고등부",
+    "discord_role_id": "1522163303982563458",
+    "discord_announce_channel_id": "1522218332806447225"
+}
+```
+
+Omitting (or sending an empty string for) `discord_role_id` /
+`discord_announce_channel_id` clears that setting.
+
+Response 200
+
+```json
+{
+    "id": 2,
+    "name": "고등부",
+    "discord_role_id": "1522163303982563458",
+    "discord_announce_channel_id": "1522218332806447225",
+    "created_at": "2026-01-26T12:00:00Z"
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
+- 404 `not found`
+
+Validation notes:
+
+- Same as Create Division.
 
 ---
 

@@ -29,8 +29,8 @@ type fakeBot struct {
 	nickname  string
 }
 
-func (f *fakeBot) JoinGuild(_ context.Context, _, _ string) error { return nil }
-func (f *fakeBot) GrantRole(_ context.Context, _ string) error    { return f.grantErr }
+func (f *fakeBot) JoinGuild(_ context.Context, _, _, _ string) error { return nil }
+func (f *fakeBot) GrantRole(_ context.Context, _, _ string) error    { return f.grantErr }
 func (f *fakeBot) KickMember(_ context.Context, _ string) error {
 	f.kicked = true
 	return nil
@@ -40,7 +40,7 @@ func (f *fakeBot) GetMember(_ context.Context, _ string) (*discord.Member, error
 	return &discord.Member{}, nil
 }
 
-func (f *fakeBot) Announce(_ context.Context, content string) error {
+func (f *fakeBot) Announce(_ context.Context, _, content string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.announced = append(f.announced, content)
@@ -97,7 +97,7 @@ func discordEnabledHandler(env handlerEnv, bot discord.BotAPI, user *discord.Use
 		SuccessRedirect: "http://localhost:3000/profile",
 		InviteURL:       "https://discord.gg/invite",
 	}
-	discordSvc := service.NewDiscordService(cfg.Discord, repo.NewDiscordRepo(env.db), env.userRepo, bot, fakeOAuth{user: user}, env.redis)
+	discordSvc := service.NewDiscordService(cfg.Discord, repo.NewDiscordRepo(env.db), env.userRepo, env.divisionRepo, bot, fakeOAuth{user: user}, env.redis)
 	return New(cfg, env.authSvc, env.ctfSvc, env.appConfigSvc, env.userSvc, env.scoreSvc, env.divisionSvc, env.teamSvc, env.vmSvc, env.redis, discordSvc)
 }
 

@@ -50,6 +50,25 @@ func (v *fieldValidator) Email(field, value string) {
 	}
 }
 
+// Snowflake validates an optional Discord ID: empty is allowed, otherwise the
+// value must be a numeric snowflake (1-32 digits).
+func (v *fieldValidator) Snowflake(field, value string) {
+	if value == "" {
+		return
+	}
+
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			v.fields = append(v.fields, FieldError{Field: field, Reason: "must be a numeric Discord ID"})
+			return
+		}
+	}
+
+	if len(value) > 32 {
+		v.fields = append(v.fields, FieldError{Field: field, Reason: "must be a numeric Discord ID"})
+	}
+}
+
 func (v *fieldValidator) MaxLen(field, value string, max int) {
 	if utf8.RuneCountInString(value) > max {
 		v.fields = append(v.fields, FieldError{Field: field, Reason: fmt.Sprintf("max length is %d characters", max)})
@@ -76,6 +95,27 @@ func normalizeEmail(email string) string {
 
 func normalizeTrim(value string) string {
 	return strings.TrimSpace(value)
+}
+
+func normalizeDiscordID(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+
+	return &trimmed
+}
+
+func derefOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+
+	return *value
 }
 
 func normalizeOptional(value *string) *string {

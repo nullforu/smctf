@@ -20,18 +20,25 @@ func NewDivisionService(divisionRepo *repo.DivisionRepo) *DivisionService {
 	return &DivisionService{divisionRepo: divisionRepo}
 }
 
-func (s *DivisionService) CreateDivision(ctx context.Context, name string) (*models.Division, error) {
+func (s *DivisionService) CreateDivision(ctx context.Context, name string, discordRoleID, discordAnnounceChannelID *string) (*models.Division, error) {
 	name = strings.TrimSpace(name)
+	roleID := normalizeDiscordID(discordRoleID)
+	channelID := normalizeDiscordID(discordAnnounceChannelID)
+
 	validator := newFieldValidator()
 	validator.Required("name", name)
 	validator.MaxLen("name", name, nameMaxLen)
+	validator.Snowflake("discord_role_id", derefOrEmpty(roleID))
+	validator.Snowflake("discord_announce_channel_id", derefOrEmpty(channelID))
 	if err := validator.Error(); err != nil {
 		return nil, err
 	}
 
 	division := &models.Division{
-		Name:      name,
-		CreatedAt: time.Now().UTC(),
+		Name:                     name,
+		DiscordRoleID:            roleID,
+		DiscordAnnounceChannelID: channelID,
+		CreatedAt:                time.Now().UTC(),
 	}
 
 	if err := s.divisionRepo.Create(ctx, division); err != nil {
@@ -39,6 +46,49 @@ func (s *DivisionService) CreateDivision(ctx context.Context, name string) (*mod
 			return nil, NewValidationError(FieldError{Field: "name", Reason: "duplicate"})
 		}
 		return nil, fmt.Errorf("division.CreateDivision: %w", err)
+	}
+
+	return division, nil
+}
+
+func (s *DivisionService) UpdateDivision(ctx context.Context, id int64, name string, discordRoleID, discordAnnounceChannelID *string) (*models.Division, error) {
+	name = strings.TrimSpace(name)
+	roleID := normalizeDiscordID(discordRoleID)
+	channelID := normalizeDiscordID(discordAnnounceChannelID)
+
+	validator := newFieldValidator()
+	validator.PositiveID("id", id)
+	validator.Required("name", name)
+	validator.MaxLen("name", name, nameMaxLen)
+	validator.Snowflake("discord_role_id", derefOrEmpty(roleID))
+	validator.Snowflake("discord_announce_channel_id", derefOrEmpty(channelID))
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	division, err := s.divisionRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+
+		return nil, fmt.Errorf("division.UpdateDivision get: %w", err)
+	}
+
+	division.Name = name
+	division.DiscordRoleID = roleID
+	division.DiscordAnnounceChannelID = channelID
+
+	if err := s.divisionRepo.Update(ctx, division); err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, NewValidationError(FieldError{Field: "name", Reason: "duplicate"})
+		}
+
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+
+		return nil, fmt.Errorf("division.UpdateDivision: %w", err)
 	}
 
 	return division, nil

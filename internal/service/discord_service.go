@@ -26,28 +26,41 @@ type DiscordOAuth interface {
 }
 
 type DiscordService struct {
-	cfg   config.DiscordConfig
-	repo  *repo.DiscordRepo
-	users *repo.UserRepo
-	bot   discord.BotAPI
-	oauth DiscordOAuth
-	redis *redis.Client
-	wg    sync.WaitGroup
+	cfg       config.DiscordConfig
+	repo      *repo.DiscordRepo
+	users     *repo.UserRepo
+	divisions *repo.DivisionRepo
+	bot       discord.BotAPI
+	oauth     DiscordOAuth
+	redis     *redis.Client
+	wg        sync.WaitGroup
 }
 
 func (s *DiscordService) Wait() {
 	s.wg.Wait()
 }
 
-func NewDiscordService(cfg config.DiscordConfig, discordRepo *repo.DiscordRepo, userRepo *repo.UserRepo, bot discord.BotAPI, oauth DiscordOAuth, redisClient *redis.Client) *DiscordService {
+func NewDiscordService(cfg config.DiscordConfig, discordRepo *repo.DiscordRepo, userRepo *repo.UserRepo, divisionRepo *repo.DivisionRepo, bot discord.BotAPI, oauth DiscordOAuth, redisClient *redis.Client) *DiscordService {
 	return &DiscordService{
-		cfg:   cfg,
-		repo:  discordRepo,
-		users: userRepo,
-		bot:   bot,
-		oauth: oauth,
-		redis: redisClient,
+		cfg:       cfg,
+		repo:      discordRepo,
+		users:     userRepo,
+		divisions: divisionRepo,
+		bot:       bot,
+		oauth:     oauth,
+		redis:     redisClient,
 	}
+}
+
+// divisionForUser resolves the division of the given user, for reading the
+// division-scoped Discord role / announcement channel.
+func (s *DiscordService) divisionForUser(ctx context.Context, userID int64) (*models.Division, error) {
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.divisions.GetByID(ctx, user.DivisionID)
 }
 
 func (s *DiscordService) ensureEnabled() error {
@@ -249,8 +262,21 @@ func (s *DiscordService) provision(ctx context.Context, conn *models.DiscordConn
 	conn.UpdatedAt = now
 	conn.LastError = nil
 
+	// Resolve the division-scoped role to grant. An empty role means this
+	// division does not assign a Discord role, so linking is considered
+	// verified without a role grant.
+	roleID := ""
+	if div, err := s.divisionForUser(ctx, conn.UserID); err != nil {
+		slog.Warn("discord: division lookup failed",
+			slog.Int64("user_id", conn.UserID),
+			slog.Any("error", err),
+		)
+	} else {
+		roleID = derefOrEmpty(div.DiscordRoleID)
+	}
+
 	if s.cfg.AutoJoin && accessToken != "" {
-		if err := s.bot.JoinGuild(ctx, conn.DiscordUserID, accessToken); err != nil {
+		if err := s.bot.JoinGuild(ctx, conn.DiscordUserID, accessToken, roleID); err != nil {
 			slog.Warn("discord guild join failed",
 				slog.Int64("user_id", conn.UserID),
 				slog.Any("error", err),
@@ -258,7 +284,13 @@ func (s *DiscordService) provision(ctx context.Context, conn *models.DiscordConn
 		}
 	}
 
-	if err := s.bot.GrantRole(ctx, conn.DiscordUserID); err != nil {
+	if roleID == "" {
+		conn.RoleStatus = models.DiscordStatusVerified
+		conn.VerifiedAt = &now
+		return
+	}
+
+	if err := s.bot.GrantRole(ctx, conn.DiscordUserID, roleID); err != nil {
 		s.applyGrantError(conn, err)
 		return
 	}
@@ -299,6 +331,18 @@ func (s *DiscordService) announceSolve(ctx context.Context, userID int64, challe
 		return
 	}
 
+	div, err := s.divisions.GetByID(ctx, user.DivisionID)
+	if err != nil {
+		slog.Warn("discord announce: division lookup failed", slog.Int64("user_id", userID), slog.Any("error", err))
+		return
+	}
+
+	channelID := derefOrEmpty(div.DiscordAnnounceChannelID)
+	if channelID == "" {
+		// Announcements are disabled for this division.
+		return
+	}
+
 	team := fmt.Sprintf("%s_%s", user.DivisionName, user.TeamName)
 	var content string
 	if firstBlood {
@@ -307,7 +351,7 @@ func (s *DiscordService) announceSolve(ctx context.Context, userID int64, challe
 		content = fmt.Sprintf("**%s** — %s solved **%s**", team, user.Username, challengeTitle)
 	}
 
-	if err := s.bot.Announce(ctx, content); err != nil {
+	if err := s.bot.Announce(ctx, channelID, content); err != nil {
 		slog.Warn("discord announce failed", slog.Int64("user_id", userID), slog.Any("error", err))
 	}
 }

@@ -15,25 +15,30 @@ import (
 )
 
 type fakeBot struct {
-	joinErr  error
-	grantErr error
-	kickErr  error
-	joined   bool
-	granted  bool
-	kicked   bool
+	joinErr     error
+	grantErr    error
+	kickErr     error
+	joined      bool
+	granted     bool
+	kicked      bool
+	joinRole    string
+	grantedRole string
 
-	mu        sync.Mutex
-	announced []string
-	nickname  string
+	mu              sync.Mutex
+	announced       []string
+	announceChannel string
+	nickname        string
 }
 
-func (f *fakeBot) JoinGuild(_ context.Context, _, _ string) error {
+func (f *fakeBot) JoinGuild(_ context.Context, _, _, roleID string) error {
 	f.joined = true
+	f.joinRole = roleID
 	return f.joinErr
 }
 
-func (f *fakeBot) GrantRole(_ context.Context, _ string) error {
+func (f *fakeBot) GrantRole(_ context.Context, _, roleID string) error {
 	f.granted = true
+	f.grantedRole = roleID
 	return f.grantErr
 }
 
@@ -46,11 +51,18 @@ func (f *fakeBot) GetMember(_ context.Context, _ string) (*discord.Member, error
 	return &discord.Member{}, nil
 }
 
-func (f *fakeBot) Announce(_ context.Context, content string) error {
+func (f *fakeBot) Announce(_ context.Context, channelID, content string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.announceChannel = channelID
 	f.announced = append(f.announced, content)
 	return nil
+}
+
+func (f *fakeBot) announceChannelID() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.announceChannel
 }
 
 func (f *fakeBot) SetNickname(_ context.Context, _, nickname string) error {
@@ -106,7 +118,7 @@ func discordTestConfig() config.DiscordConfig {
 
 func newDiscordServiceForTest(env serviceEnv, bot discord.BotAPI, user *discord.User) (*DiscordService, *repo.DiscordRepo) {
 	discordRepo := repo.NewDiscordRepo(env.db)
-	svc := NewDiscordService(discordTestConfig(), discordRepo, env.userRepo, bot, fakeOAuth{user: user}, env.redis)
+	svc := NewDiscordService(discordTestConfig(), discordRepo, env.userRepo, env.divisionRepo, bot, fakeOAuth{user: user}, env.redis)
 	return svc, discordRepo
 }
 
@@ -267,7 +279,7 @@ func TestDiscordGetConnectionNilWhenAbsent(t *testing.T) {
 func TestDiscordDisabledReturnsError(t *testing.T) {
 	env := setupServiceTest(t)
 	discordRepo := repo.NewDiscordRepo(env.db)
-	svc := NewDiscordService(config.DiscordConfig{Enabled: false}, discordRepo, env.userRepo, &fakeBot{}, fakeOAuth{user: &discord.User{ID: "1"}}, env.redis)
+	svc := NewDiscordService(config.DiscordConfig{Enabled: false}, discordRepo, env.userRepo, env.divisionRepo, &fakeBot{}, fakeOAuth{user: &discord.User{ID: "1"}}, env.redis)
 
 	if _, err := svc.BeginConnect(context.Background(), 1); !errors.Is(err, ErrDiscordDisabled) {
 		t.Fatalf("got %v, want ErrDiscordDisabled", err)
@@ -304,6 +316,89 @@ func TestDiscordAnnounceSolve(t *testing.T) {
 
 	if strings.Contains(bot.announcedAt(1), "First Blood") || !strings.Contains(bot.announcedAt(1), "solved") {
 		t.Errorf("normal msg = %q", bot.announcedAt(1))
+	}
+
+	if bot.announceChannelID() != "222222222222222222" {
+		t.Errorf("expected division announce channel, got %q", bot.announceChannelID())
+	}
+}
+
+func createUserInDivision(t *testing.T, env serviceEnv, email, username string, divisionID int64) *models.User {
+	t.Helper()
+	team := &models.Team{Name: "team-" + username, DivisionID: divisionID, CreatedAt: time.Now().UTC()}
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+
+	return createUserWithTeam(t, env, email, username, "pass", models.UserRole, team.ID)
+}
+
+func TestDiscordAnnounceSkipsWithoutDivisionChannel(t *testing.T) {
+	env := setupServiceTest(t)
+	div, err := env.divisionSvc.CreateDivision(context.Background(), "NoChan", nil, nil)
+	if err != nil {
+		t.Fatalf("division: %v", err)
+	}
+	user := createUserInDivision(t, env, "nochan@example.com", "nochan", div.ID)
+	bot := &fakeBot{}
+	svc, _ := newDiscordServiceForTest(env, bot, &discord.User{ID: "1"})
+
+	svc.AnnounceSolve(context.Background(), user.ID, "Web-1", false)
+	svc.Wait()
+
+	if bot.announcedCount() != 0 {
+		t.Fatalf("expected no announcement when channel unset, got %d", bot.announcedCount())
+	}
+}
+
+func TestDiscordProvisionUsesDivisionRole(t *testing.T) {
+	env := setupServiceTest(t)
+	div, err := env.divisionSvc.CreateDivision(context.Background(), "RoleDiv", sp("909090909090909090"), nil)
+	if err != nil {
+		t.Fatalf("division: %v", err)
+	}
+	user := createUserInDivision(t, env, "roldiv@example.com", "roldiv", div.ID)
+	bot := &fakeBot{}
+	svc, _ := newDiscordServiceForTest(env, bot, &discord.User{ID: "909", Username: "y"})
+
+	state := seedState(t, env, user.ID)
+	if _, err := svc.HandleCallback(context.Background(), user.ID, "code", state); err != nil {
+		t.Fatalf("callback: %v", err)
+	}
+	svc.Wait()
+
+	if bot.grantedRole != "909090909090909090" {
+		t.Errorf("granted role = %q", bot.grantedRole)
+	}
+
+	if bot.joinRole != "909090909090909090" {
+		t.Errorf("join role = %q", bot.joinRole)
+	}
+}
+
+func TestDiscordProvisionSkipsRoleGrantWhenUnset(t *testing.T) {
+	env := setupServiceTest(t)
+	div, err := env.divisionSvc.CreateDivision(context.Background(), "NoRole", nil, nil)
+	if err != nil {
+		t.Fatalf("division: %v", err)
+	}
+	user := createUserInDivision(t, env, "norole@example.com", "norole", div.ID)
+	bot := &fakeBot{}
+	svc, _ := newDiscordServiceForTest(env, bot, &discord.User{ID: "808", Username: "x"})
+
+	state := seedState(t, env, user.ID)
+	conn, err := svc.HandleCallback(context.Background(), user.ID, "code", state)
+	if err != nil {
+		t.Fatalf("callback: %v", err)
+	}
+	svc.Wait()
+
+	if bot.granted {
+		t.Errorf("role grant should be skipped when division has no role")
+	}
+
+	if conn.RoleStatus != models.DiscordStatusVerified {
+		t.Errorf("status = %q, want verified", conn.RoleStatus)
 	}
 }
 

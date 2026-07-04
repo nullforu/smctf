@@ -90,6 +90,7 @@ func NewRouter(cfg config.Config, authSvc *service.AuthService, ctfSvc *service.
 		admin.POST("/registration-keys", h.CreateRegistrationKeys)
 		admin.GET("/registration-keys", h.ListRegistrationKeys)
 		admin.POST("/divisions", h.CreateDivision)
+		admin.PUT("/divisions/:id", h.UpdateDivision)
 		admin.POST("/teams", h.CreateTeam)
 		admin.GET("/vms", h.AdminListVMs)
 		admin.GET("/vms/:vm_id", h.AdminGetVM)
