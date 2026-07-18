@@ -125,6 +125,7 @@ Create behavior:
 
 - Challenge must have `vm_enabled=true` and non-empty `vm_spec` (YAML).
 - Service parses the YAML, rewrites `id` to generated `vm_id`, and sends the rewritten spec to orchestrator.
+- Backend validation is intentionally minimal: it requires `kind: Sandbox`, a non-empty generated `id`, and at least one `spec.containers` entry. Additional spec fields are forwarded as-is so newer orchestrator options can be used without backend schema updates.
 - If an existing VM row already exists for `(user_id, challenge_id)`, create returns the existing VM instead of creating a second one.
 - User VM cap and VM creation rate limit are enforced server-side.
 

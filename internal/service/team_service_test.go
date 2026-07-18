@@ -15,11 +15,16 @@ func TestTeamServiceCreateAndList(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 
-	if _, err := env.teamSvc.CreateTeam(context.Background(), "ThisNameIsWayTooLong", env.defaultDivisionID); err == nil {
-		t.Fatalf("expected max-length validation error")
+	longName := "ThisNameIsWayTooLong"
+	longTeam, err := env.teamSvc.CreateTeam(context.Background(), longName, env.defaultDivisionID)
+	if err != nil {
+		t.Fatalf("create long-name team: %v", err)
+	}
+	if longTeam.Name != longName {
+		t.Fatalf("unexpected long-name team: %+v", longTeam)
 	}
 
-	_, err := env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID+999)
+	_, err = env.teamSvc.CreateTeam(context.Background(), "Alpha", env.defaultDivisionID+999)
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected validation error, got %v", err)
@@ -42,7 +47,10 @@ func TestTeamServiceCreateAndList(t *testing.T) {
 		t.Fatalf("list teams: %v", err)
 	}
 
-	if len(rows) != 1 || rows[0].MemberCount != 0 || rows[0].TotalScore != 0 {
+	if len(rows) != 2 {
+		t.Fatalf("unexpected team count: %+v", rows)
+	}
+	if rows[0].Name != "Alpha" || rows[0].MemberCount != 0 || rows[0].TotalScore != 0 {
 		t.Fatalf("unexpected team list: %+v", rows)
 	}
 }

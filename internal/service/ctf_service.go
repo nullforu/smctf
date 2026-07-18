@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -46,8 +47,42 @@ type CTFService struct {
 	fileStore      storage.ChallengeFileStore
 }
 
+type ChallengeExportItem struct {
+	ID                  int64      `json:"id"`
+	Title               string     `json:"title"`
+	Description         string     `json:"description"`
+	Category            string     `json:"category"`
+	Points              int        `json:"points"`
+	MinimumPoints       int        `json:"minimum_points"`
+	FlagHash            string     `json:"flag_hash"`
+	PreviousChallengeID *int64     `json:"previous_challenge_id,omitempty"`
+	IsActive            bool       `json:"is_active"`
+	FileKey             *string    `json:"file_key,omitempty"`
+	VMEnabled           bool       `json:"vm_enabled"`
+	VMSpec              *string    `json:"vm_spec,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	FileName            *string    `json:"file_name,omitempty"`
+	FileUploadedAt      *time.Time `json:"file_uploaded_at,omitempty"`
+}
+
+type ChallengeExportBundle struct {
+	Version      int                   `json:"version"`
+	ExportedAt   time.Time             `json:"exported_at"`
+	Challenges   []ChallengeExportItem `json:"challenges"`
+	RequestedIDs []int64               `json:"requested_ids,omitempty"`
+}
+
 func NewCTFService(cfg config.Config, challengeRepo *repo.ChallengeRepo, submissionRepo *repo.SubmissionRepo, redis *redis.Client, fileStore storage.ChallengeFileStore) *CTFService {
 	return &CTFService{cfg: cfg, challengeRepo: challengeRepo, submissionRepo: submissionRepo, redis: redis, fileStore: fileStore}
+}
+
+func pointersToChallenges(challenges []models.Challenge) []*models.Challenge {
+	ptrs := make([]*models.Challenge, 0, len(challenges))
+	for i := range challenges {
+		ptrs = append(ptrs, &challenges[i])
+	}
+
+	return ptrs
 }
 
 func (s *CTFService) ListChallenges(ctx context.Context, divisionID *int64) ([]models.Challenge, error) {
@@ -339,6 +374,162 @@ func (s *CTFService) DeleteChallenge(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (s *CTFService) ExportChallenges(ctx context.Context, ids []int64) (*ChallengeExportBundle, error) {
+	validator := newFieldValidator()
+	seen := make(map[int64]struct{}, len(ids))
+	normalizedIDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		validator.PositiveID("ids", id)
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalizedIDs = append(normalizedIDs, id)
+	}
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	var (
+		challenges []models.Challenge
+		err        error
+	)
+	if len(normalizedIDs) == 0 {
+		challenges, err = s.challengeRepo.ListAll(ctx)
+	} else {
+		challenges, err = s.challengeRepo.ListByIDs(ctx, normalizedIDs)
+		if err == nil && len(challenges) != len(normalizedIDs) {
+			return nil, NewValidationError(FieldError{Field: "ids", Reason: "contains unknown challenge id"})
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("ctf.ExportChallenges: %w", err)
+	}
+
+	items := make([]ChallengeExportItem, 0, len(challenges))
+	for _, challenge := range challenges {
+		items = append(items, ChallengeExportItem{
+			ID:                  challenge.ID,
+			Title:               challenge.Title,
+			Description:         challenge.Description,
+			Category:            challenge.Category,
+			Points:              challenge.Points,
+			MinimumPoints:       challenge.MinimumPoints,
+			FlagHash:            challenge.FlagHash,
+			PreviousChallengeID: challenge.PreviousChallengeID,
+			IsActive:            challenge.IsActive,
+			FileKey:             challenge.FileKey,
+			VMEnabled:           challenge.VMEnabled,
+			VMSpec:              challenge.VMSpec,
+			CreatedAt:           challenge.CreatedAt,
+			FileName:            challenge.FileName,
+			FileUploadedAt:      challenge.FileUploadedAt,
+		})
+	}
+
+	return &ChallengeExportBundle{
+		Version:      1,
+		ExportedAt:   time.Now().UTC(),
+		Challenges:   items,
+		RequestedIDs: normalizedIDs,
+	}, nil
+}
+
+func (s *CTFService) ImportChallenges(ctx context.Context, bundle ChallengeExportBundle) ([]models.Challenge, error) {
+	if bundle.Version != 1 {
+		return nil, NewValidationError(FieldError{Field: "version", Reason: "unsupported"})
+	}
+	if len(bundle.Challenges) == 0 {
+		return nil, NewValidationError(FieldError{Field: "challenges", Reason: "required"})
+	}
+
+	validator := newFieldValidator()
+	sourceIDs := make(map[int64]struct{}, len(bundle.Challenges))
+	importItems := make([]models.Challenge, 0, len(bundle.Challenges))
+
+	for i, item := range bundle.Challenges {
+		fieldPrefix := fmt.Sprintf("challenges[%d]", i)
+		title := normalizeTrim(item.Title)
+		description := normalizeTrim(item.Description)
+		category := normalizeTrim(item.Category)
+		flagHash := normalizeTrim(item.FlagHash)
+
+		validator.PositiveID(fieldPrefix+".id", item.ID)
+		validator.Required(fieldPrefix+".title", title)
+		validator.Required(fieldPrefix+".description", description)
+		validator.Required(fieldPrefix+".category", category)
+		validator.Required(fieldPrefix+".flag_hash", flagHash)
+		validator.NonNegative(fieldPrefix+".points", item.Points)
+		validator.NonNegative(fieldPrefix+".minimum_points", item.MinimumPoints)
+
+		if item.MinimumPoints > item.Points {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".minimum_points", Reason: "must be <= points"})
+		}
+
+		if _, ok := challengeCategories[category]; category != "" && !ok {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".category", Reason: "invalid"})
+		}
+
+		if _, err := bcrypt.Cost([]byte(flagHash)); err != nil {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".flag_hash", Reason: "invalid bcrypt hash"})
+		}
+
+		if item.VMEnabled {
+			if item.VMSpec == nil || normalizeTrim(*item.VMSpec) == "" {
+				validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".vm_spec", Reason: "required"})
+			}
+		}
+
+		if item.PreviousChallengeID != nil && *item.PreviousChallengeID <= 0 {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".previous_challenge_id", Reason: "invalid"})
+		}
+
+		if _, exists := sourceIDs[item.ID]; exists {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".id", Reason: "duplicate"})
+		}
+		sourceIDs[item.ID] = struct{}{}
+
+		var normalizedSpec *string
+		if item.VMEnabled && item.VMSpec != nil {
+			trimmed := normalizeTrim(*item.VMSpec)
+			normalizedSpec = &trimmed
+		}
+
+		importItems = append(importItems, models.Challenge{
+			ID:                  item.ID,
+			Title:               title,
+			Description:         description,
+			Category:            category,
+			Points:              item.Points,
+			MinimumPoints:       item.MinimumPoints,
+			FlagHash:            flagHash,
+			PreviousChallengeID: item.PreviousChallengeID,
+			FileKey:             item.FileKey,
+			FileName:            item.FileName,
+			FileUploadedAt:      item.FileUploadedAt,
+			VMEnabled:           item.VMEnabled,
+			VMSpec:              normalizedSpec,
+			IsActive:            item.IsActive,
+			CreatedAt:           item.CreatedAt.UTC(),
+		})
+	}
+
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	imported, err := s.challengeRepo.ImportChallenges(ctx, importItems)
+	if err != nil {
+		return nil, fmt.Errorf("ctf.ImportChallenges: %w", err)
+	}
+
+	if err := s.applyDynamicPoints(ctx, pointersToChallenges(imported), nil); err != nil {
+		return nil, fmt.Errorf("ctf.ImportChallenges score: %w", err)
+	}
+
+	return imported, nil
 }
 
 func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, flag string) (bool, error) {

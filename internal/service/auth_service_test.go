@@ -245,6 +245,77 @@ func TestAuthServiceListRegistrationKeys(t *testing.T) {
 	}
 }
 
+func TestAuthServiceExportImportRegistrationKeys(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	team := createTeam(t, env, "Key Team")
+	key := createRegistrationKeyWithTeam(t, env, "ABCDEFGHJKLMNPQ8", admin.ID, team.ID)
+
+	exported, err := env.authSvc.ExportRegistrationKeys(context.Background(), []int64{key.ID})
+	if err != nil {
+		t.Fatalf("export keys: %v", err)
+	}
+
+	if len(exported.Keys) != 1 || exported.Keys[0].Code != key.Code || exported.Keys[0].TeamName != team.Name || exported.Keys[0].MaxUses != key.MaxUses {
+		t.Fatalf("unexpected export bundle: %+v", exported)
+	}
+
+	otherTeam := createTeam(t, env, "Imported Key Team")
+	imported, err := env.authSvc.ImportRegistrationKeys(context.Background(), admin.ID, RegistrationKeyExportBundle{
+		Version: 1,
+		Keys: []RegistrationKeyExportItem{{
+			ID:        999,
+			Code:      "ABCDEFGHJKLMNPQ9",
+			TeamName:  otherTeam.Name,
+			MaxUses:   2,
+			CreatedAt: time.Now().UTC(),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("import keys: %v", err)
+	}
+
+	if len(imported) != 1 || imported[0].Code != "ABCDEFGHJKLMNPQ9" || imported[0].TeamName != otherTeam.Name || imported[0].MaxUses != 2 || imported[0].UsedCount != 0 {
+		t.Fatalf("unexpected imported keys: %+v", imported)
+	}
+}
+
+func TestAuthServiceImportRegistrationKeysValidation(t *testing.T) {
+	env := setupServiceTest(t)
+	admin := createUserWithNewTeam(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	team := createTeam(t, env, "Dup Team")
+	_ = createRegistrationKeyWithTeam(t, env, "ABCDEFGHJKLMNPQ4", admin.ID, team.ID)
+
+	_, err := env.authSvc.ImportRegistrationKeys(context.Background(), admin.ID, RegistrationKeyExportBundle{
+		Version: 1,
+		Keys: []RegistrationKeyExportItem{{
+			ID:        1,
+			Code:      "ABCDEFGHJKLMNPQ4",
+			TeamName:  team.Name,
+			MaxUses:   1,
+			CreatedAt: time.Now().UTC(),
+		}},
+	})
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+
+	_, err = env.authSvc.ImportRegistrationKeys(context.Background(), admin.ID, RegistrationKeyExportBundle{
+		Version: 1,
+		Keys: []RegistrationKeyExportItem{{
+			ID:        2,
+			Code:      "ABCDEFGHJKLMNPRA",
+			TeamName:  "Missing Team",
+			MaxUses:   1,
+			CreatedAt: time.Now().UTC(),
+		}},
+	})
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
 func TestAuthServiceLoginRefreshLogout(t *testing.T) {
 	env := setupServiceTest(t)
 	user := createUserWithNewTeam(t, env, "user@example.com", "user1", "pass", models.UserRole)

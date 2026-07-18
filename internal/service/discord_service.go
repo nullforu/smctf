@@ -382,7 +382,7 @@ func (s *DiscordService) syncNickname(ctx context.Context, userID int64) {
 		return
 	}
 
-	nickname := fmt.Sprintf("%s_%s_%s", user.DivisionName, user.TeamName, user.Username)
+	nickname := fmt.Sprintf("%s_%s", user.DivisionName, user.Username)
 	if err := s.bot.SetNickname(ctx, conn.DiscordUserID, nickname); err != nil {
 		if !errors.Is(err, discord.ErrNotInGuild) {
 			slog.Warn("discord nickname sync failed", slog.Int64("user_id", userID), slog.Any("error", err))

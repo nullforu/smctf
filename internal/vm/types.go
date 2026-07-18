@@ -65,8 +65,8 @@ type SandboxSpec struct {
 }
 
 type CreateSandboxRequest struct {
-	ID   string      `json:"id" yaml:"id"`
-	Spec SandboxSpec `json:"spec" yaml:"spec"`
+	ID   string         `json:"id" yaml:"id"`
+	Spec map[string]any `json:"spec" yaml:"spec"`
 }
 
 type SandboxStatus struct {

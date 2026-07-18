@@ -33,10 +33,36 @@ func (r *TeamRepo) List(ctx context.Context) ([]models.Team, error) {
 	return teams, nil
 }
 
+func (r *TeamRepo) ListByIDs(ctx context.Context, ids []int64) ([]models.Team, error) {
+	teams := make([]models.Team, 0)
+	if len(ids) == 0 {
+		return teams, nil
+	}
+
+	if err := r.db.NewSelect().
+		Model(&teams).
+		Where("id IN (?)", bun.In(ids)).
+		OrderExpr("id ASC").
+		Scan(ctx); err != nil {
+		return nil, wrapError("teamRepo.ListByIDs", err)
+	}
+
+	return teams, nil
+}
+
 func (r *TeamRepo) GetByID(ctx context.Context, id int64) (*models.Team, error) {
 	team := new(models.Team)
 	if err := r.db.NewSelect().Model(team).Where("id = ?", id).Scan(ctx); err != nil {
 		return nil, wrapNotFound("teamRepo.GetByID", err)
+	}
+
+	return team, nil
+}
+
+func (r *TeamRepo) GetByName(ctx context.Context, name string) (*models.Team, error) {
+	team := new(models.Team)
+	if err := r.db.NewSelect().Model(team).Where("name = ?", name).Scan(ctx); err != nil {
+		return nil, wrapNotFound("teamRepo.GetByName", err)
 	}
 
 	return team, nil
@@ -237,4 +263,26 @@ func (r *TeamRepo) ListSolvedChallenges(ctx context.Context, id int64) ([]models
 	}
 
 	return rows, nil
+}
+
+func (r *TeamRepo) ImportTeams(ctx context.Context, teams []models.Team) ([]models.Team, error) {
+	if len(teams) == 0 {
+		return []models.Team{}, nil
+	}
+
+	imported := make([]models.Team, 0, len(teams))
+	if err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		for _, team := range teams {
+			team.ID = 0
+			if _, err := tx.NewInsert().Model(&team).Exec(ctx); err != nil {
+				return wrapError("teamRepo.ImportTeams insert", err)
+			}
+			imported = append(imported, team)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return imported, nil
 }

@@ -17,6 +17,20 @@ type TeamService struct {
 	divisionRepo *repo.DivisionRepo
 }
 
+type TeamExportItem struct {
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	DivisionName string    `json:"division_name"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type TeamExportBundle struct {
+	Version      int              `json:"version"`
+	ExportedAt   time.Time        `json:"exported_at"`
+	RequestedIDs []int64          `json:"requested_ids,omitempty"`
+	Teams        []TeamExportItem `json:"teams"`
+}
+
 func NewTeamService(teamRepo *repo.TeamRepo, divisionRepo *repo.DivisionRepo) *TeamService {
 	return &TeamService{teamRepo: teamRepo, divisionRepo: divisionRepo}
 }
@@ -25,7 +39,6 @@ func (s *TeamService) CreateTeam(ctx context.Context, name string, divisionID in
 	name = strings.TrimSpace(name)
 	validator := newFieldValidator()
 	validator.Required("name", name)
-	validator.MaxLen("name", name, nameMaxLen)
 	validator.PositiveID("division_id", divisionID)
 	if err := validator.Error(); err != nil {
 		return nil, err
@@ -137,4 +150,131 @@ func (s *TeamService) ListSolvedChallenges(ctx context.Context, id int64) ([]mod
 	}
 
 	return rows, nil
+}
+
+func (s *TeamService) ExportTeams(ctx context.Context, ids []int64) (*TeamExportBundle, error) {
+	validator := newFieldValidator()
+	seen := make(map[int64]struct{}, len(ids))
+	normalizedIDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		validator.PositiveID("ids", id)
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalizedIDs = append(normalizedIDs, id)
+	}
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.teamRepo.ListWithStats(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("team.ExportTeams: %w", err)
+	}
+
+	selected := rows
+	if len(normalizedIDs) > 0 {
+		byID := make(map[int64]models.TeamSummary, len(rows))
+		for _, row := range rows {
+			byID[row.ID] = row
+		}
+
+		selected = make([]models.TeamSummary, 0, len(normalizedIDs))
+		for _, id := range normalizedIDs {
+			row, ok := byID[id]
+			if !ok {
+				return nil, NewValidationError(FieldError{Field: "ids", Reason: "contains unknown team id"})
+			}
+			selected = append(selected, row)
+		}
+	}
+
+	items := make([]TeamExportItem, 0, len(selected))
+	for _, row := range selected {
+		items = append(items, TeamExportItem{
+			ID:           row.ID,
+			Name:         row.Name,
+			DivisionName: row.DivisionName,
+			CreatedAt:    row.CreatedAt,
+		})
+	}
+
+	return &TeamExportBundle{
+		Version:      1,
+		ExportedAt:   time.Now().UTC(),
+		RequestedIDs: normalizedIDs,
+		Teams:        items,
+	}, nil
+}
+
+func (s *TeamService) ImportTeams(ctx context.Context, bundle TeamExportBundle) ([]models.Team, error) {
+	if bundle.Version != 1 {
+		return nil, NewValidationError(FieldError{Field: "version", Reason: "unsupported"})
+	}
+	if len(bundle.Teams) == 0 {
+		return nil, NewValidationError(FieldError{Field: "teams", Reason: "required"})
+	}
+
+	validator := newFieldValidator()
+	seenIDs := make(map[int64]struct{}, len(bundle.Teams))
+	seenNames := make(map[string]struct{}, len(bundle.Teams))
+	items := make([]models.Team, 0, len(bundle.Teams))
+
+	for i, item := range bundle.Teams {
+		fieldPrefix := fmt.Sprintf("teams[%d]", i)
+		name := strings.TrimSpace(item.Name)
+		divisionName := strings.TrimSpace(item.DivisionName)
+
+		validator.PositiveID(fieldPrefix+".id", item.ID)
+		validator.Required(fieldPrefix+".name", name)
+		validator.Required(fieldPrefix+".division_name", divisionName)
+
+		if _, ok := seenIDs[item.ID]; ok {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".id", Reason: "duplicate"})
+		}
+		seenIDs[item.ID] = struct{}{}
+
+		lowerName := strings.ToLower(name)
+		if _, ok := seenNames[lowerName]; ok {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".name", Reason: "duplicate"})
+		}
+		seenNames[lowerName] = struct{}{}
+
+		if _, err := s.teamRepo.GetByName(ctx, name); err == nil {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".name", Reason: "duplicate"})
+		} else if !errors.Is(err, repo.ErrNotFound) {
+			return nil, fmt.Errorf("team.ImportTeams lookup team: %w", err)
+		}
+
+		division, err := s.divisionRepo.GetByName(ctx, divisionName)
+		if err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".division_name", Reason: "not found"})
+				continue
+			}
+			return nil, fmt.Errorf("team.ImportTeams lookup division: %w", err)
+		}
+
+		items = append(items, models.Team{
+			ID:         item.ID,
+			Name:       name,
+			DivisionID: division.ID,
+			CreatedAt:  item.CreatedAt.UTC(),
+		})
+	}
+
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	imported, err := s.teamRepo.ImportTeams(ctx, items)
+	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, NewValidationError(FieldError{Field: "name", Reason: "duplicate"})
+		}
+		return nil, fmt.Errorf("team.ImportTeams: %w", err)
+	}
+
+	return imported, nil
 }

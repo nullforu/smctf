@@ -9,9 +9,9 @@ import (
 
 const bcryptInputMaxBytes = 72
 
-// nameMaxLen bounds username, team name, and division name to 10 characters
-// each. Combined as "division_team_username" (10+10+10 + two underscores) this
-// fits Discord's 32-character nickname limit exactly.
+// nameMaxLen bounds username and division name to 10 characters each.
+// Combined as "division_username" (10+10 + one underscore) this still fits
+// Discord's 32-character nickname limit comfortably.
 const nameMaxLen = 10
 
 type fieldValidator struct {

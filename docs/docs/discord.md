@@ -42,10 +42,10 @@ through the invite-bot (failures are logged, never surfaced to the user):
     Discord account.
 
 - **Guild nickname sync** — when a user links Discord or changes their username,
-  the linked guild member's nickname is set to `division_team_username`. Because
-  `username`, team `name`, and division `name` are each capped at 10 characters,
+  the linked guild member's nickname is set to `division_username`. Because
+  `username` and division `name` are each capped at 10 characters,
   this always fits Discord's 32-character nickname limit
-  (10 + 10 + 10 + two underscores).
+  (10 + 10 + one underscore).
 
 ## Discord Status Schema
 

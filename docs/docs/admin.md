@@ -219,7 +219,9 @@ Errors:
 
 Validation notes:
 
-- `flag` must be at most 72 bytes (bcrypt input limit).
+- `count` must be at least 1.
+- `team_id` is required and must refer to an existing team.
+- `max_uses`, when provided, must be at least 1.
 
 ---
 
@@ -267,6 +269,123 @@ Errors:
 
 ---
 
+## Export Registration Keys
+
+`GET /api/admin/registration-keys/export`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Optional query
+
+- `ids=1,2,3`
+  - When omitted, exports all registration keys.
+  - When provided, exports only the specified registration key IDs.
+
+Response 200
+
+```json
+{
+    "version": 1,
+    "exported_at": "2026-07-17T12:00:00Z",
+    "requested_ids": [10],
+    "registration_keys": [
+        {
+            "id": 10,
+            "code": "ABCDEFGHJKLMNPQ2",
+            "team_name": "서울고등학교",
+            "max_uses": 3,
+            "created_at": "2026-01-26T12:00:00Z"
+        }
+    ]
+}
+```
+
+Notes:
+
+- Export omits usage state. `used_count`, `last_used_at`, and `uses` are not included.
+- Team references are exported by team name.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
+
+---
+
+## Import Registration Keys
+
+`POST /api/admin/registration-keys/import`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Request
+
+```json
+{
+    "version": 1,
+    "registration_keys": [
+        {
+            "id": 999,
+            "code": "ABCDEFGHJKLMNPQ3",
+            "team_name": "서울고등학교",
+            "max_uses": 2,
+            "created_at": "2026-07-17T12:00:00Z"
+        }
+    ]
+}
+```
+
+Response 201
+
+```json
+{
+    "imported": [
+        {
+            "id": 12,
+            "code": "ABCDEFGHJKLMNPQ3",
+            "created_by": 2,
+            "created_by_username": "admin",
+            "team_id": 1,
+            "team_name": "서울고등학교",
+            "max_uses": 2,
+            "used_count": 0,
+            "created_at": "2026-07-17T12:00:00Z"
+        }
+    ]
+}
+```
+
+Notes:
+
+- Import always creates new registration key rows.
+- Imported keys keep the provided `code` and `max_uses`.
+- Team references are resolved by team name. If a referenced team does not exist, the import fails.
+- Usage state is not imported. Imported keys start with `used_count = 0` and no usage history.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
+
+Validation notes:
+
+- `registration_keys` must contain at least one item.
+- `registration_keys[].code` must be a valid 16-character registration key code and must not already exist.
+- `registration_keys[].team_name` must refer to an existing team.
+- `registration_keys[].max_uses` must be at least 1.
+
+---
+
 ## Create Team
 
 `POST /api/admin/teams`
@@ -305,7 +424,96 @@ Errors:
 
 Validation notes:
 
-- `name` must be at most 10 characters (counted by Unicode code point).
+- `name` is required.
+
+---
+
+## Export Teams
+
+`GET /api/admin/teams/export`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Optional query
+
+- `ids=1,2,3`
+  - When omitted, exports all teams.
+  - When provided, exports only the specified team IDs.
+
+Response 200
+
+```json
+{
+    "version": 1,
+    "exported_at": "2026-07-17T12:00:00Z",
+    "requested_ids": [1],
+    "teams": [
+        {
+            "id": 1,
+            "name": "Alpha",
+            "division_name": "고등부",
+            "created_at": "2026-07-17T11:00:00Z"
+        }
+    ]
+}
+```
+
+Notes:
+
+- Team exports reference divisions by `division_name`, not `division_id`.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
+
+---
+
+## Import Teams
+
+`POST /api/admin/teams/import`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Request
+
+Use the JSON returned by `GET /api/admin/teams/export`.
+
+Response 201
+
+```json
+{
+    "imported": [
+        {
+            "id": 10,
+            "name": "Alpha",
+            "division_id": 2,
+            "created_at": "2026-07-17T11:00:00Z"
+        }
+    ]
+}
+```
+
+Notes:
+
+- Import always creates new teams with new IDs.
+- Teams resolve their division by exported `division_name`.
+- If a referenced division name does not exist, the import fails with a validation error.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
 
 ---
 
@@ -351,6 +559,91 @@ Validation notes:
 - `name` must be at most 10 characters (counted by Unicode code point).
 - `discord_role_id` / `discord_announce_channel_id`, when present, must be numeric
   Discord IDs (snowflakes). An empty string clears the value.
+
+---
+
+## Export Divisions
+
+`GET /api/admin/divisions/export`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Optional query
+
+- `ids=1,2,3`
+  - When omitted, exports all divisions.
+  - When provided, exports only the specified division IDs.
+
+Response 200
+
+```json
+{
+    "version": 1,
+    "exported_at": "2026-07-17T12:00:00Z",
+    "requested_ids": [2],
+    "divisions": [
+        {
+            "id": 2,
+            "name": "고등부",
+            "discord_role_id": "1522163303982563458",
+            "discord_announce_channel_id": "1522218332806447225",
+            "created_at": "2026-07-17T10:00:00Z"
+        }
+    ]
+}
+```
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
+
+---
+
+## Import Divisions
+
+`POST /api/admin/divisions/import`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Request
+
+Use the JSON returned by `GET /api/admin/divisions/export`.
+
+Response 201
+
+```json
+{
+    "imported": [
+        {
+            "id": 5,
+            "name": "고등부",
+            "discord_role_id": "1522163303982563458",
+            "discord_announce_channel_id": "1522218332806447225",
+            "created_at": "2026-07-17T10:00:00Z"
+        }
+    ]
+}
+```
+
+Notes:
+
+- Import always creates new divisions with new IDs.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
 
 ---
 
@@ -546,6 +839,7 @@ Request
 
 If `minimum_points` is omitted, it defaults to the same value as `points`.
 If `vm_enabled` is true, `vm_spec` is required.
+`vm_spec` is only minimally validated by the backend so newer sandbox options can pass through without schema updates; it must still be valid YAML with `kind: Sandbox` and at least one `spec.containers` entry.
 
 Categories
 
@@ -734,6 +1028,147 @@ Errors:
 - 401 `invalid token` or `missing access_token cookie`
 - 403 `forbidden`
 - 404 `challenge not found`
+
+---
+
+## Export Challenges
+
+`GET /api/admin/challenges/export`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Optional query
+
+- `ids=1,2,3`
+  - When omitted, exports all challenges.
+  - When provided, exports only the specified challenge IDs.
+
+Response 200
+
+```json
+{
+    "version": 1,
+    "exported_at": "2026-07-17T12:00:00Z",
+    "requested_ids": [1, 2],
+    "challenges": [
+        {
+            "id": 1,
+            "title": "Warmup",
+            "description": "...",
+            "category": "Web",
+            "points": 100,
+            "minimum_points": 50,
+            "flag_hash": "$2a$10$...",
+            "previous_challenge_id": null,
+            "is_active": true,
+            "file_key": "challenges/warmup.zip",
+            "vm_enabled": false,
+            "vm_spec": null,
+            "created_at": "2026-07-01T09:00:00Z",
+            "file_name": "challenge.zip",
+            "file_uploaded_at": "2026-07-01T09:10:00Z"
+        }
+    ]
+}
+```
+
+Notes:
+
+- `flag_hash` is included exactly as stored, using bcrypt.
+- `file_key` is included as stored. This is intended for environments where the same object key already exists in backing storage.
+- Challenge file binaries themselves are not embedded in the JSON.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
+
+---
+
+## Import Challenges
+
+`POST /api/admin/challenges/import`
+
+Headers
+
+```
+Cookie: access_token=<jwt>
+```
+
+Request
+
+Use the JSON returned by `GET /api/admin/challenges/export`.
+
+```json
+{
+    "version": 1,
+    "exported_at": "2026-07-17T12:00:00Z",
+    "challenges": [
+        {
+            "id": 1,
+            "title": "Warmup",
+            "description": "...",
+            "category": "Web",
+            "points": 100,
+            "minimum_points": 50,
+            "flag_hash": "$2a$10$...",
+            "previous_challenge_id": null,
+            "is_active": true,
+            "file_key": "challenges/warmup.zip",
+            "vm_enabled": false,
+            "vm_spec": null,
+            "created_at": "2026-07-01T09:00:00Z"
+        }
+    ]
+}
+```
+
+Response 201
+
+```json
+{
+    "imported": [
+        {
+            "id": 10,
+            "title": "Warmup",
+            "description": "...",
+            "category": "Web",
+            "points": 100,
+            "initial_points": 100,
+            "minimum_points": 50,
+            "solve_count": 0,
+            "previous_challenge_id": null,
+            "is_active": true,
+            "has_file": false,
+            "vm_enabled": false
+        }
+    ]
+}
+```
+
+Notes:
+
+- Import always creates new challenges with new IDs.
+- `flag_hash` is stored as provided and is not re-hashed.
+- If an imported challenge references another imported challenge via `previous_challenge_id`, that dependency is remapped to the newly created IDs.
+- If `file_key` is provided, it is stored as-is. This assumes the same backing object key already exists in storage.
+- Challenge file binaries are still not transferred by this endpoint.
+
+Errors:
+
+- 400 `invalid input`
+- 401 `invalid token` or `missing access_token cookie`
+- 403 `forbidden`
+
+Validation notes:
+
+- `version` must be `1`.
+- `flag_hash` must be a valid bcrypt hash string.
 
 ---
 

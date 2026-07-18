@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -421,8 +422,11 @@ func TestDiscordSyncNickname(t *testing.T) {
 
 	svc.SyncNickname(context.Background(), user.ID)
 	svc.Wait()
-	if !strings.Contains(bot.nick(), "nickuser") {
-		t.Fatalf("nickname = %q (expected division_team_nickuser)", bot.nick())
+	if got, want := bot.nick(), "Default_nickuser"; got != want {
+		t.Fatalf("nickname = %q, want %q", got, want)
+	}
+	if bot.nick() == fmt.Sprintf("%s_%s_%s", user.DivisionName, user.TeamName, user.Username) {
+		t.Fatalf("nickname = %q (old division_team_username format should not be used)", bot.nick())
 	}
 }
 

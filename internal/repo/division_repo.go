@@ -55,6 +55,23 @@ func (r *DivisionRepo) List(ctx context.Context) ([]models.Division, error) {
 	return divisions, nil
 }
 
+func (r *DivisionRepo) ListByIDs(ctx context.Context, ids []int64) ([]models.Division, error) {
+	divisions := make([]models.Division, 0)
+	if len(ids) == 0 {
+		return divisions, nil
+	}
+
+	if err := r.db.NewSelect().
+		Model(&divisions).
+		Where("id IN (?)", bun.In(ids)).
+		OrderExpr("id ASC").
+		Scan(ctx); err != nil {
+		return nil, wrapError("divisionRepo.ListByIDs", err)
+	}
+
+	return divisions, nil
+}
+
 func (r *DivisionRepo) GetByID(ctx context.Context, id int64) (*models.Division, error) {
 	division := new(models.Division)
 	if err := r.db.NewSelect().Model(division).Where("id = ?", id).Scan(ctx); err != nil {
@@ -71,4 +88,26 @@ func (r *DivisionRepo) GetByName(ctx context.Context, name string) (*models.Divi
 	}
 
 	return division, nil
+}
+
+func (r *DivisionRepo) ImportDivisions(ctx context.Context, divisions []models.Division) ([]models.Division, error) {
+	if len(divisions) == 0 {
+		return []models.Division{}, nil
+	}
+
+	imported := make([]models.Division, 0, len(divisions))
+	if err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		for _, division := range divisions {
+			division.ID = 0
+			if _, err := tx.NewInsert().Model(&division).Exec(ctx); err != nil {
+				return wrapError("divisionRepo.ImportDivisions insert", err)
+			}
+			imported = append(imported, division)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return imported, nil
 }

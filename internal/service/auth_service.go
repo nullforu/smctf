@@ -32,6 +32,21 @@ type AuthService struct {
 	redis               *redis.Client
 }
 
+type RegistrationKeyExportItem struct {
+	ID        int64     `json:"id"`
+	Code      string    `json:"code"`
+	TeamName  string    `json:"team_name"`
+	MaxUses   int       `json:"max_uses"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type RegistrationKeyExportBundle struct {
+	Version      int                         `json:"version"`
+	ExportedAt   time.Time                   `json:"exported_at"`
+	RequestedIDs []int64                     `json:"requested_ids,omitempty"`
+	Keys         []RegistrationKeyExportItem `json:"registration_keys"`
+}
+
 func NewAuthService(cfg config.Config, db *bun.DB, userRepo *repo.UserRepo, registrationKeyRepo *repo.RegistrationKeyRepo, teamRepo *repo.TeamRepo, redis *redis.Client) *AuthService {
 	return &AuthService{cfg: cfg, db: db, userRepo: userRepo, registrationKeyRepo: registrationKeyRepo, teamRepo: teamRepo, redis: redis}
 }
@@ -194,6 +209,164 @@ func (s *AuthService) ListRegistrationKeys(ctx context.Context) ([]models.Regist
 	rows, err := s.registrationKeyRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("auth.ListRegistrationKeys: %w", err)
+	}
+
+	return rows, nil
+}
+
+func (s *AuthService) ExportRegistrationKeys(ctx context.Context, ids []int64) (*RegistrationKeyExportBundle, error) {
+	validator := newFieldValidator()
+	seen := make(map[int64]struct{}, len(ids))
+	normalizedIDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		validator.PositiveID("ids", id)
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalizedIDs = append(normalizedIDs, id)
+	}
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.registrationKeyRepo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("auth.ExportRegistrationKeys: %w", err)
+	}
+
+	selected := rows
+	if len(normalizedIDs) > 0 {
+		byID := make(map[int64]models.RegistrationKeySummary, len(rows))
+		for _, row := range rows {
+			byID[row.ID] = row
+		}
+
+		selected = make([]models.RegistrationKeySummary, 0, len(normalizedIDs))
+		for _, id := range normalizedIDs {
+			row, ok := byID[id]
+			if !ok {
+				return nil, NewValidationError(FieldError{Field: "ids", Reason: "contains unknown registration key id"})
+			}
+			selected = append(selected, row)
+		}
+	}
+
+	items := make([]RegistrationKeyExportItem, 0, len(selected))
+	for _, row := range selected {
+		items = append(items, RegistrationKeyExportItem{
+			ID:        row.ID,
+			Code:      row.Code,
+			TeamName:  row.TeamName,
+			MaxUses:   row.MaxUses,
+			CreatedAt: row.CreatedAt,
+		})
+	}
+
+	return &RegistrationKeyExportBundle{
+		Version:      1,
+		ExportedAt:   time.Now().UTC(),
+		RequestedIDs: normalizedIDs,
+		Keys:         items,
+	}, nil
+}
+
+func (s *AuthService) ImportRegistrationKeys(ctx context.Context, adminID int64, bundle RegistrationKeyExportBundle) ([]models.RegistrationKeySummary, error) {
+	if bundle.Version != 1 {
+		return nil, NewValidationError(FieldError{Field: "version", Reason: "unsupported"})
+	}
+	if len(bundle.Keys) == 0 {
+		return nil, NewValidationError(FieldError{Field: "registration_keys", Reason: "required"})
+	}
+
+	validator := newFieldValidator()
+	admin, err := s.userRepo.GetByID(ctx, adminID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("auth.ImportRegistrationKeys admin lookup: %w", err)
+	}
+	seenIDs := make(map[int64]struct{}, len(bundle.Keys))
+	seenCodes := make(map[string]struct{}, len(bundle.Keys))
+	importItems := make([]models.RegistrationKey, 0, len(bundle.Keys))
+	teamNames := make([]string, 0, len(bundle.Keys))
+
+	for i, item := range bundle.Keys {
+		fieldPrefix := fmt.Sprintf("registration_keys[%d]", i)
+		code := strings.ToUpper(normalizeTrim(item.Code))
+		teamName := normalizeTrim(item.TeamName)
+
+		validator.PositiveID(fieldPrefix+".id", item.ID)
+		validator.Required(fieldPrefix+".code", code)
+		validator.Required(fieldPrefix+".team_name", teamName)
+		if code != "" && !isRegistrationCode(code) {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".code", Reason: "invalid"})
+		}
+		if item.MaxUses < 1 {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".max_uses", Reason: "must be >= 1"})
+		}
+
+		if _, ok := seenIDs[item.ID]; ok {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".id", Reason: "duplicate"})
+		}
+		seenIDs[item.ID] = struct{}{}
+
+		if _, ok := seenCodes[code]; ok {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".code", Reason: "duplicate"})
+		}
+		seenCodes[code] = struct{}{}
+
+		if _, err := s.registrationKeyRepo.GetByCode(ctx, code); err == nil {
+			validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".code", Reason: "duplicate"})
+		} else if !errors.Is(err, repo.ErrNotFound) {
+			return nil, fmt.Errorf("auth.ImportRegistrationKeys lookup key: %w", err)
+		}
+
+		team, err := s.teamRepo.GetByName(ctx, teamName)
+		if err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				validator.fields = append(validator.fields, FieldError{Field: fieldPrefix + ".team_name", Reason: "not found"})
+				continue
+			}
+			return nil, fmt.Errorf("auth.ImportRegistrationKeys lookup team: %w", err)
+		}
+
+		importItems = append(importItems, models.RegistrationKey{
+			Code:      code,
+			CreatedBy: adminID,
+			TeamID:    team.ID,
+			MaxUses:   item.MaxUses,
+			CreatedAt: item.CreatedAt.UTC(),
+		})
+		teamNames = append(teamNames, teamName)
+	}
+
+	if err := validator.Error(); err != nil {
+		return nil, err
+	}
+
+	imported, err := s.registrationKeyRepo.ImportRegistrationKeys(ctx, importItems)
+	if err != nil {
+		if db.IsUniqueViolation(err) {
+			return nil, NewValidationError(FieldError{Field: "registration_keys", Reason: "duplicate"})
+		}
+		return nil, fmt.Errorf("auth.ImportRegistrationKeys: %w", err)
+	}
+
+	rows := make([]models.RegistrationKeySummary, 0, len(imported))
+	for i, key := range imported {
+		rows = append(rows, models.RegistrationKeySummary{
+			ID:                key.ID,
+			Code:              key.Code,
+			CreatedBy:         key.CreatedBy,
+			CreatedByUsername: admin.Username,
+			TeamID:            key.TeamID,
+			TeamName:          teamNames[i],
+			MaxUses:           key.MaxUses,
+			UsedCount:         key.UsedCount,
+			CreatedAt:         key.CreatedAt,
+		})
 	}
 
 	return rows, nil

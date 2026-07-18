@@ -201,6 +201,31 @@ func parseOptionalPositiveIDQuery(ctx *gin.Context, name string) (*int64, error)
 	return &id, nil
 }
 
+func parseOptionalPositiveIDsQuery(ctx *gin.Context, name string) ([]int64, error) {
+	raw := strings.TrimSpace(ctx.Query(name))
+	if raw == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(raw, ",")
+	ids := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			return nil, service.NewValidationError(service.FieldError{Field: name, Reason: "invalid"})
+		}
+
+		id, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || id <= 0 {
+			return nil, service.NewValidationError(service.FieldError{Field: name, Reason: "invalid"})
+		}
+
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
 func (h *Handler) resolveDivisionID(ctx *gin.Context, require bool) (*int64, bool) {
 	divisionID, err := parseOptionalPositiveIDQuery(ctx, "division_id")
 	if err != nil {
@@ -1057,6 +1082,50 @@ func (h *Handler) DeleteChallenge(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+func (h *Handler) ExportChallenges(ctx *gin.Context) {
+	ids, err := parseOptionalPositiveIDsQuery(ctx, "ids")
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	bundle, err := h.ctf.ExportChallenges(ctx.Request.Context(), ids)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, challengeExportResponse{
+		Version:      bundle.Version,
+		ExportedAt:   bundle.ExportedAt,
+		RequestedIDs: bundle.RequestedIDs,
+		Challenges:   bundle.Challenges,
+	})
+}
+
+func (h *Handler) ImportChallenges(ctx *gin.Context) {
+	var req challengeImportRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	imported, err := h.ctf.ImportChallenges(ctx.Request.Context(), service.ChallengeExportBundle(req))
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	h.notifyScoreboardChanged(ctx.Request.Context(), "challenge_imported")
+
+	response := make([]challengeResponse, 0, len(imported))
+	for i := range imported {
+		response = append(response, newChallengeResponse(&imported[i]))
+	}
+
+	ctx.JSON(http.StatusCreated, challengeImportResponse{Imported: response})
+}
+
 func (h *Handler) RequestChallengeFileUpload(ctx *gin.Context) {
 	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
@@ -1199,6 +1268,44 @@ func (h *Handler) ListRegistrationKeys(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, rows)
+}
+
+func (h *Handler) ExportRegistrationKeys(ctx *gin.Context) {
+	ids, err := parseOptionalPositiveIDsQuery(ctx, "ids")
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	bundle, err := h.auth.ExportRegistrationKeys(ctx.Request.Context(), ids)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, registrationKeyExportResponse{
+		Version:      bundle.Version,
+		ExportedAt:   bundle.ExportedAt,
+		RequestedIDs: bundle.RequestedIDs,
+		Keys:         bundle.Keys,
+	})
+}
+
+func (h *Handler) ImportRegistrationKeys(ctx *gin.Context) {
+	var req registrationKeyImportRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	adminID := middleware.UserID(ctx)
+	imported, err := h.auth.ImportRegistrationKeys(ctx.Request.Context(), adminID, service.RegistrationKeyExportBundle(req))
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, registrationKeyImportResponse{Imported: imported})
 }
 
 func (h *Handler) AdminMoveUserTeam(ctx *gin.Context) {
@@ -1414,6 +1521,43 @@ func (h *Handler) UpdateDivision(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, division)
 }
 
+func (h *Handler) ExportDivisions(ctx *gin.Context) {
+	ids, err := parseOptionalPositiveIDsQuery(ctx, "ids")
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	bundle, err := h.divs.ExportDivisions(ctx.Request.Context(), ids)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, divisionExportResponse{
+		Version:      bundle.Version,
+		ExportedAt:   bundle.ExportedAt,
+		RequestedIDs: bundle.RequestedIDs,
+		Divisions:    bundle.Divisions,
+	})
+}
+
+func (h *Handler) ImportDivisions(ctx *gin.Context) {
+	var req divisionImportRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	imported, err := h.divs.ImportDivisions(ctx.Request.Context(), service.DivisionExportBundle(req))
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, divisionImportResponse{Imported: imported})
+}
+
 // Team Handlers
 
 func (h *Handler) CreateTeam(ctx *gin.Context) {
@@ -1432,6 +1576,49 @@ func (h *Handler) CreateTeam(ctx *gin.Context) {
 	h.notifyScoreboardChanged(ctx.Request.Context(), "team_created", team.DivisionID)
 
 	ctx.JSON(http.StatusCreated, newTeamResponse(team))
+}
+
+func (h *Handler) ExportTeams(ctx *gin.Context) {
+	ids, err := parseOptionalPositiveIDsQuery(ctx, "ids")
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	bundle, err := h.teams.ExportTeams(ctx.Request.Context(), ids)
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, teamExportResponse{
+		Version:      bundle.Version,
+		ExportedAt:   bundle.ExportedAt,
+		RequestedIDs: bundle.RequestedIDs,
+		Teams:        bundle.Teams,
+	})
+}
+
+func (h *Handler) ImportTeams(ctx *gin.Context) {
+	var req teamImportRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		writeBindError(ctx, err)
+		return
+	}
+
+	imported, err := h.teams.ImportTeams(ctx.Request.Context(), service.TeamExportBundle(req))
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
+	response := make([]teamResponse, 0, len(imported))
+	for i := range imported {
+		response = append(response, newTeamResponse(&imported[i]))
+	}
+
+	h.notifyScoreboardChanged(ctx.Request.Context(), "team_imported")
+	ctx.JSON(http.StatusCreated, teamImportResponse{Imported: response})
 }
 
 func (h *Handler) ListTeams(ctx *gin.Context) {

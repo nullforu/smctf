@@ -354,6 +354,375 @@ func TestAdminDeleteChallenge(t *testing.T) {
 	}
 }
 
+func TestAdminExportChallenges(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	first := createChallenge(t, env, "First", 100, "flag{first}", true)
+	second := createChallenge(t, env, "Second", 200, "flag{second}", false)
+	fileKey := "challenge-bundle.zip"
+	fileName := "challenge.zip"
+	fileUploadedAt := time.Now().UTC().Add(-time.Minute)
+	second.PreviousChallengeID = &first.ID
+	second.FileKey = &fileKey
+	second.FileName = &fileName
+	second.FileUploadedAt = &fileUploadedAt
+	if err := env.challengeRepo.Update(context.Background(), second); err != nil {
+		t.Fatalf("update second: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/admin/challenges/export", nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	accessUser, _, _ := registerAndLogin(t, env, "export-user@example.com", "exportuser", "strong-password")
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/challenges/export", nil, authHeader(accessUser))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/challenges/export", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var exported struct {
+		Version    int `json:"version"`
+		Challenges []struct {
+			ID                  int64   `json:"id"`
+			Title               string  `json:"title"`
+			FlagHash            string  `json:"flag_hash"`
+			FileKey             *string `json:"file_key"`
+			PreviousChallengeID *int64  `json:"previous_challenge_id"`
+		} `json:"challenges"`
+		RequestedIDs []int64 `json:"requested_ids"`
+	}
+	decodeJSON(t, rec, &exported)
+
+	if exported.Version != 1 {
+		t.Fatalf("expected version 1, got %d", exported.Version)
+	}
+	if len(exported.RequestedIDs) != 0 {
+		t.Fatalf("expected empty requested_ids, got %v", exported.RequestedIDs)
+	}
+	if len(exported.Challenges) != 2 {
+		t.Fatalf("expected 2 challenges, got %d", len(exported.Challenges))
+	}
+	if exported.Challenges[0].FlagHash == "" || exported.Challenges[1].FlagHash == "" {
+		t.Fatalf("expected exported flag hashes")
+	}
+	if exported.Challenges[1].FileKey == nil || *exported.Challenges[1].FileKey != fileKey {
+		t.Fatalf("expected file key %q, got %v", fileKey, exported.Challenges[1].FileKey)
+	}
+	if exported.Challenges[1].PreviousChallengeID == nil || *exported.Challenges[1].PreviousChallengeID != first.ID {
+		t.Fatalf("expected previous challenge id %d, got %v", first.ID, exported.Challenges[1].PreviousChallengeID)
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/admin/challenges/export?ids=%d", second.ID), nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	decodeJSON(t, rec, &exported)
+	if len(exported.Challenges) != 1 || exported.Challenges[0].ID != second.ID {
+		t.Fatalf("expected selected export for challenge %d, got %+v", second.ID, exported.Challenges)
+	}
+	if len(exported.RequestedIDs) != 1 || exported.RequestedIDs[0] != second.ID {
+		t.Fatalf("unexpected requested ids: %v", exported.RequestedIDs)
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/challenges/export?ids=abc", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, "/api/admin/challenges/export?ids=999999", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for unknown id, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminImportChallenges(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	originalA := createChallenge(t, env, "Import A", 123, "flag{import-a}", true)
+	originalB := createChallenge(t, env, "Import B", 456, "flag{import-b}", false)
+	vmSpec := "apiVersion: v1\nkind: Sandbox\nmetadata:\n  name: import-b\nspec:\n  containers:\n    - name: app\n      image: nginx\n"
+	fileKey := "imports/import-b.zip"
+	fileName := "import-b.zip"
+	fileUploadedAt := time.Now().UTC().Add(-2 * time.Minute)
+	originalB.PreviousChallengeID = &originalA.ID
+	originalB.VMEnabled = true
+	originalB.VMSpec = &vmSpec
+	originalB.FileKey = &fileKey
+	originalB.FileName = &fileName
+	originalB.FileUploadedAt = &fileUploadedAt
+	if err := env.challengeRepo.Update(context.Background(), originalB); err != nil {
+		t.Fatalf("update originalB: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodGet, "/api/admin/challenges/export", nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("export status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var bundle map[string]any
+	decodeJSON(t, rec, &bundle)
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges/import", bundle, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	accessUser, _, _ := registerAndLogin(t, env, "import-user@example.com", "importuser", "strong-password")
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges/import", bundle, authHeader(accessUser))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges/import", bundle, authHeader(adminAccess))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var importedResp struct {
+		Imported []struct {
+			ID                  int64  `json:"id"`
+			Title               string `json:"title"`
+			PreviousChallengeID *int64 `json:"previous_challenge_id"`
+			VMEnabled           bool   `json:"vm_enabled"`
+		} `json:"imported"`
+	}
+	decodeJSON(t, rec, &importedResp)
+
+	if len(importedResp.Imported) != 2 {
+		t.Fatalf("expected 2 imported challenges, got %d", len(importedResp.Imported))
+	}
+	if importedResp.Imported[0].ID == originalA.ID || importedResp.Imported[1].ID == originalB.ID {
+		t.Fatalf("expected imported challenges to get new ids: %+v", importedResp.Imported)
+	}
+	if importedResp.Imported[1].PreviousChallengeID == nil || *importedResp.Imported[1].PreviousChallengeID != importedResp.Imported[0].ID {
+		t.Fatalf("expected remapped previous challenge id, got %+v", importedResp.Imported)
+	}
+	if !importedResp.Imported[1].VMEnabled {
+		t.Fatalf("expected vm_enabled to be preserved")
+	}
+
+	importedA, err := env.challengeRepo.GetByID(context.Background(), importedResp.Imported[0].ID)
+	if err != nil {
+		t.Fatalf("get importedA: %v", err)
+	}
+	importedB, err := env.challengeRepo.GetByID(context.Background(), importedResp.Imported[1].ID)
+	if err != nil {
+		t.Fatalf("get importedB: %v", err)
+	}
+
+	ok, err := utils.CheckFlag(importedA.FlagHash, "flag{import-a}")
+	if err != nil || !ok {
+		t.Fatalf("expected importedA hash to be reusable")
+	}
+	ok, err = utils.CheckFlag(importedB.FlagHash, "flag{import-b}")
+	if err != nil || !ok {
+		t.Fatalf("expected importedB hash to be reusable")
+	}
+	if importedB.PreviousChallengeID == nil || *importedB.PreviousChallengeID != importedA.ID {
+		t.Fatalf("expected importedB to point at importedA, got %v", importedB.PreviousChallengeID)
+	}
+	if importedB.FileKey == nil || *importedB.FileKey != fileKey {
+		t.Fatalf("expected importedB file key %q, got %v", fileKey, importedB.FileKey)
+	}
+	if importedB.FileName == nil || *importedB.FileName != fileName {
+		t.Fatalf("expected importedB file name %q, got %v", fileName, importedB.FileName)
+	}
+	if importedB.FileUploadedAt == nil || !importedB.FileUploadedAt.Equal(fileUploadedAt) {
+		t.Fatalf("expected importedB file uploaded at %v, got %v", fileUploadedAt, importedB.FileUploadedAt)
+	}
+
+	badBundle := map[string]any{
+		"version": 1,
+		"challenges": []map[string]any{
+			{
+				"id":             50,
+				"title":          "Broken",
+				"description":    "desc",
+				"category":       "Web",
+				"points":         100,
+				"minimum_points": 50,
+				"flag_hash":      "not-bcrypt",
+				"is_active":      true,
+				"vm_enabled":     false,
+				"created_at":     time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	}
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/challenges/import", badBundle, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp errorResp
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"challenges[0].flag_hash": "invalid bcrypt hash"})
+}
+
+func TestAdminExportImportDivisions(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	roleID := "123456789012345678"
+	channelID := "987654321098765432"
+	division := &models.Division{
+		Name:                     "Blue",
+		DiscordRoleID:            &roleID,
+		DiscordAnnounceChannelID: &channelID,
+		CreatedAt:                time.Now().UTC().Add(-time.Hour),
+	}
+	if err := env.divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/admin/divisions/export?ids=%d", division.ID), nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("export status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var exported struct {
+		Version   int `json:"version"`
+		Divisions []struct {
+			ID                       int64   `json:"id"`
+			Name                     string  `json:"name"`
+			DiscordRoleID            *string `json:"discord_role_id"`
+			DiscordAnnounceChannelID *string `json:"discord_announce_channel_id"`
+		} `json:"divisions"`
+		RequestedIDs []int64 `json:"requested_ids"`
+	}
+	decodeJSON(t, rec, &exported)
+
+	if len(exported.Divisions) != 1 || exported.Divisions[0].ID != division.ID {
+		t.Fatalf("unexpected exported divisions: %+v", exported.Divisions)
+	}
+	if exported.Divisions[0].DiscordRoleID == nil || *exported.Divisions[0].DiscordRoleID != roleID {
+		t.Fatalf("expected role id %q, got %v", roleID, exported.Divisions[0].DiscordRoleID)
+	}
+
+	importBundle := map[string]any{
+		"version": 1,
+		"divisions": []map[string]any{
+			{
+				"id":                          777,
+				"name":                        "Green",
+				"discord_role_id":             roleID,
+				"discord_announce_channel_id": channelID,
+				"created_at":                  time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	}
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/divisions/import", importBundle, authHeader(adminAccess))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("import status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var imported struct {
+		Imported []models.Division `json:"imported"`
+	}
+	decodeJSON(t, rec, &imported)
+	if len(imported.Imported) != 1 || imported.Imported[0].Name != "Green" {
+		t.Fatalf("unexpected imported divisions: %+v", imported.Imported)
+	}
+	if imported.Imported[0].ID == 777 {
+		t.Fatalf("expected new division id, got source id %d", imported.Imported[0].ID)
+	}
+}
+
+func TestAdminExportImportTeams(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	division := &models.Division{Name: "Special", CreatedAt: time.Now().UTC().Add(-time.Hour)}
+	if err := env.divisionRepo.Create(context.Background(), division); err != nil {
+		t.Fatalf("create division: %v", err)
+	}
+
+	team := &models.Team{Name: "Alpha", DivisionID: division.ID, CreatedAt: time.Now().UTC().Add(-30 * time.Minute)}
+	if err := env.teamRepo.Create(context.Background(), team); err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/admin/teams/export?ids=%d", team.ID), nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("export status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var exported struct {
+		Version int `json:"version"`
+		Teams   []struct {
+			ID           int64  `json:"id"`
+			Name         string `json:"name"`
+			DivisionName string `json:"division_name"`
+		} `json:"teams"`
+	}
+	decodeJSON(t, rec, &exported)
+	if len(exported.Teams) != 1 || exported.Teams[0].DivisionName != division.Name {
+		t.Fatalf("unexpected exported teams: %+v", exported.Teams)
+	}
+
+	importBundle := map[string]any{
+		"version": 1,
+		"teams": []map[string]any{
+			{
+				"id":            999,
+				"name":          "Beta Team With Long Imported Name",
+				"division_name": division.Name,
+				"created_at":    time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	}
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams/import", importBundle, authHeader(adminAccess))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("import status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var imported struct {
+		Imported []struct {
+			ID         int64  `json:"id"`
+			Name       string `json:"name"`
+			DivisionID int64  `json:"division_id"`
+		} `json:"imported"`
+	}
+	decodeJSON(t, rec, &imported)
+	if len(imported.Imported) != 1 || imported.Imported[0].Name != "Beta Team With Long Imported Name" {
+		t.Fatalf("unexpected imported teams: %+v", imported.Imported)
+	}
+	if imported.Imported[0].DivisionID != division.ID {
+		t.Fatalf("expected imported team division_id %d, got %d", division.ID, imported.Imported[0].DivisionID)
+	}
+
+	missingDivisionBundle := map[string]any{
+		"version": 1,
+		"teams": []map[string]any{
+			{
+				"id":            1000,
+				"name":          "Gamma",
+				"division_name": "MissingDivision",
+				"created_at":    time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	}
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/teams/import", missingDivisionBundle, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp errorResp
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"teams[0].division_name": "not found"})
+}
+
 func TestAdminRegistrationKeys(t *testing.T) {
 	env := setupTest(t, testCfg)
 	_ = createUser(t, env, "admin@example.com", models.AdminRole, "adminpass", models.AdminRole)
@@ -448,6 +817,98 @@ func TestAdminRegistrationKeys(t *testing.T) {
 	if found.Uses[0].UsedByIP != "203.0.113.7" {
 		t.Fatalf("expected used_by_ip 203.0.113.7, got %v", found.Uses[0].UsedByIP)
 	}
+}
+
+func TestAdminExportImportRegistrationKeys(t *testing.T) {
+	env := setupTest(t, testCfg)
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+
+	team := createTeam(t, env, fmt.Sprintf("ExportTeam-%d", time.Now().UnixNano()))
+	key := &models.RegistrationKey{
+		Code:      "ABCDEFGHJKLMNPQ2",
+		CreatedBy: admin.ID,
+		TeamID:    team.ID,
+		MaxUses:   3,
+		UsedCount: 1,
+		CreatedAt: time.Now().UTC().Add(-time.Hour),
+	}
+	if err := env.regKeyRepo.Create(context.Background(), key); err != nil {
+		t.Fatalf("create key: %v", err)
+	}
+
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/admin/registration-keys/export?ids=%d", key.ID), nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("export status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var exported struct {
+		Version int `json:"version"`
+		Keys    []struct {
+			ID       int64  `json:"id"`
+			Code     string `json:"code"`
+			TeamName string `json:"team_name"`
+			MaxUses  int    `json:"max_uses"`
+		} `json:"registration_keys"`
+	}
+	decodeJSON(t, rec, &exported)
+	if len(exported.Keys) != 1 || exported.Keys[0].Code != key.Code || exported.Keys[0].TeamName != team.Name || exported.Keys[0].MaxUses != key.MaxUses {
+		t.Fatalf("unexpected exported keys: %+v", exported.Keys)
+	}
+
+	importTeam := createTeam(t, env, fmt.Sprintf("ImportTeam-%d", time.Now().UnixNano()))
+	importBundle := map[string]any{
+		"version": 1,
+		"registration_keys": []map[string]any{
+			{
+				"id":         999,
+				"code":       "ABCDEFGHJKLMNPQ3",
+				"team_name":  importTeam.Name,
+				"max_uses":   2,
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	}
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys/import", importBundle, authHeader(adminAccess))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("import status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var imported struct {
+		Imported []struct {
+			ID        int64  `json:"id"`
+			Code      string `json:"code"`
+			TeamID    int64  `json:"team_id"`
+			TeamName  string `json:"team_name"`
+			MaxUses   int    `json:"max_uses"`
+			UsedCount int    `json:"used_count"`
+		} `json:"imported"`
+	}
+	decodeJSON(t, rec, &imported)
+	if len(imported.Imported) != 1 || imported.Imported[0].Code != "ABCDEFGHJKLMNPQ3" || imported.Imported[0].TeamID != importTeam.ID || imported.Imported[0].TeamName != importTeam.Name || imported.Imported[0].MaxUses != 2 || imported.Imported[0].UsedCount != 0 {
+		t.Fatalf("unexpected imported keys: %+v", imported.Imported)
+	}
+
+	missingTeamBundle := map[string]any{
+		"version": 1,
+		"registration_keys": []map[string]any{
+			{
+				"id":         1000,
+				"code":       "ABCDEFGHJKLMNPQ4",
+				"team_name":  "Missing Team",
+				"max_uses":   1,
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	}
+	rec = doRequest(t, env.router, http.MethodPost, "/api/admin/registration-keys/import", missingTeamBundle, authHeader(adminAccess))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp errorResp
+	decodeJSON(t, rec, &errResp)
+	assertFieldErrors(t, errResp.Details, map[string]string{"registration_keys[0].team_name": "not found"})
 }
 
 func TestAdminMoveUserTeam(t *testing.T) {

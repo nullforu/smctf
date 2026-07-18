@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"smctf/internal/models"
+	"smctf/internal/service"
 	vmpkg "smctf/internal/vm"
 )
 
@@ -113,6 +114,11 @@ type updateChallengeRequest struct {
 type challengeFileUploadRequest struct {
 	Filename string `json:"filename" binding:"required"`
 }
+
+type challengeImportRequest service.ChallengeExportBundle
+type divisionImportRequest service.DivisionExportBundle
+type teamImportRequest service.TeamExportBundle
+type registrationKeyImportRequest service.RegistrationKeyExportBundle
 
 type submitRequest struct {
 	Flag string `json:"flag" binding:"required"`
@@ -239,6 +245,50 @@ type challengesListResponse struct {
 type adminChallengeResponse struct {
 	challengeResponse
 	VMSpec *string `json:"vm_spec,omitempty"`
+}
+
+type challengeExportResponse struct {
+	Version      int                           `json:"version"`
+	ExportedAt   time.Time                     `json:"exported_at"`
+	RequestedIDs []int64                       `json:"requested_ids,omitempty"`
+	Challenges   []service.ChallengeExportItem `json:"challenges"`
+}
+
+type challengeImportResponse struct {
+	Imported []challengeResponse `json:"imported"`
+}
+
+type divisionExportResponse struct {
+	Version      int                          `json:"version"`
+	ExportedAt   time.Time                    `json:"exported_at"`
+	RequestedIDs []int64                      `json:"requested_ids,omitempty"`
+	Divisions    []service.DivisionExportItem `json:"divisions"`
+}
+
+type divisionImportResponse struct {
+	Imported []models.Division `json:"imported"`
+}
+
+type teamExportResponse struct {
+	Version      int                      `json:"version"`
+	ExportedAt   time.Time                `json:"exported_at"`
+	RequestedIDs []int64                  `json:"requested_ids,omitempty"`
+	Teams        []service.TeamExportItem `json:"teams"`
+}
+
+type teamImportResponse struct {
+	Imported []teamResponse `json:"imported"`
+}
+
+type registrationKeyExportResponse struct {
+	Version      int                                 `json:"version"`
+	ExportedAt   time.Time                           `json:"exported_at"`
+	RequestedIDs []int64                             `json:"requested_ids,omitempty"`
+	Keys         []service.RegistrationKeyExportItem `json:"registration_keys"`
+}
+
+type registrationKeyImportResponse struct {
+	Imported []models.RegistrationKeySummary `json:"imported"`
 }
 
 type presignedPostResponse struct {

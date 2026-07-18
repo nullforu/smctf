@@ -1970,6 +1970,38 @@ func TestHandlerRegistrationKeys(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list keys status %d: %s", rec.Code, rec.Body.String())
 	}
+
+	key := createHandlerRegistrationKeyWithTeam(t, env, "ABCDEFGHJKLMNPQ7", admin.ID, team.ID)
+
+	keyID := strconv.FormatInt(key.ID, 10)
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/admin/registration-keys/export?ids="+keyID, nil)
+	ctx.Request.URL.RawQuery = "ids=" + keyID
+	ctx.Set("userID", admin.ID)
+
+	env.handler.ExportRegistrationKeys(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("export keys status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	importBody := map[string]any{
+		"version": 1,
+		"registration_keys": []map[string]any{
+			{
+				"id":         1234,
+				"code":       "ABCDEFGHJKLMNPQ8",
+				"team_name":  team.Name,
+				"max_uses":   2,
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	}
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/registration-keys/import", importBody)
+	ctx.Set("userID", admin.ID)
+
+	env.handler.ImportRegistrationKeys(ctx)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("import keys status %d: %s", rec.Code, rec.Body.String())
+	}
 }
 
 // Scoreboard Handler Tests
@@ -2249,7 +2281,8 @@ func newClosedHandlerDB(t *testing.T) *bun.DB {
 func TestHandlerCreateTeam(t *testing.T) {
 	env := setupHandlerTest(t)
 
-	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]any{"name": "Alpha", "division_id": env.defaultDivisionID})
+	longName := "Alpha Team With Long Name"
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]any{"name": longName, "division_id": env.defaultDivisionID})
 	env.handler.CreateTeam(ctx)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create team status %d: %s", rec.Code, rec.Body.String())
@@ -2260,7 +2293,7 @@ func TestHandlerCreateTeam(t *testing.T) {
 		Name string `json:"name"`
 	}
 	decodeJSON(t, rec, &resp)
-	if resp.ID == 0 || resp.Name != "Alpha" {
+	if resp.ID == 0 || resp.Name != longName {
 		t.Fatalf("unexpected team response: %+v", resp)
 	}
 
@@ -2270,7 +2303,7 @@ func TestHandlerCreateTeam(t *testing.T) {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 
-	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]any{"name": "Alpha", "division_id": env.defaultDivisionID})
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/admin/teams", map[string]any{"name": longName, "division_id": env.defaultDivisionID})
 	env.handler.CreateTeam(ctx)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected duplicate 400, got %d", rec.Code)

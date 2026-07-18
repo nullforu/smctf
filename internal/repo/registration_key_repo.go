@@ -38,6 +38,15 @@ func (r *RegistrationKeyRepo) GetByCodeForUpdate(ctx context.Context, db bun.IDB
 	return key, nil
 }
 
+func (r *RegistrationKeyRepo) GetByCode(ctx context.Context, code string) (*models.RegistrationKey, error) {
+	key := new(models.RegistrationKey)
+	if err := r.db.NewSelect().Model(key).Where("code = ?", code).Scan(ctx); err != nil {
+		return nil, wrapNotFound("registrationKeyRepo.GetByCode", err)
+	}
+
+	return key, nil
+}
+
 func (r *RegistrationKeyRepo) baseRegistrationKeySummaryQuery() *bun.SelectQuery {
 	return r.db.NewSelect().
 		TableExpr("registration_keys AS rk").
@@ -99,4 +108,27 @@ func (r *RegistrationKeyRepo) List(ctx context.Context) ([]models.RegistrationKe
 	}
 
 	return keys, nil
+}
+
+func (r *RegistrationKeyRepo) ImportRegistrationKeys(ctx context.Context, keys []models.RegistrationKey) ([]models.RegistrationKey, error) {
+	if len(keys) == 0 {
+		return []models.RegistrationKey{}, nil
+	}
+
+	imported := make([]models.RegistrationKey, 0, len(keys))
+	if err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		for _, key := range keys {
+			key.ID = 0
+			key.UsedCount = 0
+			if _, err := tx.NewInsert().Model(&key).Exec(ctx); err != nil {
+				return wrapError("registrationKeyRepo.ImportRegistrationKeys insert", err)
+			}
+			imported = append(imported, key)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return imported, nil
 }
