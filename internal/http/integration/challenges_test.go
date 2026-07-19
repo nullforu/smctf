@@ -32,13 +32,13 @@ func TestListChallenges(t *testing.T) {
 		t.Fatalf("expected ctf_state active, got %s", resp.CTFState)
 	}
 
-	if len(resp.Challenges) != 3 {
-		t.Fatalf("expected 3 challenges, got %d", len(resp.Challenges))
+	if len(resp.Challenges) != 2 {
+		t.Fatalf("expected 2 active challenges, got %d", len(resp.Challenges))
 	}
 
-	expectedTitles := []string{"Active 1", "Inactive", "Active 2"}
-	expectedActive := []bool{true, false, true}
-	expectedCategories := []string{"Misc", "Misc", "Misc"}
+	expectedTitles := []string{"Active 1", "Active 2"}
+	expectedActive := []bool{true, true}
+	expectedCategories := []string{"Misc", "Misc"}
 
 	for i, row := range resp.Challenges {
 		if row["title"] != expectedTitles[i] {
@@ -75,51 +75,10 @@ func TestChallengesLockedFlow(t *testing.T) {
 	}
 	decodeJSON(t, rec, &listResp)
 
-	var lockedRow map[string]any
 	for _, row := range listResp.Challenges {
 		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
-			lockedRow = row
+			t.Fatalf("expected locked challenge to be hidden for anonymous user")
 		}
-	}
-
-	if lockedRow == nil {
-		t.Fatalf("expected locked challenge in list")
-	}
-
-	if lockedRow["is_locked"] != true {
-		t.Fatalf("expected is_locked true, got %v", lockedRow["is_locked"])
-	}
-
-	if lockedRow["category"] != locked.Category {
-		t.Fatalf("expected locked category %q, got %v", locked.Category, lockedRow["category"])
-	}
-
-	if lockedRow["initial_points"] == nil || lockedRow["minimum_points"] == nil || lockedRow["solve_count"] == nil {
-		t.Fatalf("expected locked response to include points metadata")
-	}
-
-	if lockedRow["is_active"] != locked.IsActive {
-		t.Fatalf("expected is_active %v, got %v", locked.IsActive, lockedRow["is_active"])
-	}
-
-	if prevID, ok := lockedRow["previous_challenge_id"].(float64); !ok || int64(prevID) != prev.ID {
-		t.Fatalf("expected previous_challenge_id %d, got %v", prev.ID, lockedRow["previous_challenge_id"])
-	}
-
-	if lockedRow["previous_challenge_title"] != prev.Title {
-		t.Fatalf("expected previous_challenge_title %q, got %v", prev.Title, lockedRow["previous_challenge_title"])
-	}
-
-	if lockedRow["previous_challenge_category"] != prev.Category {
-		t.Fatalf(
-			"expected previous_challenge_category %q, got %v",
-			prev.Category,
-			lockedRow["previous_challenge_category"],
-		)
-	}
-
-	if _, ok := lockedRow["description"]; ok {
-		t.Fatalf("expected description to be omitted for locked challenge")
 	}
 
 	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, authHeader(access))
@@ -132,15 +91,10 @@ func TestChallengesLockedFlow(t *testing.T) {
 	}{}
 	decodeJSON(t, rec, &listResp)
 
-	lockedRow = nil
 	for _, row := range listResp.Challenges {
 		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
-			lockedRow = row
+			t.Fatalf("expected locked challenge to be hidden for unsolved user")
 		}
-	}
-
-	if lockedRow == nil || lockedRow["is_locked"] != true {
-		t.Fatalf("expected locked challenge for unsolved user")
 	}
 
 	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(locked.ID)+"/submit", map[string]string{"flag": "flag{lock}"}, authHeader(access))
@@ -153,6 +107,26 @@ func TestChallengesLockedFlow(t *testing.T) {
 	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(locked.ID)+"/submit", map[string]string{"flag": "flag{lock}"}, authHeader(access))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit unlocked status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, authHeader(access))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list unlocked status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	listResp = struct {
+		Challenges []map[string]any `json:"challenges"`
+	}{}
+	decodeJSON(t, rec, &listResp)
+
+	foundUnlocked := false
+	for _, row := range listResp.Challenges {
+		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			foundUnlocked = true
+		}
+	}
+	if !foundUnlocked {
+		t.Fatalf("expected locked challenge to appear after prerequisite solve")
 	}
 }
 
@@ -453,6 +427,78 @@ func TestChallengesAfterEnd(t *testing.T) {
 	decodeJSON(t, rec, &submitResp)
 	if submitResp["ctf_state"] != string(service.CTFStateEnded) {
 		t.Fatalf("expected ctf_state ended, got %v", submitResp["ctf_state"])
+	}
+}
+
+func TestChallengesBeforeStartAdminBypass(t *testing.T) {
+	env := setupTest(t, testCfg)
+	start := time.Now().Add(2 * time.Hour)
+	end := time.Now().Add(4 * time.Hour)
+	setCTFWindow(t, env, &start, &end)
+
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+	userAccess, _, _ := registerAndLogin(t, env, "user@example.com", "user1", "strong-password")
+
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var adminListResp struct {
+		CTFState   string `json:"ctf_state"`
+		Challenges []any  `json:"challenges"`
+	}
+	decodeJSON(t, rec, &adminListResp)
+	if adminListResp.CTFState != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected admin ctf_state not_started, got %s", adminListResp.CTFState)
+	}
+	if len(adminListResp.Challenges) != 1 {
+		t.Fatalf("expected admin to see challenges before start, got %d", len(adminListResp.Challenges))
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var adminSubmitResp map[string]any
+	decodeJSON(t, rec, &adminSubmitResp)
+	if correct, ok := adminSubmitResp["correct"].(bool); !ok || !correct {
+		t.Fatalf("expected admin submit to succeed before start, got %+v", adminSubmitResp)
+	}
+
+	rec = doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(userAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("user submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var userSubmitResp map[string]any
+	decodeJSON(t, rec, &userSubmitResp)
+	if userSubmitResp["ctf_state"] != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected user ctf_state not_started, got %v", userSubmitResp["ctf_state"])
+	}
+}
+
+func TestChallengesAfterEndAdminStillBlocked(t *testing.T) {
+	env := setupTest(t, testCfg)
+	end := time.Now().Add(-2 * time.Hour)
+	setCTFWindow(t, env, nil, &end)
+
+	admin := ensureAdminUser(t, env)
+	adminAccess, _, _ := loginUser(t, env.router, admin.Email, "adminpass")
+	challenge := createChallenge(t, env, "Warmup", 100, "flag{ok}", true)
+
+	rec := doRequest(t, env.router, http.MethodPost, "/api/challenges/"+itoa(challenge.ID)+"/submit", map[string]string{"flag": "flag{ok}"}, authHeader(adminAccess))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin submit status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var submitResp map[string]any
+	decodeJSON(t, rec, &submitResp)
+	if submitResp["ctf_state"] != string(service.CTFStateEnded) {
+		t.Fatalf("expected admin ctf_state ended, got %v", submitResp["ctf_state"])
 	}
 }
 

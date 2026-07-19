@@ -104,6 +104,25 @@ func (s *CTFService) ListChallenges(ctx context.Context, divisionID *int64) ([]m
 	return challenges, nil
 }
 
+func (s *CTFService) ListAllChallenges(ctx context.Context, divisionID *int64) ([]models.Challenge, error) {
+	challenges, err := s.challengeRepo.ListAll(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("ctf.ListAllChallenges: %w", err)
+	}
+
+	ptrs := make([]*models.Challenge, 0, len(challenges))
+	for i := range challenges {
+		ptrs = append(ptrs, &challenges[i])
+	}
+
+	if err := s.applyDynamicPoints(ctx, ptrs, divisionID); err != nil {
+		return nil, fmt.Errorf("ctf.ListAllChallenges score: %w", err)
+	}
+
+	return challenges, nil
+}
+
 func (s *CTFService) GetChallengeByID(ctx context.Context, id int64) (*models.Challenge, error) {
 	if id <= 0 {
 		return nil, ErrInvalidInput
@@ -116,6 +135,10 @@ func (s *CTFService) GetChallengeByID(ctx context.Context, id int64) (*models.Ch
 		}
 
 		return nil, fmt.Errorf("ctf.GetChallengeByID: %w", err)
+	}
+
+	if err := s.applyDynamicPoints(ctx, []*models.Challenge{challenge}, nil); err != nil {
+		return nil, fmt.Errorf("ctf.GetChallengeByID score: %w", err)
 	}
 
 	return challenge, nil
@@ -533,6 +556,14 @@ func (s *CTFService) ImportChallenges(ctx context.Context, bundle ChallengeExpor
 }
 
 func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, flag string) (bool, error) {
+	return s.submitFlag(ctx, userID, challengeID, flag, false)
+}
+
+func (s *CTFService) SubmitFlagWithBypass(ctx context.Context, userID, challengeID int64, flag string) (bool, error) {
+	return s.submitFlag(ctx, userID, challengeID, flag, true)
+}
+
+func (s *CTFService) submitFlag(ctx context.Context, userID, challengeID int64, flag string, allowBypass bool) (bool, error) {
 	flag = normalizeTrim(flag)
 	validator := newFieldValidator()
 	validator.Required("flag", flag)
@@ -550,11 +581,7 @@ func (s *CTFService) SubmitFlag(ctx context.Context, userID, challengeID int64, 
 		return false, fmt.Errorf("ctf.SubmitFlag lookup: %w", err)
 	}
 
-	if !challenge.IsActive {
-		return false, ErrChallengeNotFound
-	}
-
-	if err := s.ensureUnlocked(ctx, userID, challenge); err != nil {
+	if err := s.ensureChallengeAccessible(ctx, userID, challenge, allowBypass); err != nil {
 		return false, err
 	}
 
@@ -654,6 +681,14 @@ func (s *CTFService) RequestChallengeFileUpload(ctx context.Context, id int64, f
 }
 
 func (s *CTFService) RequestChallengeFileDownload(ctx context.Context, userID, id int64) (storage.PresignedURL, error) {
+	return s.requestChallengeFileDownload(ctx, userID, id, false)
+}
+
+func (s *CTFService) RequestChallengeFileDownloadWithBypass(ctx context.Context, userID, id int64) (storage.PresignedURL, error) {
+	return s.requestChallengeFileDownload(ctx, userID, id, true)
+}
+
+func (s *CTFService) requestChallengeFileDownload(ctx context.Context, userID, id int64, allowBypass bool) (storage.PresignedURL, error) {
 	validator := newFieldValidator()
 	validator.PositiveID("id", id)
 	if err := validator.Error(); err != nil {
@@ -672,7 +707,7 @@ func (s *CTFService) RequestChallengeFileDownload(ctx context.Context, userID, i
 		return storage.PresignedURL{}, fmt.Errorf("ctf.RequestChallengeFileDownload lookup: %w", err)
 	}
 
-	if err := s.ensureUnlocked(ctx, userID, challenge); err != nil {
+	if err := s.ensureChallengeAccessible(ctx, userID, challenge, allowBypass); err != nil {
 		return storage.PresignedURL{}, err
 	}
 
@@ -724,6 +759,18 @@ func (s *CTFService) ensureUnlocked(ctx context.Context, userID int64, challenge
 	}
 
 	return nil
+}
+
+func (s *CTFService) ensureChallengeAccessible(ctx context.Context, userID int64, challenge *models.Challenge, allowBypass bool) error {
+	if !challenge.IsActive && !allowBypass {
+		return ErrChallengeNotFound
+	}
+
+	if allowBypass {
+		return nil
+	}
+
+	return s.ensureUnlocked(ctx, userID, challenge)
 }
 
 func (s *CTFService) DeleteChallengeFile(ctx context.Context, id int64) (*models.Challenge, error) {

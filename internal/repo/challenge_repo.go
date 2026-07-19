@@ -21,6 +21,7 @@ func (r *ChallengeRepo) ListActive(ctx context.Context) ([]models.Challenge, err
 
 	if err := r.db.NewSelect().
 		Model(&challenges).
+		Where("is_active = true").
 		Order("id ASC").
 		Scan(ctx); err != nil {
 		return nil, wrapError("challengeRepo.ListActive", err)

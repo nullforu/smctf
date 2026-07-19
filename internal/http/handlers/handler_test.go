@@ -840,6 +840,38 @@ func TestHandlerListChallengesNotStarted(t *testing.T) {
 	}
 }
 
+func TestHandlerListChallengesNotStartedAdminBypass(t *testing.T) {
+	env := setupHandlerTest(t)
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	access, err := auth.GenerateAccessToken(env.cfg.JWT, admin.ID, admin.Role)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+
+	start := time.Now().Add(2 * time.Hour)
+	setHandlerCTFWindow(t, env, &start, nil)
+	challenge := createHandlerChallenge(t, env, "AdminPreview", 100, "FLAG{A}", true)
+
+	ctx, rec := newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list challenges status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		CTFState   string           `json:"ctf_state"`
+		Challenges []map[string]any `json:"challenges"`
+	}
+	decodeJSON(t, rec, &resp)
+	if resp.CTFState != string(service.CTFStateNotStarted) {
+		t.Fatalf("expected ctf_state not_started, got %s", resp.CTFState)
+	}
+	if len(resp.Challenges) != 1 || int64(resp.Challenges[0]["id"].(float64)) != challenge.ID {
+		t.Fatalf("expected challenge list for admin before start, got %+v", resp.Challenges)
+	}
+}
+
 func TestHandlerListChallengesNoPrereqWithAuth(t *testing.T) {
 	env := setupHandlerTest(t)
 	user := createHandlerUser(t, env, "nopreq@example.com", "nopreq", "pass", models.UserRole)
@@ -895,6 +927,11 @@ func TestHandlerListChallengesLocked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate access token: %v", err)
 	}
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	adminAccess, err := auth.GenerateAccessToken(env.cfg.JWT, admin.ID, admin.Role)
+	if err != nil {
+		t.Fatalf("generate admin access token: %v", err)
+	}
 
 	prev := createHandlerChallenge(t, env, "Prev", 50, "FLAG{P}", true)
 	locked := createHandlerChallenge(t, env, "Locked", 100, "FLAG{L}", true)
@@ -916,54 +953,14 @@ func TestHandlerListChallengesLocked(t *testing.T) {
 		t.Fatalf("expected challenges in response")
 	}
 
-	foundLocked := false
 	for _, item := range challenges {
 		row, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
 		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
-			foundLocked = true
-			if row["is_locked"] != true {
-				t.Fatalf("expected locked challenge to be marked is_locked")
-			}
-
-			if row["category"] != locked.Category {
-				t.Fatalf("expected locked category %q, got %v", locked.Category, row["category"])
-			}
-
-			if row["initial_points"] == nil || row["minimum_points"] == nil || row["solve_count"] == nil {
-				t.Fatalf("expected locked response to include points metadata")
-			}
-
-			if row["is_active"] != locked.IsActive {
-				t.Fatalf("expected is_active %v, got %v", locked.IsActive, row["is_active"])
-			}
-
-			if prevID, ok := row["previous_challenge_id"].(float64); !ok || int64(prevID) != prev.ID {
-				t.Fatalf("expected previous_challenge_id %d, got %v", prev.ID, row["previous_challenge_id"])
-			}
-
-			if row["previous_challenge_title"] != prev.Title {
-				t.Fatalf("expected previous_challenge_title %q, got %v", prev.Title, row["previous_challenge_title"])
-			}
-
-			if row["previous_challenge_category"] != prev.Category {
-				t.Fatalf(
-					"expected previous_challenge_category %q, got %v",
-					prev.Category,
-					row["previous_challenge_category"],
-				)
-			}
-
-			if _, ok := row["description"]; ok {
-				t.Fatalf("expected description omitted for locked challenge")
-			}
+			t.Fatalf("expected locked challenge hidden for anonymous user")
 		}
-	}
-
-	if !foundLocked {
-		t.Fatalf("expected locked challenge in list")
 	}
 
 	ctx, rec = newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil)
@@ -987,10 +984,39 @@ func TestHandlerListChallengesLocked(t *testing.T) {
 		}
 
 		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			t.Fatalf("expected locked challenge hidden for unsolved user")
+		}
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/challenges?division_id=%d", env.defaultDivisionID), nil)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: adminAccess})
+	env.handler.ListChallenges(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin list status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	resp = map[string]any{}
+	decodeJSON(t, rec, &resp)
+	challenges, ok = resp["challenges"].([]any)
+	if !ok || len(challenges) == 0 {
+		t.Fatalf("expected admin challenges in response")
+	}
+
+	foundLocked := false
+	for _, item := range challenges {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if id, ok := row["id"].(float64); ok && int64(id) == locked.ID {
+			foundLocked = true
 			if row["is_locked"] != true {
-				t.Fatalf("expected locked challenge for unsolved user")
+				t.Fatalf("expected locked challenge to be marked is_locked for admin")
 			}
 		}
+	}
+	if !foundLocked {
+		t.Fatalf("expected locked challenge in admin list")
 	}
 
 	createHandlerSubmission(t, env, user.ID, prev.ID, true, time.Now().UTC())
@@ -1843,6 +1869,72 @@ func TestVMHandlersNotStarted(t *testing.T) {
 	}
 }
 
+func TestVMHandlersNotStartedAdminBypassAndEndedBlocked(t *testing.T) {
+	env := setupHandlerTest(t)
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	access, err := auth.GenerateAccessToken(env.cfg.JWT, admin.ID, admin.Role)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	challenge := createHandlerVMChallenge(t, env, "vm-admin")
+
+	start := time.Now().Add(2 * time.Hour)
+	setHandlerCTFWindow(t, env, &start, nil)
+
+	mock := &vm.MockClient{
+		CreateSandboxFn: func(ctx context.Context, vmID string, specYAML string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "pending"}}, nil
+		},
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running", AssignedPorts: []vm.PortMapping{{ContainerPort: 80, Protocol: "TCP", NodePort: 31001}}}}, nil
+		},
+		DeleteSandboxFn: func(ctx context.Context, vmID string) error { return nil },
+	}
+	vmSvc, _ := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", admin.ID)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
+	env.handler.CreateVM(ctx)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("admin create vm before start status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/vms", nil)
+	ctx.Set("userID", admin.ID)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
+	env.handler.ListVMs(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin list vms before start status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var listResp map[string]any
+	decodeJSON(t, rec, &listResp)
+	if _, ok := listResp["vms"]; !ok {
+		t.Fatalf("expected vm list for admin before start")
+	}
+
+	end := time.Now().Add(-2 * time.Hour)
+	setHandlerCTFWindow(t, env, nil, &end)
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", admin.ID)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
+	env.handler.CreateVM(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin create vm after end status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var endedResp map[string]any
+	decodeJSON(t, rec, &endedResp)
+	if endedResp["ctf_state"] != string(service.CTFStateEnded) {
+		t.Fatalf("expected ctf_state ended, got %v", endedResp["ctf_state"])
+	}
+}
+
 func TestAdminGetChallengeIncludesVMSpec(t *testing.T) {
 	env := setupHandlerTest(t)
 	challenge := createHandlerVMChallenge(t, env, "vm")
@@ -1929,6 +2021,158 @@ func TestHandlerDownloadNotStarted(t *testing.T) {
 	decodeJSON(t, rec, &resp)
 	if resp["ctf_state"] != string(service.CTFStateNotStarted) {
 		t.Fatalf("expected ctf_state not_started, got %v", resp["ctf_state"])
+	}
+}
+
+func TestHandlerDownloadNotStartedAdminBypass(t *testing.T) {
+	env := setupHandlerTest(t)
+	admin := createHandlerUser(t, env, "admin@example.com", models.AdminRole, "pass", models.AdminRole)
+	access, err := auth.GenerateAccessToken(env.cfg.JWT, admin.ID, admin.Role)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	challenge := createHandlerChallenge(t, env, "Download", 100, "FLAG{D}", true)
+	fileKey := "challenge-files/admin-before-start.zip"
+	fileName := "admin-before-start.zip"
+	fileUploadedAt := time.Now().UTC()
+	challenge.FileKey = &fileKey
+	challenge.FileName = &fileName
+	challenge.FileUploadedAt = &fileUploadedAt
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update challenge file metadata: %v", err)
+	}
+	start := time.Now().Add(2 * time.Hour)
+	setHandlerCTFWindow(t, env, &start, nil)
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/file/download", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", admin.ID)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: access})
+	env.handler.RequestChallengeFileDownload(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin download before start status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if _, ok := resp["url"]; !ok {
+		t.Fatalf("expected presigned download response for admin before start")
+	}
+}
+
+func TestHandlerDownloadInactiveAccessControl(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "inactive-user@example.com", "inactive-user", "pass", models.UserRole)
+	admin := createHandlerUser(t, env, "inactive-admin@example.com", "inactive-admin", "pass", models.AdminRole)
+	adminAccess, err := auth.GenerateAccessToken(env.cfg.JWT, admin.ID, admin.Role)
+	if err != nil {
+		t.Fatalf("generate admin access token: %v", err)
+	}
+
+	challenge := createHandlerChallenge(t, env, "InactiveDownload", 100, "FLAG{INACTIVE-DOWNLOAD}", true)
+	challenge.IsActive = false
+	fileKey := "challenge-files/inactive.zip"
+	fileName := "inactive.zip"
+	fileUploadedAt := time.Now().UTC()
+	challenge.FileKey = &fileKey
+	challenge.FileName = &fileName
+	challenge.FileUploadedAt = &fileUploadedAt
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update inactive challenge: %v", err)
+	}
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/file/download", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+	env.handler.RequestChallengeFileDownload(ctx)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for user inactive download, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/file/download", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", admin.ID)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: adminAccess})
+	env.handler.RequestChallengeFileDownload(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected admin inactive download success, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if _, ok := resp["url"]; !ok {
+		t.Fatalf("expected presigned download url for admin")
+	}
+}
+
+func TestVMHandlersInactiveAccessControl(t *testing.T) {
+	env := setupHandlerTest(t)
+	user := createHandlerUser(t, env, "inactive-vm-user@example.com", "inactive-vm-user", "pass", models.UserRole)
+	admin := createHandlerUser(t, env, "inactive-vm-admin@example.com", "inactive-vm-admin", "pass", models.AdminRole)
+	adminAccess, err := auth.GenerateAccessToken(env.cfg.JWT, admin.ID, admin.Role)
+	if err != nil {
+		t.Fatalf("generate admin access token: %v", err)
+	}
+	challenge := createHandlerVMChallenge(t, env, "inactive-vm")
+	challenge.IsActive = false
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update inactive challenge: %v", err)
+	}
+
+	mock := &vm.MockClient{
+		CreateSandboxFn: func(ctx context.Context, id string, specYAML string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: id, Status: vm.SandboxStatus{Phase: "pending"}}, nil
+		},
+		GetSandboxFn: func(ctx context.Context, vmID string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: vmID, Status: vm.SandboxStatus{Phase: "running"}}, nil
+		},
+		DeleteSandboxFn: func(ctx context.Context, vmID string) error { return nil },
+	}
+	vmSvc, _ := setupHandlerVMService(t, env, mock)
+	env.handler.vms = vmSvc
+
+	ctx, rec := newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", user.ID)
+	env.handler.CreateVM(ctx)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for user inactive vm create, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodPost, "/api/challenges/"+fmt.Sprint(challenge.ID)+"/vm", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(challenge.ID)}}
+	ctx.Set("userID", admin.ID)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: adminAccess})
+	env.handler.CreateVM(ctx)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected admin inactive vm create success, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/vms", nil)
+	ctx.Set("userID", user.ID)
+	env.handler.ListVMs(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected user vm list ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var userResp vmsListResponse
+	decodeJSON(t, rec, &userResp)
+	if len(userResp.VMs) != 0 {
+		t.Fatalf("expected inactive vm hidden from user list, got %d", len(userResp.VMs))
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, "/api/vms", nil)
+	ctx.Set("userID", admin.ID)
+	ctx.Request.AddCookie(&http.Cookie{Name: "access_token", Value: adminAccess})
+	env.handler.ListVMs(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected admin vm list ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var adminResp vmsListResponse
+	decodeJSON(t, rec, &adminResp)
+	if len(adminResp.VMs) != 1 {
+		t.Fatalf("expected admin vm list to include inactive vm, got %d", len(adminResp.VMs))
 	}
 }
 
@@ -2150,6 +2394,52 @@ func TestHandlerTeamScoreboard(t *testing.T) {
 	}
 }
 
+func TestHandlerScoreboardHidesChallengesBeforeStart(t *testing.T) {
+	env := setupHandlerTest(t)
+	start := time.Now().Add(2 * time.Hour)
+	setHandlerCTFWindow(t, env, &start, nil)
+
+	team := createHandlerTeam(t, env, "Alpha")
+	user := createHandlerUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	teamUser := createHandlerUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
+	ch1 := createHandlerChallenge(t, env, "Ch1", 100, "FLAG{1}", true)
+
+	createHandlerSubmission(t, env, user.ID, ch1.ID, true, time.Now().Add(-2*time.Minute))
+	createHandlerSubmission(t, env, teamUser.ID, ch1.ID, true, time.Now().Add(-time.Minute))
+
+	ctx, rec := newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/leaderboard?division_id=%d", env.defaultDivisionID), nil)
+	env.handler.Leaderboard(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("leaderboard status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var leaderboard struct {
+		Challenges []struct {
+			ID int64 `json:"id"`
+		} `json:"challenges"`
+	}
+	decodeJSON(t, rec, &leaderboard)
+	if len(leaderboard.Challenges) != 0 {
+		t.Fatalf("expected no leaderboard challenges before start, got %d", len(leaderboard.Challenges))
+	}
+
+	ctx, rec = newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/leaderboard/teams?division_id=%d", env.defaultDivisionID), nil)
+	env.handler.TeamLeaderboard(ctx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("team leaderboard status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var teamLeaderboard struct {
+		Challenges []struct {
+			ID int64 `json:"id"`
+		} `json:"challenges"`
+	}
+	decodeJSON(t, rec, &teamLeaderboard)
+	if len(teamLeaderboard.Challenges) != 0 {
+		t.Fatalf("expected no team leaderboard challenges before start, got %d", len(teamLeaderboard.Challenges))
+	}
+}
+
 func TestHandlerTimelineUsesCache(t *testing.T) {
 	env := setupHandlerTest(t)
 	cacheKey := cacheKeyForDivision(env, "timeline:users")
@@ -2234,7 +2524,9 @@ func TestHandlerLeaderboardError(t *testing.T) {
 	closedDB := newClosedHandlerDB(t)
 	scoreRepo := repo.NewScoreboardRepo(closedDB)
 	scoreSvc := service.NewScoreboardService(scoreRepo)
-	handler := New(handlerCfg, nil, nil, nil, nil, scoreSvc, nil, nil, nil, handlerRedis, nil)
+	appConfigRepo := repo.NewAppConfigRepo(closedDB)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo, handlerRedis, handlerCfg.Cache.AppConfigTTL)
+	handler := New(handlerCfg, nil, nil, appConfigSvc, nil, scoreSvc, nil, nil, nil, handlerRedis, nil)
 
 	divisionID := int64(1)
 	ctx, rec := newJSONContext(t, http.MethodGet, fmt.Sprintf("/api/leaderboard?division_id=%d", divisionID), nil)

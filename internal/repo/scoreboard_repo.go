@@ -36,6 +36,7 @@ func (r *ScoreboardRepo) leaderboardChallenges(ctx context.Context, divisionID *
 		ColumnExpr("c.category AS category").
 		ColumnExpr("c.points AS points").
 		ColumnExpr("c.minimum_points AS minimum_points").
+		Where("c.is_active = true").
 		OrderExpr("c.id ASC").
 		Scan(ctx, &rows); err != nil {
 		return nil, nil, wrapError("scoreboardRepo.leaderboardChallenges", err)
@@ -101,9 +102,11 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context, divisionID *int64) (mo
 		TableExpr("submissions AS s").
 		ColumnExpr("s.user_id AS user_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
 	if divisionID != nil {
 		subQuery = subQuery.Where("t.division_id = ?", *divisionID)
@@ -120,13 +123,6 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context, divisionID *int64) (mo
 		rows[i].Score = scores[rows[i].UserID]
 	}
 
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].Score == rows[j].Score {
-			return rows[i].UserID < rows[j].UserID
-		}
-		return rows[i].Score > rows[j].Score
-	})
-
 	type solveRow struct {
 		UserID       int64     `bun:"user_id"`
 		ChallengeID  int64     `bun:"challenge_id"`
@@ -141,9 +137,11 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context, divisionID *int64) (mo
 		ColumnExpr("s.challenge_id AS challenge_id").
 		ColumnExpr("MIN(s.submitted_at) AS solved_at").
 		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		GroupExpr("s.user_id, s.challenge_id")
 	if divisionID != nil {
@@ -154,12 +152,16 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context, divisionID *int64) (mo
 	}
 
 	solvedByUser := make(map[int64][]models.LeaderboardSolve)
+	reachedAtByUser := make(map[int64]time.Time, len(rows))
 	for _, row := range solvedRows {
 		solvedByUser[row.UserID] = append(solvedByUser[row.UserID], models.LeaderboardSolve{
 			ChallengeID:  row.ChallengeID,
 			SolvedAt:     row.SolvedAt,
 			IsFirstBlood: row.IsFirstBlood,
 		})
+		if reachedAt, ok := reachedAtByUser[row.UserID]; !ok || row.SolvedAt.After(reachedAt) {
+			reachedAtByUser[row.UserID] = row.SolvedAt
+		}
 	}
 
 	for i := range rows {
@@ -172,6 +174,23 @@ func (r *ScoreboardRepo) Leaderboard(ctx context.Context, divisionID *int64) (mo
 			return rows[i].Solves[a].ChallengeID < rows[i].Solves[b].ChallengeID
 		})
 	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Score != rows[j].Score {
+			return rows[i].Score > rows[j].Score
+		}
+
+		leftReachedAt, leftOK := reachedAtByUser[rows[i].UserID]
+		rightReachedAt, rightOK := reachedAtByUser[rows[j].UserID]
+		if leftOK && rightOK && !leftReachedAt.Equal(rightReachedAt) {
+			return leftReachedAt.Before(rightReachedAt)
+		}
+		if leftOK != rightOK {
+			return leftOK
+		}
+
+		return rows[i].UserID < rows[j].UserID
+	})
 
 	return models.LeaderboardResponse{
 		Challenges: challenges,
@@ -219,9 +238,11 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context, divisionID *int64)
 		TableExpr("submissions AS s").
 		ColumnExpr("u.team_id AS team_id").
 		ColumnExpr("s.challenge_id AS challenge_id").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
 	if divisionID != nil {
 		subQuery = subQuery.Where("t.division_id = ?", *divisionID)
@@ -244,14 +265,6 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context, divisionID *int64)
 		rows = append(rows, *entry)
 	}
 
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].Score == rows[j].Score {
-			return rows[i].TeamName < rows[j].TeamName
-		}
-
-		return rows[i].Score > rows[j].Score
-	})
-
 	type solveRow struct {
 		TeamID       int64     `bun:"team_id"`
 		ChallengeID  int64     `bun:"challenge_id"`
@@ -266,9 +279,11 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context, divisionID *int64)
 		ColumnExpr("s.challenge_id AS challenge_id").
 		ColumnExpr("MIN(s.submitted_at) AS solved_at").
 		ColumnExpr("BOOL_OR(s.is_first_blood) AS is_first_blood").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		GroupExpr("u.team_id, s.challenge_id")
 	if divisionID != nil {
@@ -279,12 +294,16 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context, divisionID *int64)
 	}
 
 	solvedByTeam := make(map[int64][]models.LeaderboardSolve)
+	reachedAtByTeam := make(map[int64]time.Time, len(rows))
 	for _, row := range solvedRows {
 		solvedByTeam[row.TeamID] = append(solvedByTeam[row.TeamID], models.LeaderboardSolve{
 			ChallengeID:  row.ChallengeID,
 			SolvedAt:     row.SolvedAt,
 			IsFirstBlood: row.IsFirstBlood,
 		})
+		if reachedAt, ok := reachedAtByTeam[row.TeamID]; !ok || row.SolvedAt.After(reachedAt) {
+			reachedAtByTeam[row.TeamID] = row.SolvedAt
+		}
 	}
 
 	for i := range rows {
@@ -297,6 +316,27 @@ func (r *ScoreboardRepo) TeamLeaderboard(ctx context.Context, divisionID *int64)
 			return rows[i].Solves[a].ChallengeID < rows[i].Solves[b].ChallengeID
 		})
 	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Score != rows[j].Score {
+			return rows[i].Score > rows[j].Score
+		}
+
+		leftReachedAt, leftOK := reachedAtByTeam[rows[i].TeamID]
+		rightReachedAt, rightOK := reachedAtByTeam[rows[j].TeamID]
+		if leftOK && rightOK && !leftReachedAt.Equal(rightReachedAt) {
+			return leftReachedAt.Before(rightReachedAt)
+		}
+		if leftOK != rightOK {
+			return leftOK
+		}
+
+		if rows[i].TeamName != rows[j].TeamName {
+			return rows[i].TeamName < rows[j].TeamName
+		}
+
+		return rows[i].TeamID < rows[j].TeamID
+	})
 
 	return models.TeamLeaderboardResponse{
 		Challenges: challenges,
@@ -317,9 +357,11 @@ func (r *ScoreboardRepo) TimelineSubmissions(ctx context.Context, since *time.Ti
 		ColumnExpr("u.id AS user_id").
 		ColumnExpr("u.username AS username").
 		ColumnExpr("s.challenge_id AS challenge_id").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
 
 	if divisionID != nil {
@@ -352,9 +394,11 @@ func (r *ScoreboardRepo) TimelineTeamSubmissions(ctx context.Context, since *tim
 		ColumnExpr("u.team_id AS team_id").
 		ColumnExpr("g.name AS team_name").
 		ColumnExpr("s.challenge_id AS challenge_id").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS g ON g.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole}))
 
 	if divisionID != nil {

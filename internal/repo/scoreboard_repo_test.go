@@ -187,8 +187,9 @@ func TestScoreboardRepoLeaderboardTieBreak(t *testing.T) {
 	user2 := createUserWithNewTeam(t, env, "u2@example.com", "u2", "pass", models.UserRole)
 
 	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
-	createSubmission(t, env, user1.ID, ch.ID, true, time.Now().Add(-time.Minute))
-	createSubmission(t, env, user2.ID, ch.ID, true, time.Now().Add(-time.Minute))
+	now := time.Now().UTC()
+	createSubmission(t, env, user2.ID, ch.ID, true, now.Add(-2*time.Minute))
+	createSubmission(t, env, user1.ID, ch.ID, true, now.Add(-time.Minute))
 
 	rows, err := scoreRepo.Leaderboard(context.Background(), nil)
 	if err != nil {
@@ -199,8 +200,36 @@ func TestScoreboardRepoLeaderboardTieBreak(t *testing.T) {
 		t.Fatalf("expected 2 rows, got %d", len(rows.Entries))
 	}
 
-	if rows.Entries[0].UserID != user1.ID {
-		t.Fatalf("expected lower id first in tie, got %+v", rows.Entries[0])
+	if rows.Entries[0].UserID != user2.ID {
+		t.Fatalf("expected earlier solver first in tie, got %+v", rows.Entries[0])
+	}
+}
+
+func TestScoreboardRepoTeamLeaderboardTieBreak(t *testing.T) {
+	env := setupRepoTest(t)
+	scoreRepo := NewScoreboardRepo(env.db)
+
+	teamA := createTeam(t, env, "Alpha")
+	teamB := createTeam(t, env, "Beta")
+	userA := createUserWithTeam(t, env, "a@example.com", "a", "pass", models.UserRole, teamA.ID)
+	userB := createUserWithTeam(t, env, "b@example.com", "b", "pass", models.UserRole, teamB.ID)
+
+	ch := createChallenge(t, env, "ch1", 100, "FLAG{1}", true)
+	now := time.Now().UTC()
+	createSubmission(t, env, userB.ID, ch.ID, true, now.Add(-2*time.Minute))
+	createSubmission(t, env, userA.ID, ch.ID, true, now.Add(-time.Minute))
+
+	rows, err := scoreRepo.TeamLeaderboard(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("TeamLeaderboard: %v", err)
+	}
+
+	if len(rows.Entries) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows.Entries))
+	}
+
+	if rows.Entries[0].TeamID != teamB.ID {
+		t.Fatalf("expected earlier team first in tie, got %+v", rows.Entries[0])
 	}
 }
 

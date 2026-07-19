@@ -180,6 +180,9 @@ func TestCTFServiceGetChallengeByID(t *testing.T) {
 	if found.ID != challenge.ID || found.Title != challenge.Title {
 		t.Fatalf("unexpected challenge: %+v", found)
 	}
+	if found.InitialPoints != challenge.Points {
+		t.Fatalf("expected initial points %d, got %d", challenge.Points, found.InitialPoints)
+	}
 
 	if _, err := env.ctfSvc.GetChallengeByID(context.Background(), 0); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
@@ -543,6 +546,46 @@ func TestChallengeFileDownloadLocked(t *testing.T) {
 	_ = createSubmission(t, env, user.ID, prev.ID, true, time.Now().UTC())
 	if _, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), user.ID, locked.ID); err != nil {
 		t.Fatalf("expected download after unlock, got %v", err)
+	}
+}
+
+func TestChallengeFileDownloadInactiveAndBypass(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "inactive-download@example.com", "inactive-download", "pass", models.UserRole)
+	inactive := createChallenge(t, env, "Inactive", 100, "flag{inactive}", false)
+	inactive.FileKey = ptrString("bundle.zip")
+	inactive.FileName = ptrString("bundle.zip")
+	if err := env.challengeRepo.Update(context.Background(), inactive); err != nil {
+		t.Fatalf("update inactive challenge: %v", err)
+	}
+
+	if _, err := env.ctfSvc.RequestChallengeFileDownload(context.Background(), user.ID, inactive.ID); !errors.Is(err, ErrChallengeNotFound) {
+		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
+	}
+
+	if _, err := env.ctfSvc.RequestChallengeFileDownloadWithBypass(context.Background(), user.ID, inactive.ID); err != nil {
+		t.Fatalf("expected admin bypass download to succeed, got %v", err)
+	}
+}
+
+func TestCTFServiceSubmitFlagBypassInactiveAndLocked(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "inactive-submit@example.com", "inactive-submit", "pass", models.UserRole)
+
+	inactive := createChallenge(t, env, "Inactive", 100, "FLAG{INACTIVE}", false)
+	if correct, err := env.ctfSvc.SubmitFlagWithBypass(context.Background(), user.ID, inactive.ID, "FLAG{INACTIVE}"); err != nil || !correct {
+		t.Fatalf("expected inactive bypass submit to succeed, got correct=%v err=%v", correct, err)
+	}
+
+	prev := createChallenge(t, env, "Prev", 50, "FLAG{PREV-BYPASS}", true)
+	locked := createChallenge(t, env, "Locked", 100, "FLAG{LOCK-BYPASS}", true)
+	locked.PreviousChallengeID = &prev.ID
+	if err := env.challengeRepo.Update(context.Background(), locked); err != nil {
+		t.Fatalf("update locked challenge: %v", err)
+	}
+
+	if correct, err := env.ctfSvc.SubmitFlagWithBypass(context.Background(), user.ID, locked.ID, "FLAG{LOCK-BYPASS}"); err != nil || !correct {
+		t.Fatalf("expected locked bypass submit to succeed, got correct=%v err=%v", correct, err)
 	}
 }
 

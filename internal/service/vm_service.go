@@ -56,15 +56,43 @@ func (s *VMService) UserVMSummary(ctx context.Context, userID int64) (int, int, 
 }
 
 func (s *VMService) ListUserVMs(ctx context.Context, userID int64) ([]models.VM, error) {
+	return s.listUserVMs(ctx, userID, false)
+}
+
+func (s *VMService) ListUserVMsWithBypass(ctx context.Context, userID int64) ([]models.VM, error) {
+	return s.listUserVMs(ctx, userID, true)
+}
+
+func (s *VMService) listUserVMs(ctx context.Context, userID int64, allowBypass bool) ([]models.VM, error) {
 	if err := s.ensureEnabled(); err != nil {
 		return nil, err
 	}
 
+	var (
+		rows []models.VM
+		err  error
+	)
 	if s.scopeIsTeam() {
-		return s.vmRepo.ListByTeamUser(ctx, userID)
+		rows, err = s.vmRepo.ListByTeamUser(ctx, userID)
+	} else {
+		rows, err = s.vmRepo.ListByUser(ctx, userID)
+	}
+	if err != nil || allowBypass {
+		return rows, err
 	}
 
-	return s.vmRepo.ListByUser(ctx, userID)
+	filtered := make([]models.VM, 0, len(rows))
+	for _, row := range rows {
+		challenge, loadErr := s.challengeRepo.GetByID(ctx, row.ChallengeID)
+		if loadErr != nil {
+			continue
+		}
+		if accessErr := s.ensureChallengeAccessible(ctx, userID, challenge, false); accessErr == nil {
+			filtered = append(filtered, row)
+		}
+	}
+
+	return filtered, nil
 }
 
 func (s *VMService) ListAdminVMs(ctx context.Context) ([]models.AdminVMSummary, error) {
@@ -126,16 +154,20 @@ func (s *VMService) DeleteVMByVMID(ctx context.Context, vmID string) error {
 }
 
 func (s *VMService) GetOrCreateVM(ctx context.Context, userID, challengeID int64) (*models.VM, error) {
+	return s.getOrCreateVM(ctx, userID, challengeID, false)
+}
+
+func (s *VMService) GetOrCreateVMWithBypass(ctx context.Context, userID, challengeID int64) (*models.VM, error) {
+	return s.getOrCreateVM(ctx, userID, challengeID, true)
+}
+
+func (s *VMService) getOrCreateVM(ctx context.Context, userID, challengeID int64, allowBypass bool) (*models.VM, error) {
 	if err := s.ensureEnabled(); err != nil {
 		return nil, err
 	}
 
-	challenge, spec, err := s.loadChallengeSpec(ctx, challengeID)
+	_, spec, err := s.loadChallengeSpec(ctx, userID, challengeID, allowBypass)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := s.ensureUnlocked(ctx, userID, challenge); err != nil {
 		return nil, err
 	}
 
@@ -164,7 +196,26 @@ func (s *VMService) GetOrCreateVM(ctx context.Context, userID, challengeID int64
 }
 
 func (s *VMService) GetVM(ctx context.Context, userID, challengeID int64) (*models.VM, error) {
+	return s.getVM(ctx, userID, challengeID, false)
+}
+
+func (s *VMService) GetVMWithBypass(ctx context.Context, userID, challengeID int64) (*models.VM, error) {
+	return s.getVM(ctx, userID, challengeID, true)
+}
+
+func (s *VMService) getVM(ctx context.Context, userID, challengeID int64, allowBypass bool) (*models.VM, error) {
 	if err := s.ensureEnabled(); err != nil {
+		return nil, err
+	}
+
+	challenge, err := s.challengeRepo.GetByID(ctx, challengeID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrChallengeNotFound
+		}
+		return nil, fmt.Errorf("vm.GetVM challenge: %w", err)
+	}
+	if err := s.ensureChallengeAccessible(ctx, userID, challenge, allowBypass); err != nil {
 		return nil, err
 	}
 
@@ -181,7 +232,26 @@ func (s *VMService) GetVM(ctx context.Context, userID, challengeID int64) (*mode
 }
 
 func (s *VMService) DeleteVM(ctx context.Context, userID, challengeID int64) error {
+	return s.deleteVM(ctx, userID, challengeID, false)
+}
+
+func (s *VMService) DeleteVMWithBypass(ctx context.Context, userID, challengeID int64) error {
+	return s.deleteVM(ctx, userID, challengeID, true)
+}
+
+func (s *VMService) deleteVM(ctx context.Context, userID, challengeID int64, allowBypass bool) error {
 	if err := s.ensureEnabled(); err != nil {
+		return err
+	}
+
+	challenge, err := s.challengeRepo.GetByID(ctx, challengeID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return ErrChallengeNotFound
+		}
+		return fmt.Errorf("vm.DeleteVM challenge: %w", err)
+	}
+	if err := s.ensureChallengeAccessible(ctx, userID, challenge, allowBypass); err != nil {
 		return err
 	}
 
@@ -221,7 +291,7 @@ func (s *VMService) ensureEnabled() error {
 	return nil
 }
 
-func (s *VMService) loadChallengeSpec(ctx context.Context, challengeID int64) (*models.Challenge, string, error) {
+func (s *VMService) loadChallengeSpec(ctx context.Context, userID, challengeID int64, allowBypass bool) (*models.Challenge, string, error) {
 	challenge, err := s.challengeRepo.GetByID(ctx, challengeID)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
@@ -233,6 +303,10 @@ func (s *VMService) loadChallengeSpec(ctx context.Context, challengeID int64) (*
 
 	if !challenge.VMEnabled {
 		return nil, "", ErrVMNotEnabled
+	}
+
+	if err := s.ensureChallengeAccessible(ctx, userID, challenge, allowBypass); err != nil {
+		return nil, "", err
 	}
 
 	if challenge.VMSpec == nil || strings.TrimSpace(*challenge.VMSpec) == "" {
@@ -278,6 +352,18 @@ func (s *VMService) ensureUnlocked(ctx context.Context, userID int64, challenge 
 	}
 
 	return nil
+}
+
+func (s *VMService) ensureChallengeAccessible(ctx context.Context, userID int64, challenge *models.Challenge, allowBypass bool) error {
+	if !challenge.IsActive && !allowBypass {
+		return ErrChallengeNotFound
+	}
+
+	if allowBypass {
+		return nil
+	}
+
+	return s.ensureUnlocked(ctx, userID, challenge)
 }
 
 func (s *VMService) findExistingVM(ctx context.Context, userID, challengeID int64) (*models.VM, error) {

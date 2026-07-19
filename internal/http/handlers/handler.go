@@ -16,6 +16,7 @@ import (
 	"smctf/internal/models"
 	"smctf/internal/realtime"
 	"smctf/internal/service"
+	"smctf/internal/storage"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -257,6 +258,24 @@ func (h *Handler) optionalUserID(ctx *gin.Context) int64 {
 	}
 
 	return claims.UserID
+}
+
+func (h *Handler) isAdminRequest(ctx *gin.Context) bool {
+	if middleware.Role(ctx) == models.AdminRole {
+		return true
+	}
+
+	token, err := ctx.Cookie("access_token")
+	if err != nil || token == "" {
+		return false
+	}
+
+	claims, err := auth.ParseToken(h.cfg.JWT, token)
+	if err != nil || claims.Type != auth.TokenTypeAccess {
+		return false
+	}
+
+	return claims.Role == models.AdminRole
 }
 
 func isChallengeLocked(challenge models.Challenge, solved map[int64]struct{}, userID int64) bool {
@@ -529,7 +548,7 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 		return
 	}
 
-	if state == service.CTFStateNotStarted {
+	if state == service.CTFStateNotStarted && !h.isAdminRequest(ctx) {
 		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
@@ -539,7 +558,16 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 		return
 	}
 
-	challenges, err := h.ctf.ListChallenges(ctx.Request.Context(), divisionID)
+	isAdmin := h.isAdminRequest(ctx)
+	var (
+		challenges []models.Challenge
+		err        error
+	)
+	if isAdmin {
+		challenges, err = h.ctf.ListAllChallenges(ctx.Request.Context(), divisionID)
+	} else {
+		challenges, err = h.ctf.ListChallenges(ctx.Request.Context(), divisionID)
+	}
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -572,7 +600,13 @@ func (h *Handler) ListChallenges(ctx *gin.Context) {
 
 	for _, challenge := range challenges {
 		ch := challenge
+		if !isAdmin && !ch.IsActive {
+			continue
+		}
 		if isChallengeLocked(ch, solved, userID) {
+			if !isAdmin {
+				continue
+			}
 			var previous *models.Challenge
 			if ch.PreviousChallengeID != nil {
 				previous = byID[*ch.PreviousChallengeID]
@@ -594,7 +628,7 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 		return
 	}
 
-	if state != service.CTFStateActive {
+	if state == service.CTFStateEnded || (state == service.CTFStateNotStarted && !h.isAdminRequest(ctx)) {
 		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
@@ -610,7 +644,15 @@ func (h *Handler) SubmitFlag(ctx *gin.Context) {
 		return
 	}
 
-	correct, err := h.ctf.SubmitFlag(ctx.Request.Context(), middleware.UserID(ctx), challengeID, req.Flag)
+	var (
+		correct bool
+		err     error
+	)
+	if h.isAdminRequest(ctx) {
+		correct, err = h.ctf.SubmitFlagWithBypass(ctx.Request.Context(), middleware.UserID(ctx), challengeID, req.Flag)
+	} else {
+		correct, err = h.ctf.SubmitFlag(ctx.Request.Context(), middleware.UserID(ctx), challengeID, req.Flag)
+	}
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -654,7 +696,7 @@ func (h *Handler) CreateVM(ctx *gin.Context) {
 		return
 	}
 
-	if state != service.CTFStateActive {
+	if state == service.CTFStateEnded || (state == service.CTFStateNotStarted && !h.isAdminRequest(ctx)) {
 		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
@@ -664,7 +706,15 @@ func (h *Handler) CreateVM(ctx *gin.Context) {
 		return
 	}
 
-	vmModel, err := h.vms.GetOrCreateVM(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	var (
+		vmModel *models.VM
+		err     error
+	)
+	if h.isAdminRequest(ctx) {
+		vmModel, err = h.vms.GetOrCreateVMWithBypass(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	} else {
+		vmModel, err = h.vms.GetOrCreateVM(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	}
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -684,7 +734,7 @@ func (h *Handler) GetVM(ctx *gin.Context) {
 		return
 	}
 
-	if state == service.CTFStateNotStarted {
+	if state == service.CTFStateNotStarted && !h.isAdminRequest(ctx) {
 		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
@@ -694,7 +744,15 @@ func (h *Handler) GetVM(ctx *gin.Context) {
 		return
 	}
 
-	vmModel, err := h.vms.GetVM(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	var (
+		vmModel *models.VM
+		err     error
+	)
+	if h.isAdminRequest(ctx) {
+		vmModel, err = h.vms.GetVMWithBypass(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	} else {
+		vmModel, err = h.vms.GetVM(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	}
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -714,17 +772,25 @@ func (h *Handler) DeleteVM(ctx *gin.Context) {
 		return
 	}
 
-	if state == service.CTFStateNotStarted {
+	if state == service.CTFStateNotStarted && !h.isAdminRequest(ctx) {
 		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
 
+	var (
+		err error
+	)
 	challengeID, ok := parseIDParamOrError(ctx, "id")
 	if !ok {
 		return
 	}
 
-	if err := h.vms.DeleteVM(ctx.Request.Context(), middleware.UserID(ctx), challengeID); err != nil {
+	if h.isAdminRequest(ctx) {
+		err = h.vms.DeleteVMWithBypass(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	} else {
+		err = h.vms.DeleteVM(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	}
+	if err != nil {
 		writeError(ctx, err)
 		return
 	}
@@ -743,12 +809,20 @@ func (h *Handler) ListVMs(ctx *gin.Context) {
 		return
 	}
 
-	if state == service.CTFStateNotStarted {
+	if state == service.CTFStateNotStarted && !h.isAdminRequest(ctx) {
 		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
 
-	vms, err := h.vms.ListUserVMs(ctx.Request.Context(), middleware.UserID(ctx))
+	var (
+		vms []models.VM
+		err error
+	)
+	if h.isAdminRequest(ctx) {
+		vms, err = h.vms.ListUserVMsWithBypass(ctx.Request.Context(), middleware.UserID(ctx))
+	} else {
+		vms, err = h.vms.ListUserVMs(ctx.Request.Context(), middleware.UserID(ctx))
+	}
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1160,7 +1234,7 @@ func (h *Handler) RequestChallengeFileDownload(ctx *gin.Context) {
 		return
 	}
 
-	if state == service.CTFStateNotStarted {
+	if state == service.CTFStateNotStarted && !h.isAdminRequest(ctx) {
 		ctx.JSON(http.StatusOK, ctfStateResponse{CTFState: string(state)})
 		return
 	}
@@ -1170,7 +1244,15 @@ func (h *Handler) RequestChallengeFileDownload(ctx *gin.Context) {
 		return
 	}
 
-	download, err := h.ctf.RequestChallengeFileDownload(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	var (
+		download storage.PresignedURL
+		err      error
+	)
+	if h.isAdminRequest(ctx) {
+		download, err = h.ctf.RequestChallengeFileDownloadWithBypass(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	} else {
+		download, err = h.ctf.RequestChallengeFileDownload(ctx.Request.Context(), middleware.UserID(ctx), challengeID)
+	}
 	if err != nil {
 		writeError(ctx, err)
 		return
@@ -1389,14 +1471,26 @@ func (h *Handler) Leaderboard(ctx *gin.Context) {
 		return
 	}
 
+	state, err := h.app.CTFState(ctx.Request.Context(), time.Now().UTC())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
 	cacheKey := cacheKeyWithDivision("leaderboard:users", divisionID)
-	if h.respondFromCache(ctx, cacheKey) {
+	if state != service.CTFStateNotStarted && h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
 	rows, err := h.score.Leaderboard(ctx.Request.Context(), divisionID)
 	if err != nil {
 		writeError(ctx, err)
+		return
+	}
+
+	if state == service.CTFStateNotStarted {
+		rows.Challenges = []models.LeaderboardChallenge{}
+		ctx.JSON(http.StatusOK, rows)
 		return
 	}
 
@@ -1410,14 +1504,26 @@ func (h *Handler) TeamLeaderboard(ctx *gin.Context) {
 		return
 	}
 
+	state, err := h.app.CTFState(ctx.Request.Context(), time.Now().UTC())
+	if err != nil {
+		writeError(ctx, err)
+		return
+	}
+
 	cacheKey := cacheKeyWithDivision("leaderboard:teams", divisionID)
-	if h.respondFromCache(ctx, cacheKey) {
+	if state != service.CTFStateNotStarted && h.respondFromCache(ctx, cacheKey) {
 		return
 	}
 
 	rows, err := h.score.TeamLeaderboard(ctx.Request.Context(), divisionID)
 	if err != nil {
 		writeError(ctx, err)
+		return
+	}
+
+	if state == service.CTFStateNotStarted {
+		rows.Challenges = []models.LeaderboardChallenge{}
+		ctx.JSON(http.StatusOK, rows)
 		return
 	}
 

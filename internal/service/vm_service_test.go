@@ -446,3 +446,73 @@ func TestVMServiceGetOrCreateVMLockedAndSolvedAndHelpers(t *testing.T) {
 		t.Fatalf("did not expect unrelated error to be unique conflict")
 	}
 }
+
+func TestVMServiceInactiveAccessAndBypass(t *testing.T) {
+	env := setupServiceTest(t)
+	user := createUserWithNewTeam(t, env, "vm-inactive@example.com", "vm-inactive", "pass", models.UserRole)
+	challenge := createVMChallenge(t, env, "inactive-vm")
+	challenge.IsActive = false
+	if err := env.challengeRepo.Update(context.Background(), challenge); err != nil {
+		t.Fatalf("update inactive challenge: %v", err)
+	}
+
+	createCalls := 0
+	svc, vmRepo := newVMServiceForTest(env, &vm.MockClient{
+		CreateSandboxFn: func(ctx context.Context, id string, specYAML string) (*vm.Sandbox, error) {
+			createCalls++
+			return &vm.Sandbox{ID: id, Status: vm.SandboxStatus{Phase: "Pending"}}, nil
+		},
+		GetSandboxFn: func(ctx context.Context, id string) (*vm.Sandbox, error) {
+			return &vm.Sandbox{ID: id, Status: vm.SandboxStatus{Phase: "Running"}}, nil
+		},
+		DeleteSandboxFn: func(ctx context.Context, id string) error { return nil },
+	}, config.VMConfig{Enabled: true, MaxPer: 3, CreateWindow: time.Minute, CreateMax: 5})
+
+	if _, err := svc.GetOrCreateVM(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrChallengeNotFound) {
+		t.Fatalf("expected ErrChallengeNotFound, got %v", err)
+	}
+	if createCalls != 0 {
+		t.Fatalf("expected no vm create for inactive challenge, got %d", createCalls)
+	}
+
+	vmModel, err := svc.GetOrCreateVMWithBypass(context.Background(), user.ID, challenge.ID)
+	if err != nil {
+		t.Fatalf("expected bypass create to succeed, got %v", err)
+	}
+	if vmModel == nil || vmModel.VMID == "" {
+		t.Fatalf("expected created vm, got %+v", vmModel)
+	}
+
+	list, err := svc.ListUserVMs(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("ListUserVMs: %v", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected inactive vm hidden from user list, got %d", len(list))
+	}
+
+	list, err = svc.ListUserVMsWithBypass(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("ListUserVMsWithBypass: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected bypass list to include inactive vm, got %d", len(list))
+	}
+
+	if _, err := svc.GetVM(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrChallengeNotFound) {
+		t.Fatalf("expected ErrChallengeNotFound from GetVM, got %v", err)
+	}
+	if _, err := svc.GetVMWithBypass(context.Background(), user.ID, challenge.ID); err != nil {
+		t.Fatalf("expected bypass GetVM to succeed, got %v", err)
+	}
+
+	if err := svc.DeleteVM(context.Background(), user.ID, challenge.ID); !errors.Is(err, ErrChallengeNotFound) {
+		t.Fatalf("expected ErrChallengeNotFound from DeleteVM, got %v", err)
+	}
+	if err := svc.DeleteVMWithBypass(context.Background(), user.ID, challenge.ID); err != nil {
+		t.Fatalf("expected bypass DeleteVM to succeed, got %v", err)
+	}
+	if _, err := vmRepo.GetByUserAndChallenge(context.Background(), user.ID, challenge.ID); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("expected vm deleted, got %v", err)
+	}
+}

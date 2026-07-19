@@ -215,3 +215,126 @@ func TestScoreboardDynamicScoring(t *testing.T) {
 		t.Fatalf("expected dynamic scores 100, got %+v", resp.Entries)
 	}
 }
+
+func TestScoreboardHidesChallengesBeforeStart(t *testing.T) {
+	env := setupTest(t, testCfg)
+	start := time.Now().Add(2 * time.Hour)
+	setCTFWindow(t, env, &start, nil)
+
+	user := createUser(t, env, "u1@example.com", "u1", "pass", models.UserRole)
+	team := createTeam(t, env, "Alpha")
+	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, team.ID)
+	challenge := createChallenge(t, env, "Ch1", 100, "flag{1}", true)
+
+	createSubmission(t, env, user.ID, challenge.ID, true, time.Now().UTC())
+	createSubmission(t, env, teamUser.ID, challenge.ID, true, time.Now().UTC())
+
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/leaderboard?division_id=%d", env.defaultDivisionID), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("leaderboard status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var userResp models.LeaderboardResponse
+	decodeJSON(t, rec, &userResp)
+	if len(userResp.Challenges) != 0 {
+		t.Fatalf("expected no leaderboard challenges before start, got %d", len(userResp.Challenges))
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/leaderboard/teams?division_id=%d", env.defaultDivisionID), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("team leaderboard status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var teamResp models.TeamLeaderboardResponse
+	decodeJSON(t, rec, &teamResp)
+	if len(teamResp.Challenges) != 0 {
+		t.Fatalf("expected no team leaderboard challenges before start, got %d", len(teamResp.Challenges))
+	}
+}
+
+func TestScoreboardExcludesInactiveChallenges(t *testing.T) {
+	env := setupTest(t, testCfg)
+	activeTeam := createTeam(t, env, "ActiveTeam")
+	inactiveTeam := createTeam(t, env, "InactiveTeam")
+	user := createUserWithTeam(t, env, "u1@example.com", "u1", "pass", models.UserRole, activeTeam.ID)
+	teamUser := createUserWithTeam(t, env, "t1@example.com", "t1", "pass", models.UserRole, inactiveTeam.ID)
+	active := createChallenge(t, env, "Active", 100, "flag{active}", true)
+	inactive := createChallenge(t, env, "Inactive", 200, "flag{inactive}", false)
+
+	createSubmission(t, env, user.ID, active.ID, true, time.Now().UTC())
+	createSubmission(t, env, user.ID, inactive.ID, true, time.Now().UTC())
+	createSubmission(t, env, teamUser.ID, inactive.ID, true, time.Now().UTC())
+
+	rec := doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/leaderboard?division_id=%d", env.defaultDivisionID), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("leaderboard status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var userResp models.LeaderboardResponse
+	decodeJSON(t, rec, &userResp)
+	if len(userResp.Challenges) != 1 || userResp.Challenges[0].ID != active.ID {
+		t.Fatalf("expected only active challenge in user leaderboard, got %+v", userResp.Challenges)
+	}
+	if len(userResp.Entries) == 0 || userResp.Entries[0].Score != 100 {
+		t.Fatalf("expected inactive challenge to be excluded from score, got %+v", userResp.Entries)
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/leaderboard/teams?division_id=%d", env.defaultDivisionID), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("team leaderboard status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var teamResp models.TeamLeaderboardResponse
+	decodeJSON(t, rec, &teamResp)
+	if len(teamResp.Challenges) != 1 || teamResp.Challenges[0].ID != active.ID {
+		t.Fatalf("expected only active challenge in team leaderboard, got %+v", teamResp.Challenges)
+	}
+	foundActiveTeam := false
+	for _, entry := range teamResp.Entries {
+		if entry.TeamID == activeTeam.ID {
+			foundActiveTeam = true
+			if entry.Score != 100 {
+				t.Fatalf("expected active team score 100, got %+v", entry)
+			}
+		}
+		if entry.TeamID == inactiveTeam.ID && entry.Score != 0 {
+			t.Fatalf("expected inactive challenge excluded from team score, got %+v", entry)
+		}
+	}
+	if !foundActiveTeam {
+		t.Fatalf("expected active team in team leaderboard")
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/timeline?division_id=%d", env.defaultDivisionID), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("timeline status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var timelineResp struct {
+		Submissions []struct {
+			ChallengeCount int `json:"challenge_count"`
+			Points         int `json:"points"`
+		} `json:"submissions"`
+	}
+	decodeJSON(t, rec, &timelineResp)
+	if len(timelineResp.Submissions) != 1 || timelineResp.Submissions[0].Points != 100 {
+		t.Fatalf("expected inactive challenge excluded from user timeline, got %+v", timelineResp.Submissions)
+	}
+
+	rec = doRequest(t, env.router, http.MethodGet, fmt.Sprintf("/api/timeline/teams?division_id=%d", env.defaultDivisionID), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("team timeline status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var teamTimelineResp struct {
+		Submissions []struct {
+			TeamID         int64 `json:"team_id"`
+			Points         int   `json:"points"`
+			ChallengeCount int   `json:"challenge_count"`
+		} `json:"submissions"`
+	}
+	decodeJSON(t, rec, &teamTimelineResp)
+	if len(teamTimelineResp.Submissions) != 1 || teamTimelineResp.Submissions[0].TeamID != activeTeam.ID || teamTimelineResp.Submissions[0].Points != 100 {
+		t.Fatalf("expected only active team timeline submission, got %+v", teamTimelineResp.Submissions)
+	}
+}

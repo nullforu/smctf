@@ -100,6 +100,7 @@ func listChallengesForScoring(ctx context.Context, db *bun.DB) ([]challengeScore
 		ColumnExpr("id").
 		ColumnExpr("points").
 		ColumnExpr("minimum_points").
+		Where("is_active = true").
 		Scan(ctx, &rows); err != nil {
 		return nil, wrapError("score.listChallenges", err)
 	}
@@ -113,9 +114,11 @@ func solveCountsByChallenge(ctx context.Context, db *bun.DB, divisionID *int64) 
 		TableExpr("submissions AS s").
 		ColumnExpr("s.challenge_id").
 		ColumnExpr("COUNT(*) AS solve_count").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		GroupExpr("challenge_id")
 
@@ -142,9 +145,11 @@ func solveCountsByDivision(ctx context.Context, db *bun.DB, divisionIDs []int64)
 		ColumnExpr("t.division_id AS division_id").
 		ColumnExpr("s.challenge_id").
 		ColumnExpr("COUNT(*) AS solve_count").
+		Join("JOIN challenges AS c ON c.id = s.challenge_id").
 		Join("JOIN users AS u ON u.id = s.user_id").
 		Join("JOIN teams AS t ON t.id = u.team_id").
 		Where("s.correct = true").
+		Where("c.is_active = true").
 		Where("u.role NOT IN (?)", bun.In([]string{models.BlockedRole, models.AdminRole})).
 		GroupExpr("t.division_id, s.challenge_id")
 
